@@ -16,11 +16,11 @@ children:
           - type: text
             element: span
             props:
-              className: text-base font-semibold
+              className: text-lg font-semibold
             content: Projects
           - type: container
             props:
-              className: flex items-center gap-1 text-sm
+              className: flex items-center gap-1 text-md
             children:
               - type: link
                 props:
@@ -44,7 +44,7 @@ children:
                 content: Timeline
       - type: button
         props:
-          className: px-3 py-1.5 rounded-md border text-sm font-medium
+          className: px-3 py-1.5 rounded-md border text-md font-medium
         content: Sign out
         action:
           type: auth

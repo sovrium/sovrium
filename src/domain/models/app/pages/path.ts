@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { PathSchema as CommonPathSchema } from '@/domain/types/definitions'
+import { PathSchema as CommonPathSchema } from '@/domain/kernel/identity/definitions'
 
 /**
  * URL Path (where the page is accessible)

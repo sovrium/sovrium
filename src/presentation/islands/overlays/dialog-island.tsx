@@ -7,7 +7,7 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useEffect, useState } from 'react'
-import { cn } from '@/presentation/utils/design/class-merge'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { dispatchConfirmAction, type DialogConfirmAction } from './dialog-confirm-action'
 import {
   computeAlertDialogPopupClasses,
@@ -169,7 +169,7 @@ function DialogActions({
   return (
     <div className={computeDialogActionsClasses()}>
       {isAlertDialog && (
-        <Dialog.Close className="border-border bg-background text-foreground hover:bg-background-subtle rounded-md border px-4 py-2 text-sm font-medium transition-colors">
+        <Dialog.Close className="border-border bg-background text-foreground hover:bg-background-subtle text-md rounded-md border px-4 py-2 font-medium transition-colors">
           {cancelLabel}
         </Dialog.Close>
       )}
@@ -177,7 +177,7 @@ function DialogActions({
       {confirmLabel ? (
         <Dialog.Close
           onClick={onConfirm}
-          className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${confirmColorClass}`}
+          className={`text-md rounded-md px-4 py-2 font-medium transition-colors ${confirmColorClass}`}
         >
           {confirmLabel}
         </Dialog.Close>
@@ -247,7 +247,7 @@ function DialogPopupBody({
   return (
     <Dialog.Popup
       role={isAlertDialog ? 'alertdialog' : 'dialog'}
-      className={cn(
+      className={resolveClasses(
         isAlertDialog ? computeAlertDialogPopupClasses() : computeDialogPopupClasses(),
         className
       )}

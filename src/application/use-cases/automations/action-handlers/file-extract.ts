@@ -24,7 +24,7 @@
  * bypasses and entity double-unescaping are closed by construction.
  */
 
-import { htmlToTextLines } from '@/domain/utils/html-sanitization'
+import { htmlToTextLines } from '@/domain/kernel/sanitize/html-sanitization'
 
 export type ExtractTextFormat = 'plain' | 'markdown'
 

@@ -9,7 +9,7 @@
 
 import { Effect, Layer } from 'effect'
 import { OAuthStateError, OAuthStateStore } from '@/application/ports/services/oauth-state-store'
-import { OAUTH_STATE_TTL_MS } from '@/domain/utils/timeouts'
+import { OAUTH_STATE_TTL_MS } from '@/domain/kernel/time/timeouts'
 import type { OAuthStateEntry } from '@/application/ports/services/oauth-state-store'
 
 /**

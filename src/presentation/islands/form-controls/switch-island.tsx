@@ -6,11 +6,12 @@
  */
 
 import { Switch } from '@base-ui/react/switch'
+import { cn } from '@/presentation/design/class-merge'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
   computeSwitchThumbClasses,
   computeSwitchTrackClasses,
 } from '@/presentation/islands/form-controls/toggle-default-classes'
-import { cn } from '@/presentation/utils/design/class-merge'
 import type { ReactElement } from 'react'
 
 interface SwitchIslandProps {
@@ -44,9 +45,11 @@ export default function SwitchIsland({
 }: SwitchIslandProps): ReactElement {
   return (
     <label
-      className={cn(
-        'inline-flex items-center gap-2',
-        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
+      className={resolveClasses(
+        cn(
+          'inline-flex items-center gap-2',
+          disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+        ),
         className
       )}
       id={id}
@@ -60,7 +63,7 @@ export default function SwitchIsland({
       >
         <Switch.Thumb className={computeSwitchThumbClasses({ size })} />
       </Switch.Root>
-      {label && <span className="text-foreground text-sm">{label}</span>}
+      {label && <span className="text-foreground text-md">{label}</span>}
     </label>
   )
 }

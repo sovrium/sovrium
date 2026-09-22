@@ -24,7 +24,7 @@
  * Each renderer here owns the *chrome* — the visual identity of the
  * field-type (avatar pill, status pill, mono code chip, etc.) — and threads
  * its className through `cell-affordances-default-classes.ts` so a tenant
- * override of `app.theme.*` still wins. The renderers are deliberately
+ * override of `app.design.*` still wins. The renderers are deliberately
  * minimal pure-presentation components: they receive a value and an optional
  * options blob, return SSR-safe JSX, and never read window / document /
  * fetch / mutation hooks.
@@ -34,8 +34,12 @@
  * fast-refresh `only-export-components` rule).
  */
 
-import { deriveOptionChipColors } from '@/domain/utils/option-chip-color'
-import { optionColor, optionValue, type SelectOptionLike } from '@/domain/utils/select-option'
+import { deriveOptionChipColors } from '@/domain/kernel/color/option-chip-color'
+import {
+  optionColor,
+  optionValue,
+  type SelectOptionLike,
+} from '@/domain/models/app/tables/select-option'
 import {
   computeArrayChipClasses,
   computeArrayChipsWrapClasses,
@@ -52,8 +56,8 @@ import {
   computeUserAvatarClasses,
   computeUserNameClasses,
   computeUserPillClasses,
-} from '../recipes/cell-affordances-default-classes'
-import { readsAsList } from '../shared/cell-value-semantics'
+} from '../../design/cell-affordances-default-classes'
+import { readsAsList } from '../runtime/cell-value-semantics'
 import { EMPTY_VALUE, isMissing } from './cell-empty'
 import type { FieldDisplayMeta } from '../hooks/use-inline-editing'
 

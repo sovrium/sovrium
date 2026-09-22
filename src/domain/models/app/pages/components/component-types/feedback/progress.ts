@@ -34,4 +34,24 @@ export const progressFields = {
   ),
   size: Schema.optional(ComponentSizeSchema),
   progressVariant: Schema.optional(ProgressVariantSchema),
+  /**
+   * The named steps a `progressVariant: 'steps'` rail draws, in order.
+   *
+   * Only meaningful for that variant: a bar and a circle plot a ratio and have
+   * nothing to label. With it, `progressValue` stops being a percentage and
+   * becomes the 1-based position — `2` of four steps is the second, not 2%.
+   *
+   * A rail with no `steps` is refused rather than drawn empty, because the
+   * labels ARE the rail: an unlabelled sequence of four dots tells a reader
+   * how many stages there are and nothing about what any of them is.
+   */
+  steps: Schema.optional(
+    Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1))))
+      .pipe(Schema.check(Schema.isMinLength(2)))
+      .annotate({
+        description:
+          "Named steps for `progressVariant: 'steps'`, in order. At least two — one step is not a sequence. `progressValue` is then the 1-based current position.",
+        examples: [['Account', 'Company', 'Billing', 'Review']],
+      })
+  ),
 } as const

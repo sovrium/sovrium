@@ -17,7 +17,7 @@ import {
   type AuthoredTableCandidate,
   type AuthoredTableColumn,
 } from '@/application/ports/repositories/auth/account-repository'
-import { sanitizeTableName } from '@/domain/utils/database/table-naming'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { db } from '@/infrastructure/database'
 import {
   authTableRef,
@@ -154,7 +154,7 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
     wrap(async () => {
       const userRows = await executeRawTyped<AccountUserRow>(
         db,
-        sql`SELECT id, email, name, image, email_verified AS "emailVerified",
+        sql`SELECT id, email, name, image, language, email_verified AS "emailVerified",
                    role, created_at AS "createdAt", updated_at AS "updatedAt"
             FROM ${authTableRef('user')} WHERE id = ${userId}`
       )
@@ -245,7 +245,6 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
       // Without this the SQLite erasure schedule wrote NULL, so the pending
       // read never surfaced it and the (integer-ms) purge sweep never matched.
       const scheduledValue = isSqliteRuntime() ? scheduledAt.getTime() : scheduledAt
-      // eslint-disable-next-line functional/no-expression-statements -- DB side effect inside transaction
       await db.transaction(async (tx) => {
         // eslint-disable-next-line functional/no-expression-statements -- DB side effect
         await executeRaw(

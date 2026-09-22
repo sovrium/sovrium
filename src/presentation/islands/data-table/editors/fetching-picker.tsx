@@ -15,13 +15,17 @@
    One picker is mounted per open cell and torn down on commit or cancel; its
    handlers close over that cell's draft selection and search term. */
 
-import { readsAsList } from '../../shared/cell-value-semantics'
+import { useCandidateSearch } from '../../parts/use-candidate-search'
+import { usePickerCreate } from '../../parts/use-picker-create'
+import { readsAsList } from '../../runtime/cell-value-semantics'
+import { isAtLinkCap, resolvePickerEmptyLabel } from '../../runtime/picker-contract'
 import { EditorPopover } from './editor-popover'
-import { OptionListbox } from './option-listbox'
+import { PickerPanel } from './picker-footnotes'
 import { PickerSearchBox } from './picker-search-box'
-import { useCandidateSearch } from './use-candidate-search'
+import { usePickerSelection } from './use-picker-selection'
 import type { CellEditorProps } from './editor-contract'
-import type { ListboxCandidate } from './option-listbox'
+import type { CreateRelatedOutcome } from '../../parts/record-candidates'
+import type { CandidatePage } from '../../parts/use-candidate-search'
 import type { ReactElement } from 'react'
 
 /**
@@ -39,8 +43,9 @@ export interface FetchingPickerProps extends CellEditorProps {
   /** Fetches one capped page of candidates for a search term. */
   readonly fetchCandidates: (
     term: string,
+    page: number,
     signal: AbortSignal
-  ) => Promise<readonly ListboxCandidate[]>
+  ) => Promise<CandidatePage>
   /** Re-runs the search when it changes — the endpoint or table being searched. */
   readonly sourceKey: string
   /** Whether the column holds a LIST of keys rather than one. */
@@ -54,33 +59,66 @@ export interface FetchingPickerProps extends CellEditorProps {
   readonly failedLabel: string
   /** Shown when the field is misconfigured such that no search is possible. */
   readonly unconfiguredLabel?: string
+  /**
+   * Creates a record from the typed text and returns its key, when the field
+   * both declares `allowCreate` and the caller may create in the related table.
+   * Absent means no create affordance is offered at all — ABSENT rather than
+   * disabled, because a disabled control still tells a caller the related table
+   * exists and what it would accept.
+   */
+  readonly createFromTerm?: (term: string) => Promise<CreateRelatedOutcome>
+  /** Ceiling on how many records the column may link to. Uncapped when absent. */
+  readonly maxLinked?: number
 }
 
-function resolveEmptyLabel(
+/**
+ * This picker's props in the shape {@link resolvePickerEmptyLabel} takes.
+ *
+ * A mechanical adapter, kept out of the component so the render stays under
+ * `max-lines-per-function`. The PRECEDENCE it delegates to is shared with the
+ * form's picker; only the plumbing is local.
+ */
+function emptyLabelFor(
   props: FetchingPickerProps,
   search: { readonly failed: boolean; readonly loading: boolean }
 ): string {
-  if (props.unconfiguredLabel) return props.unconfiguredLabel
-  if (search.failed) return props.failedLabel
-  return search.loading ? 'Searching…' : props.emptyLabel
+  return resolvePickerEmptyLabel({
+    failed: search.failed,
+    loading: search.loading,
+    emptyLabel: props.emptyLabel,
+    failedLabel: props.failedLabel,
+    ...(props.unconfiguredLabel !== undefined && { unconfiguredLabel: props.unconfiguredLabel }),
+  })
 }
 
 export function FetchingPicker(props: FetchingPickerProps): ReactElement {
-  const { value, commit, cancel, tabNext, fieldName, allowMultiple } = props
+  const { value, commit, cancel, tabNext, fieldName, allowMultiple, maxLinked } = props
   const selected = readsAsList(value)
   const search = useCandidateSearch(props.fetchCandidates, props.sourceKey)
 
-  const choose = (key: string): void => {
-    const next = allowMultiple
-      ? selected.includes(key)
-        ? selected.filter((entry) => entry !== key)
-        : [...selected, key]
-      : key
-    commit(next)
-    // A single-valued field is done the moment one candidate is chosen; a
-    // multi-valued one stays open so the next can be picked.
-    if (!allowMultiple) cancel()
-  }
+  // At the cap the listbox STAYS OPEN here, unlike on the form. That is not an
+  // inconsistency: the form renders its links as removable chips, so it can
+  // afford to close the list, while this listbox IS the only place a grid cell
+  // can unlink something. Closing it would make the cap a latch nothing could
+  // release.
+  const atCap = isAtLinkCap(maxLinked, selected.length)
+  const create = usePickerCreate({
+    candidates: search.candidates,
+    term: search.term.trim(),
+    loading: search.loading,
+    failed: search.failed,
+    enabled: !atCap,
+    ...(props.createFromTerm && { createFromTerm: props.createFromTerm }),
+  })
+
+  const { choose } = usePickerSelection({
+    selected,
+    allowMultiple,
+    atCap,
+    commit,
+    cancel,
+    runCreate: create.run,
+  })
 
   return (
     <EditorPopover
@@ -95,16 +133,18 @@ export function FetchingPicker(props: FetchingPickerProps): ReactElement {
         label={props.searchLabel}
         placeholder={props.searchPlaceholder}
       />
-      <div className="absolute top-full left-0 z-20">
-        <OptionListbox
-          candidates={search.candidates}
-          selected={selected}
-          onToggle={choose}
-          multiple={allowMultiple}
-          ariaLabel={props.listLabel}
-          emptyLabel={resolveEmptyLabel(props, search)}
-        />
-      </div>
+      <PickerPanel
+        candidates={create.candidates}
+        selected={selected}
+        onToggle={choose}
+        multiple={allowMultiple}
+        ariaLabel={props.listLabel}
+        emptyLabel={emptyLabelFor(props, search)}
+        hasMore={search.hasMore}
+        onLoadMore={search.loadMore}
+        {...(maxLinked !== undefined && { maxLinked })}
+        {...(create.error !== undefined && { createError: create.error })}
+      />
     </EditorPopover>
   )
 }

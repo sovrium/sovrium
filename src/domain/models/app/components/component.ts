@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import { buildComponentUnion } from '../pages/components/component-types'
 import { ComponentChildrenSchema } from './children'
+import { ComponentGuidanceSchema } from './guidance'
 import { ComponentReferenceNameSchema } from './reference'
 
 /**
@@ -46,6 +47,14 @@ export const ComponentTemplateNameSchema = ComponentReferenceNameSchema.annotate
  * - props: Component properties (may contain $variable placeholders)
  * - children: Nested child components
  * - content: Text content (may contain $variable placeholders)
+ * - guidance: What it is, when to reach for it, and the misuse to refuse
+ *
+ * `guidance` is injected here rather than into the per-type field records
+ * because it is a property of the TEMPLATE, not of any component type: an
+ * inline `{ type: 'badge' }` inside a page has no name to be documented under
+ * and nothing to say beside a specimen. It sits alongside `name` for exactly
+ * that reason — the two are the pair that makes a component template a
+ * REUSABLE, referenceable thing rather than a one-off node.
  *
  * @example
  * ```typescript
@@ -68,6 +77,7 @@ export const ComponentTemplateSchema: Schema.Codec<any, any, never> = buildCompo
   },
   {
     name: ComponentTemplateNameSchema,
+    guidance: Schema.optional(ComponentGuidanceSchema),
   }
 ).pipe(
   Schema.annotate({

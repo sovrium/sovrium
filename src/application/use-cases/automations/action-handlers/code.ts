@@ -9,6 +9,7 @@ import vm from 'node:vm'
 import { Effect } from 'effect'
 import ts from 'typescript'
 import { resolveCodeInputData } from './code-input-resolution'
+import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
 /**
@@ -549,6 +550,7 @@ export const handleCodeRun: ActionHandler = (action, _app, _automation, runConte
     const rawProps = (runContext.rawAction['props'] as Record<string, unknown> | undefined) ?? {}
     const rawInputData = (rawProps['inputData'] as Record<string, unknown> | undefined) ?? {}
 
+    // effect-promise: total -- `runCodeActionAsync` returns an `ActionOutcome`; both a compile error and a thrown user script are caught inside and returned as `{ status: 'failure' }`. Running untrusted code is the whole point, so a throw is an expected VALUE here, never a rejection.
     return yield* Effect.promise(() =>
       runCodeActionAsync({
         code,
@@ -557,4 +559,4 @@ export const handleCodeRun: ActionHandler = (action, _app, _automation, runConte
         timeoutMs,
       })
     )
-  })
+  }).pipe(Effect.withSpan('automations.handle-code-run', { attributes: actionAttributes(action) }))

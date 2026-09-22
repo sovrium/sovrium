@@ -11,9 +11,14 @@
  * Provides authentication services and utilities.
  * Currently uses Better Auth for authentication.
  *
+ * `createAuthLayer` is NOT re-exported here: it lives in
+ * `./better-auth/layer`, which pulls the whole `better-auth` package. Import
+ * it dynamically at the point of use, behind an `app.auth` check, so a no-auth
+ * boot never loads it (see `NoAuthLayer` in `./better-auth/auth-service`).
+ *
  * @example
  * ```typescript
- * import { Auth, createAuthLayer } from '@/infrastructure/auth'
+ * import { Auth } from '@/infrastructure/auth'
  *
  * const program = Effect.gen(function* () {
  *   const auth = yield* Auth
@@ -23,4 +28,4 @@
  * ```
  */
 
-export { Auth, createAuthLayer, AuthError } from './better-auth/layer'
+export { Auth, AuthError } from './better-auth/auth-service'

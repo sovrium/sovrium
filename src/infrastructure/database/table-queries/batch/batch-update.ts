@@ -14,14 +14,17 @@ import {
   type DatabaseError,
 } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { withTransaction } from '@/infrastructure/database/transaction'
 import { injectUpdateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
 import { fetchRecordByIdEffect } from '../mutation-helpers/record-fetch-helpers'
 import { buildUpdateSetClauseCRUD } from '../mutation-helpers/update-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
-import { wrapDatabaseErrorWithValidation, wrapWriteStatementError } from '../shared/error-handling'
-import { validateTableName } from '../shared/validation'
-import { runEffectInTx } from './batch-helpers'
+import {
+  wrapDatabaseErrorWithValidation,
+  wrapWriteStatementError,
+} from '../statement/error-handling'
+import { validateTableName } from '../statement/validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -78,18 +81,29 @@ function updateSingleRecordInBatch(
     if (Object.keys(fieldsToUpdate).length === 0) return undefined
 
     // Inject updated_by authorship metadata
-    const fieldsWithAuthorship = yield* Effect.promise(() =>
-      injectUpdateAuthorship(fieldsToUpdate, session.userId, tx, tableName)
-    )
+    // Both of the next two are DATABASE round trips on the transaction — the
+    // authorship lookup and the column-type resolution — and both were declared
+    // infallible. A rejection there became a defect that skipped this
+    // function's own error mapping, so a driver failure mid-batch bypassed the
+    // constraint-to-validation translation every other write path gets.
+    const fieldsWithAuthorship = yield* Effect.tryPromise({
+      try: () => injectUpdateAuthorship(fieldsToUpdate, session.userId, tx, tableName),
+      catch: wrapWriteStatementError(
+        `Failed to resolve authorship for a batch update in ${tableName}`
+      ),
+    })
 
     const entries = Object.entries(fieldsWithAuthorship)
     const recordBefore = yield* fetchRecordByIdEffect(tx, tableName, update.id)
     // Same resolution every other write path performs, and for the same reason:
     // a `text[]` column needs a native array literal, a `jsonb` one needs JSON,
     // and PostgreSQL rejects the wrong choice outright.
-    const arrayColumnTypes = yield* Effect.promise(() =>
-      resolveArrayColumnTypes(tx, tableName, [fieldsWithAuthorship])
-    )
+    const arrayColumnTypes = yield* Effect.tryPromise({
+      try: () => resolveArrayColumnTypes(tx, tableName, [fieldsWithAuthorship]),
+      catch: wrapWriteStatementError(
+        `Failed to resolve column types for a batch update in ${tableName}`
+      ),
+    })
     const setClause = buildUpdateSetClauseCRUD(entries, arrayColumnTypes)
     const updatedRecord = yield* executeRecordUpdate(tx, tableName, update.id, setClause)
 
@@ -125,23 +139,22 @@ export function batchUpdateRecords(
   tableName: string,
   updates: readonly { readonly id: string; readonly fields?: Record<string, unknown> }[]
 ): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> {
-  return Effect.tryPromise({
-    try: () =>
-      db.transaction(async (tx) => {
+  return withTransaction(
+    db,
+    (tx) =>
+      Effect.gen(function* () {
         validateTableName(tableName)
 
-        return await runEffectInTx(
-          // Process updates sequentially with immutable array building
-          Effect.reduce(
-            updates,
-            () => [] as readonly Record<string, unknown>[],
-            (acc, update) =>
-              updateSingleRecordInBatch(tx, tableName, session, update).pipe(
-                Effect.map((record) => (record ? [...acc, record] : acc))
-              )
-          )
+        // Process updates sequentially with immutable array building
+        return yield* Effect.reduce(
+          updates,
+          () => [] as readonly Record<string, unknown>[],
+          (acc, update) =>
+            updateSingleRecordInBatch(tx, tableName, session, update).pipe(
+              Effect.map((record) => (record ? [...acc, record] : acc))
+            )
         )
       }),
-    catch: wrapDatabaseErrorWithValidation(`Failed to batch update records in ${tableName}`),
-  })
+    wrapDatabaseErrorWithValidation(`Failed to batch update records in ${tableName}`)
+  )
 }

@@ -6,7 +6,7 @@
  */
 
 import { Data } from 'effect'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Graceful-degradation boundary for the SQLite runtime.

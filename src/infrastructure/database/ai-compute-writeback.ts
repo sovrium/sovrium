@@ -22,11 +22,11 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { db } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import { publishRecordChange } from '@/infrastructure/realtime/record-change-publisher'
-import { sanitizeTableName } from './table-queries/shared/field-utils'
 
 /** Read the current raw stored value of one column for one record. */
 export const readCurrentFieldValue = async (

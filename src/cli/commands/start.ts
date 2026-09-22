@@ -5,24 +5,33 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { watch } from 'node:fs'
-import { mkdtemp, readFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, relative, resolve } from 'node:path'
 import { Effect, Console } from 'effect'
-import { START_HELP_TEXT } from '@/cli/command-help'
-import { getCurrentVersion, checkForUpdatesInBackground } from '@/cli/update'
+import { getCurrentVersion, checkForUpdatesInBackground } from '@/cli/commands/update'
+import { START_HELP_TEXT } from '@/cli/runtime/command-help'
 import { formatConfigRejection, isConfigRejectedError } from '@/domain/errors/config-rejected'
-import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
-import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import {
-  computeConfigHash,
-  isProcessRunning,
-  readLockFile,
-  removeLockFile,
-} from '@/infrastructure/server/lock-file'
+  formatDuration,
+  printJournal,
+  printJournalError,
+  printJournalWarning,
+  printStderr,
+  renderStderr,
+} from '@/infrastructure/logging/cli-output'
+import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
+import { isProcessRunning, readLockFile, removeLockFile } from '@/infrastructure/server/lock-file'
+import { createConfigGraphWatcher } from './config-graph-watcher'
 import { isPublicDirOptOut, readPublicDirEnv, resolveDefaultPublicDir } from './option-parsing'
-import { lazyImportIndex, lazyImportLogger, lazyImportCli, reloadServer } from './utils'
+import { createReloadScheduler } from './reload-scheduler'
+import {
+  lazyImportIndex,
+  lazyImportLogger,
+  lazyImportCli,
+  lazyImportSchema,
+  reloadServer,
+  resolveConfigAnchor,
+} from './utils'
+import type { ConfigChangeVerdict } from '@/application/use-cases/config/classify-config-change'
 import type { StartOptions } from '@/application/use-cases/server/start-server'
 
 const showStartHelp = (): void => {
@@ -48,10 +57,8 @@ const parseStartOptions = (): StartOptions => {
 
   const parsedPort = port ? parseInt(port, 10) : undefined
   if (parsedPort !== undefined && (isNaN(parsedPort) || parsedPort < 0 || parsedPort > 65_535)) {
-    Effect.runSync(
-      Console.error(
-        `Error: Invalid port number "${port}". Must be between 0 and 65535 (0 = auto-select).`
-      )
+    printStderr(
+      `Error: Invalid port number "${port}". Must be between 0 and 65535 (0 = auto-select).`
     )
     // Terminate process - imperative statement required for CLI
     // eslint-disable-next-line functional/no-expression-statements
@@ -107,73 +114,28 @@ export const handleStartCommand = async (
     ? undefined
     : ((publicDir || undefined) ?? envValue ?? resolveDefaultPublicDir(configFile))
 
-  // Public-pages search activation: when the schema declares a `pageSearch`
-  // component, materialize the search artifacts BEFORE the server boots so
-  // `/sovrium-search/index.json` + `/sovrium-search/runtime.js` are servable
-  // from request one. The `setupPublicDirRoute` then auto-serves them as
-  // ordinary static assets (no extra route registration needed).
+  // Public-pages search artifacts are NOT emitted here any more. `startServer`
+  // builds them as a step of its own boot sequence, which is what makes them a
+  // property of the server rather than of this command — the `--watch` reload
+  // and the in-process E2E fixture boot the same server and used to get a 404
+  // on `/sovrium-search/*` because only this call site existed.
   //
-  // Why "before boot": the search runtime is not generated lazily — it's a
-  // build artifact, identical in shape to `sovrium build`'s output. Mirroring
-  // build()'s pre-emission posture keeps the two paths semantically equivalent.
-  //
-  // PublicDir allocation: when the user did not configure one (e.g. inline
-  // `APP_SCHEMA=...` with no `--publicDir` and no config-file anchor), we
-  // allocate an ephemeral temp directory just to host the search artifacts.
-  // This is invisible to the operator — only `/sovrium-search/*` paths are
-  // written, so nothing else accidentally becomes a static asset. Opt-out
-  // (`--no-publicDir`) suppresses search-asset serving along with everything
-  // else; the indexer is skipped in that case.
-  //
-  // Cleanup posture: the allocated dir persists for the server's lifetime and
-  // is NOT removed on shutdown. The OS reaps `/tmp` periodically (Linux:
-  // systemd-tmpfiles ≥10 days, macOS: 3 days), so it's acceptable churn for
-  // a CLI that may restart many times. If that ever becomes an observable
-  // problem, the place to remove it is `installShutdownHandlers`
-  // (`infrastructure/server/lifecycle.ts`), which owns the whole SIGTERM/SIGINT
-  // path — there is nothing left to compete with.
-  // `parseAppSchema` returns `AppEncoded` (raw input shape) whereas
-  // `hasPageSearchComponent` accepts the decoded `App` type. The predicate
-  // only reads `.pages` and `.components` — both shape-compatible across
-  // encoded/decoded — so the cast is safe in practice. The cheap walk lets
-  // us decide whether to allocate a temp publicDir; the full validated
-  // schema is re-walked inside `prebuildSearchIndex` for the actual build.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AppEncoded vs App
-  const needsSearchIndex = !explicitOptOut && hasPageSearchComponent(app as any)
-  const allocatedSearchPublicDir =
-    needsSearchIndex && !userResolvedPublicDir
-      ? await mkdtemp(join(tmpdir(), 'sovrium-search-public-'))
-      : undefined
-  const resolvedPublicDir = userResolvedPublicDir ?? allocatedSearchPublicDir
-
+  // The ephemeral-publicDir allocation moved with it, for the same reason: an
+  // inline config (`APP_SCHEMA=...`, no `--publicDir`, no file anchor) has
+  // nowhere to put the artifacts, and the boot is the only place that knows
+  // whether it needs one. All this command still owes the boot is the one bit
+  // it alone can answer — whether static assets were REFUSED (`--no-publicDir`,
+  // `SOVRIUM_PUBLIC_DIR=none`) as opposed to merely left unset, which is the
+  // difference between "allocate a temp dir for search" and "serve nothing".
   const options: StartOptions = {
     ...envOptions,
-    ...(resolvedPublicDir && { publicDir: resolvedPublicDir }),
+    ...(userResolvedPublicDir && { publicDir: userResolvedPublicDir }),
+    ...(explicitOptOut && { publicDirOptOut: true }),
   }
 
-  if (needsSearchIndex && resolvedPublicDir) {
-    const { prebuildSearchIndex } = await lazyImportIndex()
-    // eslint-disable-next-line functional/no-expression-statements -- CLI side effect: pre-boot indexer write
-    await prebuildSearchIndex(app, resolvedPublicDir).catch((error) => {
-      // Indexer failure must not block server startup — log and continue.
-      // The static-asset route will simply 404 search requests, which is the
-      // same observable behavior as a schema without `pageSearch`. The
-      // operator sees a clear diagnostic in the server log.
-      //
-      // EXCEPT a refused config: the indexer runs the same decode `start` is
-      // about to run, so it fails first and would print a stack immediately
-      // above the real refusal. Stay silent and let `start` do the talking.
-      if (isConfigRejectedError(error)) return
-      Effect.runSync(
-        Console.error(`[search-index] failed to pre-build: ${formatRuntimeError(error)}`)
-      )
-    })
-  }
-
-  // Compute config hash and absolute path for lock file
-  const configContent = configFile ? await readFile(configFile, 'utf-8') : JSON.stringify(app)
-  const configHash = computeConfigHash(configContent)
-  const configPath = configFile ? resolve(configFile) : ''
+  // What identifies this config, for the lock file and `X-Sovrium-Config`.
+  // Shared with every `--watch` reload so the two never hash different bytes.
+  const { configHash, configPath } = await resolveConfigAnchor(configFile, app)
 
   // Anchor relative markdown/contentDir paths to the config-file directory so
   // content resolves regardless of the process CWD (mirrors resolveDefaultPublicDir).
@@ -189,19 +151,14 @@ export const handleStartCommand = async (
   if (existingLock) {
     if (isProcessRunning(existingLock.pid)) {
       // Active server — refuse to start
-      Effect.runSync(
-        Console.error(
-          `Error: Server already running (PID: ${existingLock.pid}, port: ${existingLock.port})`
-        )
+      printStderr(
+        `Error: Server already running (PID: ${existingLock.pid}, port: ${existingLock.port})`
       )
       // eslint-disable-next-line functional/no-expression-statements
       process.exit(1)
     }
     // Stale lock — clean up and continue
-    Effect.runSync(
-      Console.error(`Removing stale lock file (PID ${existingLock.pid} is not running)`)
-    )
-    // eslint-disable-next-line functional/no-expression-statements
+    printStderr(`Removing stale lock file (PID ${existingLock.pid} is not running)`)
     await removeLockFile()
   }
 
@@ -214,17 +171,27 @@ export const handleStartCommand = async (
 
   // Start the server.
   //
-  // A REFUSED CONFIG IS NOT A CRASH. `Console.error(msg, error)` hands the Error
-  // object to Bun's pretty printer, which prefixes a source-context window from
-  // `src/index.ts` — the right thing for a fault, and the wrong thing for "your
-  // config declares a property we do not understand", where it buries the
-  // diagnosis under a stack frame in code the reader did not write. So the
-  // refusal prints as prose and everything else keeps its stack.
+  // A REFUSED CONFIG IS NOT A CRASH. A refusal is prose the author should read;
+  // a fault is a stack an engineer should trace. So the refusal prints as prose
+  // and everything else keeps its stack — that contrast is the rule, and it is
+  // recorded on `ConfigRejectedError` itself.
+  //
+  // BOTH BRANCHES NOW GO THROUGH `renderStderr`. The fault branch used to be
+  // `Console.error('Failed to start server:', error)`, passing the Error OBJECT
+  // so Bun's pretty printer rendered it. That printer colours its output on a
+  // TTY, which T35 #3 bans outright, so the object form had to go. What
+  // replaces it keeps the diagnosis: `formatRuntimeError` returns `.stack` for
+  // a plain Error and unwraps an Effect `FiberFailure` through `Cause.pretty` —
+  // the latter strictly better than the pretty printer, which renders a
+  // FiberFailure as the useless "An error has occurred". The one thing lost is
+  // Bun's source-context window (the excerpt from `src/index.ts`); the stack
+  // that window decorates survives, and it is the stack the contrast above
+  // actually turns on. Same helper the `[search-index]` site upstream uses.
   const server = await start(app, { ...options, configHash, configPath }).catch((error) => {
     Effect.runSync(
       isConfigRejectedError(error)
-        ? Console.error(formatConfigRejection(error, 'started'))
-        : Console.error('Failed to start server:', error)
+        ? renderStderr(formatConfigRejection(error, 'started'))
+        : renderStderr(`Failed to start server: ${formatRuntimeError(error)}`)
     )
     // Terminate process - imperative statement required for CLI
     // eslint-disable-next-line functional/no-expression-statements
@@ -236,39 +203,133 @@ export const handleStartCommand = async (
 
   checkForUpdatesInBackground(version)
 
-  // If watch mode enabled, set up file watcher
+  // If watch mode enabled, set up file watchers over the whole config graph
   if (watchMode && configFile) {
-    console.log(`\n  [watch] Watching ${configFile} for changes\n`)
-
     // Track current server instance (mutable for watch mode)
     // eslint-disable-next-line functional/no-let
     let currentServer = server
 
-    // Set up file watcher using Node.js fs.watch (stable in Bun).
-    //
+    // The DECODED config the running server was built from. `reloadServer`
+    // diffs the next save against it to decide whether that save can be
+    // swapped into the live listener or needs a full teardown, so it must be
+    // seeded from the boot and replaced after every successful reload —
+    // including a hot one, where the server object itself does not change.
+    // eslint-disable-next-line functional/no-let
+    let currentApp = server.config
+
     // Debounce reloads: `fs.watch` emits `change` potentially BEFORE a write is
     // flushed, and often MULTIPLE times per save (truncate, then write). Reloading
     // on the first event can read a half-written file — surfacing as a JSON
     // `Unexpected EOF` or an `AppSchema` decode-to-`null`. A real operator saving
     // config in a write-in-place editor hits the same race. So we coalesce rapid
-    // events and reload only once writes settle, which also prevents overlapping
-    // concurrent reloads.
-    const RELOAD_DEBOUNCE_MS = 150
+    // events and reload only once writes settle. One window covers EVERY watched
+    // file: a save that touches two modules of the graph reloads once.
+    //
+    // The window alone is not enough, which is why the policy now lives in
+    // `createReloadScheduler` — see that module for the re-entrance guard that
+    // keeps a format-on-save landing mid-reload from starting a second one.
+    const RELOAD_DEBOUNCE_MS = 300
+
+    // Name the file that changed the way the operator sees it: relative to the
+    // config directory (`config/pages.ts`), never as a `../../..` walk from an
+    // unrelated cwd.
+    const rootDir = dirname(resolve(configFile))
+    const describeChangedFile = (changedPath: string): string => {
+      const fromRoot = relative(rootDir, changedPath)
+      return fromRoot.startsWith('..') ? changedPath : fromRoot
+    }
+
+    /**
+     * A cheap fingerprint of what the config graph currently SAYS, as opposed
+     * to when it was last touched. `fs.watch` reports writes, not edits: a
+     * format-on-save rewriting identical bytes is a `change` event like any
+     * other, and reloading a server for it is pure waste. Comparing this
+     * against the fingerprint of the last successful reload is what makes one
+     * logical save produce one reload.
+     */
+    const readGraphSignature = async (files: ReadonlyArray<string>): Promise<string> => {
+      const parts = await Promise.all(
+        files.toSorted().map(async (file) => {
+          const text = await Bun.file(file)
+            .text()
+            .catch(() => '')
+          return `${file}\0${text}`
+        })
+      )
+      return String(Bun.hash(parts.join('\0')))
+    }
+
+    // The files the fingerprint is taken over, and the fingerprint of the
+    // config the running server was built from. Both are replaced only after a
+    // reload SUCCEEDS: if a reload fails, the last-good fingerprint stays, so
+    // re-saving the same broken file reports the error again instead of being
+    // mistaken for a no-op rewrite.
     // eslint-disable-next-line functional/no-let
-    let reloadTimer: ReturnType<typeof setTimeout> | undefined
+    let watchedFiles: ReadonlyArray<string> = []
+    // eslint-disable-next-line functional/no-let
+    let lastSignature = ''
 
-    watch(configFile, (eventType) => {
-      if (eventType !== 'change') return
+    const reloadScheduler = createReloadScheduler({
+      debounceMs: RELOAD_DEBOUNCE_MS,
+      run: async (changedPath) => {
+        const startedAt = Date.now()
 
-      if (reloadTimer !== undefined) clearTimeout(reloadTimer)
-      reloadTimer = setTimeout(async () => {
-        console.log(`\n  [watch] Config changed — reloading…`)
+        // Read the fingerprint BEFORE the reload, and commit it only once the
+        // reload succeeds. Reading it afterwards would capture any edit made
+        // DURING the reload — content the new server was never built from —
+        // and the catch-up run would then skip it as unchanged, silently
+        // losing a save. Erring the other way costs at most one extra reload.
+        const signature = await readGraphSignature(watchedFiles)
+        if (signature === lastSignature) return
+
+        // ONE announcement per save, printed as late as the reload can tell us
+        // what it is about to do and no later. A hot swap and a full restart
+        // cost the operator very different things, so the line says which one
+        // this is — and, when it is the expensive one, which key forced it.
+        //
+        // The announcement is deferred until the new config has been loaded and
+        // classified, so a save that never gets that far (unparsable JSON, a
+        // property AppSchema does not declare) has nothing to announce. The
+        // catch below covers that case with the generic line, because a
+        // failure the operator can see explained is still a change they need
+        // told about —.
+        // eslint-disable-next-line functional/no-let
+        let announced = false
+        const announce = (verdict?: ConfigChangeVerdict): void => {
+          // eslint-disable-next-line functional/no-expression-statements
+          announced = true
+          const where = describeChangedFile(changedPath)
+          printJournal(
+            'watch',
+            verdict?.kind === 'restart'
+              ? `Config changed (${verdict.reason}) — full restart… (${where})`
+              : `Config changed — reloading… (${where})`
+          )
+        }
 
         try {
+          const reloaded = await reloadServer({
+            filePath: configFile,
+            currentServer,
+            currentApp,
+            options,
+            announce,
+          })
+          const durationMs = Date.now() - startedAt
           // eslint-disable-next-line functional/no-expression-statements
-          currentServer = await reloadServer(configFile, currentServer, options)
+          currentServer = reloaded.server
+          // eslint-disable-next-line functional/no-expression-statements
+          currentApp = reloaded.app
+          // eslint-disable-next-line functional/no-expression-statements
+          watchedFiles = reloaded.files
+          // eslint-disable-next-line functional/no-expression-statements
+          lastSignature = signature
+          graphWatcher.sync(reloaded.files)
 
-          console.log(`  [watch] Server reloaded\n`)
+          // One line, not fourteen. The reloaded server suppresses the startup
+          // banner (`StartOptions.reload`) so this summary is the whole report
+          // of a save: what happened, and how long the operator waited for it.
+          printJournal('watch', `Server reloaded in ${formatDuration(durationMs)}`)
         } catch (error) {
           // reloadServer can fail with any Effect-y error (schema decode,
           // CSS compile, DB migration). formatRuntimeError unwraps the
@@ -278,11 +339,20 @@ export const handleStartCommand = async (
           // A REFUSED CONFIG IS NOT A CRASH — the same distinction the boot
           // path draws above. A stack sends the operator to debug our code
           // instead of the property they just typed.
-          console.error(
-            isConfigRejectedError(error)
-              ? `  [watch] ${formatConfigRejection(error, 'reloaded')}\n`
-              : `  [watch] Reload failed — the previous server is still serving.\n  [watch] ${formatRuntimeError(error)}\n`
-          )
+          if (!announced) announce()
+          // ONE call per failure, because a failure is ONE event: the printer
+          // splits the text and stamps every row with the same clock and tag
+          // (T39, T40), so the runtime error arrives as a continuation of the
+          // sentence that introduces it. Two calls gave it a second `Error:`
+          // word and a second timestamp — one failure reading as two.
+          if (isConfigRejectedError(error)) {
+            printJournalError('watch', formatConfigRejection(error, 'reloaded'))
+          } else {
+            printJournalError(
+              'watch',
+              `Reload failed — the previous server is still serving.\n${formatRuntimeError(error)}`
+            )
+          }
           // The old server is still serving — for a config error. `reloadServer`
           // decodes the new config BEFORE it stops the running one, so the class
           // of mistake a watching operator actually makes (a typo, a property
@@ -291,7 +361,55 @@ export const handleStartCommand = async (
           // does leave the server down; see `reloadServer` for why that half
           // cannot be pre-flighted.
         }
-      }, RELOAD_DEBOUNCE_MS)
+      },
     })
+
+    // The watched set is DERIVED from the loaded config, never declared: the
+    // root, every TypeScript module it imports and every file it reaches
+    // through `$ref`, at any depth. It is re-derived after every successful
+    // reload, because a reload can add or drop an import or a `$ref` — a newly
+    // referenced file must become watched, a dropped one must stop triggering.
+    const graphWatcher = createConfigGraphWatcher((changedPath) => {
+      reloadScheduler.schedule(changedPath)
+    })
+
+    // The initial watched set. The config already loaded (the server is up),
+    // so this only collects the files it was read from: a YAML/JSON root is
+    // re-read and its `$ref`s followed, a `.ts` root is bundled without being
+    // imported. Should that collection fail anyway, the root stays watched —
+    // exactly the coverage the watcher had before it followed the graph.
+    const { collectConfigGraphFiles } = await lazyImportSchema()
+    const rootPath = resolve(configFile)
+    const initialFiles = await collectConfigGraphFiles(configFile).catch((error: unknown) => {
+      // A WARNING, not an error (T41): the watcher survives this degraded — it
+      // still watches the root, so saves are still noticed; only the files
+      // LINKED from it are not. The cause rides along as a continuation row so
+      // the whole report shares one clock.
+      printJournalWarning(
+        'watch',
+        `Could not follow the files linked from ${configFile} — watching it alone.\n${formatRuntimeError(error)}`
+      )
+      return [rootPath]
+    })
+    graphWatcher.sync(initialFiles)
+
+    // Seed the change detector with what the RUNNING server was built from, so
+    // the first `change` event is compared against reality rather than against
+    // an empty fingerprint (which would make every first event a reload, even
+    // a touch that changed nothing).
+    // eslint-disable-next-line functional/no-expression-statements
+    watchedFiles = initialFiles
+    // eslint-disable-next-line functional/no-expression-statements
+    lastSignature = await readGraphSignature(initialFiles)
+
+    // The root is always part of the set (a graph is never empty), so every
+    // other watched file is a linked one.
+    const linkedCount = Math.max(0, graphWatcher.size() - 1)
+    printJournal(
+      'watch',
+      linkedCount > 0
+        ? `Watching ${configFile} and ${linkedCount} linked file${linkedCount === 1 ? '' : 's'} for changes`
+        : `Watching ${configFile} for changes`
+    )
   }
 }

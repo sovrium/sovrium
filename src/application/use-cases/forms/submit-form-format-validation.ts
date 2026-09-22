@@ -25,10 +25,10 @@
  */
 
 import { Data, Effect } from 'effect'
-import { findColumnFormatViolations } from '@/domain/validators/column-formats'
+import { findColumnFormatViolations } from '@/domain/models/app/tables/column-formats-validation'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
-import type { FormatConstrainedFieldType } from '@/domain/validators/column-formats'
+import type { FormatConstrainedFieldType } from '@/domain/models/app/tables/column-formats-validation'
 
 /**
  * Form field failed server-side format validation (e.g. an email-typed column
@@ -99,5 +99,5 @@ export const validateFieldFormats = (
       fieldName: first.field,
       message: FORMAT_MESSAGES[first.type](first.field),
     })
-  )
+  ).pipe(Effect.withSpan('forms.validate-field-formats'))
 }

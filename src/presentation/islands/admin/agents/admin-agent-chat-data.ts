@@ -42,8 +42,8 @@
  */
 
 import { useCallback, useState } from 'react'
-import { isDefaultAgentName } from '@/domain/utils/agent-identity'
-import { dispatch } from '../../_shared/event-bus'
+import { isDefaultAgentName } from '@/domain/models/app/agents/agent-identity'
+import { dispatch } from '../../runtime/event-bus'
 import type { ChatTurnAction } from './admin-agent-chat-actions'
 
 /** A single chat turn rendered in the conversation thread. */

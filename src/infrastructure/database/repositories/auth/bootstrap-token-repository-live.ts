@@ -16,7 +16,7 @@ import {
   BootstrapTokenExpiredError,
   BootstrapTokenNotFoundError,
   type BootstrapToken,
-} from '@/domain/models/system'
+} from '@/domain/models/process-env'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { sovriumBootstrapTokens as sovriumBootstrapTokensPg } from '@/infrastructure/database/drizzle/schema/bootstrap-tokens'

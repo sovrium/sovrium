@@ -28,6 +28,3 @@ export const sovriumBootstrapTokens = systemTable('sovrium_bootstrap_tokens', {
     .notNull()
     .$defaultFn(() => new Date()),
 })
-
-export type SovriumBootstrapTokenRow = typeof sovriumBootstrapTokens.$inferSelect
-export type NewSovriumBootstrapTokenRow = typeof sovriumBootstrapTokens.$inferInsert

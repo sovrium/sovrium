@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { createDatabaseIdentifierSchema } from '@/domain/validators/database-identifier'
+import { createDatabaseIdentifierSchema } from '@/domain/kernel/sql/database-identifier'
 
 /**
  * Table Name

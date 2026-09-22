@@ -76,7 +76,10 @@ export const formatAccountCollisionMessage = (rows: readonly AccountCollisionRow
  * Normalise a driver row into {@link AccountCollisionRow}.
  *
  * Both drivers return loosely-typed records; counts come back as a number on
- * SQLite and can arrive as a string from Postgres.
+ * SQLite and can arrive as a string from Postgres. `Number()` is load-bearing
+ * rather than defensive: it is also what keeps this correct if a driver hands
+ * back a BigInt instead, as drizzle-orm 1.0.0-rc.4 did until the migration
+ * client stopped forcing that option on.
  */
 const toCollisionRow = (row: Readonly<Record<string, unknown>>): AccountCollisionRow => ({
   providerId: String(row['provider_id'] ?? ''),

@@ -34,4 +34,4 @@ export const deleteUserView = (
     const repo = yield* UserViewRepository
     // eslint-disable-next-line drizzle/enforce-delete-with-where -- `repo.delete` is the port method; ownership scoping lives in the live impl's Drizzle `.where(...)`
     return yield* repo.delete(input)
-  })
+  }).pipe(Effect.withSpan('tables.delete-user-view'))

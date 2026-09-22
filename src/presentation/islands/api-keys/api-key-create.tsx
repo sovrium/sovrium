@@ -15,6 +15,11 @@
  */
 
 import { useCallback, useState } from 'react'
+import {
+  computeFormFieldErrorClasses,
+  computeFormFieldLabelClasses,
+  computeFormHelpTextClasses,
+} from '@/presentation/design/form-layout-classes'
 import type { FormEvent, ReactElement } from 'react'
 
 interface ApiKeyCreateProps {
@@ -23,10 +28,10 @@ interface ApiKeyCreateProps {
 }
 
 const FIELD_CLASS =
-  'border-border bg-background text-foreground w-full rounded-md border px-3 py-2 text-sm'
+  'border-border bg-background text-foreground w-full rounded-md border px-3 py-2 text-md'
 
 const PRIMARY_BUTTON =
-  'bg-primary text-primary-foreground w-fit rounded-md px-3 py-1.5 text-sm font-medium transition-opacity hover:opacity-90'
+  'bg-primary text-primary-fg w-fit rounded-md px-3 py-1.5 text-md font-medium transition-opacity hover:opacity-90'
 
 const CREATE_FAILED = 'Could not create the key. Check you are still signed in and try again.'
 
@@ -45,11 +50,11 @@ function CreateForm({
     <form
       onSubmit={onSubmit}
       aria-label="Create an API key"
-      className="border-border bg-background-raised flex flex-col gap-3 rounded-md border p-4"
+      className="border-border bg-background-raised flex flex-col gap-3.5 rounded-md border p-4"
     >
       <label
         htmlFor="api-key-name"
-        className="text-foreground text-sm font-medium"
+        className={computeFormFieldLabelClasses()}
       >
         Name
       </label>
@@ -63,10 +68,10 @@ function CreateForm({
         placeholder="What will carry this key?"
         className={FIELD_CLASS}
       />
-      <p className="text-foreground-subtle text-xs">
+      <p className={computeFormHelpTextClasses()}>
         Name it after the job that will use it — that name is how you will recognise it later.
       </p>
-      {error !== '' && <p className="text-error-fg text-sm">{error}</p>}
+      {error !== '' && <p className={computeFormFieldErrorClasses()}>{error}</p>}
       <button
         type="submit"
         disabled={pending}

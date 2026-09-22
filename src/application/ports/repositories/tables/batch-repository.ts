@@ -6,7 +6,7 @@
  */
 
 import { Context } from 'effect'
-import type { UserSession } from '@/application/ports/models/user-session'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { NotFoundError, DatabaseError, ValidationError } from '@/domain/errors'
 import type { Effect } from 'effect'
 

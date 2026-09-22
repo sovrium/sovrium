@@ -19,12 +19,12 @@ components:
           - type: link
             props:
               href: /admin
-              className: text-sm mb-6 inline-block text-primary hover:underline
+              className: text-md mb-6 inline-block text-primary hover:underline
             content: ← Back to posts
           - type: text
             element: h1
             props:
-              className: text-3xl font-bold mb-6 text-foreground
+              className: text-4xl font-bold mb-6 text-foreground
             content: New post
 
           - type: container

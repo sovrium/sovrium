@@ -6,7 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import { quoteSqlIdentifier } from '@/domain/utils/database/sql-formatting'
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   shouldUseView,
@@ -31,7 +32,6 @@ import {
   SQLExecutionError,
   type TransactionLike,
 } from '../sql/sql-execution'
-import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import {
   generateTableViewStatements,
   generateReadOnlyViewTrigger,

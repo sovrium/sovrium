@@ -72,7 +72,8 @@
  * @see [internal ref] (A2, draft)
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema, Struct } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * The `$extensions` namespace key.
@@ -94,58 +95,99 @@ export const SOVRIUM_EXTENSION_KEY = 'com.sovrium.design-system' as const
  * `colorSpace` + `components` are the required pair. `hex` is the optional
  * serialization hint, and is the field a round-trip assertion reads.
  */
-export const dtcgColorValueSchema = z
-  .object({
-    colorSpace: z.string().describe("Colour space of `components`, e.g. 'srgb'"),
-    components: z.array(z.number()).describe('Channel values within the declared colour space'),
-    alpha: z.number().min(0).max(1).optional().describe('Alpha channel, 0–1'),
-    hex: z
-      .string()
-      .regex(/^#[0-9a-fA-F]{6}$/)
-      .optional()
-      .describe('Hex fallback — populated verbatim when the authored value was hexadecimal'),
-  })
-  .strict()
-  .openapi('DtcgColorValue')
+export const dtcgColorValueSchema = Schema.Struct({
+  colorSpace: Schema.String.annotate({ description: "Colour space of `components`, e.g. 'srgb'" }),
+  components: Schema.Array(Schema.Finite).annotate({
+    description: 'Channel values within the declared colour space',
+  }),
+  alpha: optionalField(
+    Schema.Finite.annotate({ description: 'Alpha channel, 0–1' }).pipe(
+      Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))
+    )
+  ),
+  hex: optionalField(
+    Schema.String.annotate({
+      description: 'Hex fallback — populated verbatim when the authored value was hexadecimal',
+    }).pipe(Schema.check(Schema.isPattern(/^#[0-9a-fA-F]{6}$/)))
+  ),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgColorValue' })
 
 /** A DTCG dimension value — a number plus `px` or `rem`, never a raw CSS string. */
-export const dtcgDimensionValueSchema = z
-  .object({
-    value: z.number().describe('Numeric magnitude'),
-    unit: z.enum(['px', 'rem']).describe('DTCG permits only these two units'),
-  })
-  .strict()
-  .openapi('DtcgDimensionValue')
+export const dtcgDimensionValueSchema = Schema.Struct({
+  value: Schema.Finite.annotate({ description: 'Numeric magnitude' }),
+  unit: Schema.Literals(['px', 'rem']).annotate({
+    description: 'DTCG permits only these two units',
+  }),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgDimensionValue' })
 
 /** A DTCG duration value — a number plus `ms` or `s`. */
-export const dtcgDurationValueSchema = z
-  .object({
-    value: z.number().describe('Numeric magnitude'),
-    unit: z.enum(['ms', 's']).describe('DTCG permits only these two units'),
-  })
-  .strict()
-  .openapi('DtcgDurationValue')
+export const dtcgDurationValueSchema = Schema.Struct({
+  value: Schema.Finite.annotate({ description: 'Numeric magnitude' }),
+  unit: Schema.Literals(['ms', 's']).annotate({ description: 'DTCG permits only these two units' }),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgDurationValue' })
 
 // ---------------------------------------------------------------------------
 // DTCG tokens
 // ---------------------------------------------------------------------------
 
-const withDescription = { $description: z.string().optional() }
+const withDescription = {
+  $description: optionalField(Schema.String),
+}
 
-export const dtcgColorTokenSchema = z
-  .object({ $type: z.literal('color'), $value: dtcgColorValueSchema, ...withDescription })
-  .strict()
-  .openapi('DtcgColorToken')
+export const dtcgColorTokenSchema = Schema.Struct({
+  $type: Schema.Literal('color'),
+  $value: dtcgColorValueSchema,
+  ...withDescription,
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgColorToken' })
 
-export const dtcgDimensionTokenSchema = z
-  .object({ $type: z.literal('dimension'), $value: dtcgDimensionValueSchema, ...withDescription })
-  .strict()
-  .openapi('DtcgDimensionToken')
+export const dtcgDimensionTokenSchema = Schema.Struct({
+  $type: Schema.Literal('dimension'),
+  $value: dtcgDimensionValueSchema,
+  ...withDescription,
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgDimensionToken' })
 
-export const dtcgDurationTokenSchema = z
-  .object({ $type: z.literal('duration'), $value: dtcgDurationValueSchema, ...withDescription })
-  .strict()
-  .openapi('DtcgDurationToken')
+export const dtcgDurationTokenSchema = Schema.Struct({
+  $type: Schema.Literal('duration'),
+  $value: dtcgDurationValueSchema,
+  ...withDescription,
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgDurationToken' })
+
+/**
+ * A DTCG `cubicBezier` value — the four control-point ratios, in order.
+ *
+ * ─── EASING HAS A DTCG FORM, AND THIS CODEBASE USED TO SAY IT DID NOT ──────
+ *
+ * `inherited-tokens.ts` states that "an easing has no DTCG form at all" and
+ * that publishing one "would invent a type DTCG does not have". That is wrong,
+ * and it contradicts its own sibling: `design-system.ts` already names the
+ * destination — *"promoting it to a first-class `cubicBezier` group is a
+ * separate decision"* — and `design-system-foundation-motion.ts` already PARSES
+ * `cubic-bezier(x1, y1, x2, y2)` into exactly these four numbers in order to
+ * draw the curve. The type exists, the parser exists, and all four inherited
+ * curves are `cubic-bezier(...)`.
+ *
+ * DTCG fixes the length at four and the order at `[P1x, P1y, P2x, P2y]`. The x
+ * ordinates are bounded to `0..1` because a control point outside that range is
+ * not a valid timing function; the y ordinates are deliberately UNBOUNDED —
+ * `emphasized` overshoots at `1.1`, and clamping it would silently rewrite a
+ * curve the platform actually ships.
+ */
+export const dtcgCubicBezierValueSchema = Schema.Tuple([
+  Schema.Finite.annotate({
+    description: 'P1x — bounded; an x ordinate outside 0..1 is not a curve',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))),
+  Schema.Finite.annotate({ description: 'P1y — unbounded; an overshoot past 1 is a real easing' }),
+  Schema.Finite.annotate({ description: 'P2x — bounded, as P1x' }).pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))
+  ),
+  Schema.Finite.annotate({ description: 'P2y — unbounded, as P1y' }),
+]).annotate({ description: 'The four control-point ratios of a cubic-bezier, in DTCG order' })
+
+export const dtcgCubicBezierTokenSchema = Schema.Struct({
+  $type: Schema.Literal('cubicBezier'),
+  $value: dtcgCubicBezierValueSchema,
+  ...withDescription,
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgCubicBezierToken' })
 
 /**
  * A DTCG `typography` COMPOSITE value — the app's type scale, one step per token.
@@ -173,66 +215,65 @@ export const dtcgDurationTokenSchema = z
  *
  * @see https://www.designtokens.org/tr/drafts/format/ (§ Typography composite type)
  */
-export const dtcgTypographyValueSchema = z
-  .object({
-    fontFamily: z
-      .union([z.string(), z.array(z.string())])
-      .optional()
-      .describe('Resolved font stack for this step, when it names a declared face'),
-    fontSize: dtcgDimensionValueSchema.describe('Rendered size of this step'),
-    fontWeight: z.number().min(1).max(1000).optional().describe('Weight, 1–1000 per DTCG'),
-    letterSpacing: dtcgDimensionValueSchema
-      .optional()
-      .describe('Tracking. Absent when the author declared it in `em`, which DTCG cannot carry'),
-    lineHeight: z
-      .number()
-      .optional()
-      .describe('Leading as a UNITLESS RATIO — DTCG types this as a number, not a dimension'),
-  })
-  .strict()
-  .openapi('DtcgTypographyValue')
+export const dtcgTypographyValueSchema = Schema.Struct({
+  fontFamily: optionalField(
+    Schema.Union([Schema.String, Schema.Array(Schema.String)]).annotate({
+      description: 'Resolved font stack for this step, when it names a declared face',
+    })
+  ),
+  fontSize: dtcgDimensionValueSchema.annotate({ description: 'Rendered size of this step' }),
+  fontWeight: optionalField(
+    Schema.Finite.annotate({ description: 'Weight, 1–1000 per DTCG' }).pipe(
+      Schema.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(1000))
+    )
+  ),
+  letterSpacing: optionalField(
+    dtcgDimensionValueSchema.annotate({
+      description: 'Tracking. Absent when the author declared it in `em`, which DTCG cannot carry',
+    })
+  ),
+  lineHeight: optionalField(
+    Schema.Finite.annotate({
+      description: 'Leading as a UNITLESS RATIO — DTCG types this as a number, not a dimension',
+    })
+  ),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgTypographyValue' })
 
-export const dtcgTypographyTokenSchema = z
-  .object({
-    $type: z.literal('typography'),
-    $value: dtcgTypographyValueSchema,
-    ...withDescription,
-  })
-  .strict()
-  .openapi('DtcgTypographyToken')
+export const dtcgTypographyTokenSchema = Schema.Struct({
+  $type: Schema.Literal('typography'),
+  $value: dtcgTypographyValueSchema,
+  ...withDescription,
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgTypographyToken' })
 
 /** DTCG permits a single font name or an ordered stack. */
-export const dtcgFontFamilyTokenSchema = z
-  .object({
-    $type: z.literal('fontFamily'),
-    $value: z.union([z.string(), z.array(z.string())]),
-    ...withDescription,
-  })
-  .strict()
-  .openapi('DtcgFontFamilyToken')
+export const dtcgFontFamilyTokenSchema = Schema.Struct({
+  $type: Schema.Literal('fontFamily'),
+  $value: Schema.Union([Schema.String, Schema.Array(Schema.String)]),
+  ...withDescription,
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DtcgFontFamilyToken' })
 
 // ---------------------------------------------------------------------------
 // The Sovrium guidance layer, carried in `$extensions`
 // ---------------------------------------------------------------------------
 
 /** Per-token usage guidance, mirroring `design.colorRoles`. */
-export const colorRoleGuidanceSchema = z
-  .object({
-    usage: z.string().optional().describe('What this colour is for, and what it must not be used for'),
-    pairsWith: z.string().optional().describe('The token this one is designed to sit against'),
-  })
-  .strict()
-  .openapi('ColorRoleGuidance')
+export const colorRoleGuidanceSchema = Schema.Struct({
+  usage: optionalField(
+    Schema.String.annotate({
+      description: 'What this colour is for, and what it must not be used for',
+    })
+  ),
+  pairsWith: optionalField(
+    Schema.String.annotate({ description: 'The token this one is designed to sit against' })
+  ),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'ColorRoleGuidance' })
 
 /** Per-component usage guidance, mirroring `design.components`. */
-export const componentGuidanceSchema = z
-  .object({
-    usage: z.string().optional(),
-    when: z.string().optional(),
-    dont: z.string().optional(),
-  })
-  .strict()
-  .openapi('ComponentGuidance')
+export const componentGuidanceSchema = Schema.Struct({
+  usage: optionalField(Schema.String),
+  when: optionalField(Schema.String),
+  dont: optionalField(Schema.String),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'ComponentGuidance' })
 
 /**
  * The mark and its placement rules, mirroring `design.logo`.
@@ -243,49 +284,45 @@ export const componentGuidanceSchema = z
  * that only resolves against the host it was generated on, which is precisely
  * the property that makes a charter shareable.
  */
-export const logoGuidanceSchema = z
-  .object({
-    src: z.string().describe('The primary mark, as declared'),
-    srcDark: z.string().optional().describe('The variant shown in dark mode (the light-ink file)'),
-    alt: z.string().describe('Accessible name of the mark'),
-    clearSpace: z.string().optional().describe('Exclusion zone, stated relative to the mark'),
-    minWidth: z.string().optional().describe('Smallest reproduction width'),
-    misuse: z.array(z.string()).optional().describe('What must never be done to the mark'),
-  })
-  .strict()
-  .openapi('LogoGuidance')
+export const logoGuidanceSchema = Schema.Struct({
+  src: Schema.String.annotate({ description: 'The primary mark, as declared' }),
+  srcDark: optionalField(
+    Schema.String.annotate({ description: 'The variant shown in dark mode (the light-ink file)' })
+  ),
+  alt: Schema.String.annotate({ description: 'Accessible name of the mark' }),
+  clearSpace: optionalField(
+    Schema.String.annotate({ description: 'Exclusion zone, stated relative to the mark' })
+  ),
+  minWidth: optionalField(Schema.String.annotate({ description: 'Smallest reproduction width' })),
+  misuse: optionalField(
+    Schema.Array(Schema.String).annotate({ description: 'What must never be done to the mark' })
+  ),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'LogoGuidance' })
 
 /** Imagery and iconography rules, mirroring `design.imagery`. */
-export const imageryGuidanceSchema = z
-  .object({
-    principles: z.array(z.string()).optional(),
-    photography: z.array(z.string()).optional(),
-    iconSet: z.string().optional(),
-    patterns: z.array(z.string()).optional(),
-  })
-  .strict()
-  .openapi('ImageryGuidance')
+export const imageryGuidanceSchema = Schema.Struct({
+  principles: optionalField(Schema.Array(Schema.String)),
+  photography: optionalField(Schema.Array(Schema.String)),
+  iconSet: optionalField(Schema.String),
+  patterns: optionalField(Schema.Array(Schema.String)),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'ImageryGuidance' })
 
 /** Voice and tone, mirroring `design.voice`. */
-export const voiceGuidanceSchema = z
-  .object({
-    personality: z.array(z.string()).optional(),
-    pronoun: z.string().optional(),
-    prefer: z.array(z.string()).optional(),
-    avoid: z.array(z.string()).optional(),
-    tone: z
-      .object({
-        empty: z.string().optional(),
-        loading: z.string().optional(),
-        error: z.string().optional(),
-        success: z.string().optional(),
-        destructive: z.string().optional(),
-      })
-      .strict()
-      .optional(),
-  })
-  .strict()
-  .openapi('VoiceGuidance')
+export const voiceGuidanceSchema = Schema.Struct({
+  personality: optionalField(Schema.Array(Schema.String)),
+  pronoun: optionalField(Schema.String),
+  prefer: optionalField(Schema.Array(Schema.String)),
+  avoid: optionalField(Schema.Array(Schema.String)),
+  tone: optionalField(
+    Schema.Struct({
+      empty: optionalField(Schema.String),
+      loading: optionalField(Schema.String),
+      error: optionalField(Schema.String),
+      success: optionalField(Schema.String),
+      destructive: optionalField(Schema.String),
+    }).annotate({ strictKeys: true, title: 'sovrium:strict-keys' })
+  ),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'VoiceGuidance' })
 
 /**
  * A per-zone voice override, mirroring `design.zones[].voice`.
@@ -301,9 +338,13 @@ export const voiceGuidanceSchema = z
  * is app IDENTITY, not situational register. A zone that is a different
  * personality is a different app.
  */
-export const zoneVoiceGuidanceSchema = voiceGuidanceSchema
-  .omit({ personality: true })
-  .openapi('ZoneVoiceGuidance')
+export const zoneVoiceGuidanceSchema = Schema.Struct(
+  Struct.omit(voiceGuidanceSchema.fields, ['personality'])
+).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'ZoneVoiceGuidance',
+})
 
 /**
  * One zone of the app's zone map, mirroring `design.zones[]`.
@@ -314,22 +355,22 @@ export const zoneVoiceGuidanceSchema = voiceGuidanceSchema
  * inheritance into each entry would publish the base voice five times over and
  * leave no consumer able to tell an override from an inherited default.
  */
-export const designZoneGuidanceSchema = z
-  .object({
-    pattern: z
-      .string()
-      .describe("Declared route pattern this zone governs, or the catch-all 'everything else'"),
-    zone: z.string().describe('The zone this pattern belongs to'),
-    accentBudget: z
-      .enum(['public', 'product'])
-      .optional()
-      .describe('Which accent budget the zone carries'),
-    voice: zoneVoiceGuidanceSchema
-      .optional()
-      .describe('How this zone departs from `design.voice`, field by field'),
-  })
-  .strict()
-  .openapi('DesignZoneGuidance')
+export const designZoneGuidanceSchema = Schema.Struct({
+  pattern: Schema.String.annotate({
+    description: "Declared route pattern this zone governs, or the catch-all 'everything else'",
+  }),
+  zone: Schema.String.annotate({ description: 'The zone this pattern belongs to' }),
+  accentBudget: optionalField(
+    Schema.Literals(['public', 'product']).annotate({
+      description: 'Which accent budget the zone carries',
+    })
+  ),
+  voice: optionalField(
+    zoneVoiceGuidanceSchema.annotate({
+      description: 'How this zone departs from `design.voice`, field by field',
+    })
+  ),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DesignZoneGuidance' })
 
 /**
  * One declared-but-inert theme value.
@@ -354,38 +395,114 @@ export const designZoneGuidanceSchema = z
  *    that Sovrium received it and did nothing with it, which is the fact they
  *    need in order to stop maintaining it.
  */
-export const inertDeclarationSchema = z
-  .object({
-    path: z.string().describe("Config path of the declaration, e.g. 'theme.fonts.body.lineHeight'"),
-    declared: z.string().describe('The value the author wrote, verbatim'),
-    reason: z.string().describe('Why it does not reach the rendered app'),
-  })
-  .strict()
-  .openapi('InertDeclaration')
+export const inertDeclarationSchema = Schema.Struct({
+  path: Schema.String.annotate({
+    description: "Config path of the declaration, e.g. 'theme.fonts.body.lineHeight'",
+  }),
+  declared: Schema.String.annotate({ description: 'The value the author wrote, verbatim' }),
+  reason: Schema.String.annotate({ description: 'Why it does not reach the rendered app' }),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'InertDeclaration' })
+
+/**
+ * A value the app ships, and whether the operator chose it.
+ *
+ * ─── THE MERGE LOSES A FACT THE SURFACE KEEPS, SO IT IS CARRIED ────────────
+ *
+ * Foundations draws `{ ...INHERITED, ...declared }` — the ramp the app actually
+ * moves and elevates on, not the subset its config names. The export must agree
+ * with the surface or it documents a different system than the console does,
+ * and `[internal ref]` already argues that failure for breakpoints:
+ * *"an app reports the breakpoints it DECLARED rather than the ones it SHIPS…
+ * Inheritance is precisely what an author cannot learn by reading their own
+ * config, which is what this console is for."*
+ *
+ * But a BARE merge is worse than either half alone for the reader this export
+ * exists for. An agent handed five shadows cannot tell the one the operator
+ * chose from the four Sovrium supplied, so it treats platform defaults as
+ * intentional and preserves them as if they were decisions. `provenance` is
+ * what keeps the merge honest.
+ */
+export const providedValueSchema = Schema.Struct({
+  value: Schema.String.annotate({ description: 'The value as the renderer applies it' }),
+  provenance: Schema.Literals(['declared', 'inherited']).annotate({
+    description: 'Whether the operator wrote this value or the platform supplied it',
+  }),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'ProvidedValue' })
+
+/** One component type as the catalogue publishes it. */
+export const catalogueEntrySchema = Schema.Struct({
+  type: Schema.String.annotate({
+    description: 'The type literal, exactly as the schema spells it',
+  }),
+  category: Schema.String.annotate({
+    description: 'The published category the registry places it in',
+  }),
+  variants: optionalField(
+    Schema.Array(Schema.String).annotate({
+      description: 'The variant axis, where the type declares one — absent, never empty',
+    })
+  ),
+  /**
+   * Why this type is not drawn. Present only for a refused type, and carrying
+   * the type's OWN sentence: fifteen types are refused for ten distinct
+   * reasons, and `tab-panel` — schema-accepted with no renderer behind it —
+   * is a fact nothing else in the product states.
+   */
+  excludedReason: optionalField(
+    Schema.String.annotate({ description: 'The type-specific reason it is not drawn' })
+  ),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'CatalogueEntry' })
 
 /** Everything Sovrium adds that DTCG has no home for. */
-export const sovriumDesignExtensionSchema = z
-  .object({
-    principles: z.array(z.string()).optional(),
-    logo: logoGuidanceSchema.optional(),
-    imagery: imageryGuidanceSchema.optional(),
-    voice: voiceGuidanceSchema.optional(),
-    colorRoles: z.record(z.string(), colorRoleGuidanceSchema).optional(),
-    components: z.record(z.string(), componentGuidanceSchema).optional(),
-    /** The zone map — which route family is which register. See {@link designZoneGuidanceSchema}. */
-    zones: z.array(designZoneGuidanceSchema).optional(),
-    /** Raw CSS declarations with no faithful DTCG form (shadows, `clamp()` spacing, …). */
-    unmappable: z.record(z.string(), z.string()).optional(),
-    /** Declared values the renderer discards — see `inertDeclarationSchema`. */
-    inert: z.array(inertDeclarationSchema).optional(),
-  })
-  .strict()
-  .openapi('SovriumDesignExtension')
+export const sovriumDesignExtensionSchema = Schema.Struct({
+  principles: optionalField(Schema.Array(Schema.String)),
+  logo: optionalField(logoGuidanceSchema),
+  imagery: optionalField(imageryGuidanceSchema),
+  voice: optionalField(voiceGuidanceSchema),
+  colorRoles: optionalField(Schema.Record(Schema.String, colorRoleGuidanceSchema)),
+  components: optionalField(Schema.Record(Schema.String, componentGuidanceSchema)),
+  /** The zone map — which route family is which register. See {@link designZoneGuidanceSchema}. */
+  zones: optionalField(Schema.Array(designZoneGuidanceSchema)),
+  /**
+   * The elevation ramp this app SHIPS — inherited merged under declared.
+   *
+   * ─── WHY HERE AND NOT IN THE DTCG TREE ─────────────────────────────────
+   *
+   * A DTCG `shadow` needs a decomposed `{color, offsetX, offsetY, blur,
+   * spread}`, and parsing arbitrary `box-shadow` back into it fails exactly
+   * where it matters — multiple layers, `inset`, colour functions. Three of
+   * the five inherited steps are two-layer. So the document still emits NO
+   * `shadow` group, `[internal ref]` still holds, and the raw string
+   * still appears under `unmappable` for anything declared.
+   *
+   * This is ADDITIVE to that, not a replacement for it: a consumer that wants
+   * a faithful DTCG shadow still gets nothing, and a consumer that wants to
+   * know what the app actually elevates with now gets the whole ramp.
+   */
+  shadows: optionalField(Schema.Record(Schema.String, providedValueSchema)),
+  /**
+   * The component catalogue — every type this instance ships, with its
+   * category, its variant axis where the schema declares one, and the reason
+   * it is not drawn where it is not.
+   */
+  catalogue: optionalField(Schema.Array(catalogueEntrySchema)),
+  /** Raw CSS declarations with no faithful DTCG form (shadows, `clamp()` spacing, …). */
+  unmappable: optionalField(Schema.Record(Schema.String, Schema.String)),
+  /** Declared values the renderer discards — see `inertDeclarationSchema`. */
+  inert: optionalField(Schema.Array(inertDeclarationSchema)),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'SovriumDesignExtension',
+})
 
-export const designSystemExtensionsSchema = z
-  .object({ [SOVRIUM_EXTENSION_KEY]: sovriumDesignExtensionSchema })
-  .strict()
-  .openapi('DesignSystemExtensions')
+export const designSystemExtensionsSchema = Schema.Struct({
+  [SOVRIUM_EXTENSION_KEY]: sovriumDesignExtensionSchema,
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'DesignSystemExtensions',
+})
 
 // ---------------------------------------------------------------------------
 // The document
@@ -400,28 +517,140 @@ export const designSystemExtensionsSchema = z
  *
  * There is deliberately no `shadow` group — see the module header.
  */
-export const designSystemDocumentSchema = z
-  .object({
-    $description: z.string().describe('One line naming the app this document describes'),
-    color: z.record(z.string(), dtcgColorTokenSchema).describe('Colour tokens'),
-    spacing: z.record(z.string(), dtcgDimensionTokenSchema).describe('Spacing scale'),
-    radius: z.record(z.string(), dtcgDimensionTokenSchema).describe('Border radii'),
-    breakpoint: z.record(z.string(), dtcgDimensionTokenSchema).describe('Responsive thresholds'),
-    font: z.record(z.string(), dtcgFontFamilyTokenSchema).describe('Font families'),
-    typography: z
-      .record(z.string(), dtcgTypographyTokenSchema)
-      .describe('The type scale — one composite token per declared step, in ladder order'),
-    duration: z.record(z.string(), dtcgDurationTokenSchema).describe('Animation durations'),
-    $extensions: designSystemExtensionsSchema,
-  })
-  .strict()
-  .openapi('DesignSystemDocument')
+export const designSystemDocumentSchema = Schema.Struct({
+  $description: Schema.String.annotate({
+    description: 'One line naming the app this document describes',
+  }),
+  color: Schema.Record(Schema.String, dtcgColorTokenSchema).annotate({
+    description: 'Colour tokens',
+  }),
+  spacing: Schema.Record(Schema.String, dtcgDimensionTokenSchema).annotate({
+    description: 'Spacing scale',
+  }),
+  radius: Schema.Record(Schema.String, dtcgDimensionTokenSchema).annotate({
+    description: 'Border radii',
+  }),
+  breakpoint: Schema.Record(Schema.String, dtcgDimensionTokenSchema).annotate({
+    description: 'Responsive thresholds',
+  }),
+  font: Schema.Record(Schema.String, dtcgFontFamilyTokenSchema).annotate({
+    description: 'Font families',
+  }),
+  typography: Schema.Record(Schema.String, dtcgTypographyTokenSchema).annotate({
+    description: 'The type scale — one composite token per declared step, in ladder order',
+  }),
+  duration: Schema.Record(Schema.String, dtcgDurationTokenSchema).annotate({
+    description: 'Animation durations',
+  }),
+  /**
+   * The easing curves — the OTHER half of `theme.animations`, promoted out of
+   * `unmappable` where Phase 1 filed it.
+   *
+   * A MOVE, and a consumer reading `unmappable` for an easing will stop
+   * finding it there. That is the point: a `cubic-bezier(...)` has a faithful
+   * DTCG form, so filing it beside genuinely unmappable values misreported it
+   * as inexpressible. Only curves that PARSE are promoted — a declared
+   * `ease-in-out` or a keyword DTCG cannot carry stays in `unmappable`, for
+   * exactly the reason shadows do.
+   *
+   * ─── OPTIONAL, UNLIKE EVERY OTHER GROUP, AND ONLY WHILE IT MOVES ───────
+   *
+   * `color`, `spacing`, `duration` and the rest are required because they
+   * have always been emitted, empty when an app declares none. This group is
+   * optional because the route VALIDATES its response against this schema:
+   * requiring it makes `GET /api/admin/design-system.json` answer 500 for
+   * every app until the builder is taught to emit it, which reddens the whole
+   * export surface for a reason no individual criterion is claiming. Absence
+   * is the honest encoding of a document written before the promotion; once
+   * the builder emits it, it is always present.
+   */
+  easing: optionalField(
+    Schema.Record(Schema.String, dtcgCubicBezierTokenSchema).annotate({
+      description: 'Easing curves, as DTCG cubicBezier tokens',
+    })
+  ),
+  $extensions: designSystemExtensionsSchema,
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'DesignSystemDocument' })
 
 /** @public */
-export type DesignSystemDocument = z.infer<typeof designSystemDocumentSchema>
+export type DesignSystemDocument = typeof designSystemDocumentSchema.Type
 /** @public */
-export type DtcgTypographyValue = z.infer<typeof dtcgTypographyValueSchema>
+export type DtcgTypographyValue = typeof dtcgTypographyValueSchema.Type
 /** @public */
-export type SovriumDesignExtension = z.infer<typeof sovriumDesignExtensionSchema>
+export type SovriumDesignExtension = typeof sovriumDesignExtensionSchema.Type
 /** @public */
-export type InertDeclaration = z.infer<typeof inertDeclarationSchema>
+export type InertDeclaration = typeof inertDeclarationSchema.Type
+
+/**
+ * The query the catalogue's fixture-row read carries.
+ *
+ * One optional cap, for the same reason the component-type detail carries one:
+ * the console needs a SHORT list and an EMPTY one to draw the states a `table`
+ * or a `form` specimen has, and the endpoint should not learn what "short"
+ * means. It caps the fixture rather than generating rows — `?rows=0` is the
+ * empty state, `?rows=2` is a short list, omitted is the whole fixture.
+ *
+ * A cap on the existing address rather than a sibling endpoint: no new path, no
+ * new guard entry, nothing to keep in sync, and it is the idiom this family
+ * already speaks (`?key=`, `?group=`, `?subject=`, `?routesLimit=`).
+ *
+ * ─── AND THE PAGE WINDOW A BOUND GRID SENDS ────────────────────────────────
+ *
+ * `page` and `limit` are DECLARED rather than tolerated, because the fixture is
+ * now deeper than one page. A bound grid appends them to every request
+ * (`buildSystemQueryString`), and while the fixture was three rows they were
+ * harmlessly accepted and ignored — three rows are one page at any page size.
+ * Past a page that stops being harmless: the grid renders a pager reading
+ * `1-10 of 30` over a handler that serves all thirty rows and never moves the
+ * window, so the pager announces pages it cannot reach.
+ *
+ * The cap applies FIRST and the window selects from what survives it, so
+ * `?rows=10&limit=5` is five rows out of ten and never five out of thirty.
+ *
+ * `Schema.String` on all three because a query param always IS one. The
+ * conversion to a number lives beside the handler that slices with it, so an
+ * unusable value is ignored rather than turned into a 400 — see
+ * `parseOptionalCap` and `parseOptionalPositive` there.
+ *
+ * ─── NOT `strictKeys`, UNLIKE EVERY OTHER QUERY IN THIS FAMILY ─────────────
+ *
+ * The sibling reads are addressed by a console page and nothing else, so a
+ * param they do not declare is a typo worth refusing. This one is BOUND: a
+ * `table`, `list`, `gallery` or `kanban` specimen points a system source at it,
+ * and the same grid also sends `sort`, `q` and `cursor`. Under `strictKeys` the
+ * first such grid would be answered 400, and the catalogue page documenting
+ * `table` would draw a validation error instead of a table.
+ *
+ * So an undeclared key is still tolerated and simply not implemented. What is
+ * no longer true is the old reason for being relaxed about ALL of them — that
+ * "the fixture is three rows, which is one page at any page size and one order
+ * at any sort". The two that carry a page now have a declaration; `sort` does
+ * not, and a grid that sends one gets the fixture's own order.
+ */
+export const specimenRowsQuerySchema = Schema.Struct({
+  rows: optionalField(
+    Schema.String.annotate({
+      description:
+        'Cap the fixture at this many rows. `0` serves the empty state. Omitted, the whole fixture is served.',
+      examples: ['0', '2'],
+    })
+  ),
+  page: optionalField(
+    Schema.String.annotate({
+      description: '1-indexed page of the capped fixture. Ignored without a `limit`.',
+      examples: ['1', '3'],
+    })
+  ),
+  limit: optionalField(
+    Schema.String.annotate({
+      description:
+        'Page size. Omitted, the whole capped fixture is served. `total` describes the capped fixture either way, so a pager can say `1-10 of 30`.',
+      examples: ['10'],
+    })
+  ),
+}).annotate({
+  identifier: 'SpecimenRowsQuery',
+})
+
+/** @public */
+export type SpecimenRowsQuery = typeof specimenRowsQuerySchema.Type

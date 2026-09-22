@@ -6,7 +6,7 @@
  */
 
 // Re-export all table query functions from modular files
-export * from './shared/validation'
+export * from './statement/validation'
 export * from './crud/crud'
 export * from './batch/batch'
 // [internal ref]: many-to-many junction read/write helpers

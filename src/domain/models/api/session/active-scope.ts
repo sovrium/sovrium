@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
 
 /**
  * Active-scope session API contract schemas.
@@ -15,23 +15,25 @@ import { z } from '@hono/zod-openapi'
  */
 
 /** Request body to set the active record for a scope table. */
-export const setActiveScopeRequestSchema = z.object({ recordId: z.string() })
+export const setActiveScopeRequestSchema = Schema.Struct({
+  recordId: Schema.String,
+})
 
 /** Response after setting the active scope. */
-export const activeScopeSetResponseSchema = z.object({
-  tableSlug: z.string(),
-  recordId: z.string(),
+export const activeScopeSetResponseSchema = Schema.Struct({
+  tableSlug: Schema.String,
+  recordId: Schema.String,
 })
 
 /** Response when reading the active scope — `recordId` is null when unset. */
-export const activeScopeGetResponseSchema = z.object({
-  tableSlug: z.string(),
-  recordId: z.string().nullable(),
+export const activeScopeGetResponseSchema = Schema.Struct({
+  tableSlug: Schema.String,
+  recordId: Schema.NullOr(Schema.String),
 })
 
 /** @public */
-export type SetActiveScopeRequest = z.infer<typeof setActiveScopeRequestSchema>
+export type SetActiveScopeRequest = typeof setActiveScopeRequestSchema.Type
 /** @public */
-export type ActiveScopeSetResponse = z.infer<typeof activeScopeSetResponseSchema>
+export type ActiveScopeSetResponse = typeof activeScopeSetResponseSchema.Type
 /** @public */
-export type ActiveScopeGetResponse = z.infer<typeof activeScopeGetResponseSchema>
+export type ActiveScopeGetResponse = typeof activeScopeGetResponseSchema.Type

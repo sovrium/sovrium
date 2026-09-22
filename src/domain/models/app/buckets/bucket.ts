@@ -150,3 +150,56 @@ export const BucketSchema = Schema.Struct({
 )
 
 export type Bucket = Schema.Schema.Type<typeof BucketSchema>
+
+// ---------------------------------------------------------------------------
+// Buckets Array Schema
+// ---------------------------------------------------------------------------
+
+/**
+ * Buckets Schema
+ *
+ * Array of named storage buckets. Validates:
+ * - Bucket names are unique
+ *
+ * When omitted from the app schema, an implicit 'default' bucket is used
+ * at runtime with `public: false` and standard permission defaults.
+ *
+ * @example
+ * ```yaml
+ * buckets:
+ *   - name: avatars
+ *     public: true
+ *     maxFileSize: 2097152
+ *     allowedMimeTypes: [image/jpeg, image/png]
+ *
+ *   - name: documents
+ *     maxFileSize: 52428800
+ *     permissions:
+ *       upload: ['admin', 'editor']
+ *       download: authenticated
+ *       delete: ['admin']
+ * ```
+ */
+export const BucketsSchema = Schema.Array(BucketSchema).pipe(
+  Schema.check(
+    Schema.makeFilter((buckets) => {
+      // Check for duplicate bucket names
+      const names = buckets.map((b) => b.name)
+      const uniqueNames = new Set(names)
+      if (uniqueNames.size !== names.length) {
+        const duplicates = names.filter((name, i) => names.indexOf(name) !== i)
+        return `Duplicate bucket names: ${duplicates.join(', ')}`
+      }
+
+      return undefined
+    })
+  ),
+  Schema.annotate({
+    identifier: 'Buckets',
+    title: 'Buckets',
+    description:
+      'Array of named storage buckets. Each bucket has its own permissions, file constraints, and public/private toggle.',
+  })
+)
+
+export type Buckets = Schema.Schema.Type<typeof BucketsSchema>

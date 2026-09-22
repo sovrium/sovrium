@@ -6,7 +6,8 @@
  */
 
 import { createElement, type ReactNode } from 'react'
-import type { TableRecord } from '../shared/types'
+import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import type { TableRecord } from '../runtime/types'
 
 /**
  * Whitelist of HTML elements that can be used as card.children element types.
@@ -35,16 +36,16 @@ export function safeChildProps(rawProps: unknown): { readonly className?: string
 }
 
 /**
- * Null-safe wrapper around `substituteRecordVars`. The shared helper renders
- * `null` as the literal string `"null"` (because `null !== undefined`); for
- * card-template content we treat `null` and `undefined` the same way and
- * substitute an empty string.
+ * `$record.*` substitution for a card template.
+ *
+ * This was a local copy, written because the page renderer's helper of the same
+ * name rendered an explicit `null` as the literal string `"null"` while a card
+ * needs it to be nothing. That divergence is closed: the shared helper now maps
+ * `null` and `undefined` alike to the empty string, so the work-around is a
+ * re-export and a card also gains the `|` fallback chain for free.
  */
 export function substitute(text: string, record: TableRecord): string {
-  return text.replace(/\$record\.([a-zA-Z0-9_]+)/g, (_, fieldName: string) => {
-    const value = record[fieldName]
-    return value === undefined || value === null ? '' : String(value)
-  })
+  return substituteRecordVars(text, record)
 }
 
 /**

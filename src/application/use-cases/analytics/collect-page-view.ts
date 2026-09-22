@@ -75,9 +75,11 @@ export const collectPageView = (
     const repo = yield* AnalyticsRepository
 
     // Compute privacy-safe visitor and session hashes
+    // effect-promise: total -- the hash helper wraps `crypto.subtle.digest('SHA-256', …)` over a `TextEncoder` result; SHA-256 is always available and the input is always a valid BufferSource, so the digest has no rejection path.
     const visitorHash = yield* Effect.promise(() =>
       computeVisitorHash(input.ip, input.userAgent, input.appName)
     )
+    // effect-promise: total -- the hash helper wraps `crypto.subtle.digest('SHA-256', …)` over a `TextEncoder` result; SHA-256 is always available and the input is always a valid BufferSource, so the digest has no rejection path.
     const sessionHash = yield* Effect.promise(() =>
       computeSessionHash(visitorHash, input.sessionTimeoutMinutes ?? 30)
     )
@@ -111,4 +113,4 @@ export const collectPageView = (
       screenWidth: input.screenWidth,
       screenHeight: input.screenHeight,
     })
-  })
+  }).pipe(Effect.withSpan('analytics.collect-page-view'))

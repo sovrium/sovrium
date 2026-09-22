@@ -9,6 +9,7 @@ import { stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { Effect } from 'effect'
 import { formatConfigRejection, isConfigRejectedError } from '@/domain/errors/config-rejected'
+import { printStderr } from '@/infrastructure/logging/cli-output'
 import { formatPathForDisplay } from '@/infrastructure/logging/format-path'
 import {
   isPublicDirOptOut,
@@ -152,7 +153,7 @@ export const handleBuildCommand = async (
   const { resolveAppSchema } = await lazyImportCli()
   const { logError } = await lazyImportLogger()
   const { renderBuildSummary, formatDuration } = await lazyImportStartupSummary()
-  const { getSovriumVersion } = await import('@/infrastructure/utils/version')
+  const { getSovriumVersion } = await import('@/infrastructure/process/version')
 
   // `configFile`, not the `filePath` parameter — they differ only under
   // auto-discovery, where the operator named no file but one sits in the
@@ -181,7 +182,7 @@ export const handleBuildCommand = async (
     // Routing it through `logError` would also forward the author's typo to
     // error tracking as if the engine had crashed.
     if (isConfigRejectedError(error)) {
-      console.error(formatConfigRejection(error, 'built'))
+      printStderr(formatConfigRejection(error, 'built'))
     } else {
       logError('Failed to build static site', error)
     }
@@ -204,5 +205,12 @@ export const handleBuildCommand = async (
     durationLabel: formatDuration(durationMs),
   })
 
-  Effect.runSync(renderBuildSummary({ version, phases, outputDir: result.outputDir }))
+  Effect.runSync(
+    renderBuildSummary({
+      app: { name: app.name, version: app.version, description: app.description },
+      version,
+      phases,
+      outputDir: result.outputDir,
+    })
+  )
 }

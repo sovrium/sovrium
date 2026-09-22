@@ -15,4 +15,4 @@
  * from `shared/toast` directly.
  */
 
-export { renderToast } from '../../shared/toast'
+export { renderToast } from '../../runtime/toast'

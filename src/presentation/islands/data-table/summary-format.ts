@@ -19,13 +19,14 @@
  * once let a cell and the total beneath it disagree about a currency symbol.
  */
 
-import { formatCellValue, resolveCurrencyOptions } from './formatting'
+import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
+import { resolveCurrencyOptions } from './formatting'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type {
   DataTableColumn,
   DataTableSummaryItem,
   FieldColumn,
-} from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+} from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 /** Shown for a summary whose value has not arrived, or which the server did not compute. */
 export const PENDING_VALUE = '—'

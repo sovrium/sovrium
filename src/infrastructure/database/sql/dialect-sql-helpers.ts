@@ -6,7 +6,8 @@
  */
 
 import { or, sql, type SQL, type Column, type Name } from 'drizzle-orm'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { LIKE_ESCAPE_CHARACTER, escapeLikeMetacharacters } from '@/domain/kernel/sql/sql-formatting'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * What the case-insensitive LIKE helpers accept on their left-hand side.
@@ -172,39 +173,6 @@ export const jsonExtractPath = (jsonColumn: SQL | Column, key: AllowedJsonKey): 
 }
 
 /**
- * The character that introduces an escape inside the LIKE patterns built below.
- *
- * Declared EXPLICITLY, via an `ESCAPE` clause, because the dialects do not agree
- * on a default: PostgreSQL treats a backslash as an escape in `LIKE` out of the
- * box, SQLite has no default escape character at all. Relying on either default
- * makes the same search return different rows on the two engines.
- *
- * The two halves ship together or not at all. Escaping metacharacters WITHOUT
- * declaring `ESCAPE` is not a harmless half-measure: measured against
- * `bun:sqlite`, a pattern of `%50\%%` with no `ESCAPE` clause returns ZERO rows,
- * trading an over-match for a silent false negative — a worse failure than the
- * one being fixed, because it is invisible.
- */
-export const LIKE_ESCAPE_CHARACTER = '\\'
-
-/**
- * Neutralise the LIKE metacharacters in a caller's search text.
- *
- * A substring search promises to match TEXT, so `%` and `_` in the caller's
- * value are ordinary characters they are looking for — not wildcards they are
- * asking for. Leaking them inverts the operator: `%` matches every non-null row
- * (a search that answers "everything" answers nothing), `_` matches any single
- * character, and text that genuinely contains either becomes unsearchable.
- *
- * The escape character is escaped FIRST — that is what the single-pass regex
- * buys, and it is the part a re-derivation gets wrong. A caller's own backslash
- * (a Windows path is the everyday case) survives as a literal instead of
- * consuming the character after it.
- */
-export const escapeLikeMetacharacters = (value: string): string =>
-  value.replace(/[\\%_]/g, (character) => `${LIKE_ESCAPE_CHARACTER}${character}`)
-
-/**
  * Case-insensitive substring match, portable across both engines and literal in
  * the caller's text.
  *
@@ -275,7 +243,7 @@ export const containsInsensitive = (column: LikeOperand, text: string): SQL =>
  * helper that returned `sql\`false\`` (or a `%%` pattern that matched
  * everything) would leave them staring at a blank table, or at a search that
  * answers "all". That distinction is the whole behaviour of the search contract
- * (`searchTermSchema`, `src/domain/models/api/_shared/search.ts`), and it is
+ * (`searchTermSchema`, `src/domain/models/api/combinators/search.ts`), and it is
  * stated HERE once rather than re-derived per endpoint.
  *
  * ## Why it exists at all

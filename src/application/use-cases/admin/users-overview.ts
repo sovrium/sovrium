@@ -27,30 +27,30 @@
  * than re-deriving the bucket grid.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   UsersOverviewRepository,
   type UsersOverviewDatabaseError,
   type UserOverviewRow,
 } from '@/application/ports/repositories/tables/users-overview-repository'
 import {
-  resolvePeriodWindow,
-  type PeriodPreset,
-  type PeriodWindow,
-} from '@/domain/models/api/admin/_shared/period-preset'
-import {
-  usersOverviewResponseSchema,
-  type UsersOverviewResponse,
-  type UsersOverviewSeriesPoint,
-} from '@/domain/models/api/admin/users'
-import {
   bucketRowsByTimestamp,
   buildDenseBucketGrid,
   coerceTimestampToMs,
   HOUR_MS,
   intervalStepMs,
-} from '@/domain/utils/time-series-bucketing'
-import { UsersOverviewRepositoryLive } from '@/infrastructure/database/repositories/tables/users-overview-repository-live'
+} from '@/domain/kernel/time/time-series-bucketing'
+import {
+  resolvePeriodWindow,
+  type PeriodPreset,
+  type PeriodWindow,
+} from '@/domain/models/api/admin/envelope/period-preset'
+import {
+  usersOverviewResponseSchema,
+  type UsersOverviewResponse,
+  type UsersOverviewSeriesPoint,
+} from '@/domain/models/api/admin/users'
+import { decodeSafe } from '@/domain/models/api/combinators/decode'
 
 // ─── Role mapping ────────────────────────────────────────────────────────────
 
@@ -237,14 +237,9 @@ export const BuildUsersOverview = (
       },
     } satisfies UsersOverviewResponse
 
-    const parsed = usersOverviewResponseSchema.safeParse(body)
+    const parsed = decodeSafe(usersOverviewResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
     return { _tag: 'Ok', body: parsed.data } as const
-  })
-
-/**
- * Application layer for the users-overview use case.
- */
-export const UsersOverviewLayer = Layer.mergeAll(UsersOverviewRepositoryLive)
+  }).pipe(Effect.withSpan('admin.build-users-overview'))

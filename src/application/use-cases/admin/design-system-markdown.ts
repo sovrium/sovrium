@@ -33,8 +33,9 @@
  * and the JSON to describe two different design systems.
  */
 
+import { escapeMarkdownTableCell } from '@/domain/kernel/markdown/markdown-escaping'
 import { SOVRIUM_EXTENSION_KEY } from '@/domain/models/api/admin/design-system'
-import { formatColorValue } from '@/domain/services/design-system/token-values'
+import { formatColorValue } from '@/domain/models/app/design/token-value-dtcg-service'
 import type { DesignSystemDocument } from '@/domain/models/api/admin/design-system'
 
 /** A rendered section: its H2 title and its body lines, or nothing to say. */
@@ -43,8 +44,14 @@ interface Section {
   readonly lines: readonly string[]
 }
 
-/** Pipe is the table's column separator, so an authored one has to be escaped. */
-const cell = (text: string | undefined): string => (text ?? '').replace(/\|/g, '\\|')
+/**
+ * A value placed in a table cell, escaped through the canonical helper.
+ *
+ * Pipe is the column separator, backslash is the escape character, and a
+ * newline ends the row — all three are authored values here, since token
+ * descriptions and voice rules come from the app config.
+ */
+const cell = (text: string | undefined): string => escapeMarkdownTableCell(text ?? '')
 
 /** A markdown table with a fixed header. */
 const table = (
@@ -101,7 +108,7 @@ const measureSection = (
 const fontSection = (document: Readonly<DesignSystemDocument>): Section => {
   const rows = Object.entries(document.font).map(([name, token]) => [
     name,
-    Array.isArray(token.$value) ? token.$value.join(', ') : token.$value,
+    typeof token.$value === 'string' ? token.$value : token.$value.join(', '),
   ])
   return { title: 'Font families', lines: rows.length === 0 ? [] : table(['Token', 'Stack'], rows) }
 }
@@ -138,6 +145,67 @@ const toneSection = (document: Readonly<DesignSystemDocument>): Section => {
   return {
     title: 'Tone by moment',
     lines: rows.length === 0 ? [] : table(['Moment', 'Rule'], rows),
+  }
+}
+
+/**
+ * The zone map — which route family reads in which register, and what it may
+ * spend there.
+ *
+ * ─── PARITY, NOT A NEW FEATURE ──────────────────────────────────────────────
+ *
+ * `projectGuidance` has emitted `zones` into `$extensions` since `design.zones`
+ * shipped, and `sovriumDesignExtensionSchema` types it. Only this projection
+ * had no rendering, so the two faces of ONE generator disagreed about what the
+ * app's design system IS — the single thing the single-generator design exists
+ * to make impossible.
+ *
+ * ─── THE OVERRIDES TRAVEL WITH THE ZONE ─────────────────────────────────────
+ *
+ * A zone map naming the patterns and dropping the per-field voice overrides
+ * would carry the routes and lose the only reason a writer looks a zone up. So
+ * the last column states each declared departure by FIELD — a declared field
+ * replaces, an omitted field inherits `design.voice`, and saying so is what
+ * keeps an agent from reading the blank as "this zone has no voice".
+ *
+ * The pattern is printed VERBATIM and never parsed: it is not necessarily a
+ * glob, and `apps/partner` declares the literal `everything else` as a
+ * catch-all.
+ */
+const zoneSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const zones = document.$extensions[SOVRIUM_EXTENSION_KEY].zones ?? []
+
+  /** One zone's declared voice departures, field by field. */
+  const overrides = (voice: Readonly<NonNullable<(typeof zones)[number]['voice']>>): string =>
+    [
+      ...(voice.pronoun === undefined ? [] : [`pronoun: ${voice.pronoun}`]),
+      ...(voice.prefer ?? []).map((line) => `prefer: ${line}`),
+      ...(voice.avoid ?? []).map((line) => `avoid: ${line}`),
+      ...Object.entries(voice.tone ?? {}).flatMap(([moment, rule]) =>
+        rule === undefined ? [] : [`tone.${moment}: ${rule}`]
+      ),
+    ].join('; ')
+
+  const rows = zones.map((zone) => [
+    zone.pattern,
+    zone.zone,
+    zone.accentBudget ?? '',
+    zone.voice === undefined ? 'inherits design.voice' : overrides(zone.voice),
+  ])
+
+  return {
+    title: 'Zones',
+    lines:
+      rows.length === 0
+        ? []
+        : [
+            'Each pattern governs a route family. A `public` budget may spend the accent ' +
+              'demonstratively; a `product` zone keeps it quiet. A voice field declared here ' +
+              'replaces the same field of the app voice for those routes; an undeclared field ' +
+              'inherits it.',
+            '',
+            ...table(['Pattern', 'Zone', 'Accent budget', 'Voice departures'], rows),
+          ],
   }
 }
 
@@ -187,9 +255,9 @@ const typeScaleSection = (document: Readonly<DesignSystemDocument>): Section => 
     token.$value.lineHeight === undefined ? '' : String(token.$value.lineHeight),
     token.$value.fontWeight === undefined ? '' : String(token.$value.fontWeight),
     tracking(step, token.$value.letterSpacing),
-    Array.isArray(token.$value.fontFamily)
-      ? token.$value.fontFamily.join(', ')
-      : (token.$value.fontFamily ?? ''),
+    typeof token.$value.fontFamily === 'string'
+      ? token.$value.fontFamily
+      : (token.$value.fontFamily?.join(', ') ?? ''),
   ])
 
   return {
@@ -281,6 +349,81 @@ const inertSection = (document: Readonly<DesignSystemDocument>): Section => ({
 })
 
 /**
+ * The elevation ramp, each step saying who chose it.
+ *
+ * The provenance column is the reason this is a table rather than a list. An
+ * agent handed five shadows and no provenance cannot tell the step the operator
+ * decided from the four the platform supplied, so it preserves defaults as
+ * though they were choices — which is the failure the document's own
+ * `provenance` field exists to prevent, and the brief has to carry it or the two
+ * projections describe different systems.
+ */
+const shadowSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const shadows = document.$extensions[SOVRIUM_EXTENSION_KEY].shadows ?? {}
+  const rows = Object.entries(shadows).map(([name, step]) => [name, step.value, step.provenance])
+  return {
+    title: 'Shadow',
+    lines:
+      rows.length === 0
+        ? []
+        : [
+            'The elevation this app ships. `inherited` steps come from the platform; ' +
+              '`declared` ones were chosen in this config.',
+            '',
+            ...table(['Step', 'Value', 'Provenance'], rows),
+          ],
+  }
+}
+
+/**
+ * The easing curves, as the four control points DTCG carries.
+ *
+ * Printed as the CSS form a reader recognises rather than as the raw array: the
+ * document carries `[0.4, 0, 0.2, 1]` for a tool, and this projection is for
+ * someone who will type `cubic-bezier(0.4, 0, 0.2, 1)` into a stylesheet.
+ */
+const motionSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const rows = Object.entries(document.easing ?? {}).map(([name, token]) => [
+    name,
+    `cubic-bezier(${token.$value.join(', ')})`,
+  ])
+  return { title: 'Motion', lines: rows.length === 0 ? [] : table(['Curve', 'Value'], rows) }
+}
+
+/**
+ * Every component type this build ships, and the ones that will render nothing.
+ *
+ * ─── THE REFUSALS ARE THE PART THAT CANNOT BE DERIVED ──────────────────────
+ *
+ * An agent can guess at a type list from a schema. It cannot guess that
+ * `tab-panel` is schema-accepted with no renderer behind it, so writing it
+ * yields a bare `div` and no error. That sentence exists in exactly two places —
+ * the console's kit and this document — and it is why the catalogue is worth its
+ * eighty-five rows.
+ */
+const catalogueSection = (document: Readonly<DesignSystemDocument>): Section => {
+  const catalogue = document.$extensions[SOVRIUM_EXTENSION_KEY].catalogue ?? []
+  const rows = catalogue.map((entry) => [
+    entry.type,
+    entry.category,
+    (entry.variants ?? []).join(', '),
+    entry.excludedReason ?? '',
+  ])
+  return {
+    title: 'Catalogue',
+    lines:
+      rows.length === 0
+        ? []
+        : [
+            'Every component type this build ships. A row carrying a reason is NOT drawn — ' +
+              'write it and it renders nothing.',
+            '',
+            ...table(['Type', 'Category', 'Variants', 'Not drawn because'], rows),
+          ],
+  }
+}
+
+/**
  * Values that ship but have no DTCG token form — shadows, `clamp()` steps, a
  * dark palette in a single-mode document. Distinct from the inert list: these
  * DO take effect, so an agent should honour them; they simply have no typed
@@ -328,6 +471,7 @@ export function renderDesignSystemMarkdown(
       logoSection(document),
       voiceSection(document),
       toneSection(document),
+      zoneSection(document),
       colorSection(document),
       typeScaleSection(document),
       measureSection('Spacing tokens', document.spacing),
@@ -335,8 +479,16 @@ export function renderDesignSystemMarkdown(
       measureSection('Breakpoint tokens', document.breakpoint),
       fontSection(document),
       measureSection('Duration tokens', document.duration),
+      // Motion sits with its duration sibling, and Shadow with the measures:
+      // both are token groups a reader looks up while writing a rule, not
+      // guidance they read once. The catalogue goes LAST of the three because
+      // it is eighty-five rows — placing it above the shadow ramp would push a
+      // five-row table below three screens of component names.
+      motionSection(document),
+      shadowSection(document),
       imagerySection(document),
       componentSection(document),
+      catalogueSection(document),
       unmappableSection(document),
       inertSection(document),
     ]),

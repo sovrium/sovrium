@@ -6,6 +6,12 @@
  */
 
 export { BreadcrumbTypeLiteral, breadcrumbFields } from './breadcrumb'
+export {
+  CommandPaletteTypeLiteral,
+  CommandPaletteSearchSchema,
+  commandPaletteFields,
+  type CommandPaletteSearch,
+} from './command-palette'
 export { DropdownMenuTypeLiteral, dropdownMenuFields } from './dropdown-menu'
 export { ContextMenuTypeLiteral, contextMenuFields } from './context-menu'
 export { MenubarTypeLiteral, menubarFields } from './menubar'

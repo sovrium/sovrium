@@ -48,7 +48,7 @@ import {
   formatWithTokens,
   parseWithTokens,
   type DateTokenResult,
-} from '@/domain/services/date-tokens'
+} from '@/domain/kernel/format/date-tokens'
 import { logError } from '@/infrastructure/logging/logger'
 
 // ─── failure surfacing ───────────────────────────────────────────────────

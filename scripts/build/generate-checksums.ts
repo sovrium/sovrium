@@ -17,8 +17,10 @@
  *   bun run scripts/build/generate-checksums.ts --output checksums.txt
  */
 
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { basename, join } from 'node:path'
+import { printStderr } from '@/infrastructure/logging/cli-output'
+import { listDirSync } from '../lib/drift/walk'
 
 const args = Bun.argv.slice(2)
 
@@ -29,12 +31,16 @@ const dir = dirArg ?? process.cwd()
 const outputIdx = args.indexOf('--output')
 const outputFile = outputIdx !== -1 ? args[outputIdx + 1] : undefined
 
-const files = readdirSync(dir)
+// `listDirSync` rather than a bare `readdirSync`: a missing or mistyped
+// release directory must be a loud failure here, not an empty file list that
+// reads as "nothing to checksum".
+const files = listDirSync({ root: dir })
+  .map((abs) => basename(abs))
   .filter((f) => f.startsWith('sovrium-') && f.endsWith('.tar.gz'))
   .sort()
 
 if (files.length === 0) {
-  console.error('No sovrium-*.tar.gz files found in', dir)
+  printStderr(`No sovrium-*.tar.gz file in ${dir} — no checksum was written.`)
   process.exit(1)
 }
 
@@ -53,4 +59,4 @@ if (outputFile) {
   process.stdout.write(output)
 }
 
-console.error(`Generated checksums for ${files.length} file(s)`)
+printStderr(`Generated checksums for ${files.length} file(s)`)

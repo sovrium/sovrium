@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { SUPPORTED_AI_PROVIDERS } from '@/domain/models/env/ai/ai-providers'
+import { SUPPORTED_AI_PROVIDERS } from '@/domain/models/process-env/ai/ai-providers'
 
 /**
  * Values accepted for back-compat only, kept out of {@link SUPPORTED_AI_PROVIDERS}.

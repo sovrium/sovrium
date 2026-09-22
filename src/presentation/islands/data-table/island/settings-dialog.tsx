@@ -7,6 +7,15 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useState } from 'react'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  computeTableDialogBodyClasses,
+  computeTableDialogPanelClasses,
+  computeTableDialogPositionerClasses,
+  computeTableDialogTitleClasses,
+  computeTableEditorFooterClasses,
+} from '@/presentation/design/table-default-classes'
+import { computeOverlayBackdropClasses } from '../../overlays/overlay-default-classes'
 import { DROPDOWN_TRIGGER_CLASS } from './use-dropdown-state'
 
 /**
@@ -27,21 +36,21 @@ interface SettingsDialogProps {
 
 function SettingsBody({ onOpenConfirm }: { readonly onOpenConfirm: () => void }) {
   return (
-    <div className="bg-background-overlay border-border w-full max-w-sm rounded-lg border p-6 shadow-xl">
-      <Dialog.Title className="text-foreground text-lg font-semibold">Table settings</Dialog.Title>
-      <Dialog.Description className="text-foreground-muted mt-2 text-sm">
+    <div className={computeTableDialogPanelClasses()}>
+      <Dialog.Title className={computeTableDialogTitleClasses()}>Table settings</Dialog.Title>
+      <Dialog.Description className={computeTableDialogBodyClasses()}>
         Personal table preferences — column widths, row density, and your default view.
       </Dialog.Description>
-      <div className="mt-4 flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <button
           type="button"
-          className="hover:bg-background-subtle rounded border px-3 py-2 text-left text-sm"
+          className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
           onClick={onOpenConfirm}
         >
           Reset to defaults
         </button>
       </div>
-      <div className="mt-4 flex justify-end">
+      <div className={computeTableEditorFooterClasses()}>
         <Dialog.Close className={DROPDOWN_TRIGGER_CLASS}>Close</Dialog.Close>
       </div>
     </div>
@@ -50,19 +59,19 @@ function SettingsBody({ onOpenConfirm }: { readonly onOpenConfirm: () => void })
 
 function ConfirmBody({ onConfirm }: { readonly onConfirm: () => void }) {
   return (
-    <div className="bg-background-overlay border-border w-full max-w-sm rounded-lg border p-6 shadow-xl">
-      <Dialog.Title className="text-foreground text-lg font-semibold">
+    <div className={computeTableDialogPanelClasses()}>
+      <Dialog.Title className={computeTableDialogTitleClasses()}>
         Reset table preferences?
       </Dialog.Title>
-      <Dialog.Description className="text-foreground-muted mt-2 text-sm">
+      <Dialog.Description className={computeTableDialogBodyClasses()}>
         This clears your column widths, row density, column order, and default view for this table.
         Developer-configured defaults apply on the next page load.
       </Dialog.Description>
-      <div className="mt-4 flex justify-end gap-2">
+      <div className={computeTableEditorFooterClasses()}>
         <Dialog.Close className={DROPDOWN_TRIGGER_CLASS}>Cancel</Dialog.Close>
         <button
           type="button"
-          className="bg-primary hover:bg-primary-emphasis text-on-primary rounded px-3 py-1 text-sm"
+          className={computeButtonDefaultClasses({ variant: 'default', size: 'sm' })}
           onClick={onConfirm}
         >
           Confirm
@@ -90,8 +99,8 @@ export function SettingsDialog({ onReset }: SettingsDialogProps) {
           Settings
         </Dialog.Trigger>
         <Dialog.Portal>
-          <Dialog.Backdrop className="bg-scrim/40 fixed inset-0 z-50" />
-          <Dialog.Popup className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <Dialog.Backdrop className={computeOverlayBackdropClasses()} />
+          <Dialog.Popup className={computeTableDialogPositionerClasses()}>
             <SettingsBody onOpenConfirm={openConfirm} />
           </Dialog.Popup>
         </Dialog.Portal>
@@ -102,8 +111,8 @@ export function SettingsDialog({ onReset }: SettingsDialogProps) {
         onOpenChange={setConfirmOpen}
       >
         <Dialog.Portal>
-          <Dialog.Backdrop className="bg-scrim/50 fixed inset-0 z-50" />
-          <Dialog.Popup className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <Dialog.Backdrop className={computeOverlayBackdropClasses()} />
+          <Dialog.Popup className={computeTableDialogPositionerClasses()}>
             <ConfirmBody onConfirm={handleConfirm} />
           </Dialog.Popup>
         </Dialog.Portal>

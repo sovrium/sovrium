@@ -9,7 +9,7 @@
  * Prestyled-by-default class computers for the scroll-area island
  *. The Base UI ScrollArea primitive ships with custom-styled
  * scrollbars that appear on hover; this helper paints the bar track + thumb
- * through the var-with-fallback recipe so `app.theme.*` overrides still win
+ * through the var-with-fallback recipe so `app.design.*` overrides still win
  * (the previous inline `bg-border-strong` alias only resolved when the
  * theme layer was loaded).
  *
@@ -39,7 +39,7 @@
  * `date-default-classes.ts`, and `overlay-default-classes.ts`.
  */
 
-import { TOKENS as T, withVarFallback as v } from '@/presentation/utils/design/css-var'
+import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 
 /**
  * Scrollbar orientation axis (matches Base UI's `orientation` prop):
@@ -71,7 +71,7 @@ export const computeScrollAreaScrollbarClasses = ({
 const SCROLLBAR_THUMB = [
   'flex-1',
   `bg-[${v('sv-border-strong', T.borderStrong)}]`,
-  `rounded-[${v('sv-radius-full', T.radiusFull)}]`,
+  `rounded-[${v('radius-full', T.radiusFull)}]`,
 ].join(' ')
 
 /**
@@ -85,7 +85,7 @@ const SCROLLBAR_THUMB = [
  * Replaces the previously inline `bg-border-strong` alias on
  * `<ScrollArea.Thumb>` so the thumb tone now flows through the
  * `--sv-border-strong` var-fallback registration — tenants who override
- * `app.theme.colors.border` see the thumb shift with the rest of the
+ * `app.design.colors.border` see the thumb shift with the rest of the
  * theme chrome.
  */
 export const computeScrollAreaThumbClasses = (): string => SCROLLBAR_THUMB

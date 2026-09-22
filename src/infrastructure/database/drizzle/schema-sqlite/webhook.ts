@@ -45,6 +45,10 @@ export const webhookConfigs = systemTable(
  * Webhook Deliveries Table
  *
  * Outgoing webhook delivery log (attempt tracking, status, response).
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 export const webhookDeliveries = systemTable(
   'webhook_deliveries',
@@ -76,7 +80,3 @@ export const webhookDeliveries = systemTable(
 )
 
 // Type inference
-export type WebhookConfig = typeof webhookConfigs.$inferSelect
-export type NewWebhookConfig = typeof webhookConfigs.$inferInsert
-export type WebhookDelivery = typeof webhookDeliveries.$inferSelect
-export type NewWebhookDelivery = typeof webhookDeliveries.$inferInsert

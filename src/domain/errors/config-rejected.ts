@@ -13,13 +13,18 @@
  * type exists for one reason: so a CLI can tell a refusal apart from a crash.
  *
  * WHY THAT DISTINCTION EARNS A TYPE. `formatRuntimeError` answers "what went
- * wrong inside the engine": for a plain `Error` it returns `.stack`, and
- * `Console.error('Failed to start server:', error)` hands the object to Bun's
- * pretty printer, which prefixes a source-context window from `src/index.ts`.
- * Both are correct for a fault and wrong for a refusal. A config Sovrium
- * declined is not a bug in Sovrium, and a reader whose app just stopped booting
- * on a breaking change should see the property we could not read on line one —
- * not a stack frame inviting them to debug our code instead of their config.
+ * wrong inside the engine": for a plain `Error` it returns `.stack`, and for an
+ * Effect `FiberFailure` it unwraps the real `Cause`. That is correct for a fault
+ * and wrong for a refusal. A config Sovrium declined is not a bug in Sovrium,
+ * and a reader whose app just stopped booting on a breaking change should see
+ * the property we could not read on line one — not a stack frame inviting them
+ * to debug our code instead of their config.
+ *
+ * The fault branch in `start.ts` used to read `Console.error('Failed to start
+ * server:', error)`, handing the object to Bun's pretty printer for a
+ * source-context window. That form is gone: the printer colours its output on a
+ * TTY, which T35 #3 bans. The branch now formats through `formatRuntimeError`
+ * and keeps the stack, which is the half this distinction turns on.
  *
  * Only this shape prints as prose. Everything else keeps its stack.
  */

@@ -22,7 +22,7 @@ import {
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import { recordComments as recordCommentsPg } from '@/infrastructure/database/drizzle/schema/record-comments'
 import { recordComments as recordCommentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/record-comments'
-import { wrapDatabaseError } from '../shared/error-handling'
+import { wrapDatabaseError } from '../statement/error-handling'
 import { activeCommentsByRecordId } from './comment-query-predicates'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DatabaseError } from '@/infrastructure/database'

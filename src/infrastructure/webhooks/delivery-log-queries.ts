@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { getDb } from '@/infrastructure/database/drizzle/db-bun'
 
 /**

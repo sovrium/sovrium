@@ -5,13 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
 import {
   formatForeignKeyResolutionError,
   resolveRelationshipForeignKey,
   type RelationshipFieldLike,
   type RelationshipTableLike,
-} from '@/domain/services/tables/relationship-foreign-key'
+} from '@/domain/models/app/tables/relationship-foreign-key'
 
 /**
  * Refuse a config whose `count` / `rollup` fields traverse a one-to-many whose
@@ -88,19 +87,24 @@ const checkComputedField = (
  * failure mode it exists to prevent elsewhere. Naming the type means the
  * compiler, not a spec run, is the thing that notices.
  *
+ * PURE, AND A PLAIN FUNCTION. It reads one property of a decoded object and
+ * returns strings; nothing it does is an effect. Wrapping the result in
+ * `Effect.fail` only obliged its single caller to run a fiber to unwrap it
+ * again — a synchronous one, inside a synchronous decode — which is the shape
+ * standing rule E1 exists to remove. Returning the list says the same thing
+ * and composes with the caller's other checks by concatenation.
+ *
  * @param app - Decoded app config
- * @returns Effect failing with every unresolvable foreign key described, or
- *   succeeding with `void` when each computed field can name its column.
+ * @returns one message per unresolvable foreign key; empty when every computed
+ *   field can name its column.
  */
 export const validateComputedFieldForeignKeys = (
   app: Readonly<{ readonly tables?: readonly TableLike[] }>
-): Effect.Effect<void, string> => {
+): readonly string[] => {
   const allTables = app.tables ?? []
-  const errors = allTables.flatMap((table) =>
+  return allTables.flatMap((table) =>
     (table.fields ?? [])
       .filter((field) => typeof field.type === 'string' && COMPUTED_FIELD_TYPES.has(field.type))
       .flatMap((field) => checkComputedField(table, field, allTables))
   )
-
-  return errors.length > 0 ? Effect.fail(errors.join('\n')) : Effect.void
 }

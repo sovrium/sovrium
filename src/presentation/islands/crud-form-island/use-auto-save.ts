@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react'
-import { type FieldDef } from '../components/crud-form/fields'
+import { type FieldDef } from '../parts/crud-form/fields'
 import { type CrudFormIslandProps, type FormState, type SubmitContext } from './types'
 
 /** Default debounce delay (ms) for `saveMode: 'auto'` when not configured. */

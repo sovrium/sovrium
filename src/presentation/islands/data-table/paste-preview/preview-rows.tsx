@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeTablePreviewGridCellClasses } from '@/presentation/design/table-default-classes'
 import { TYPE_MISMATCH_MESSAGE } from './cell-mismatch'
 import { PREVIEW_ROW_LIMIT } from './skip-value'
 import type { ParsedTsv } from './parse-tsv'
@@ -22,17 +23,17 @@ interface PreviewRowsProps {
 /** Renders a single preview cell, mismatched or normal. */
 function PreviewCell({ value, mismatch }: { readonly value: string; readonly mismatch: boolean }) {
   if (!mismatch) {
-    return <td className="text-foreground px-3 py-2">{value}</td>
+    return <td className={computeTablePreviewGridCellClasses({ kind: 'data' })}>{value}</td>
   }
   return (
     <td
       data-mismatch="true"
-      className="group bg-error-solid text-error-solid-fg relative px-3 py-2"
+      className={`${computeTablePreviewGridCellClasses({ kind: 'data' })} group bg-error-bg text-error-fg relative`}
     >
       {value}
       <span
         role="tooltip"
-        className="bg-foreground text-background pointer-events-none absolute top-full left-1/2 z-10 -translate-x-1/2 rounded px-2 py-1 text-xs whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100"
+        className="bg-foreground text-background pointer-events-none absolute top-full left-1/2 z-10 -translate-x-1/2 rounded px-2 py-1 text-sm whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100"
       >
         {TYPE_MISMATCH_MESSAGE}
       </span>
@@ -51,7 +52,7 @@ function PreviewCell({ value, mismatch }: { readonly value: string; readonly mis
 export function PreviewRows({ parsed, mismatchMatrix }: PreviewRowsProps) {
   const previewRows = parsed.rows.slice(0, PREVIEW_ROW_LIMIT)
   return (
-    <tbody className="divide-border divide-y">
+    <tbody>
       {previewRows.map((row, rowIndex) => (
         <tr key={`row-${rowIndex}`}>
           {parsed.headers.map((_, columnIndex) => (

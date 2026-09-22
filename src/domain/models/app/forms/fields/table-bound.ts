@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { commonFieldProps } from '../../../shared/form-field-props'
+import { commonFieldProps } from '../form-field-props'
 
 /**
  * Table-bound field — references a column on the form's `submitTo.table`.

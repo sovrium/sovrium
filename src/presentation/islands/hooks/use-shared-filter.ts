@@ -13,7 +13,7 @@ import { useEffect, useMemo, useState } from 'react'
  *
  * The DYNAMIC counterpart to a system source's static `query`: a data source
  * carrying `bindTo` + `sharedFilter` subscribes to a sibling PUBLISHER (a
- * `searchInput` / selector / filter / period control whose component id equals
+ * `search-input` / selector / filter / period control whose component id equals
  * `bindTo`) and re-reads with the publisher's current value merged into its
  * request as the named param(s). ONE publisher can drive MANY sibling
  * subscribers (a DB-table grid + a system-source grid both re-read on the shared
@@ -26,11 +26,17 @@ import { useEffect, useMemo, useState } from 'react'
  * client-side search (handled elsewhere), never a request param.
  *
  * It reuses — never reinvents — the existing publisher channels:
- *  - a scalar `searchInput` publishes its value via the DOM `input` event on its
+ *  - a scalar `search-input` publishes its value via the DOM `input` event on its
  *    `#<bindTo> input` (the same channel the legacy `useBoundQuery` reads), and
  *    via the `island:search` CustomEvent when it is an island;
  *  - a multi-param selector publishes a param BAG via the `island:system-query`
- *    CustomEvent (the channel the runs filter bar already dispatches).
+ *    CustomEvent (the channel the runs filter bar already dispatches);
+ *  - a config `select` carrying `publishes: { bindTo, param }` contributes ONE
+ *    key of a bag on that same event (`use-shared-filter-publisher.ts`).
+ *
+ * ONE CHANNEL, MANY CONTRIBUTORS. Bags arriving on a channel are MERGED rather
+ * than replaced, which is what lets two sibling selects put both their params
+ * into the SAME request.
  *
  * Mapping the published value to the merged request bag:
  *  - scalar value `v` + `params: [p1, p2]` -> `{ p1: v, p2: v }`
@@ -83,6 +89,94 @@ function selectParams(
 }
 
 /**
+ * The contributions a DOM publisher already holds on this channel when a
+ * subscriber mounts.
+ *
+ * ─── WHY THIS EXISTS ────────────────────────────────────────────────────────
+ *
+ * A NATIVE select (`select.native` + `publishes`) is live from FIRST PAINT —
+ * that is the whole point of [internal ref] — while this subscriber is a lazily
+ * hydrated island. So an operator who picks a filter during that window
+ * dispatches into a channel nobody is listening on yet and the selection is
+ * silently lost: the grid keeps showing everything while the control reads
+ * "member".
+ *
+ * The fix is the one this hook already applies to a static `search-input` a few
+ * lines below — capture what the DOM publisher is holding at mount rather than
+ * relying on having heard its event.
+ *
+ * ─── WHY IT IS NOT LIMITED TO A `<select>` ──────────────────────────────────
+ *
+ * A `filter-bar` hits the same window from the OTHER side, and deterministically
+ * rather than occasionally. It publishes its INITIAL conditions the moment it
+ * mounts, and its chunk is a few KB against the data-table's several hundred —
+ * so the bar has almost always finished publishing before the grid's listener
+ * exists. Waiting for an event that was already sent leaves a page whose bar
+ * shows a chip and whose grid shows everything, on every load rather than on a
+ * slow one.
+ *
+ * So a publisher may also HOLD its current contribution in the DOM, on any
+ * element carrying `data-publishes-bind-to` + `data-publishes-param`. The
+ * filter-bar renders that element both server-side (so a grid mounting before
+ * the bar still sees the opening conditions) and inside the mounted island (so
+ * it stays current after the reader edits the set). The event channel remains
+ * the live path; this is only the late-join capture.
+ *
+ * The attribute is compared in JS rather than interpolated into the selector:
+ * `bindTo` is author-supplied config, and a channel named `a"]` would otherwise
+ * build a broken (or hostile) selector.
+ *
+ * An empty selection is skipped, exactly as the input capture skips `''` — an
+ * untouched filter must not force a re-read on mount.
+ */
+function readDomPublisherContributions(bindTo: string): Record<string, string> {
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-publishes-bind-to]'))
+    .filter((element) => element.getAttribute('data-publishes-bind-to') === bindTo)
+    .reduce<Record<string, string>>((bag, element) => {
+      const param = element.getAttribute('data-publishes-param')
+      const value = readPublishedDomValue(element)
+      if (param === null || value === '') return bag
+      return { ...bag, [param]: value }
+    }, {})
+}
+
+/**
+ * What one DOM publisher is currently holding.
+ *
+ * A `<select>` reports its selection (a MULTIPLE one joined by commas, the
+ * shape a repeated query param already collapses to); an `<input>` — the
+ * filter-bar's hidden expression carrier — reports its value. Anything else
+ * contributes nothing rather than the string `"undefined"`.
+ */
+function readPublishedDomValue(element: HTMLElement): string {
+  if (element instanceof HTMLSelectElement) {
+    return element.multiple
+      ? Array.from(element.selectedOptions)
+          .map((option) => option.value)
+          .join(',')
+      : element.value
+  }
+  return element instanceof HTMLInputElement ? element.value : ''
+}
+
+/**
+ * Fold a DOM publisher's mount-time contributions into the published value,
+ * leaving it untouched when there are none — so a subscriber whose channel has
+ * no DOM publisher keeps its `undefined` initial state and does not re-read.
+ */
+function mergeDomPublisherSeed(
+  previous: PublishedValue | undefined,
+  bindTo: string
+): PublishedValue | undefined {
+  const seeded = readDomPublisherContributions(bindTo)
+  if (Object.keys(seeded).length === 0) return previous
+  return {
+    kind: 'bag',
+    value: previous?.kind === 'bag' ? { ...previous.value, ...seeded } : seeded,
+  }
+}
+
+/**
  * Subscribe to the `bindTo` publisher and return the merged request-param bag.
  * The result is stable between publisher changes so it can drive a query key
  * without spurious re-reads.
@@ -105,7 +199,18 @@ export function useSharedFilter({
       const detail = (e as CustomEvent).detail as
         { params?: Record<string, string>; sourceId?: string } | undefined
       if (detail?.params === undefined || detail.sourceId !== bindTo) return
-      setPublished({ kind: 'bag', value: detail.params })
+      const contributed = detail.params
+      // MERGE, never replace. A channel has MANY contributors — a runs
+      // directory drives one grid from two selectors, each publishing only its
+      // own `param` — so replacing would let the last control touched erase
+      // every sibling's contribution, and the two params could never arrive in
+      // the same request. A publisher that sends its whole bag every time (the
+      // runs filter bar) is unaffected: merging its complete bag over the
+      // previous one is the same value.
+      setPublished((prev) => ({
+        kind: 'bag',
+        value: prev?.kind === 'bag' ? { ...prev.value, ...contributed } : contributed,
+      }))
     }
     document.addEventListener('island:system-query', onSystemQuery)
 
@@ -117,7 +222,7 @@ export function useSharedFilter({
     }
     document.addEventListener('island:search', onSearch)
 
-    // Scalar publisher via the DOM input of a static `searchInput` (the channel
+    // Scalar publisher via the DOM input of a static `search-input` (the channel
     // the legacy `useBoundQuery` reads): listen for its `input` event directly.
     const container = document.getElementById(bindTo)
     const input = container?.querySelector('input') ?? document.querySelector(`#${bindTo} input`)
@@ -131,6 +236,14 @@ export function useSharedFilter({
     if (input instanceof HTMLInputElement && input.value !== '') {
       setPublished({ kind: 'scalar', value: input.value })
     }
+
+    // The same late-join capture for a publisher that HOLDS its contribution in
+    // the DOM — an island-less native select (usable from first paint, so it
+    // misses far more than an input can) or a filter-bar (which publishes its
+    // opening conditions before this subscriber's listener exists). Merged
+    // rather than assigned, for the reason `onSystemQuery` merges: a channel
+    // has many contributors.
+    setPublished((prev) => mergeDomPublisherSeed(prev, bindTo))
 
     return () => {
       document.removeEventListener('island:system-query', onSystemQuery)

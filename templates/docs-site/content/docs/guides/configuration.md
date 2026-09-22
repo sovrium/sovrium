@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: Theme tokens, the Shiki code-block theme, and collection options.
+description: Design tokens, the Shiki code-block theme, and collection options.
 category: Guides
 order: 4
 draft: false
@@ -8,14 +8,14 @@ draft: false
 
 # Configuration
 
-Three knobs shape the site: the theme, the code-block highlighter, and the
-content-directory collection.
+Three knobs shape the site: the design tokens, the code-block highlighter, and
+the content-directory collection.
 
-## Theme tokens
+## Design tokens
 
-Colors, fonts, radii, and shadows live in `config/theme.yaml`. Token names become
-both Tailwind utilities and CSS variables, so the markdown layouts pick them up
-automatically.
+Colours, type, radii and elevation live in `config/design.yaml`. Token names
+become both Tailwind utilities and CSS variables, so the markdown layouts pick
+them up automatically.
 
 ```yaml
 colors:
@@ -33,7 +33,7 @@ fonts:
 Fenced code is highlighted server-side by Shiki, themed by one token:
 
 ```yaml
-theme:
+design:
   codeBlock:
     theme: github-dark
 ```
@@ -58,5 +58,5 @@ The `docs.yaml` page configures how the folder is scanned and navigated:
 
 ::: callout
 Want a light site? Set `codeBlock.theme: github-light` and swap the palette in
-`theme.yaml`. The layouts re-theme themselves from the tokens.
+`design.yaml`. The layouts restyle themselves from the tokens.
 :::

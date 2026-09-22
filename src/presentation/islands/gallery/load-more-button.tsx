@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { computeGalleryPagerClasses } from '@/presentation/design/gallery-default-classes'
 import type { ReactElement } from 'react'
 
 interface LoadMoreButtonProps {
@@ -15,14 +17,19 @@ interface LoadMoreButtonProps {
  * "Load More" button rendered below the gallery when
  * `dataSource.pagination.style === 'loadMore'` and the current visible slice
  * is smaller than the total available records.
+ *
+ * Both halves are recipes now. The footer is the gallery's pager chrome, which
+ * a numbered pager would share; the control is the shared F1 secondary button,
+ * so a gallery's "Load More" and a list's are the same control rather than two
+ * hand-written approximations of one.
  */
 export function LoadMoreButton({ onClick }: LoadMoreButtonProps): ReactElement {
   return (
-    <div className="flex w-full justify-center p-3">
+    <div className={computeGalleryPagerClasses()}>
       <button
         type="button"
         onClick={onClick}
-        className="border-border bg-background-raised text-foreground hover:bg-background-subtle rounded-md border px-4 py-2 text-sm font-medium"
+        className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
       >
         Load More
       </button>

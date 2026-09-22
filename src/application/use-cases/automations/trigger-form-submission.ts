@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
-import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
+import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { loadPausedAutomationNames } from './paused-automation-names'
@@ -249,5 +249,6 @@ export const triggerFormSubmissionAutomations = (
       Effect.sync(() => {
         logError('[automation:form-submission] dispatch failure', cause)
       })
-    )
+    ),
+    Effect.withSpan('automations.trigger-form-submission-automations')
   )

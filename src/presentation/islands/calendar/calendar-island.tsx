@@ -5,13 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveIslandRecords } from '../shared/data-binding'
+import { resolveIslandRecords } from '../runtime/data-binding'
 import { CalendarError, CalendarLoading, CalendarMissingDateField } from './calendar-states'
 import { CalendarViewComponent } from './calendar-view'
 import { recordsToCalendarEvents } from './record-to-event'
 import { useCalendarRecords } from './use-calendar-records'
 import type { CalendarEvent } from './record-to-event'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 import type {
   CalendarEventConfig,
   CalendarInteraction,

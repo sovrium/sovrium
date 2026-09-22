@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 // ---------------------------------------------------------------------------
 // RAG similarity search request schema
@@ -18,36 +19,38 @@ import { z } from 'zod'
  * - OpenAPI documentation generation
  * - Runtime API request validation via @hono/zod-validator
  */
-export const ragSearchRequestSchema = z.object({
-  query: z
-    .string()
-    .min(1)
-    .describe('Natural-language query to embed and match against the knowledge base'),
-  agent: z
-    .string()
-    .optional()
-    .describe('Agent name to scope the search to (searches all agents if omitted)'),
+export const ragSearchRequestSchema = Schema.Struct({
+  query: Schema.String.annotate({
+    description: 'Natural-language query to embed and match against the knowledge base',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  agent: optionalField(
+    Schema.String.annotate({
+      description: 'Agent name to scope the search to (searches all agents if omitted)',
+    })
+  ),
 })
 
-export type RagSearchRequest = z.infer<typeof ragSearchRequestSchema>
+export type RagSearchRequest = typeof ragSearchRequestSchema.Type
 
 // ---------------------------------------------------------------------------
 // RAG similarity search result schemas
 // ---------------------------------------------------------------------------
 
 /** A single pgvector cosine-similarity match returned by the search endpoint. */
-export const ragSearchResultSchema = z.object({
-  agentName: z.string().describe('Name of the agent the matched knowledge belongs to'),
-  sourceRef: z.string().describe('Reference to the source document or table record'),
-  content: z.string().describe('The matched knowledge chunk content'),
-  similarity: z
-    .number()
-    .min(0)
-    .max(1)
-    .describe('Cosine similarity score in the range 0..1 (higher is more relevant)'),
+export const ragSearchResultSchema = Schema.Struct({
+  agentName: Schema.String.annotate({
+    description: 'Name of the agent the matched knowledge belongs to',
+  }),
+  sourceRef: Schema.String.annotate({
+    description: 'Reference to the source document or table record',
+  }),
+  content: Schema.String.annotate({ description: 'The matched knowledge chunk content' }),
+  similarity: Schema.Finite.annotate({
+    description: 'Cosine similarity score in the range 0..1 (higher is more relevant)',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))),
 })
 
-export type RagSearchResult = z.infer<typeof ragSearchResultSchema>
+export type RagSearchResult = typeof ragSearchResultSchema.Type
 
 /**
  * Response schema for the RAG similarity search endpoint.
@@ -55,10 +58,10 @@ export type RagSearchResult = z.infer<typeof ragSearchResultSchema>
  * On a provider or database failure the endpoint degrades gracefully and
  * returns an empty `results` array rather than a 5xx error.
  */
-export const ragSearchResponseSchema = z.object({
-  results: z
-    .array(ragSearchResultSchema)
-    .describe('Matched knowledge chunks ordered by descending similarity'),
+export const ragSearchResponseSchema = Schema.Struct({
+  results: Schema.Array(ragSearchResultSchema).annotate({
+    description: 'Matched knowledge chunks ordered by descending similarity',
+  }),
 })
 
-export type RagSearchResponse = z.infer<typeof ragSearchResponseSchema>
+export type RagSearchResponse = typeof ragSearchResponseSchema.Type

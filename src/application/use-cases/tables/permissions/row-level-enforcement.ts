@@ -8,7 +8,7 @@
 /**
  * Z-3 row-level permission enforcement orchestration.
  *
- * Bridges the pure domain evaluator (src/domain/validators/row-level-evaluator)
+ * Bridges the pure domain evaluator (src/domain/models/app/tables/row-level-evaluator-service)
  * with the infrastructure-backed `user_access` lookup, returning a context
  * object the presentation handlers can use both for SQL filter projection
  * (list queries) and per-record evaluation (GET-by-id, PATCH, DELETE,
@@ -23,10 +23,13 @@
 
 import { Effect } from 'effect'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import { isPredicateGroup, type CurrentUserContext } from '@/domain/validators/row-level-evaluator'
+import {
+  isPredicateGroup,
+  type CurrentUserContext,
+} from '@/domain/models/app/tables/row-level-evaluator-service'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { logError } from '@/infrastructure/logging'
-import type { UserSession } from '@/application/ports/models/user-session'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { RowLevelPermissions, RowLevelWhen } from '@/domain/models/app/tables/permissions'
 
 /**
@@ -97,7 +100,7 @@ export const loadCurrentUserContext = (
       isUnrestricted: session.isUnrestricted,
       assignments: new Map(entries),
     }
-  })
+  }).pipe(Effect.withSpan('tables.load-current-user-context'))
 
 /**
  * Extract every `assignments.<tableSlug>` referenced inside a

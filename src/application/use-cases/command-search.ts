@@ -6,22 +6,25 @@
  */
 
 // eslint-disable-next-line no-restricted-syntax -- The command palette search is a cross-cutting concern, not phase-specific
-import { Effect, Layer } from 'effect'
+import { Data, Effect } from 'effect'
 import {
   CommandSearchRepository,
   type CommandSearchDatabaseError,
 } from '@/application/ports/repositories/command-search-repository'
-import { extractMatchExcerpt, stripMarkdownToPlainText } from '@/domain/utils/content-dir-excerpt'
-import { searchableTextColumns } from '@/domain/utils/database/searchable-text-columns'
-import { sanitizeTableName } from '@/domain/utils/database/table-naming'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import {
+  extractMatchExcerpt,
+  stripMarkdownToPlainText,
+} from '@/domain/models/app/pages/content-dir-excerpt'
 import {
   buildReadAccessPlan,
   CANONICAL_READ_POLICY,
   type ReadPrincipal,
   type TableLike,
-} from '@/domain/validators/read-access-plan'
-import { CommandSearchRepositoryLive } from '@/infrastructure/database/repositories/command-search-repository-live'
+} from '@/domain/models/app/tables/read-access-plan-service'
+import { searchableTextColumns } from '@/domain/models/app/tables/searchable-text-columns'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
+import { logError } from '@/infrastructure/logging/logger'
 import { readContentDirBodies } from '@/infrastructure/markdown/content-dir-enumerator'
 import type { App } from '@/domain/models/app'
 
@@ -45,10 +48,10 @@ import type { App } from '@/domain/models/app'
  *
  * Records were already capped at 25; `searchPages` and `searchContentDirPages`
  * were not, and both are unbounded in the same way that produced the 504. A
- * documentation site is exactly the shape that breaks it: `apps/website` alone
- * serves ~204 articles per locale, so a short query against its content
- * directory serialized hundreds of results into a palette that renders roughly
- * ten of them. Total response is now bounded at 10 + 10 + 25.
+ * documentation site is exactly the shape that breaks it: a short query against
+ * `apps/website`'s content directory matches a large fraction of its articles,
+ * and serialized every one of them into a palette that renders roughly ten.
+ * Total response is now bounded at 10 + 10 + 25.
  */
 const PAGE_RESULT_CAP = 10
 
@@ -303,6 +306,37 @@ const searchableColumnsFor = (
  * favorites boosted above non-favorited ones. Both groups preserve declaration
  * order; the record group is capped at 25.
  */
+/**
+ * Content-directory page matches, or none when the scan cannot run.
+ *
+ * Typed, then degraded: the scan reads the filesystem, so a missing or
+ * unreadable directory rejects. Under `Effect.promise` that was a defect, and
+ * the whole command palette — records and static pages included — answered 500
+ * because one markdown folder was unreadable.
+ */
+class ContentDirScanError extends Data.TaggedError('ContentDirScanError')<{
+  readonly cause: unknown
+}> {}
+
+const contentDirPageResults = (
+  app: App,
+  query: string
+): Effect.Effect<readonly CommandSearchResult[], never> =>
+  Effect.tryPromise({
+    try: () => searchContentDirPages(app, query),
+    catch: (cause) => new ContentDirScanError({ cause }),
+  }).pipe(
+    Effect.map((results) => results.slice(0, PAGE_RESULT_CAP)),
+    Effect.tapCause((cause) =>
+      Effect.sync(() => {
+        logError('[command-search] content directory scan failed', cause)
+      })
+    ),
+    // effect-swallow: see the tap above. A palette missing its content-page rows
+    // is a degraded palette; a palette that 500s is no palette at all.
+    Effect.orElseSucceed(() => [] as readonly CommandSearchResult[])
+  )
+
 export const SearchCommandPalette = (
   app: App,
   query: string,
@@ -368,15 +402,7 @@ export const SearchCommandPalette = (
     // independently — see PAGE_RESULT_CAP; a content directory is unbounded by
     // config and the palette renders roughly ten rows either way.
     const pages = searchPages(app, query).slice(0, PAGE_RESULT_CAP)
-    const contentDirPages = (yield* Effect.promise(() => searchContentDirPages(app, query))).slice(
-      0,
-      PAGE_RESULT_CAP
-    )
+    const contentDirPages = yield* contentDirPageResults(app, query)
 
     return [...pages, ...contentDirPages, ...rankedRecords]
-  })
-
-/**
- * Application layer for the command-palette search use case.
- */
-export const CommandSearchLayer = Layer.mergeAll(CommandSearchRepositoryLive)
+  }).pipe(Effect.withSpan('command-search.search-command-palette'))

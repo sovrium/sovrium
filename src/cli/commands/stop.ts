@@ -55,7 +55,6 @@ export const handleStopCommand = async (): Promise<void> => {
   }
 
   // Belt-and-braces: the server removes its own lock file on the way out.
-  // eslint-disable-next-line functional/no-expression-statements
   await removeLockFile()
 
   // No guidance line on the success path: the inverse of `stop` is `start`, and

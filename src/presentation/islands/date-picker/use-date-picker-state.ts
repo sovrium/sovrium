@@ -5,7 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import {
+  useCallback,
+  useMemo,
+  useState,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from 'react'
+import { useDismissOnOutsidePointerDown } from '../hooks/use-dismiss-on-outside-pointer-down'
 import {
   formatDate,
   formatRange,
@@ -33,6 +41,11 @@ export interface DatePickerState {
   readonly maxDateObj: Date | undefined
   readonly hiddenInputValue: string
   readonly triggerLabel: string
+  /**
+   * Goes on the element that counts as "inside" the control — trigger and
+   * calendar together — so a press anywhere else shuts it.
+   */
+  readonly containerRef: RefObject<HTMLSpanElement | null>
   readonly toggleOpen: () => void
   readonly handleDayClick: (day: Date) => void
   readonly handlePrevMonth: () => void
@@ -136,6 +149,21 @@ function useDatePickerCallbacks({
 }
 
 /**
+ * Shut the calendar when the reader presses somewhere that is not the control.
+ *
+ * A thin wrapper because the shared hook wants a stable `close` and this hook
+ * holds a `setOpen`; naming the pairing once keeps the composition root below
+ * reading as a list of concerns rather than as plumbing.
+ */
+function useOutsideDismissal(
+  open: boolean,
+  setOpen: Dispatch<SetStateAction<boolean>>
+): RefObject<HTMLSpanElement | null> {
+  const close = useCallback(() => setOpen(false), [setOpen])
+  return useDismissOnOutsidePointerDown<HTMLSpanElement>(open, close)
+}
+
+/**
  * Composition-root hook for the date-picker island. Owns all reactive
  * state + callback memoization so the island component body stays under
  * the per-function line-count limit.
@@ -179,8 +207,11 @@ export function useDatePickerState({
     setViewMonth,
   })
 
+  const containerRef = useOutsideDismissal(open, setOpen)
+
   return {
     open,
+    containerRef,
     singleValue,
     rangeValue,
     viewMonth,

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveRelationshipForeignKey } from '@/domain/services/tables/relationship-foreign-key'
+import { resolveRelationshipForeignKey } from '@/domain/models/app/tables/relationship-foreign-key'
 import type { Table } from '@/domain/models/app/tables'
 
 /**

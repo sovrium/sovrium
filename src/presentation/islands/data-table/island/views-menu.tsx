@@ -6,6 +6,11 @@
  */
 
 import { useCallback, useState } from 'react'
+import {
+  computeTableMenuClasses,
+  computeTableMenuItemClasses,
+  computeTableMenuSeparatorClasses,
+} from '@/presentation/design/table-default-classes'
 import { DROPDOWN_TRIGGER_CLASS, useDropdownState } from './use-dropdown-state'
 
 /**
@@ -173,7 +178,9 @@ function ViewsMenuPopup({
     <div
       role="menu"
       aria-label="Views"
-      className="border-border bg-background-overlay absolute right-0 z-50 mt-1 min-w-[14rem] rounded border py-1 shadow-lg"
+      // `min-w-48` (192px) for the arbitrary `min-w-[14rem]` it replaces: the
+      // same order of width, spent as a ladder step rather than a literal.
+      className={`${computeTableMenuClasses()} absolute right-0 mt-1 min-w-48`}
     >
       {views.map((entry) => (
         <ViewsMenuItem
@@ -187,13 +194,13 @@ function ViewsMenuPopup({
       ))}
       <div
         role="separator"
-        className="border-border my-1 border-t"
+        className={computeTableMenuSeparatorClasses()}
       />
       <button
         type="button"
         role="menuitem"
         onClick={onSaveCurrent}
-        className="hover:bg-background-subtle block w-full px-4 py-2 text-left text-sm"
+        className={computeTableMenuItemClasses()}
       >
         Save current view
       </button>
@@ -241,12 +248,15 @@ function ViewsMenuItem({ entry, shareOpen, onSelect, onDelete, onShare }: ViewsM
   )
   return (
     <div data-view-source={entry.source}>
-      <div className="group hover:bg-background-subtle flex items-center">
+      <div className={`${computeTableMenuItemClasses()} group flex items-center`}>
         <button
           type="button"
           role="menuitem"
           onClick={handleSelect}
-          className="flex-1 px-4 py-2 text-left text-sm"
+          // The ROW carries the item chrome and the hover well, so the button
+          // inside it contributes only its flex share — otherwise a hovered row
+          // painted one well and the button inside it a second, offset one.
+          className="flex-1 text-left"
         >
           {entry.name}
         </button>
@@ -254,7 +264,7 @@ function ViewsMenuItem({ entry, shareOpen, onSelect, onDelete, onShare }: ViewsM
           type="button"
           aria-label="Share"
           onClick={handleShare}
-          className="text-foreground-muted hover:text-primary invisible mr-1 px-2 py-1 text-xs group-hover:visible"
+          className="text-foreground-muted hover:text-primary invisible mr-1 px-2 py-1 text-sm group-hover:visible"
         >
           Share
         </button>
@@ -263,7 +273,7 @@ function ViewsMenuItem({ entry, shareOpen, onSelect, onDelete, onShare }: ViewsM
             type="button"
             aria-label="Delete view"
             onClick={handleDelete}
-            className="text-foreground-muted hover:text-error-fg invisible mr-2 px-2 py-1 text-xs group-hover:visible"
+            className="text-foreground-muted hover:text-error-fg invisible mr-2 px-2 py-1 text-sm group-hover:visible"
           >
             Delete view
           </button>
@@ -292,14 +302,14 @@ function ShareLinkPopover({ entry }: ShareLinkPopoverProps) {
   const shareUrl = buildShareUrl(entry.id)
   return (
     <div className="border-border bg-background mx-3 my-2 rounded border p-2">
-      <label className="text-foreground-muted mb-1 block text-xs">Share link</label>
+      <label className="text-foreground-muted mb-1 block text-sm">Share link</label>
       <input
         type="text"
         readOnly
         aria-label="Share link"
         value={shareUrl}
         onFocus={selectAllOnFocus}
-        className="border-border w-full rounded border bg-transparent px-2 py-1 text-xs"
+        className="border-border w-full rounded border bg-transparent px-2 py-1 text-sm"
       />
     </div>
   )

@@ -36,7 +36,7 @@ export const extractAndStoreFact = (input: {
   Effect.gen(function* () {
     const repo = yield* AiFactsRepository
     yield* repo.storeFact(input)
-  })
+  }).pipe(Effect.withSpan('ai.extract-and-store-fact'))
 
 /**
  * Recall the facts stored for a `(namespace, userId)` pair, oldest first.
@@ -50,4 +50,4 @@ export const recallAgentFacts = (input: {
   Effect.gen(function* () {
     const repo = yield* AiFactsRepository
     return yield* repo.recallFacts(input)
-  })
+  }).pipe(Effect.withSpan('ai.recall-agent-facts'))

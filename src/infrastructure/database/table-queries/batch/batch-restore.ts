@@ -14,10 +14,16 @@ import {
   type DrizzleTransaction,
 } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { withTransaction } from '@/infrastructure/database/transaction'
 import { logActivity } from '../query-helpers/activity-log-helpers'
-import { passthroughError, unwrapPassthrough, wrapDatabaseError } from '../shared/error-handling'
-import { validateTableName } from '../shared/validation'
-import { BATCH_FANOUT_CONCURRENCY, runEffectInTx } from './batch-helpers'
+import {
+  passthroughError,
+  unwrapPassthrough,
+  wrapDatabaseError,
+  type PassthroughError,
+} from '../statement/error-handling'
+import { validateTableName } from '../statement/validation'
+import { BATCH_FANOUT_CONCURRENCY } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -35,56 +41,56 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
  * missing id by array position, and the returned filtered id list keeps the
  * caller's ordering.
  */
-async function validateAndFilterRecordsForRestore(
+const validateAndFilterRecordsForRestore = (
   tx: Readonly<DrizzleTransaction>,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
-): Promise<readonly string[]> {
-  const validationResults = await runEffectInTx(
-    Effect.all(
-      recordIds.map((recordId) =>
-        // The `catch` TAGS the rejection into a `PassthroughError` carrier,
-        // which `validateAndFilterRecordsWithEffect` unwraps before it
-        // composes its message and stores its `cause`. That keeps the error
-        // channel TYPED here without changing what the outer handler sees: the
-        // final `DatabaseError` still reads its message from the driver error
-        // and still points its `cause` AT it, at the chain depth
-        // `classifyDriverFailure` is tested against. The plain identity mapper
-        // this replaces left the channel `unknown`.
-        // A "not found" record is NOT a rejection — it is a returned marker,
-        // handled below.
-        Effect.tryPromise({
-          try: async () => {
-            const checkResult = await executeRaw(
-              tx,
-              sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
-            )
+): Effect.Effect<readonly string[], PassthroughError | NotFoundError> =>
+  Effect.all(
+    recordIds.map((recordId) =>
+      // The `catch` TAGS the rejection into a `PassthroughError` carrier,
+      // which `validateAndFilterRecordsWithEffect` unwraps before it
+      // composes its message and stores its `cause`. That keeps the error
+      // channel TYPED here without changing what the outer handler sees: the
+      // final `DatabaseError` still reads its message from the driver error
+      // and still points its `cause` AT it, at the chain depth
+      // `classifyDriverFailure` is tested against. The plain identity mapper
+      // this replaces left the channel `unknown`.
+      // A "not found" record is NOT a rejection — it is a returned marker,
+      // handled below.
+      Effect.tryPromise({
+        try: async () => {
+          const checkResult = await executeRaw(
+            tx,
+            sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
+          )
 
-            if (checkResult.length === 0)
-              return { recordId, error: 'not found' as string | undefined, isDeleted: false }
+          if (checkResult.length === 0)
+            return { recordId, error: 'not found' as string | undefined, isDeleted: false }
 
-            const record = checkResult[0]
-            const isDeleted = Boolean(record?.deleted_at)
+          const record = checkResult[0]
+          const isDeleted = Boolean(record?.deleted_at)
 
-            return { recordId, error: undefined, isDeleted }
-          },
-          catch: passthroughError,
-        })
-      ),
-      { concurrency: BATCH_FANOUT_CONCURRENCY }
-    )
+          return { recordId, error: undefined, isDeleted }
+        },
+        catch: passthroughError,
+      })
+    ),
+    { concurrency: BATCH_FANOUT_CONCURRENCY }
+  ).pipe(
+    Effect.flatMap((validationResults) => {
+      // Check for "not found" errors first (these should return 404)
+      const notFoundError = validationResults.find((result) => result.error === 'not found')
+      if (notFoundError) {
+        return Effect.fail(new NotFoundError('Record not found', notFoundError.recordId))
+      }
+
+      // Filter to only records that are actually soft-deleted (skip active records)
+      return Effect.succeed(
+        validationResults.filter((result) => result.isDeleted).map((result) => result.recordId)
+      )
+    })
   )
-
-  // Check for "not found" errors first (these should return 404)
-  const notFoundError = validationResults.find((result) => result.error === 'not found')
-  if (notFoundError) {
-    // eslint-disable-next-line functional/no-throw-statements -- Required for Effect.tryPromise error handling
-    throw new NotFoundError('Record not found', notFoundError.recordId)
-  }
-
-  // Filter to only records that are actually soft-deleted (skip active records)
-  return validationResults.filter((result) => result.isDeleted).map((result) => result.recordId)
-}
 
 /**
  * Validate and filter records for restore with Effect error handling
@@ -95,9 +101,8 @@ function validateAndFilterRecordsWithEffect(
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<readonly string[], DatabaseError | NotFoundError> {
-  return Effect.tryPromise({
-    try: () => validateAndFilterRecordsForRestore(tx, tableIdent, recordIds),
-    catch: (error) => {
+  return validateAndFilterRecordsForRestore(tx, tableIdent, recordIds).pipe(
+    Effect.mapError((error) => {
       // Pass the typed absence through UNWRAPPED. Re-wrapping it in a
       // `Validation failed: …` string is what forced `handleBatchRestoreError`
       // to substring-match prose and regex the record id back out of the
@@ -111,8 +116,8 @@ function validateAndFilterRecordsWithEffect(
       if (original instanceof NotFoundError) return original
       const errorMessage = original instanceof Error ? original.message : 'Unknown error'
       return new DatabaseError(`Validation failed: ${errorMessage}`, original)
-    },
-  })
+    })
+  )
 }
 
 /**
@@ -178,37 +183,38 @@ export function batchRestoreRecords(
   recordIds: readonly string[]
 ): Effect.Effect<number, DatabaseError | NotFoundError> {
   return Effect.gen(function* () {
-    const restoredRecords = yield* Effect.tryPromise({
-      try: () =>
-        db.transaction(async (tx) => {
+    const restoredRecords = yield* withTransaction(
+      db,
+      (tx) =>
+        Effect.gen(function* () {
           validateTableName(tableName)
           const tableIdent = sql.identifier(tableName)
 
           // Validate and filter to only soft-deleted records
-          const deletedRecordIds = await runEffectInTx(
-            validateAndFilterRecordsWithEffect(tx, tableIdent, recordIds)
+          const deletedRecordIds = yield* validateAndFilterRecordsWithEffect(
+            tx,
+            tableIdent,
+            recordIds
           )
 
           // If no records to restore, return empty array
           if (deletedRecordIds.length === 0) {
-            return []
+            return [] as readonly Record<string, unknown>[]
           }
 
           // Restore only the filtered soft-deleted records
-          return await runEffectInTx(
-            executeRestoreQuery(tx, tableIdent, tableName, deletedRecordIds)
-          )
+          return yield* executeRestoreQuery(tx, tableIdent, tableName, deletedRecordIds)
         }),
-      // `runEffectInTx` re-throws the squashed cause rather than a
+      // `withTransaction` re-throws the squashed cause rather than a
       // FiberFailure, so a `NotFoundError` raised during validation arrives
       // here with its identity intact. Preserve it: `wrapDatabaseError` would
       // otherwise flatten it back into a `DatabaseError` and the route
       // would be reduced to substring-matching prose again.
-      catch: (error) =>
+      (error) =>
         error instanceof NotFoundError
           ? error
-          : wrapDatabaseError(`Failed to restore records in ${tableName}`)(error),
-    })
+          : wrapDatabaseError(`Failed to restore records in ${tableName}`)(error)
+    )
 
     yield* logRestoreActivities(session, tableName, restoredRecords)
 

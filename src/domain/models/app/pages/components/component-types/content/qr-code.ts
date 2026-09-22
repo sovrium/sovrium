@@ -20,7 +20,7 @@
  * what makes it free against the island payload budget, correct with JS
  * disabled, and printable from the browser's own print dialog.
  *
- * The encoder already ships (`@/domain/services/qr-code`, zero-dependency) and
+ * The encoder already ships (`@/domain/models/app/links/qr-code-service`, zero-dependency) and
  * already serves `/l/{slug}.svg`, so this component adds a config surface over
  * an implementation that exists rather than a new capability.
  *
@@ -45,7 +45,7 @@ import { visibilityFields } from '../modules/visibility'
 export const QrCodeTypeLiteral = Schema.Literal('qr-code')
 
 /**
- * Error-correction level, mirroring `EccLevel` in `@/domain/services/qr-code`.
+ * Error-correction level, mirroring `EccLevel` in `@/domain/models/app/links/qr-code-service`.
  *
  * `M` is the print/scan sweet spot and the encoder's own default, which is why
  * this field is optional rather than defaulted here — a default in two places

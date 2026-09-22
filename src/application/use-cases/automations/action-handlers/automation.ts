@@ -50,7 +50,8 @@ export const handleAutomationCall: ActionHandler = (action, _app, _automation, r
     Effect.map(
       ({ result }) => ({ status: 'success', output: { result } }) as const satisfies ActionOutcome
     ),
-    Effect.catch((error) => fail(error))
+    Effect.catch((error) => fail(error)),
+    Effect.withSpan('automations.handle-automation-call')
   )
 }
 
@@ -71,5 +72,8 @@ export const handleAutomationCall: ActionHandler = (action, _app, _automation, r
 export const handleAutomationReturn: ActionHandler = (action) => {
   const props = (action['props'] ?? {}) as Readonly<Record<string, unknown>>
   const data = (props['data'] ?? {}) as Readonly<Record<string, unknown>>
-  return Effect.succeed({ status: 'success', returnData: data } as const satisfies ActionOutcome)
+  return Effect.succeed({
+    status: 'success',
+    returnData: data,
+  } as const satisfies ActionOutcome).pipe(Effect.withSpan('automations.handle-automation-return'))
 }

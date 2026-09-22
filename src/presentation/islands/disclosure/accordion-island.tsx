@@ -7,7 +7,7 @@
 
 import { Accordion } from '@base-ui/react/accordion'
 import { useMemo } from 'react'
-import { cn } from '@/presentation/utils/design/class-merge'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
   computeAccordionIconClasses,
   computeAccordionPanelClasses,
@@ -50,7 +50,7 @@ export default function AccordionIsland({
     <Accordion.Root
       defaultValue={defaultValue}
       multiple={accordionType === 'multiple'}
-      className={cn(computeAccordionRootClasses(), className)}
+      className={resolveClasses(computeAccordionRootClasses(), className)}
       id={id}
       data-testid={testId}
     >

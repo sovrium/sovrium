@@ -124,9 +124,10 @@ export const dispatchFailureHandlers = (
       handlers,
       (handler) =>
         Effect.gen(function* () {
-          const automationId = yield* runners
-            .resolveAutomationId(handler.name, handler)
-            .pipe(Effect.orElseSucceed(() => cryptoRandomId()))
+          const automationId = yield* runners.resolveAutomationId(handler.name, handler).pipe(
+            // effect-swallow: the id only LABELS this run in the activity log; a lookup that fails must not stop the automation it was about to run, and a random id keeps the run traceable within itself.
+            Effect.orElseSucceed(() => cryptoRandomId())
+          )
           yield* runners.executeAutomationRun({
             name: handler.name,
             automation: handler,
@@ -140,4 +141,4 @@ export const dispatchFailureHandlers = (
         }),
       { concurrency: 1 }
     )
-  })
+  }).pipe(Effect.withSpan('automations.dispatch-failure-handlers'))

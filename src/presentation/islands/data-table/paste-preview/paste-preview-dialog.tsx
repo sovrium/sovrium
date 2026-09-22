@@ -5,6 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeTableDialogPanelClasses,
+  computeTableDialogPositionerClasses,
+  computeTableDialogTitleClasses,
+} from '@/presentation/design/table-default-classes'
+import { computeOverlayBackdropClasses } from '../../overlays/overlay-default-classes'
 import { computeMismatchMatrix } from './cell-mismatch'
 import { PasteDialogFooter } from './paste-dialog-footer'
 import { PreviewMappingHeader } from './preview-mapping-header'
@@ -52,7 +58,7 @@ export function PastePreviewDialog({
   return (
     <>
       <div
-        className="bg-scrim/50 fixed inset-0 z-40"
+        className={computeOverlayBackdropClasses()}
         onClick={onCancel}
         aria-hidden="true"
       />
@@ -60,17 +66,17 @@ export function PastePreviewDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="paste-preview-dialog-title"
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        className={computeTableDialogPositionerClasses()}
       >
-        <div className="bg-background-overlay flex max-h-[80vh] w-full max-w-3xl flex-col rounded-lg p-6 shadow-xl">
+        <div className={`${computeTableDialogPanelClasses({ width: 'grid' })} max-h-dvh`}>
           <h2
             id="paste-preview-dialog-title"
-            className="text-foreground mb-4 text-lg font-semibold"
+            className={computeTableDialogTitleClasses()}
           >
             Paste Preview
           </h2>
-          <div className="border-border overflow-auto rounded border">
-            <table className="divide-border min-w-full divide-y text-sm">
+          <div className="overflow-auto">
+            <table className="min-w-full">
               <PreviewMappingHeader
                 headers={parsed.headers}
                 mappings={mappings}

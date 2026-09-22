@@ -16,17 +16,58 @@ This is the single agent a new Sovrium project starts with, and it is deliberate
 1. Read `app.yaml` and the `config/` subtree to understand the current app.
 2. Make the smallest coherent config change.
 3. Validate: `sovrium validate app.yaml` (offline, instant).
-4. Run: `sovrium start app.yaml` and check the affected page.
-5. Commit to Git — config-as-code means Git is the version history and rollback.
+4. Run it and look at it: `sovrium start app.yaml --watch`, then drive the affected page in a real browser — see **Reviewing Your Work in the Browser** below.
+5. If the live check fails, go back to step 2. The change is not done until the workflow passes in the browser.
+6. Commit to Git — config-as-code means Git is the version history and rollback.
 
 Print the full JSON Schema anytime with `sovrium schema` — it is the authoritative reference for every key.
+
+## Consulting the Docs
+
+`sovrium schema` is the local contract — it prints the JSON Schema of the binary sitting in this project. When the published docs and `sovrium schema` disagree, the schema wins: the website describes some released version, the schema describes the one you are actually running.
+
+For what a schema cannot tell you — why a key exists, how features compose, worked examples — read the published docs:
+
+- **Start at the index.** `https://sovrium.com/llms.txt` is a plain-text list of every published page, one titled line each with a short description. Pick the page from there instead of guessing a slug.
+- **Fetch that page with `.md` appended.** Every docs page has a raw-markdown twin: `https://sovrium.com/en/docs/configuration-refs.md` is about 3.8 KB against 121 KB for the same page as HTML. Always take the `.md`.
+- **Never fetch `https://sovrium.com/llms-full.txt`** — it is the entire corpus in one file, roughly 3 MB, and a single call floods the context window. Use the index and pull one page at a time.
+- The index carries English and French. Prefer `/en/…`; switch to `/fr/…` when the user is working in French.
+
+## Reviewing Your Work in the Browser
+
+A config that validates is not a config that works. Boot the app and drive it.
+
+```bash
+sovrium start app.yaml --watch   # serves http://localhost:3000 unless PORT says otherwise
+```
+
+Then review it with Claude in Chrome. The `mcp__claude-in-chrome__*` tools are deferred — load them in **one batched `ToolSearch`**, never one call per tool:
+
+```
+ToolSearch("select:mcp__claude-in-chrome__tabs_context_mcp,mcp__claude-in-chrome__navigate,mcp__claude-in-chrome__computer,mcp__claude-in-chrome__read_page,mcp__claude-in-chrome__tabs_create_mcp,mcp__claude-in-chrome__tabs_close_mcp")
+```
+
+Add `read_console_messages` and `read_network_requests` to that same batch when you are diagnosing a failure rather than confirming a success.
+
+- Call `tabs_context_mcp` **first**, every session — it tells you what is already open, and it is not a step you can skip.
+- Open a **new** tab with `tabs_create_mcp`. Never work in one of the user's own tabs, and never reuse a tab id from an earlier session; ids do not survive one.
+- Close what you opened (`tabs_close_mcp`). Leave the browser as you found it.
+- **Never trigger `alert()`, `confirm()` or `prompt()`** — a JS dialog freezes the extension, and recovering costs the user a manual intervention.
+
+**Exercise the workflow, don't just look at the page.** Sign in, create a record, move a kanban card, submit the form, let the automation fire. Then assert on the **effect** — the row is there, the status changed, the email action ran — never on "it rendered". A page that paints is not a feature that works.
+
+**Iterate live.** `--watch` hot-reloads on save, so the loop is: edit the config, re-navigate, re-verify. No restart, no rebuild. Keep going until the workflow passes.
+
+This is the user's own local app, so creating test records is expected — that is what the loop is for. Deleting or overwriting data that looks real is a different act: ask first.
+
+**Stop rule.** Two or three failed calls, an unresponsive extension, or no Chrome connected ⇒ say so plainly and stop. Report what you attempted and what came back. Never report a change as verified in the browser when nothing was actually driven — an unverified change is an ordinary outcome, a fabricated verification is not.
 
 ## Config Layout Conventions
 
 Business-app templates ship pre-split (the same rules the scaffolded `CLAUDE.md` documents):
 
 - **Scalars** (`name`, `version`, `description`) stay inline in `app.yaml`.
-- **Singletons** (`auth`, `theme`, `analytics`, `languages`) live at `config/<singleton>.yaml`.
+- **Singletons** (`auth`, `design`, `analytics`, `languages`) live at `config/<singleton>.yaml`.
 - **Collections** (`tables`, `pages`, `automations`, `forms`, `agents`, `buckets`, `components`) get one file per entity under `config/<collection>/`, referenced from `app.yaml` via `$ref`:
 
 ```yaml
@@ -65,10 +106,10 @@ Never renumber existing field `id`s — add new fields with fresh ids. `status` 
 
 The same `dataSource` powers every data component — pick the surface per page:
 
-- `data-table` — grids with `columns`, sorting, filters, pagination, `groupBy`, `bulkActions`.
+- `table` — grids with `columns`, sorting, filters, pagination, `groupBy`, `bulkActions`, or (with no `dataSource`) the static rows written in `tableRows`. Never both: declaring `tableRows` and `dataSource` together is refused.
 - `kanban` — `kanbanGroupBy: { field: <status-field> }`, drag between columns, `card` layout.
 - `calendar` — `dateField: <date-field>`, `defaultView: month`.
-- `data-timeline` — Gantt-style bars via `props: { startField, endField, labelField, defaultZoom }`.
+- `timeline` — a rail of authored children, or (with a `dataSource`) Gantt-style bars via `props: { startField, endField, labelField, defaultZoom }`. Never both: declaring `children` and `dataSource` together is refused.
 - `gallery` — visual cards with `coverImage` and `$record.*` bindings.
 - `kpi` / `chart` — dashboard numbers (`kpiAggregate: { function: count | sum, field }`) and visualizations (`chartType`, `xAxis`, `yAxis`, `series`).
 - `form` — in-page create/edit with a `crud` action (`operation: create`, `onSuccess` navigate + toast).

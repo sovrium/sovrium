@@ -29,13 +29,14 @@
  * two one-line calls into `node:crypto`. Coupling two unrelated use cases costs
  * more than restating `randomBytes(32)` does.
  *
- * `src/domain/utils/share-link-helpers.ts` is deliberately NOT used. Its
- * `generateShareToken` is `randomBytes(24)` — 192 bits, adequate on the merits
- * but a gratuitous divergence from the pattern A3 names — and its docblock
- * promises uniqueness via "the schema's UNIQUE index on `token`", a constraint
- * on the PLAINTEXT that contradicts digest-only storage outright. Its table was
- * never created and it has no caller outside its own unit test; inheriting it
- * would import the contradiction along with the eight bytes.
+ * A `share-link-helpers.ts` once sat in `src/domain/utils/` and was deliberately
+ * NOT used here; the layout programme REMOVED it, having confirmed it had no
+ * caller outside its own unit test. It is recorded because the reasoning still
+ * governs this file: its `generateShareToken` was `randomBytes(24)` — 192 bits,
+ * adequate on the merits but a gratuitous divergence from the pattern A3 names —
+ * and its docblock promised uniqueness via "the schema's UNIQUE index on
+ * `token`", a constraint on the PLAINTEXT that contradicts digest-only storage
+ * outright. Do not reintroduce either property.
  *
  * ─── WHY THE PLAINTEXT IS NEVER LOGGED, AND WHY THAT IS NOT ASSERTED HERE ───
  *
@@ -99,7 +100,7 @@ export const mintDesignSystemShare = (input: {
       ...(input.createdBy === undefined ? {} : { createdBy: input.createdBy }),
     })
     return { share, token }
-  })
+  }).pipe(Effect.withSpan('admin.mint-design-system-share'))
 
 /** Every live share for this app, newest first. Metadata only, by construction. */
 export const listDesignSystemShares = (
@@ -112,7 +113,7 @@ export const listDesignSystemShares = (
   Effect.gen(function* () {
     const repository = yield* DesignSystemShareRepository
     return yield* repository.listActive(appName)
-  })
+  }).pipe(Effect.withSpan('admin.list-design-system-shares'))
 
 /**
  * Resolve a plaintext token an anonymous reader presented.
@@ -132,7 +133,7 @@ export const resolveDesignSystemShare = (
   Effect.gen(function* () {
     const repository = yield* DesignSystemShareRepository
     return yield* repository.findActiveByTokenHash(appName, hashDesignSystemShareToken(token))
-  })
+  }).pipe(Effect.withSpan('admin.resolve-design-system-share'))
 
 /** Revoke a share. `false` when no live share carried that id. */
 export const revokeDesignSystemShare = (
@@ -142,4 +143,4 @@ export const revokeDesignSystemShare = (
   Effect.gen(function* () {
     const repository = yield* DesignSystemShareRepository
     return yield* repository.revoke(appName, id)
-  })
+  }).pipe(Effect.withSpan('admin.revoke-design-system-share'))

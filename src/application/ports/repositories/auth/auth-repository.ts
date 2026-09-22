@@ -37,6 +37,29 @@ export class AuthRepository extends Context.Service<
       userId: string
     ) => Effect.Effect<string | undefined, AuthDatabaseError>
     readonly getUserRole: (userId: string) => Effect.Effect<string | undefined, AuthDatabaseError>
+    /**
+     * Resolve the roles of MANY users in ONE query, keyed by user id.
+     *
+     * The bulk form of {@link getUserRole}, and it exists for a resource bound
+     * rather than for convenience: a caller that classifies a LIST of users —
+     * the connected-users roster, an admin roster filter — otherwise issues one
+     * pooled read per row, so a page of rows is a fan-out as wide as the page
+     * against a ten-connection pool. That is the mechanism of the 2026-07-25
+     * production 504; see
+     * `[internal ref]`.
+     *
+     * Ids absent from the `user` table, and rows whose `role` column is NULL,
+     * are ABSENT from the returned map — it is not padded with a default.
+     * Callers own the default exactly as they do for `getUserRole`'s
+     * `undefined`, so the two forms cannot drift on what "no role" means.
+     *
+     * An empty `userIds` resolves to an empty map WITHOUT touching the
+     * database: the answer is knowable without asking, and `inArray(col, [])`
+     * is a shape worth not relying on across two dialects.
+     */
+    readonly getUserRoles: (
+      userIds: readonly string[]
+    ) => Effect.Effect<ReadonlyMap<string, string>, AuthDatabaseError>
     readonly updateUserRole: (
       userId: string,
       role: string
@@ -50,6 +73,23 @@ export class AuthRepository extends Context.Service<
      * to reject an unknown `userId` before attempting a mutation.
      */
     readonly userExists: (userId: string) => Effect.Effect<boolean, AuthDatabaseError>
+    /**
+     * This user's role, distinguishing "no such user" from "user with no role".
+     *
+     * {@link getUserRole} conflates them — both answer `undefined` — which is
+     * harmless where the caller defaults a missing role, and NOT harmless where
+     * the absence of a row must REJECT. The MCP bearer bridge is the second
+     * case: falling through to the `member` default for an unidentifiable
+     * subject would promote it to a writing role and widen the tool surface,
+     * with nothing in the response revealing it.
+     *
+     * So: `undefined` means no row; `{ role: null }` means a row whose `role`
+     * column is NULL. The two are different answers and callers that care can
+     * tell them apart without a second query.
+     */
+    readonly findUserRole: (
+      userId: string
+    ) => Effect.Effect<{ readonly role: string | null } | undefined, AuthDatabaseError>
     /**
      * Ban a user account: sets `banned = true`, and `ban_reason` only when a
      * reason is supplied (an absent reason leaves the column untouched, matching

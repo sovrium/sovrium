@@ -19,11 +19,11 @@
  * Conversations surface builds its rail from — so the sidebar can never
  * advertise an agent whose page does not open, nor omit one that does. That set
  * always leads with the reserved general-purpose `default` agent, whose view is
- * the `agent_name IS NULL` conversations (see `domain/utils/agent-identity`).
+ * the `agent_name IS NULL` conversations (see `domain/models/app/agents/agent-identity`).
  */
 
-import { z } from '@hono/zod-openapi'
-import { cursorPaginationResponseSchema } from '@/domain/models/api/_shared/cursor-pagination'
+import { Schema } from 'effect'
+import { cursorPaginationResponseSchema } from '@/domain/models/api/combinators/cursor-pagination'
 
 /**
  * One agent in the admin index.
@@ -32,30 +32,26 @@ import { cursorPaginationResponseSchema } from '@/domain/models/api/_shared/curs
  * agents have no persisted row, so there is no separate id to expose (the same
  * reason `declaredBucketNames` derives bucket ids rather than reading them).
  */
-export const agentAdminItemSchema = z
-  .object({
-    name: z
-      .string()
-      .min(1)
-      .describe(
-        'Agent name — kebab-case for a declared agent, or the reserved `default` for the general-purpose agent.'
-      ),
-    isDefault: z
-      .boolean()
-      .describe(
-        'True for the reserved general-purpose `default` agent, whose conversations are those no declared agent claimed (`agent_name IS NULL`). Exactly one item per response carries `true`.'
-      ),
-  })
-  .openapi('AgentAdminItem')
+export const agentAdminItemSchema = Schema.Struct({
+  name: Schema.String.annotate({
+    description:
+      'Agent name — kebab-case for a declared agent, or the reserved `default` for the general-purpose agent.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  isDefault: Schema.Boolean.annotate({
+    description:
+      'True for the reserved general-purpose `default` agent, whose conversations are those no declared agent claimed (`agent_name IS NULL`). Exactly one item per response carries `true`.',
+  }),
+}).annotate({ identifier: 'AgentAdminItem' })
 
 /**
  * Response schema for `GET /api/admin/agents`. Cursor-paginated list of
  * {@link agentAdminItemSchema}, newest-declaration-order with the default first.
  */
-export const agentsListResponseSchema =
-  cursorPaginationResponseSchema(agentAdminItemSchema).openapi('AgentsListResponse')
+export const agentsListResponseSchema = cursorPaginationResponseSchema(
+  agentAdminItemSchema
+).annotate({ identifier: 'AgentsListResponse' })
 
 /** @public */
-export type AgentAdminItem = z.infer<typeof agentAdminItemSchema>
+export type AgentAdminItem = typeof agentAdminItemSchema.Type
 /** @public */
-export type AgentsListResponse = z.infer<typeof agentsListResponseSchema>
+export type AgentsListResponse = typeof agentsListResponseSchema.Type

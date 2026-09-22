@@ -6,7 +6,7 @@
  */
 
 import { Data, Effect } from 'effect'
-import { parseTelemetryConfig } from '@/domain/models/env/telemetry/telemetry'
+import { parseTelemetryConfig } from '@/domain/models/process-env/telemetry/telemetry'
 
 /**
  * Boot-time telemetry misconfiguration (a set-but-malformed gate variable).
@@ -39,4 +39,4 @@ export const validateTelemetryConfiguration = (
       new TelemetryConfigurationError({
         message: error instanceof Error ? error.message : String(error),
       }),
-  }).pipe(Effect.asVoid)
+  }).pipe(Effect.asVoid, Effect.withSpan('env.validate-telemetry-configuration'))

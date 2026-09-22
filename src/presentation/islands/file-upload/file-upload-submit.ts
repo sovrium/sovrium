@@ -14,7 +14,7 @@
  * endpoint speak). On the 2xx response it runs the SAME shipped
  * `applyFetchSuccessEffects` mechanism a `fetch` action's `onSuccess` uses
  * (persistent `role="status"` badge + sibling `refetch`), so a config page can
- * compose `file-upload` + a sibling file `data-table` into a self-refreshing
+ * compose `file-upload` + a sibling file `table` into a self-refreshing
  * browse-and-upload surface. On a non-2xx response (a rejected MIME type, an
  * oversized file, a storage failure) it dispatches the configured `onError`
  * toast through the same toast path the action-executor injects.
@@ -23,8 +23,8 @@
  * (action-executor) and `renderToast` (the shipped island toast) are reused.
  */
 
-import { applyFetchSuccessEffects } from '../shared/action-executor'
-import { renderToast } from '../shared/toast'
+import { applyFetchSuccessEffects } from '../runtime/action-executor'
+import { renderToast } from '../runtime/toast'
 import type {
   FetchSuccessResponse,
   FetchToastResponse,

@@ -45,6 +45,15 @@ import {
   type AdminSearchResponse,
   type AdminSearchResult,
 } from '@/domain/models/api/admin/search/search'
+import {
+  componentTypePath,
+  DESIGN_SYSTEM_NAV_CHILDREN,
+} from '@/domain/models/app/admin/admin-data-nav'
+import {
+  CATALOG_CATEGORY_TITLES,
+  CATALOG_COMPONENT_CATEGORIES,
+  catalogedTypesOf,
+} from '@/domain/models/app/pages/components/component-types/catalog'
 import { AdminSearchRepositoryLive } from '@/infrastructure/database/repositories/admin-search-repository-live'
 import type { App } from '@/domain/models/app'
 
@@ -98,6 +107,104 @@ const connectionRows = (app: App): readonly AdminSearchUpsertRow[] =>
     href: '/_admin/connections',
     updatedAt: new Date(),
   }))
+
+/**
+ * The words every design-system row carries in its `body` so the section is
+ * findable by its own name.
+ *
+ * ─── WHY THE HAYSTACK IS NOT THE LABEL ─────────────────────────────────────
+ *
+ * `body` is indexed and never returned: the FTS document is `title || ' ' ||
+ * body`, while {@link toResult} projects only the four scalars the `.strict()`
+ * S4 allow-list permits. So a row can be findable by a word it does not display
+ * — which is the whole reason a component type can be reached by typing
+ * `overlays` without the palette growing a second line of text per result.
+ *
+ * Both families carry it, and that is deliberate rather than incidental: a
+ * query for `design` has to match MANY component types at once, because that is
+ * the exact case two separate kinds exist to survive. The catalogue holds an
+ * order of magnitude more types than the console has destinations, and both
+ * exceed the row budget on their own — so with ONE kind the types would crowd
+ * every destination out of view. With two, each has its own budget and
+ * `[internal ref]` can prove it.
+ *
+ * No count is written here on purpose. Both populations are derived
+ * (`DESIGN_SYSTEM_NAV_CHILDREN`, `CATALOG_COMPONENT_CATEGORIES`), so a literal
+ * would be a hand-kept copy of a number nothing reads — the same silent rot the
+ * block below warns about, and the reason this paragraph once said 85 and 7
+ * against a real 89 and 6.
+ */
+const DESIGN_HAYSTACK = 'Design system console'
+
+/**
+ * The console's design-system destinations, as index rows — one per nav child.
+ *
+ * Derived from `DESIGN_SYSTEM_NAV_CHILDREN` — the same list the sidebar renders
+ * — rather than typed out here. A hand-kept copy would be a second nav that
+ * goes stale the first time a page is added, and it would go stale SILENTLY:
+ * a destination missing from the palette looks exactly like a query that did
+ * not match it.
+ *
+ * The Overview's href is the section ROOT (`/_admin/design-system`) and not
+ * `/design-system/overview`, because that is the URL the nav itself carries;
+ * deriving is what keeps the two from disagreeing about which of the two
+ * addresses a page has.
+ */
+const designConsoleRows = (): readonly AdminSearchUpsertRow[] =>
+  DESIGN_SYSTEM_NAV_CHILDREN.map((child) => ({
+    type: 'design-console' as const,
+    entityId: child.key,
+    title: child.label,
+    body: `${DESIGN_HAYSTACK} — ${child.label}`,
+    href: child.href,
+    updatedAt: new Date(),
+  }))
+
+/**
+ * One row per catalogued component type, deep-linking to its own type page.
+ *
+ * ─── THE SEGMENT IS THE TYPE LITERAL, AND SLUGIFYING IT IS THE TRAP ────────
+ *
+ * The href comes from `componentTypePath` — the one place the console's
+ * per-type address is composed — rather than from a string formed here. The
+ * catalogue used to hold camelCase types (`commentCount`, `pageSearch`,
+ * `searchInput`), so a kebab-casing guess shipped plausible-looking rows that
+ * 404 when followed. All three were retired by the catalogue merges; sharing
+ * the builder is what keeps the rule true for the next one, and what makes the
+ * palette follow the route if the route ever moves instead of drifting from it.
+ *
+ * `title` is the type literal alone. It is unique across the whole catalogue —
+ * `admin-data-nav.test.ts` and the catalogue's own tests are what hold that, not
+ * a count written here — so a category would add recognition rather than
+ * disambiguation; and carrying one
+ * would mean either widening the `.strict()` S4 allow-list for every kind or
+ * folding two facts into the one field the schema calls the result line. The
+ * category goes in `body` instead, where it is searchable and not displayed.
+ */
+const componentTypeRows = (): readonly AdminSearchUpsertRow[] =>
+  CATALOG_COMPONENT_CATEGORIES.flatMap((category) =>
+    catalogedTypesOf(category).map((type) => ({
+      type: 'component-type' as const,
+      entityId: type,
+      title: type,
+      body: `${DESIGN_HAYSTACK} — ${CATALOG_CATEGORY_TITLES[category]}`,
+      href: componentTypePath(type),
+      updatedAt: new Date(),
+    }))
+  )
+
+/**
+ * Every STATIC row the index carries — rows projected from the registry rather
+ * than read from a table.
+ *
+ * They ride the SAME `extraRows` seam `connectionRows` already uses. A second
+ * mechanism would mean a second freshness story and a second place to look when
+ * a row is missing, for rows that are cheaper to rebuild than to invalidate.
+ */
+export const designSystemRows = (): readonly AdminSearchUpsertRow[] => [
+  ...designConsoleRows(),
+  ...componentTypeRows(),
+]
 
 /** The per-table text-column descriptors the rebuild scans for record rows. */
 const tableDescriptors = (
@@ -179,13 +286,13 @@ export const SearchAdminGlobal = (
     if (isStale(staleness)) {
       yield* repo.rebuildIndex({
         tables: tableDescriptors(app),
-        extraRows: connectionRows(app),
+        extraRows: [...connectionRows(app), ...designSystemRows()],
       })
     }
 
     const hits = yield* repo.search(query)
     return { query, groups: groupHits(hits) }
-  })
+  }).pipe(Effect.withSpan('admin.search-admin-global'))
 
 /**
  * Application layer for the admin global-search use case.

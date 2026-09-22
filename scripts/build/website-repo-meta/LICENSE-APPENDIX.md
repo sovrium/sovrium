@@ -1,4 +1,3 @@
-
 ---
 
 ## Trademarks and Brand Assets

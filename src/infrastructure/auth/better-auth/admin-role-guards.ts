@@ -6,16 +6,19 @@
  */
 
 import { APIError } from 'better-auth/api'
+import { Effect } from 'effect'
 // eslint-disable-next-line boundaries/dependencies -- Better Auth owns the write to `user.role`, so its `before` hook is the ONLY point where an unassignable role or a last-admin demotion can be rejected before the row changes. Same justification as the trigger-auth-event bridge in `auth.ts`: the guard has to live inside the auth library's lifecycle, and the application-layer use case is the read contract it consults.
-import { countActiveAdmins as countActiveAdminsLive } from '@/application/use-cases/auth/count-admins'
+import { countActiveAdmins } from '@/application/use-cases/auth/count-admins'
 // eslint-disable-next-line boundaries/dependencies -- see countActiveAdmins above: the current role of the mutation target can only be read from inside the Better Auth `before` hook.
-import { getUserRoleById as getUserRoleLive } from '@/application/use-cases/auth/get-user-role'
+import { readUserRoleById } from '@/application/use-cases/auth/get-user-role'
 import {
   assignableRoleNames,
   isAdminTier,
   isAssignableRole,
   resolveAdminRole,
 } from '@/domain/models/app/auth/roles'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
 import type { createAuthMiddleware } from 'better-auth/api'
 
@@ -118,9 +121,30 @@ const adminRoleNamesFor = (app: AdminRoleResolvable): readonly string[] => {
 const grantsAnyOf = (role: string | undefined, names: readonly string[]): boolean =>
   role !== undefined && roleSegments(role).some((segment) => names.includes(segment))
 
+/**
+ * The Effect→Promise bridge for the two guard reads.
+ *
+ * It lives HERE, and not in the use-cases, because standing rule E1 puts the
+ * run at the composition root — and a Better Auth `before` hook is as close to
+ * one as this path gets. The hook is a plain `async` callback inside the auth
+ * library's own lifecycle: there is no Hono context to read the server's
+ * resolved services from, and no surrounding fiber to attach to. So this is the
+ * one place that binds the repository, and `AuthRepositoryLive` is a
+ * `Layer.succeed` over a constant service object, which makes binding it per
+ * call free.
+ *
+ * Both programs fold their own failure into `undefined` before they arrive, so
+ * nothing here can reject.
+ */
+const runGuardRead = <A>(program: Effect.Effect<A, never, AuthRepository>): Promise<A> =>
+  Effect.runPromise(Effect.provide(program, AuthRepositoryLive))
+
 /** Resolve the injected reads, falling back to the real use cases. */
-const roleReader = (deps?: AuthHookDeps) => deps?.getUserRole ?? getUserRoleLive
-const adminCounter = (deps?: AuthHookDeps) => deps?.countActiveAdmins ?? countActiveAdminsLive
+const roleReader = (deps?: AuthHookDeps) =>
+  deps?.getUserRole ?? ((userId: string) => runGuardRead(readUserRoleById(userId)))
+const adminCounter = (deps?: AuthHookDeps) =>
+  deps?.countActiveAdmins ??
+  ((adminRoles: readonly string[]) => runGuardRead(countActiveAdmins(adminRoles)))
 
 /**
  * Reject a role value the app does not know about, with a 400.
@@ -245,15 +269,12 @@ export async function applyAdminRoleGuards(
   deps?: AuthHookDeps
 ) {
   if (ctx.path === '/admin/impersonate-user') {
-    // eslint-disable-next-line functional/no-expression-statements
     await guardImpersonationTarget(ctx, app, deps)
     return
   }
   if (!ROLE_WRITING_PATHS.has(ctx.path)) return
-  // eslint-disable-next-line functional/no-expression-statements
   await validateAssignableRole(ctx, app)
   if (ROLE_DEMOTING_PATHS.has(ctx.path)) {
-    // eslint-disable-next-line functional/no-expression-statements
     await guardLastAdmin(ctx, app, deps)
   }
 }

@@ -22,21 +22,25 @@
  * writes to the ledger row's `status_reason` column so admins can see why
  * an attempt was blocked.
  *
- * State is held in module-scoped `Map`s — single-process deployments only.
- * The pattern mirrors `src/infrastructure/server/route-setup/mcp/rate-limit.ts`
- * (M-12); a future multi-instance Sovrium will swap this for Redis under
- * the same port shape.
+ * State is held by two `createSlidingWindowLimiter()` instances — the same
+ * shared primitive the MCP, auth, agent and webhook limiters compose, and
+ * single-process deployments only. A future multi-instance Sovrium swaps that
+ * primitive for Redis once, not once per limiter.
  *
  * Privacy: the limiter NEVER stores raw IPs. The `ipHash` argument is the
- * SHA-256 of `FORM_IP_HASH_SALT + ip` computed at the route boundary (see
+ * SHA-256 of `salt + ip` computed at the route boundary, over a salt derived
+ * from the install's root secret and stable across restarts (see
  * `infrastructure/forms/ip-hash.ts`). Per-key entries auto-prune when the
  * caller observes them with a timestamp past the window — so a stalled
  * map entry costs ~120 bytes (key + timestamps array) and clears itself
  * the next time a submission from that IP lands. The map is small enough
- * to stay in memory under typical traffic without an explicit LRU; the
- * `prune` helpers run on every read so dead entries never accumulate
- * beyond the active window.
+ * to stay in memory under typical traffic without an explicit LRU; pruning
+ * runs on every read so a dead entry can never be COUNTED beyond the active
+ * window, and the entry itself is rewritten to its pruned form on the next
+ * submission that key records.
  */
+
+import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -71,11 +75,14 @@ export type RateLimitResult =
 // State (per-process)
 // ---------------------------------------------------------------------------
 
-/** Per-(ipHash, formName) sliding-window timestamps (ms-since-epoch). */
-const perIpState = new Map<string, ReadonlyArray<number>>()
-
-/** Per-formName sliding-window timestamps (ms-since-epoch). */
-const perFormState = new Map<string, ReadonlyArray<number>>()
+/**
+ * One shared-primitive instance per bucket. Two instances rather than one
+ * keyspace because the buckets are keyed differently — `formName:ipHash`
+ * against a bare `formName` — and a single map would let a form literally
+ * named `contact:abc123` collide with one submitter's bucket on `contact`.
+ */
+const perIpLimiter = createSlidingWindowLimiter()
+const perFormLimiter = createSlidingWindowLimiter()
 
 const composePerIpKey = (ipHash: string, formName: string): string => `${formName}:${ipHash}`
 
@@ -89,29 +96,8 @@ const composePerIpKey = (ipHash: string, formName: string): string => `${formNam
  * @public
  */
 export const resetFormRateLimitState = (): void => {
-  // eslint-disable-next-line functional/immutable-data -- in-memory state
-  perIpState.clear()
-  // eslint-disable-next-line functional/immutable-data -- in-memory state
-  perFormState.clear()
-}
-
-// ---------------------------------------------------------------------------
-// Pure helpers
-// ---------------------------------------------------------------------------
-
-const pruneTimestamps = (
-  timestamps: ReadonlyArray<number>,
-  windowMs: number,
-  now: number
-): ReadonlyArray<number> => timestamps.filter((t) => now - t < windowMs)
-
-/**
- * Compute the whole-second retry-after value for a window whose oldest
- * in-window timestamp is `oldest`. Always returns at least 1 (RFC 7231).
- */
-const computeRetryAfter = (oldest: number, windowMs: number, now: number): number => {
-  const resetAtMs = oldest + windowMs
-  return Math.max(1, Math.ceil((resetAtMs - now) / 1000))
+  perIpLimiter.clear()
+  perFormLimiter.clear()
 }
 
 // ---------------------------------------------------------------------------
@@ -145,40 +131,29 @@ export const checkAndRecord = (input: Readonly<CheckAndRecordInput>): RateLimitR
   const windowMs = policy.windowSeconds * 1000
 
   const ipKey = composePerIpKey(ipHash, formName)
-  const ipExisting = perIpState.get(ipKey) ?? []
-  const ipPruned = pruneTimestamps(ipExisting, windowMs, now)
+  const config = { windowMs, maxRequests: policy.perIp }
 
-  if (ipPruned.length >= policy.perIp) {
-    const oldest = Math.min(...ipPruned)
-    // Persist the pruned state so the next caller sees an accurate count.
-    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- in-memory state
-    perIpState.set(ipKey, ipPruned)
+  if (perIpLimiter.isExceeded(ipKey, config, now)) {
     return {
       ok: false,
       reason: 'rate_limit_per_ip',
-      retryAfterSec: computeRetryAfter(oldest, windowMs, now),
+      retryAfterSec: perIpLimiter.getRetryAfter(ipKey, windowMs, { now, minSeconds: 1 }),
     }
   }
 
-  const formExisting = perFormState.get(formName) ?? []
-  const formPruned = pruneTimestamps(formExisting, windowMs, now)
-
-  if (formPruned.length >= policy.perForm) {
-    const oldest = Math.min(...formPruned)
-    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- in-memory state
-    perFormState.set(formName, formPruned)
+  if (perFormLimiter.isExceeded(formName, { windowMs, maxRequests: policy.perForm }, now)) {
     return {
       ok: false,
       reason: 'rate_limit_per_form',
-      retryAfterSec: computeRetryAfter(oldest, windowMs, now),
+      retryAfterSec: perFormLimiter.getRetryAfter(formName, windowMs, { now, minSeconds: 1 }),
     }
   }
 
   // Both windows have budget — record the timestamp against both.
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- in-memory state
-  perIpState.set(ipKey, [...ipPruned, now])
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- in-memory state
-  perFormState.set(formName, [...formPruned, now])
+  // eslint-disable-next-line functional/no-expression-statements -- record against the shared limiters' mutable stores
+  perIpLimiter.record(ipKey, config, now)
+  // eslint-disable-next-line functional/no-expression-statements -- record against the shared limiters' mutable stores
+  perFormLimiter.record(formName, { windowMs, maxRequests: policy.perForm }, now)
 
   return { ok: true }
 }

@@ -27,9 +27,8 @@ import { Context, type Effect } from 'effect'
  * holds the bound socket.
  *
  * A port keeps that knowledge on the infrastructure side of the layer line
- * while the use-cases that need it stay pure — the same arrangement `AppRef`
- * uses for the live config, and for the same reason: a caller gets a value,
- * not a lookup strategy it would have to keep in step with the server's.
+ * while the use-cases that need it stay pure: a caller gets a value, not a
+ * lookup strategy it would have to keep in step with the server's.
  */
 export class ServerOrigin extends Context.Service<
   ServerOrigin,

@@ -18,7 +18,7 @@ components:
           - type: text
             element: h1
             props:
-              className: text-3xl font-bold mb-2 text-center
+              className: text-4xl font-bold mb-2 text-center
               style:
                 color: var(--color-foreground)
             content: Welcome back
@@ -41,12 +41,12 @@ components:
               - type: text
                 element: h2
                 props:
-                  className: text-lg font-semibold mb-3
+                  className: text-xl font-semibold mb-3
                 content: Sign in with a magic link
               - type: text
                 element: p
                 props:
-                  className: text-sm mb-4
+                  className: text-md mb-4
                   style:
                     color: var(--color-foreground-muted)
                 content: We'll email you a one-tap sign-in link. No password needed.
@@ -71,7 +71,7 @@ components:
               - type: text
                 element: h2
                 props:
-                  className: text-lg font-semibold mb-3
+                  className: text-xl font-semibold mb-3
                 content: Or sign in with a password
               - type: form
                 props:

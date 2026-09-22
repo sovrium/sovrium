@@ -10,7 +10,7 @@ import {
   INTRINSIC_DELETED_AT_COLUMN,
   INTRINSIC_ID_COLUMN,
   INTRINSIC_UPDATED_AT_COLUMN,
-} from '@/domain/models/shared/system-fields'
+} from '@/domain/models/app/tables/system-fields'
 import { SQLITE_ISO_NOW } from '@/infrastructure/database/sql/dialect-ddl'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type { Table } from '@/domain/models/app/tables'

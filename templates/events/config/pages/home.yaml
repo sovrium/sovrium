@@ -21,7 +21,7 @@ components:
           - type: text
             element: p
             props:
-              className: text-lg mb-8 text-center
+              className: text-xl mb-8 text-center
             content: Pick an event and register in under a minute.
           - type: container
             props:
@@ -38,7 +38,7 @@ components:
                   className: inline-block px-6 py-3 rounded-lg font-medium
                 content: Organizer sign-in
 
-          - type: data-table
+          - type: table
             dataSource:
               table: events
               filter:

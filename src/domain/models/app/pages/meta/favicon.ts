@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { HexColorSchema } from '@/domain/types/definitions'
+import { HexColorSchema } from '@/domain/kernel/identity/definitions'
 
 // ============================================================================
 // Favicon

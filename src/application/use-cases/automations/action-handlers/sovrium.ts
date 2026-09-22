@@ -6,11 +6,11 @@
  */
 
 import { Effect } from 'effect'
-import { decodeAppConfigObject } from '@/application/use-cases/schema/decode-app-config'
+import { decodeAppConfigObject } from '@/application/use-cases/config/decode-app-config'
 import {
   findSharedReferencePath,
   sharedReferenceMessage,
-} from '@/domain/utils/config-parsing/shared-reference-guard'
+} from '@/domain/kernel/config-parsing/shared-reference-guard'
 import { lookupPath } from '../resolve-trigger-data'
 import { buildRunContextView, rawActionProps } from './run-context-resolution'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
@@ -217,4 +217,4 @@ export const handleSovriumValidateConfig: ActionHandler = (
         )
       )
     })()
-  )
+  ).pipe(Effect.withSpan('automations.handle-sovrium-validate-config'))

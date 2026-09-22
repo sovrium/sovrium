@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { coerceFieldValue } from '../../runtime/field-value-coercion'
 import { SKIP_VALUE } from './skip-value'
 import type { ParsedTsv } from './parse-tsv'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
@@ -13,15 +14,13 @@ import type { FieldMetaMap } from '../../hooks/use-inline-editing'
  * Detect whether a pasted cell value is incompatible with the target field's
  * type.
  *
- * Only `number`-typed fields are checked: a non-empty value that cannot be
- * coerced to a finite number is a mismatch. Empty values are never a mismatch
- * (they import as blank). Other field types accept any string.
+ * The verdict comes from the ONE shared coercion rule
+ * (`shared/field-value-coercion.ts`) rather than a local `number`-only check,
+ * so the paste preview cannot flag a cell the fill handle would have written,
+ * or wave through one it would have refused.
  */
 export function isCellTypeMismatch(value: string, fieldType: string | undefined): boolean {
-  if (fieldType !== 'number') return false
-  const trimmed = value.trim()
-  if (trimmed.length === 0) return false
-  return !Number.isFinite(Number(trimmed))
+  return !coerceFieldValue(value, fieldType, '').ok
 }
 
 /**

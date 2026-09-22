@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { type AggregateFunction, reduceAggregate } from '../shared/aggregate-functions'
-import type { TableRecord } from '../shared/types'
+import { type AggregateFunction, reduceAggregate } from '../runtime/aggregate-functions'
+import type { TableRecord } from '../runtime/types'
 
 /**
  * Client-side aggregation for chart components.

@@ -33,6 +33,14 @@ export const users = authSchema.table('user', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
+  // The account's own interface language, declared through Better Auth's
+  // `user.additionalFields` — engine-owned, so no app has to opt in and no
+  // `AppSchema` property is added. Nullable because "has chosen nothing" is a
+  // real and common state, and is what leaves the browser's own preference (and
+  // then the app default) deciding. The value stored is whatever the app
+  // declared — a short code or a locale — and is resolved against the RENDERED
+  // app's `languages.supported` on the way out, never echoed.
+  language: text('language'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()

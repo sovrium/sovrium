@@ -13,7 +13,7 @@
  * / `Layer` — the cache is a leaf storage utility with no dependencies).
  *
  * Entries are keyed by `${appRenderChecksum}:${path}:${language}:${urlLanguage}`
- * plus, for a `'content'` page, a corpus checksum (see {@link getPageCacheKey}).
+ * plus, for a `'content'` page, a corpus checksum (see `getPageCacheKey` in `domain/models/app/pages/page-cache-key.ts`).
  * Because the checksum changes whenever any render-affecting part of the app
  * schema changes (see `domain/services/app-render-checksum.ts`), stale entries
  * simply become unreachable after a schema edit — invalidation is automatic and
@@ -32,18 +32,15 @@
  */
 
 import { Effect, Ref, pipe } from 'effect'
-import { parseEcoPageCacheMaxMb } from '@/domain/models/env/eco/eco-page-cache-max-mb'
+import { parseEcoPageCacheMaxMb } from '@/domain/models/process-env/eco/eco-page-cache-max-mb'
 import {
   publishPageCacheOccupancy,
   recordPageCacheAdmission,
   type PageCacheAdmission,
-} from '@/infrastructure/utils/page-cache-telemetry'
+} from '@/infrastructure/process/page-cache-telemetry'
+import type { CachedPage } from '@/application/ports/services/page-cache'
 
-/** A cached page render plus the time it was stored (for diagnostics). */
-export interface CachedPage {
-  readonly html: string
-  readonly timestamp: number
-}
+export type { CachedPage }
 
 /** A stored entry — a {@link CachedPage} plus its measured UTF-8 byte size. */
 interface PageCacheEntry extends CachedPage {
@@ -59,7 +56,7 @@ const pageCache = Ref.makeUnsafe<Map<string, PageCacheEntry>>(new Map())
 /**
  * The store's two — and only two — state mutators are {@link setCachedPage}
  * and {@link clearPageCache}. Both republish occupancy to
- * `infrastructure/utils/page-cache-telemetry.ts`, which the footprint console
+ * `infrastructure/process/page-cache-telemetry.ts`, which the footprint console
  * reads. A third mutator added without that call would leave the console
  * confidently reporting entries the cache no longer holds.
  */
@@ -71,35 +68,14 @@ const measureOccupancy = (
 })
 
 /**
- * Build the cache key for a page render.
+ * The key builder moved to `domain/models/app/pages/page-cache-key.ts` in W5c.
  *
- * `urlLanguage` is a SEPARATE key dimension, not a duplicate of `language`.
- * `/fr/about` and a French-browser request to `/about` both render path
- * `/about` with `language: 'fr'`, yet only the first lets the URL prefix
- * override the page's own `meta.lang` ([internal ref]..039) — so they can
- * produce different HTML and must never share an entry.
- *
- * `corpusChecksum` is the `'content'`-page dimension: a page whose only
- * out-of-schema input is a directory of markdown files is corpus-invariant, not
- * request-invariant, so its entry is keyed by the CURRENT state of that corpus
- * as well. A markdown edit leaves the app render-checksum untouched and only
- * this segment can notice it. `'static'` pages pass `undefined` and get `-`.
- *
- * @param renderChecksum - App render-checksum (see `computeAppRenderChecksum`).
- * @param path - Request path, e.g. `/` or `/about`.
- * @param language - Detected language code, or `undefined` for the default.
- * @param variant - Optional extra key dimensions: the `/:lang/` URL-prefix
- *   locale (when the request carried one) and the content-corpus checksum
- *   (for a `'content'` page). Grouped into one object so the key builder keeps
- *   a readable call shape as dimensions accrue.
+ * It was pure — a concatenation of values the caller already held — while
+ * everything left in this module touches the `Ref`, the byte budget or the
+ * occupancy telemetry. Keeping the two together meant a route could not build a
+ * key without an import of `infrastructure/server/`, which the HTTP surface may
+ * not have. The rationale for each key dimension travelled with it.
  */
-export const getPageCacheKey = (
-  renderChecksum: string,
-  path: string,
-  language: string | undefined,
-  variant?: { readonly urlLanguage?: string; readonly corpusChecksum?: string }
-): string =>
-  `${renderChecksum}:${path}:${language ?? 'default'}:${variant?.urlLanguage ?? '-'}:${variant?.corpusChecksum ?? '-'}`
 
 /**
  * Get a cached page by key, or `undefined` when not present.
@@ -206,7 +182,7 @@ export const clearPageCache: Effect.Effect<void, never> = Effect.suspend(() =>
 /**
  * Get a cached page or compute, store, and return it on a miss.
  *
- * @param cacheKey - Key produced by {@link getPageCacheKey}.
+ * @param cacheKey - Key produced by `getPageCacheKey` in `domain/models/app/pages/page-cache-key.ts`.
  * @param compute - Effect that renders the page HTML when not cached.
  * @returns The HTML and whether it was a cache `hit` or `miss`.
  */

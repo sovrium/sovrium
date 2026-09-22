@@ -19,7 +19,8 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { assertNoUnresolvedChecksums, fetchChecksum } from './lib/release-checksums'
+import { printStderr } from '@/infrastructure/logging/cli-output'
+import { assertNoUnresolvedChecksums, fetchChecksum } from '../lib/release-checksums'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const TEMPLATE_PATH = join(PROJECT_ROOT, 'scripts', 'build', 'homebrew', 'sovrium.rb.template')
@@ -38,7 +39,7 @@ function parseArgs(): CliArgs {
 
   const version = versionIdx !== -1 ? args[versionIdx + 1] : undefined
   if (!version) {
-    console.error('Usage: bun run scripts/build/update-homebrew-formula.ts --version <ver>')
+    printStderr('Usage: bun run scripts/build/update-homebrew-formula.ts --version <ver>')
     process.exit(1)
   }
 
@@ -92,6 +93,10 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error('Error:', error)
+  printStderr(
+    `Error: The Homebrew formula was not updated.\n${
+      error instanceof Error ? (error.stack ?? error.message) : String(error)
+    }`
+  )
   process.exit(1)
 })

@@ -5,10 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isOpenToEveryone, toPermissionValue } from '@/domain/models/shared/permission-evaluation'
+import { isOpenToEveryone, toPermissionValue } from '@/domain/models/app/auth/permission-evaluation'
 import { logError, logWarning } from '@/infrastructure/logging/logger'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getRequestTrustedClientIp } from './client-ip'
-import type { UserSession } from '@/application/ports/models/user-session'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AdminRoleResolvable } from '@/domain/models/app'
 import type { Context, Next } from 'hono'
 
@@ -185,7 +186,6 @@ export function authMiddleware(auth: BetterAuthLike) {
       logError('[AUTH] Session extraction failed', error)
     }
 
-    // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue to next handler
     await next()
   }
 }
@@ -208,7 +208,6 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
     )
   }
 
-  // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue to next handler
   await next()
 }
 
@@ -245,7 +244,6 @@ export function requireAuthOrGuestComment(
 ) {
   return async (c: ContextWithSession, next: Next): Promise<Response | undefined> => {
     if (c.var.session) {
-      // eslint-disable-next-line functional/no-expression-statements -- middleware continuation
       await next()
       return undefined
     }
@@ -254,7 +252,6 @@ export function requireAuthOrGuestComment(
     const isPublicRead = isPublicTableRecordReadRequest(c) && hasPublicReadEnabled(c, app)
     if (isGuestComment || isPublicRead) {
       injectGuestPrincipal(c)
-      // eslint-disable-next-line functional/no-expression-statements -- middleware continuation
       await next()
       return undefined
     }
@@ -462,7 +459,7 @@ function makeAdminGuard(notFoundOnMissingSession: boolean, resolveApp?: ResolveT
     // Lazy imports to avoid database / domain initialization at import time.
     const { getUserRole } = await import('@/application/use-cases/tables/user-role')
     const { isAdminTier } = await import('@/domain/models/app')
-    const role = await getUserRole(session.userId)
+    const role = await runDomainPromise(c, getUserRole(session.userId))
     const app = resolveApp?.() ?? {}
 
     if (!isAdminTier(role, app)) {
@@ -471,7 +468,6 @@ function makeAdminGuard(notFoundOnMissingSession: boolean, resolveApp?: ResolveT
       return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
     }
 
-    // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue to next handler
     await next()
   }
 }

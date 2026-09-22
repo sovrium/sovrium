@@ -31,4 +31,4 @@ export const listUserViews = (
   Effect.gen(function* () {
     const repo = yield* UserViewRepository
     return yield* repo.list(input)
-  })
+  }).pipe(Effect.withSpan('tables.list-user-views'))

@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { uuid } from '@/domain/models/api/combinators/formats'
 import { formSubmissionAdminItemSchema } from './submissions-list'
 
 /**
@@ -52,17 +53,14 @@ import { formSubmissionAdminItemSchema } from './submissions-list'
  * bulk read needs at least one id; passing zero is a client bug). Over-100
  * returns 400 `too-many-ids`.
  */
-export const formsSubmissionsBulkRequestSchema = z
-  .object({
-    ids: z
-      .array(z.string().uuid())
-      .min(1)
-      .max(100)
-      .describe(
-        'Submission ids to fetch (1-100). Order is preserved in the response. Missing or soft-deleted ids drop silently — compare request and response lengths to detect drops.'
-      ),
-  })
-  .openapi('FormsSubmissionsBulkRequest')
+export const formsSubmissionsBulkRequestSchema = Schema.Struct({
+  ids: Schema.Array(uuid())
+    .annotate({
+      description:
+        'Submission ids to fetch (1-100). Order is preserved in the response. Missing or soft-deleted ids drop silently — compare request and response lengths to detect drops.',
+    })
+    .pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(100))),
+}).annotate({ identifier: 'FormsSubmissionsBulkRequest' })
 
 /**
  * Bulk read response payload.
@@ -72,34 +70,28 @@ export const formsSubmissionsBulkRequestSchema = z
  * list items). The `body` field is ALWAYS absent — bulk reads do not honor
  * `?reveal=true`.
  */
-export const formsSubmissionsBulkResponseSchema = z
-  .object({
-    items: z
-      .array(formSubmissionAdminItemSchema)
-      .describe(
-        'Submissions in request-order. Missing or soft-deleted ids are silently omitted; operators detect drops via `request.ids.length - response.items.length`.'
-      ),
-  })
-  .openapi('FormsSubmissionsBulkResponse')
+export const formsSubmissionsBulkResponseSchema = Schema.Struct({
+  items: Schema.Array(formSubmissionAdminItemSchema).annotate({
+    description:
+      'Submissions in request-order. Missing or soft-deleted ids are silently omitted; operators detect drops via `request.ids.length - response.items.length`.',
+  }),
+}).annotate({ identifier: 'FormsSubmissionsBulkResponse' })
 
 /**
  * Error payload returned when the bulk request exceeds 100 ids.
  *
  * Status code 400, stable error string. Locked by [internal ref].
  */
-export const tooManyIdsErrorSchema = z
-  .object({
-    error: z
-      .literal('too-many-ids')
-      .describe(
-        'Stable error code returned when the bulk request `ids` array exceeds 100 entries. Admin UIs match this string to render a "split your batch" warning.'
-      ),
-  })
-  .openapi('TooManyIdsError')
+export const tooManyIdsErrorSchema = Schema.Struct({
+  error: Schema.Literal('too-many-ids').annotate({
+    description:
+      'Stable error code returned when the bulk request `ids` array exceeds 100 entries. Admin UIs match this string to render a "split your batch" warning.',
+  }),
+}).annotate({ identifier: 'TooManyIdsError' })
 
 /** @public */
-export type FormsSubmissionsBulkRequest = z.infer<typeof formsSubmissionsBulkRequestSchema>
+export type FormsSubmissionsBulkRequest = typeof formsSubmissionsBulkRequestSchema.Type
 /** @public */
-export type FormsSubmissionsBulkResponse = z.infer<typeof formsSubmissionsBulkResponseSchema>
+export type FormsSubmissionsBulkResponse = typeof formsSubmissionsBulkResponseSchema.Type
 /** @public */
-export type TooManyIdsError = z.infer<typeof tooManyIdsErrorSchema>
+export type TooManyIdsError = typeof tooManyIdsErrorSchema.Type

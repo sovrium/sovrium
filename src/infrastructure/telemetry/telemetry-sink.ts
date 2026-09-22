@@ -22,12 +22,15 @@
  */
 
 import { hostname } from 'node:os'
+import { HTTPException } from 'hono/http-exception'
 import { classifyDriverFailure } from '@/domain/errors/driver-failure'
-import { isErrorReportingEnabled } from '@/domain/models/env/telemetry/telemetry'
+import { isErrorReportingEnabled } from '@/domain/models/process-env/telemetry/telemetry'
 import { formatErrorChain } from './error-chain'
 import { initErrorReporter, registerProcessErrorHandlers, reportException } from './error-reporter'
 import { disposeObsRuntime, emitLog, initObsRuntime, setLogResource } from './observability-runtime'
 import { getTelemetryConfig } from './telemetry-config'
+import { probeTelemetryEndpoints } from './telemetry-probe'
+import type { Tracer } from 'effect'
 
 /** Severity of a dual-written log line (mirrors the `Logger` service methods). */
 export type TelemetryLogLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -65,11 +68,13 @@ export const activateTelemetry = (options: ActivateTelemetryOptions): void => {
   }
 
   // Logs, metrics, and traces share ONE OTLP resource identity and ONE pre-built
-  // runtime. ANY of the three signals arms it; when several are on (a base
-  // `OTEL_EXPORTER_OTLP_ENDPOINT` derives logs+metrics), the first present supplies
-  // the resource — all carry identical service/environment values. Traces alone
-  // (only `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` set) must still arm the runtime so
-  // the OtlpTracer tee (and its exporter fiber) is built.
+  // runtime. ANY of the three signals arms it; when several are on, the first
+  // present supplies the resource — all carry identical service/environment
+  // values. Each signal now has its OWN endpoint variable (metrics joined logs
+  // and traces in that per-signal discipline under [internal ref]), so "several on"
+  // means the operator named several, never one variable deriving two. Traces
+  // alone (only `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` set) must still arm the
+  // runtime so the OtlpTracer tee (and its exporter fiber) is built.
   const otlp = config.logExport ?? config.metricsExport ?? config.traces
   if (otlp !== undefined) {
     // service.name: OTEL_SERVICE_NAME → app name → `sovrium`.
@@ -78,6 +83,14 @@ export const activateTelemetry = (options: ActivateTelemetryOptions): void => {
       serviceVersion: options.version,
       environment: otlp.environment,
     })
+  }
+  // Sentry performance sampling arms the runtime as well, WITHOUT contributing a
+  // resource identity — `PerformanceConfig` carries only a sample rate, and the
+  // performance-only runtime builds no OTLP tee for a resource to describe. What
+  // it does need is the span-collecting tracer that `tracesTee` installs, which
+  // is what puts a span breakdown into the Sentry transaction envelope. Skipping
+  // the pre-build here would leave that tracer unbuilt and the box empty.
+  if (otlp !== undefined || config.performance !== undefined) {
     // Pre-build the unified stdout+OTLP runtime (async: acquires the OTLP Scope
     // and the metrics poller fiber) so later synchronous emits run against the
     // cached runtime. Until it resolves, the sync stdout bootstrap serves each
@@ -85,6 +98,16 @@ export const activateTelemetry = (options: ActivateTelemetryOptions): void => {
     // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget pre-build
     void initObsRuntime()
   }
+
+  // Ask every armed OTLP destination, once, whether it is actually accepting
+  // data. Export itself is fire-and-forget, so a wrong URL produces no signal
+  // anywhere — the upstream OTLP exporter drops the batch and reports it at
+  // DEBUG, which production never prints. This is the one place we can tell the
+  // operator that their endpoint is not mounted, and it names the variable to
+  // fix. The error-reporting envelope endpoint is NOT probed: `sendEnvelope`
+  // already warns on its own non-2xx answers, and probing it would file a junk
+  // event on every boot.
+  probeTelemetryEndpoints({ log: (message) => emitLog('warn', message) })
 }
 
 /**
@@ -105,10 +128,26 @@ export const activateTelemetry = (options: ActivateTelemetryOptions): void => {
  * rather than re-deriving it is the point — the classifier that decides the
  * status and the one that decides reportability cannot disagree.
  *
+ * The HTTP boundary now applies that same rule rather than merely agreeing with
+ * it in principle: `server.ts`'s `.onError` gates its own `reportException` on
+ * THIS predicate, so both report paths out of a failed request share one
+ * definition. It has to be exported for that, and an `HTTPException` needs its
+ * own branch — the raiser already chose the status, and `classifyDriverFailure`
+ * answers `application` for it (correctly: it never came from the driver),
+ * which would report every 400 a validator raises. Below 500 the caller was
+ * answered correctly and nothing is wrong with the deployment; 500 and above is
+ * ours and is reported exactly as before, which is what keeps `hono/timeout`'s
+ * `HTTPException(504)` in the operator's inbox.
+ *
  * The switch has no `default`, so adding an origin to `DriverFailure` fails to
  * compile until someone decides which side of this line it falls on.
  */
-const isOperatorActionable = (cause: unknown): boolean => {
+export const isOperatorActionable = (cause: unknown): boolean => {
+  // The status the boundary is about to answer IS the classification: a 4xx is
+  // the caller being told, correctly and completely, that they got it wrong.
+  if (cause instanceof HTTPException) {
+    return cause.status >= 500
+  }
   const failure = classifyDriverFailure(cause)
   switch (failure.origin) {
     // `check` / `foreign-key` / `not-null` answer 400 and `unique` answers 409.
@@ -133,17 +172,31 @@ const isOperatorActionable = (cause: unknown): boolean => {
 }
 
 /**
+ * What a log line carries beyond its level, message and cause: the structured
+ * attributes that ride the OTLP record, and the span it was written inside.
+ */
+export interface LogEmitContext {
+  readonly attributes?: LogAttributes | undefined
+  readonly parentSpan?: Tracer.AnySpan | undefined
+}
+
+/**
  * Dual-write a structured log line to telemetry, in addition to (never instead
  * of) stdout. Exports an OTLP log record and forwards an `Error` cause to the
  * Sentry reporter. No-op for whichever signals are disabled.
+ *
+ * `parentSpan` carries the caller's ambient span across the hop onto the
+ * observability runtime, which is what puts a `traceId` on the exported record.
+ * Only the `Logger` SERVICE supplies it — it runs inside an Effect and can read
+ * the span off its fiber. The plain-function helpers cannot, and pass nothing.
  */
 export const emitTelemetryLog = (
   level: TelemetryLogLevel,
   message: string,
   cause?: unknown,
-  attributes?: LogAttributes
+  context?: LogEmitContext
 ): void => {
-  emitLog(level, message, attributes)
+  emitLog(level, message, context?.attributes, context?.parentSpan)
   if (cause instanceof Error) {
     // Local stack for terminal debugging — the unified stdout logger writes only
     // the formatted message line; the reporter forwards the cause to Sentry (deduped).

@@ -27,7 +27,7 @@
  *   the parameter is a forward contract — same behavior as runs-list.
  * - **D3 (consumed)** — every item carries the canonical `_admin: {
  *   lastModifiedBy, deletedAt, metadata? }` block from
- *   `_shared/admin-envelope.ts`. Forms-list is the FIRST consumer to
+ *   `envelope/admin-envelope.ts`. Forms-list is the FIRST consumer to
  *   populate `_admin.metadata` (with `fieldCount`, `submissionCount`,
  *   `lastSubmissionAt`) — proves the canonical block stays stable while
  *   domain-specific extras flow through the optional escape hatch.
@@ -49,13 +49,16 @@
  * @see plan §6.5 — schema reuse rule (extend, never duplicate)
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { adminEnvelopeSchema } from '@/domain/models/api/admin/envelope/admin-envelope'
+import { booleanFlag } from '@/domain/models/api/combinators/coerce'
 import {
   cursorPaginationQuerySchema,
   cursorPaginationResponseSchema,
-} from '@/domain/models/api/_shared/cursor-pagination'
-import { adminEnvelopeSchema } from '@/domain/models/api/admin/_shared/admin-envelope'
+} from '@/domain/models/api/combinators/cursor-pagination'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 import { formSummarySchema } from '@/domain/models/api/forms/forms'
+import { withDefault } from '../../combinators/schema-defaults'
 
 /**
  * Filter query parameters accepted by `GET /api/admin/forms`.
@@ -76,28 +79,21 @@ import { formSummarySchema } from '@/domain/models/api/forms/forms'
  * stringly-typed with coercion) so loaders can consume the parsed value
  * uniformly without per-domain coercion logic.
  */
-export const formsListQuerySchema = cursorPaginationQuerySchema
-  .extend({
-    search: z
-      .string()
-      .min(1)
-      .optional()
-      .describe(
-        "Case-insensitive free-text substring match over each form's `title` AND `name` (matches in either field qualify). Empty result set returns `items: []` with HTTP 200, NOT 404 — matching the canonical empty-result-vs-anti-enum distinction (anti-enum 404 is reserved for unauthorized access, NOT empty queries)."
-      ),
-    include_deleted: z
-      .union([z.boolean(), z.string()])
-      .transform((value) => {
-        if (typeof value === 'boolean') return value
-        return value === 'true' || value === '1'
-      })
-      .pipe(z.boolean())
-      .default(false)
-      .describe(
-        'Include soft-deleted forms. Default `false` — D2 consumption from runs-list. Pass `?include_deleted=true` to surface tombstones for compliance review. The flag parses without 400 even though forms cannot be soft-deleted in Phase 0 (forward-contract — see story §dependencies).'
-      ),
-  })
-  .openapi('FormsListQuery')
+export const formsListQuerySchema = Schema.Struct({
+  ...cursorPaginationQuerySchema.fields,
+  search: optionalField(
+    Schema.String.annotate({
+      description:
+        "Case-insensitive free-text substring match over each form's `title` AND `name` (matches in either field qualify). Empty result set returns `items: []` with HTTP 200, NOT 404 — matching the canonical empty-result-vs-anti-enum distinction (anti-enum 404 is reserved for unauthorized access, NOT empty queries).",
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  include_deleted: booleanFlag
+    .annotate({
+      description:
+        'Include soft-deleted forms. Default `false` — D2 consumption from runs-list. Pass `?include_deleted=true` to surface tombstones for compliance review. The flag parses without 400 even though forms cannot be soft-deleted in Phase 0 (forward-contract — see story §dependencies).',
+    })
+    .pipe(withDefault(false)),
+}).annotate({ identifier: 'FormsListQuery' })
 
 /**
  * Resolved query parameter values (post-default-fill, post-coercion).
@@ -108,7 +104,7 @@ export const formsListQuerySchema = cursorPaginationQuerySchema
  * regression where a transitive `z.input` made the helper config too narrow.
  * @public
  */
-export type FormsListQuery = z.infer<typeof formsListQuerySchema>
+export type FormsListQuery = typeof formsListQuerySchema.Type
 
 /**
  * Single admin form item — public `formSummarySchema` extended with the
@@ -140,20 +136,19 @@ export type FormsListQuery = z.infer<typeof formsListQuerySchema>
  * without depending on the metadata's full shape (the canonical block is
  * the only D3-locked surface).
  */
-export const formAdminItemSchema = formSummarySchema
-  .extend({
-    _admin: adminEnvelopeSchema,
-  })
-  .openapi('FormAdminItem')
+export const formAdminItemSchema = Schema.Struct({
+  ...formSummarySchema.fields,
+  _admin: adminEnvelopeSchema,
+}).annotate({ identifier: 'FormAdminItem' })
 
 /** @public */
-export type FormAdminItem = z.infer<typeof formAdminItemSchema>
+export type FormAdminItem = typeof formAdminItemSchema.Type
 
 /**
  * Cursor-paginated response shape for the list endpoint.
  *
  * Wraps the admin item schema with the canonical `{ items, nextCursor }`
- * envelope from `_shared/cursor-pagination.ts`. `nextCursor === null`
+ * envelope from `combinators/cursor-pagination.ts`. `nextCursor === null`
  * signals stream end; non-null is an opaque base64 token for the next
  * `?cursor=...` request.
  *
@@ -162,11 +157,12 @@ export type FormAdminItem = z.infer<typeof formAdminItemSchema>
  * unique within an app schema, no ties to break). Stability is trivial
  * compared to runs-list's `(startedAt DESC, id ASC)` tuple.
  */
-export const formsListResponseSchema =
-  cursorPaginationResponseSchema(formAdminItemSchema).openapi('FormsListResponse')
+export const formsListResponseSchema = cursorPaginationResponseSchema(formAdminItemSchema).annotate(
+  { identifier: 'FormsListResponse' }
+)
 
 /** @public */
-export type FormsListResponse = z.infer<typeof formsListResponseSchema>
+export type FormsListResponse = typeof formsListResponseSchema.Type
 
 /**
  * Path parameter for the detail endpoint `GET /api/admin/forms/:formName`.
@@ -183,21 +179,21 @@ export type FormsListResponse = z.infer<typeof formsListResponseSchema>
  * any entry in `app.forms[]`) DO return 404 per the anti-enumeration
  * contract — that's the [internal ref] lock.
  */
-export const formsDetailParamsSchema = z
-  .object({
-    formName: z
-      .string()
-      .min(1)
-      .max(64)
-      .regex(/^[a-z][a-z0-9-]*$/, 'must be kebab-case starting with a letter')
-      .describe(
-        'Form name (kebab-case) — matches `formNameSchema` from the public `/api/forms/:name` endpoint.'
-      ),
-  })
-  .openapi('FormsDetailParams')
+export const formsDetailParamsSchema = Schema.Struct({
+  formName: Schema.String.annotate({
+    description:
+      'Form name (kebab-case) — matches `formNameSchema` from the public `/api/forms/:name` endpoint.',
+  }).pipe(
+    Schema.check(
+      Schema.isMinLength(1),
+      Schema.isMaxLength(64),
+      Schema.isPattern(/^[a-z][a-z0-9-]*$/)
+    )
+  ),
+}).annotate({ identifier: 'FormsDetailParams' })
 
 /** @public */
-export type FormsDetailParams = z.infer<typeof formsDetailParamsSchema>
+export type FormsDetailParams = typeof formsDetailParamsSchema.Type
 
 /**
  * Detail endpoint response shape — a single admin form item.
@@ -209,7 +205,9 @@ export type FormsDetailParams = z.infer<typeof formsDetailParamsSchema>
  * full availability window) will branch this schema; for now it is
  * structurally identical to the list item.
  */
-export const formAdminDetailResponseSchema = formAdminItemSchema.openapi('FormsDetailResponse')
+export const formAdminDetailResponseSchema = formAdminItemSchema.annotate({
+  identifier: 'FormsDetailResponse',
+})
 
 /** @public */
-export type FormAdminDetailResponse = z.infer<typeof formAdminDetailResponseSchema>
+export type FormAdminDetailResponse = typeof formAdminDetailResponseSchema.Type

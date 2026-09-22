@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { hasDataBinding } from '../shared/data-binding'
+import { hasDataBinding } from '../runtime/data-binding'
 import { buildTimelineItems, type TimelineConfig } from './timeline-compute'
 import {
   TimelineEmpty,
@@ -49,6 +49,18 @@ interface TimelineIslandProps {
    */
   readonly colorFieldColors?: Readonly<Record<string, string>>
   readonly defaultZoom?: TimelineConfig['defaultZoom']
+  /**
+   * Draw a rule at the current date. ABSENT means ON: the schema declares this
+   * with a decoding default of `true`, and a timeline's display bindings reach
+   * the island through the component's open `props` object rather than through
+   * that schema, so the default has to be honoured here — otherwise "declared
+   * nothing" and "declared false" would render identically.
+   */
+  readonly showToday?: boolean
+  /** Draw connectors between a record and the records it follows. Default off. */
+  readonly showDependencies?: boolean
+  /** Field holding the predecessor ids. Without it there is nothing to connect. */
+  readonly dependencyField?: string
   readonly emptyMessage?: string
 }
 
@@ -78,6 +90,9 @@ export default function TimelineIsland({
   colorField,
   colorFieldColors,
   defaultZoom,
+  showToday,
+  showDependencies,
+  dependencyField,
   emptyMessage,
 }: TimelineIslandProps): ReactElement {
   const { data, isLoading, isError, error } = useTimelineRecords(dataSource)
@@ -97,6 +112,7 @@ export default function TimelineIsland({
     groupBy,
     colorField,
     defaultZoom,
+    dependencyField,
   }
   const items = buildTimelineItems(records, config)
   if (items.length === 0) return <TimelineEmpty message={emptyMessage} />
@@ -106,6 +122,9 @@ export default function TimelineIsland({
       items={items}
       groupBy={groupBy}
       colorFieldColors={colorFieldColors}
+      zoom={defaultZoom}
+      showToday={showToday !== false}
+      showDependencies={showDependencies === true && dependencyField !== undefined}
     />
   )
 }

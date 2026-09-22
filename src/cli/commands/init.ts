@@ -7,16 +7,15 @@
 
 import { mkdir, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
-import { Effect, Console } from 'effect'
+import { ENV_EXAMPLE_CONTENT } from '@/cli/commands/env-example-template'
 import {
   isRemoteTemplateRef,
   scaffoldFromRemoteTemplate,
 } from '@/cli/commands/init-remote-template'
 import { CLAUDE_MD_BODY, PUBLIC_README_BODY } from '@/cli/commands/init-scaffold-content'
 import { writeConfigTypesFiles } from '@/cli/commands/types'
-import { ENV_EXAMPLE_CONTENT } from '@/cli/env-example-template'
 import { embeddedTemplateDir } from '@/infrastructure/assets/embedded-static-assets'
-import { printDocument, printFailure } from '@/infrastructure/logging/cli-output'
+import { printDocument, printFailure, printStderr } from '@/infrastructure/logging/cli-output'
 
 /**
  * Relative path of the starter Claude Code agent inside every template tree.
@@ -55,6 +54,7 @@ const TEMPLATE_MAP: Readonly<Record<string, string>> = {
   people: 'people',
   events: 'events',
   assets: 'assets',
+  inventory: 'inventory',
   expenses: 'expenses',
   'company-os': 'company-os',
   'automation-recipes': 'automation-recipes',
@@ -82,6 +82,7 @@ const WEB_FACING_TEMPLATE_NAMES: ReadonlySet<string> = new Set([
   'people',
   'events',
   'assets',
+  'inventory',
   'expenses',
   'company-os',
   'automation-recipes',
@@ -168,7 +169,6 @@ const generateGitignore = (): string =>
 const writeGitignoreIfMissing = async (targetDir: string): Promise<boolean> => {
   const gitignorePath = join(targetDir, '.gitignore')
   if (await Bun.file(gitignorePath).exists()) return false
-  // eslint-disable-next-line functional/no-expression-statements
   await writeFile(gitignorePath, generateGitignore())
   return true
 }
@@ -194,7 +194,6 @@ const writePublicDirIfMissing = async (targetDir: string): Promise<readonly stri
       .exists()
       .then(async (exists) => {
         if (exists) return false
-        // eslint-disable-next-line functional/no-expression-statements
         await writeFile(gitkeepPath, '')
         return true
       }),
@@ -202,7 +201,6 @@ const writePublicDirIfMissing = async (targetDir: string): Promise<readonly stri
       .exists()
       .then(async (exists) => {
         if (exists) return false
-        // eslint-disable-next-line functional/no-expression-statements
         await writeFile(readmePath, PUBLIC_README_BODY)
         return true
       }),
@@ -216,12 +214,11 @@ const writePublicDirIfMissing = async (targetDir: string): Promise<readonly stri
  * Additive like `.gitignore` — `init` never clobbers a file it does not own
  * (even under `--force`, which only governs `app.yaml`). The content is the
  * canonical, eco-defaulted reference shared with the repo-root `.env.example`
- * (see `@/cli/env-example-template`). Returns whether a new file was written.
+ * (see `@/cli/commands/env-example-template`). Returns whether a new file was written.
  */
 const writeEnvExampleIfMissing = async (targetDir: string): Promise<boolean> => {
   const envExamplePath = join(targetDir, '.env.example')
   if (await Bun.file(envExamplePath).exists()) return false
-  // eslint-disable-next-line functional/no-expression-statements
   await writeFile(envExamplePath, ENV_EXAMPLE_CONTENT)
   return true
 }
@@ -246,9 +243,7 @@ const writeScaffoldFiles = async (
 ): Promise<string> => {
   const targetPath = join(targetDir, configFilename)
   const appName = basename(targetDir)
-  // eslint-disable-next-line functional/no-expression-statements
   await writeFile(targetPath, configContent)
-  // eslint-disable-next-line functional/no-expression-statements
   await writeFile(join(targetDir, 'CLAUDE.md'), generateClaudeMd(appName))
   return targetPath
 }
@@ -264,11 +259,9 @@ const writeScaffoldFiles = async (
 const resolveTemplate = (templateName: string): string => {
   const entry = TEMPLATE_MAP[templateName]
   if (entry === undefined) {
-    Effect.runSync(
-      Console.error(
-        `Error: Unknown template "${templateName}" — does not exist\n\nAvailable templates: ` +
-          Object.keys(TEMPLATE_MAP).join(', ')
-      )
+    printStderr(
+      `Error: Unknown template "${templateName}" — does not exist\n\nAvailable templates: ` +
+        Object.keys(TEMPLATE_MAP).join(', ')
     )
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
@@ -276,7 +269,7 @@ const resolveTemplate = (templateName: string): string => {
 
   const tree = embeddedTemplateDir(entry)
   if (Object.keys(tree).length === 0) {
-    Effect.runSync(Console.error(`Error: Template directory has no embedded files: ${entry}`))
+    printStderr(`Error: Template directory has no embedded files: ${entry}`)
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
@@ -394,7 +387,7 @@ const writeStarterAgentIfMissing = async (targetDir: string): Promise<readonly s
   if (sourcePath === undefined) {
     // The `Warning:` label went: `Error:` is load-bearing because scrapers grep
     // it, but `Warning:` only restates the tone the sentence already carries.
-    Effect.runSync(Console.error(`Starter agent not embedded — skipping ${STARTER_AGENT_RELPATH}.`))
+    printStderr(`Starter agent not embedded — skipping ${STARTER_AGENT_RELPATH}.`)
     return []
   }
   const destPath = join(targetDir, ...STARTER_AGENT_RELPATH.split('/'))
@@ -434,7 +427,7 @@ const assertNoConflict = async (targetPath: string, forceFlag: boolean): Promise
   if (forceFlag) return
   const exists = await Bun.file(targetPath).exists()
   if (!exists) return
-  Effect.runSync(Console.error(`Error: ${targetPath} already exists (use --force to overwrite)`))
+  printStderr(`Error: ${targetPath} already exists (use --force to overwrite)`)
   // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
@@ -470,7 +463,6 @@ const scaffoldTree = async (params: {
   if (templateName && isRemoteTemplateRef(templateName)) {
     // Remote-shaped refs (`owner/repo`, `gh:…`, GitHub URLs, optional #ref)
     // fetch from GitHub; bare names stay embedded-only (offline).
-    // eslint-disable-next-line functional/no-expression-statements
     await scaffoldFromRemoteTemplate(templateName, targetDir, forceFlag)
     return []
   }
@@ -524,7 +516,6 @@ export const handleInitCommand = async (options: InitCommandOptions = {}): Promi
   // The conflict check follows the config file this invocation will actually
   // write — otherwise `init --typescript` in a directory holding an `app.ts`
   // would check `app.yaml`, find nothing, and overwrite the author's config.
-  // eslint-disable-next-line functional/no-expression-statements
   await assertNoConflict(join(targetDir, configFilenameFor(typescript)), forceFlag)
   // eslint-disable-next-line functional/no-expression-statements
   await mkdir(targetDir, { recursive: true })

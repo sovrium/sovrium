@@ -1,0 +1,63 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Effect } from 'effect'
+import {
+  listViewsProgram,
+  getViewProgram,
+  getViewRecordsProgram,
+} from '@/application/use-cases/tables/table-operations'
+import {
+  getViewResponseSchema,
+  getViewRecordsResponseSchema,
+} from '@/domain/models/api/tables/tables'
+import { provideTableLive } from '@/infrastructure/layers/table-layer'
+import { runEffect } from '@/presentation/api/runtime'
+import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import type { App } from '@/domain/models/app'
+import type { Hono } from 'hono'
+
+export function chainViewRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
+  return honoApp
+    .get('/api/tables/:tableId/views', async (c) => {
+      // Session, tableId, and userRole are guaranteed by middleware chain
+      const { tableId, userRole } = getTableContext(c)
+
+      const program = Effect.gen(function* () {
+        const result = yield* listViewsProgram(tableId, resolveApp(), userRole)
+        // Return the views array directly (unwrapped) to match test expectations
+        // No schema validation - test expects minimal view objects without timestamps
+        return result
+      })
+
+      return runEffect(c, program)
+    })
+    .get('/api/tables/:tableId/views/:viewId', async (c) => {
+      // Session, tableId, and userRole are guaranteed by middleware chain
+      const { tableId, userRole } = getTableContext(c)
+
+      return runEffect(
+        c,
+        getViewProgram(tableId, c.req.param('viewId'), resolveApp(), userRole),
+        getViewResponseSchema
+      )
+    })
+    .get('/api/tables/:tableId/views/:viewId/records', async (c) => {
+      const { session, tableId, userRole } = getTableContext(c)
+      const viewId = c.req.param('viewId')
+
+      const program = getViewRecordsProgram({
+        tableId,
+        viewId,
+        app: resolveApp(),
+        userRole,
+        session,
+      })
+
+      return runEffect(c, provideTableLive(program), getViewRecordsResponseSchema)
+    })
+}

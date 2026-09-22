@@ -12,7 +12,7 @@
  * and OpenAPI documentation generation.
  *
  * Schema Organization (by API route domain):
- * - _shared: Pagination, timestamps, error responses (cross-cutting)
+ * - combinators: Pagination, timestamps, error responses (cross-cutting)
  * - account: Account self-service & GDPR endpoints (export, deletion)
  * - activity: Activity log endpoints
  * - ai: AI chat, MCP, memory, RAG endpoints
@@ -26,7 +26,7 @@
  */
 
 // Cross-cutting schemas
-export * from './_shared'
+export * from './combinators'
 
 // Account self-service & GDPR schemas (export, deletion)
 export * from './account'

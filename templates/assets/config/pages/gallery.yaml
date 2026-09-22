@@ -16,12 +16,12 @@ components:
       - type: text
         element: h1
         props:
-          className: text-2xl font-bold mb-1
+          className: text-3xl font-bold mb-1
         content: Gallery
       - type: text
         element: p
         props:
-          className: text-sm mb-6
+          className: text-md mb-6
         content: The same register, as photo cards — handy on a phone while walking the floor.
 
       - type: gallery
@@ -41,15 +41,15 @@ components:
             - type: text
               element: h3
               props:
-                className: text-sm font-semibold
+                className: text-md font-semibold
               content: $record.name
             - type: text
               element: p
               props:
-                className: text-xs
+                className: text-sm
               content: $record.category
             - type: text
               element: p
               props:
-                className: text-xs
+                className: text-sm
               content: $record.status

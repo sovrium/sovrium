@@ -16,15 +16,15 @@ components:
       - type: text
         element: h1
         props:
-          className: text-2xl font-bold mb-1
+          className: text-3xl font-bold mb-1
         content: People
       - type: text
         element: p
         props:
-          className: text-sm mb-6
+          className: text-md mb-6
         content: The team, and who's away. New time-off requests wait for an admin's approval.
 
-      - type: data-table
+      - type: table
         dataSource:
           table: employees
           sort:
@@ -53,7 +53,7 @@ components:
           - type: text
             element: h2
             props:
-              className: text-base font-semibold mb-4
+              className: text-lg font-semibold mb-4
             content: Request time off
           - type: form
             dataSource:

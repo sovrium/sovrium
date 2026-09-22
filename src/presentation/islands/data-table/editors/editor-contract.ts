@@ -5,9 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { fieldWidgetOf } from '@/presentation/utils/field-type-behavior'
+import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
 import type { FieldEditMeta, FieldMeta, FieldWriteValue } from '../../hooks/use-inline-editing'
-import type { SelectOptionLike } from '@/domain/utils/select-option'
+import type { TabDirection } from '../island/tab-target'
+import type { SelectOptionLike } from '@/domain/models/app/tables/select-option'
 
 /**
  * What every inline cell editor is handed, whatever it renders.
@@ -24,11 +25,11 @@ export interface CellEditorProps {
   /** Closes the editor without writing. */
   readonly cancel: () => void
   /**
-   * Commits and moves the editor to the next editable column, when the grid
-   * supplied Tab wiring. Absent under manual-save mode, where `onTabNext` is
-   * never built — see `use-island-setup.ts`.
+   * Commits and moves the editor to the neighbouring editable cell —
+   * `previous` under Shift-Tab. Wrapping to the next or previous ROW at the
+   * ends of a row is resolved centrally; see `island/tab-target.ts`.
    */
-  readonly tabNext?: (next: FieldWriteValue) => void
+  readonly tabNext?: (next: FieldWriteValue, direction: TabDirection) => void
   readonly fieldMeta?: FieldMeta
   readonly fieldName?: string
   readonly tableName?: string

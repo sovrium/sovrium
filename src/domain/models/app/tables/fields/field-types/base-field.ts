@@ -6,8 +6,8 @@
  */
 
 import { Schema, Struct } from 'effect'
+import { FieldIdSchema } from '@/domain/kernel/identity/branded-ids'
 import { FieldNameSchema } from '@/domain/models/app/tables/fields/field-name'
-import { FieldIdSchema } from '@/domain/types/branded-ids'
 
 /**
  * The field's own property set, before annotation.

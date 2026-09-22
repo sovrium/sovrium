@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   createVolatileFormulaTriggers,
@@ -29,10 +30,9 @@ import { shouldUseView, getBaseTableName } from '../lookup/lookup-view-generator
 import {
   executeSQLStatements,
   executeSQLStatementsParallel,
+  SQLExecutionError,
   type TransactionLike,
-  type SQLExecutionError,
 } from '../sql/sql-execution'
-import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import type { Table } from '@/domain/models/app/tables'
 
 /**
@@ -74,9 +74,19 @@ const advancedTriggerEffects = (
     executeSQLStatements(tx, generateAiExtractTriggers(physicalTable)),
     executeSQLStatements(tx, generateAiSentimentTriggers(physicalTable)),
     executeSQLStatements(tx, generateAiGenerateTriggers(physicalTable)),
-    Effect.promise(() =>
-      createVolatileFormulaTriggers(tx, physicalTableName, physicalTable.fields)
-    ),
+    // The seven siblings above all go through `executeSQLStatements`, which
+    // reports a rejected statement as `SQLExecutionError`. This one issues the
+    // same kind of DDL through a helper and claimed it could not fail, so a
+    // formula trigger that PostgreSQL refused aborted the migration as a defect
+    // instead of rolling it back with a statement to point at.
+    Effect.tryPromise({
+      try: () => createVolatileFormulaTriggers(tx, physicalTableName, physicalTable.fields),
+      catch: (error) =>
+        new SQLExecutionError({
+          message: `Volatile formula trigger setup failed for ${physicalTableName}: ${String(error)}`,
+          cause: error,
+        }),
+    }),
   ]
 }
 

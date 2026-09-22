@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { optionValue } from '@/domain/utils/select-option'
+import { optionValue } from '@/domain/models/app/tables/select-option'
 
 /**
  * Validates that min is less than or equal to max when both are specified.

@@ -7,11 +7,11 @@
 
 import { sql } from 'drizzle-orm'
 import { DatabaseError } from '@/domain/errors'
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import { nowExpr } from '@/infrastructure/database/sql/dialect-sql'
-import { validateTableName, validateColumnName } from '../shared/validation'
+import { validateTableName, validateColumnName } from '../statement/validation'
 import { hasDeletedByColumn, getDeletedByValue } from './authorship-helpers'
 import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
 

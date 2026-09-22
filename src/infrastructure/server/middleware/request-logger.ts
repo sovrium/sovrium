@@ -37,7 +37,6 @@ const EXCLUDED_PREFIXES = ['/assets/', '/favicon'] as const
  */
 export const requestLogger: MiddlewareHandler = async (c, next) => {
   const start = Date.now()
-  // eslint-disable-next-line functional/no-expression-statements
   await next()
 
   const { path } = c.req

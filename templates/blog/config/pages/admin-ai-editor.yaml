@@ -19,17 +19,17 @@ components:
           - type: link
             props:
               href: /admin
-              className: text-sm mb-6 inline-block text-primary hover:underline
+              className: text-md mb-6 inline-block text-primary hover:underline
             content: ← Back to posts
           - type: text
             element: h1
             props:
-              className: text-3xl font-bold mb-2 text-foreground
+              className: text-4xl font-bold mb-2 text-foreground
             content: AI editor
           - type: text
             element: p
             props:
-              className: text-sm mb-6 text-muted-foreground
+              className: text-md mb-6 text-muted-foreground
             content: >-
               Ask the assistant to draft a new post, revise a draft, or review an
               article. It proposes changes as drafts — you approve before anything

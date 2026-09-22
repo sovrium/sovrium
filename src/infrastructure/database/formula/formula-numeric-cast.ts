@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { escapeRegExp } from '@/domain/kernel/sanitize/escape-regexp'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 
 /**
@@ -93,9 +94,6 @@ export const isNumericFieldRef = (field: NumericCastField): boolean => {
   }
   return NUMERIC_FIELD_TYPES.has(field.type)
 }
-
-/** Escape a string for use as a literal inside a RegExp. */
-const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
  * Wrap each numeric column reference that is a DIRECT OPERAND of a `/` division

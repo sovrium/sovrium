@@ -106,7 +106,3 @@ export const activityLogs = systemTable(
     index('activity_logs_action_idx').on(table.action),
   ]
 )
-
-// Type exports for consumers
-export type ActivityLog = typeof activityLogs.$inferSelect
-export type NewActivityLog = typeof activityLogs.$inferInsert

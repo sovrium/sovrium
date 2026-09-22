@@ -6,7 +6,7 @@
  */
 
 import { Context } from 'effect'
-import type { UserSession } from '@/application/ports/models/user-session'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type {
   ForeignKeyViolationError,
   DatabaseError,
@@ -119,6 +119,26 @@ export class TableRepository extends Context.Service<
           readonly name: string
           readonly fields: readonly unknown[]
         }[]
+      }
+      /**
+       * The declared primary key of `tableName`, used ONLY to pick the default
+       * sort key when the caller supplied no `sort`.
+       *
+       * It is here rather than being read back out of `app` because a table
+       * declaring a composite key over fields other than `id` HAS NO `id`
+       * COLUMN — the DDL generator suppresses the automatic one — so ordering
+       * an unsorted list by `id` names a column that does not exist. On
+       * PostgreSQL that is SQLSTATE 42703, surfaced as a 400 blaming the caller
+       * for a sort they never sent; on SQLite the quoted identifier degrades to
+       * a string literal and the read silently succeeds unordered.
+       *
+       * Separate from `app` deliberately: `app` also drives single-select
+       * option ordering, so passing it purely to reach the primary key would
+       * change how an EXPLICIT sort is emitted too.
+       */
+      readonly primaryKey?: {
+        readonly type?: string
+        readonly fields?: readonly string[]
       }
     }) => Effect.Effect<readonly Record<string, unknown>[], DatabaseError>
 

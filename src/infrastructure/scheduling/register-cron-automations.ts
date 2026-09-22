@@ -8,13 +8,9 @@
 import { Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
 import { runCronAutomation } from '@/application/use-cases/automations/run-cron-automation'
-import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
 import { logError } from '@/infrastructure/logging/logger'
-import { CronSchedulerLive, disposeCronScheduler } from './cron-scheduler-live'
 import type { App } from '@/domain/models/app'
-
-// Re-export so server.ts can import everything cron-related from one place.
-export { disposeCronScheduler }
+import type { Context } from 'effect'
 
 type Automation = NonNullable<App['automations']>[number]
 type CronTriggerLike = {
@@ -24,27 +20,49 @@ type CronTriggerLike = {
 }
 type CronScheduleService = Effect.Success<typeof CronScheduler>
 
+/** Everything a cron run needs, taken from the server rather than rebuilt. */
+type CronRunServices = Effect.Services<ReturnType<typeof runCronAutomation>>
+
+/** One armed cron job's inputs, bundled so the builder stays within `max-params`. */
+interface CronCallbackInput {
+  readonly automation: Automation
+  readonly app: App
+  readonly processEnv: Readonly<Record<string, string | undefined>>
+  readonly services: Context.Context<CronRunServices>
+}
+
 /**
  * Build the per-automation cron callback. Each invocation runs the shared
- * `runCronAutomation` Effect program through the production runtime layer
- * (DB-backed repositories) and absorbs all errors after logging — a
+ * `runCronAutomation` Effect program and absorbs all errors after logging — a
  * misbehaving automation must NOT stop the scheduler from re-arming for
  * the next tick.
+ *
+ * The services come from the SERVER's resolved context, captured once at
+ * registration, not from a layer rebuilt per tick. Rebuilding meant every fire
+ * constructed a fresh copy of every automation repository, the AI service and
+ * the storage service — and, more importantly, a second composition of the
+ * automation runtime, which is the one thing `AutomationRuntimeLayer`'s own
+ * header says there must never be.
  */
-const buildCronCallback =
-  (automation: Automation, app: App, processEnv: Readonly<Record<string, string | undefined>>) =>
-  (): Effect.Effect<void, unknown> =>
-    provideAutomationRuntime(runCronAutomation({ name: automation.name, app, processEnv })).pipe(
-      Effect.tapError((err) =>
-        Effect.sync(() => {
-          logError('[cron-scheduler] automation run failed', err, { name: automation.name })
+const buildCronCallback = (input: CronCallbackInput) => (): Effect.Effect<void, unknown> =>
+  runCronAutomation({
+    name: input.automation.name,
+    app: input.app,
+    processEnv: input.processEnv,
+  }).pipe(
+    Effect.provide(input.services),
+    Effect.tapError((err) =>
+      Effect.sync(() => {
+        logError('[cron-scheduler] automation run failed', err, {
+          name: input.automation.name,
         })
-      ),
-      // Tagged-error union is wide; narrow to `void` for the scheduler
-      // callback signature so the timer keeps firing on the next tick.
-      Effect.catch(() => Effect.void),
-      Effect.asVoid
-    )
+      })
+    ),
+    // Tagged-error union is wide; narrow to `void` for the scheduler
+    // callback signature so the timer keeps firing on the next tick.
+    Effect.catch(() => Effect.void),
+    Effect.asVoid
+  )
 
 /**
  * Schedule a single cron-triggered automation. Logged-and-recovered on
@@ -52,12 +70,11 @@ const buildCronCallback =
  */
 const scheduleOne = (
   scheduler: CronScheduleService,
-  automation: Automation,
-  app: App,
-  processEnv: Readonly<Record<string, string | undefined>>
+  input: CronCallbackInput
 ): Effect.Effect<string, never> => {
+  const { automation } = input
   const trigger = automation.trigger as CronTriggerLike
-  const callback = buildCronCallback(automation, app, processEnv)
+  const callback = buildCronCallback(input)
   return scheduler
     .schedule(trigger.expression, callback, {
       jobId: automation.name,
@@ -123,7 +140,7 @@ const scheduleOne = (
 export const registerCronAutomations = (
   app: App,
   processEnv: Readonly<Record<string, string | undefined>>
-): Effect.Effect<readonly string[], never> =>
+): Effect.Effect<readonly string[], never, CronScheduler | CronRunServices> =>
   Effect.gen(function* () {
     // NOTE: `enabled !== false` only — no pause check. See the block comment
     // above; the pause is enforced at fire time in `run-cron-automation.ts`.
@@ -133,9 +150,14 @@ export const registerCronAutomations = (
     if (cronAutomations.length === 0) return [] as readonly string[]
 
     const scheduler = yield* CronScheduler
+    // Captured ONCE, here, while the registrar is still running on the server's
+    // context. A cron callback fires long after this returns, on a timer with
+    // no request in sight, so the services have to be a value it closes over
+    // rather than a requirement it could declare.
+    const services = yield* Effect.context<CronRunServices>()
     return yield* Effect.forEach(
       cronAutomations,
-      (automation) => scheduleOne(scheduler, automation, app, processEnv),
+      (automation) => scheduleOne(scheduler, { automation, app, processEnv, services }),
       { concurrency: 1 }
     )
-  }).pipe(Effect.provide(CronSchedulerLive))
+  })

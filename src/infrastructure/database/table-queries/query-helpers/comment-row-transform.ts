@@ -11,8 +11,8 @@ import {
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import { recordComments as recordCommentsPg } from '@/infrastructure/database/drizzle/schema/record-comments'
 import { recordComments as recordCommentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/record-comments'
-import { extractUserFromRow } from '../shared/user-join-helpers'
-import type { UserMetadataWithOptionalImage } from '@/application/ports/models/user-metadata'
+import { extractUserFromRow } from './user-join-helpers'
+import type { UserMetadataWithOptionalImage } from '@/application/ports/contracts/user-metadata'
 
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 

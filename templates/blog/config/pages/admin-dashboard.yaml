@@ -24,24 +24,24 @@ components:
               - type: text
                 element: h1
                 props:
-                  className: text-3xl font-bold text-foreground
+                  className: text-4xl font-bold text-foreground
                 content: Posts
               - type: link
                 props:
                   href: /admin/posts/new
-                  className: px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90
+                  className: px-4 py-2 rounded-md bg-primary text-primary-foreground text-md font-medium hover:opacity-90
                 content: + New post
 
           - type: text
             element: p
             props:
-              className: text-sm mb-6 text-muted-foreground
+              className: text-md mb-6 text-muted-foreground
             content: Every post — drafts and published. Edit to change content or flip the status to publish.
 
           # Admin navigation
           - type: container
             props:
-              className: flex gap-4 mb-8 text-sm
+              className: flex gap-4 mb-8 text-md
             children:
               - type: link
                 props:
@@ -64,7 +64,7 @@ components:
             props:
               className: rounded-lg border border-border bg-card p-2
             children:
-              - type: data-table
+              - type: table
                 dataSource:
                   table: posts
                   sort:
@@ -110,7 +110,7 @@ components:
             children:
               - type: button
                 props:
-                  className: px-4 py-2 rounded-md border border-border bg-card text-foreground text-sm font-medium
+                  className: px-4 py-2 rounded-md border border-border bg-card text-foreground text-md font-medium
                 content: Sign out
                 action:
                   type: auth

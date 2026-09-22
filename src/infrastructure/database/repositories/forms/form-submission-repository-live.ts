@@ -47,7 +47,8 @@ interface TopLevelInsertInput {
   readonly linkedRecordTable?: string
   readonly linkedRecordId?: string
   /**
-   * SHA-256(`FORM_IP_HASH_SALT` + raw IP) as 64 hex chars. [internal ref]
+   * SHA-256(salt + raw IP) as 64 hex chars, over a salt derived from the
+   * install's root secret and stable across restarts. [internal ref]
    * + S5: raw IP is NEVER persisted on the top-level forms write path —
    * the hash lands in `submitter_ip_hash` and the legacy `ip_address`
    * column stays NULL.

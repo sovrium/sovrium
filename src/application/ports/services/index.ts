@@ -19,4 +19,3 @@ export { ImageTransformService, ImageTransformError } from './image-transform-se
 export { CronScheduler, CronSchedulerError } from './cron-scheduler'
 export { RealtimeService, RealtimeError } from './realtime-service'
 export { SearchService, SearchError } from './search-service'
-export { AppRef } from './app-ref'

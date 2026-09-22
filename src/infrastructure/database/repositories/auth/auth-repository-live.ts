@@ -68,6 +68,33 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       return result[0]?.role ?? undefined
     }),
 
+  getUserRoles: (userIds: readonly string[]) =>
+    Effect.gen(function* () {
+      // Short-circuit before the pool is touched. An empty roster is reachable
+      // from every caller (a connection nobody has authorized, an app with no
+      // agents), and the answer is knowable without asking — so an empty `IN
+      // ()`, a shape worth not relying on across two dialects, never gets
+      // built.
+      if (userIds.length === 0) return new Map<string, string>()
+
+      const rows = yield* wrap(async () => {
+        const users = authUsersTable()
+        return await db
+          .select({ id: users.id, role: users.role })
+          .from(users)
+          .where(inArray(users.id, [...userIds]))
+      })
+
+      // A NULL `role` is dropped rather than mapped to a default, so this
+      // agrees exactly with `getUserRole` returning `undefined` — the caller
+      // decides what an unset role means, in one place, for both forms.
+      return new Map(
+        rows
+          .filter((row): row is { id: string; role: string } => typeof row.role === 'string')
+          .map((row) => [row.id, row.role] as const)
+      )
+    }),
+
   updateUserRole: (userId: string, role: string) =>
     wrap(() => {
       const users = authUsersTable()
@@ -81,6 +108,20 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
         return await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1)
       })
       return rows.length > 0
+    }),
+
+  findUserRole: (userId: string) =>
+    Effect.gen(function* () {
+      const rows = yield* wrap(() => {
+        const users = authUsersTable()
+        return db.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1)
+      })
+      const row = rows[0]
+      // An ABSENT row and a NULL role are different answers — see the port's
+      // doc comment. `rows[0]` is already `undefined` for the former and
+      // `{ role: null }` for the latter, so the projection carries the
+      // distinction without a second read.
+      return row
     }),
 
   banUser: (userId: string, reason?: string) =>

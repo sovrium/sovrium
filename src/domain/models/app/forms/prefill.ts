@@ -100,7 +100,7 @@ export const InlinePrefillSchema = Schema.Struct({
   // (`src/domain/models/app/pages/components/component-types/data/form/index.ts`).
   // A shared identifier collapses both into one JSON Schema `$def`, erasing
   // this one from the public schema — see the collision test in
-  // `src/domain/services/json-schema.test.ts`.
+  // `src/domain/models/app/app-json-schema.test.ts`.
   identifier: 'FormInlinePrefill',
   title: 'Inline Relationship Prefill',
   description:

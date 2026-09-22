@@ -11,5 +11,13 @@
  * Provides authentication functionality using Better Auth library.
  * Re-exports all auth-related services and types.
  */
-export { Auth, createAuthLayer } from './layer'
+/**
+ * `Auth` comes from `./auth-service`, which does NOT pull the `better-auth`
+ * package; `./layer` does. `createAuthLayer` is deliberately NOT re-exported
+ * here for that reason — a barrel that re-exported it would drag Better Auth
+ * into every importer of this file, including the app layer, which is exactly
+ * the eager edge the lazy boundary removes. Its two callers import
+ * `./layer` dynamically instead.
+ */
+export { Auth } from './auth-service'
 export { AuthError } from '../../errors/auth-error'

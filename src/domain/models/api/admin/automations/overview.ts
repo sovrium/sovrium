@@ -19,8 +19,9 @@
  * @see [internal ref] D5 (locked `series` rollup with fixed buckets)
  */
 
-import { z } from '@hono/zod-openapi'
-import { periodPresetSchema } from '@/domain/models/api/admin/_shared/period-preset'
+import { Schema } from 'effect'
+import { periodPresetSchema } from '@/domain/models/api/admin/envelope/period-preset'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
 
 /**
  * Query parameters accepted by `GET /api/admin/automations/overview`.
@@ -30,14 +31,12 @@ import { periodPresetSchema } from '@/domain/models/api/admin/_shared/period-pre
  * `/api/admin/automations/runs` (story #3); the overview is a tile, not a
  * report. Adding `?automationName=` later would not break this contract.
  */
-export const automationsOverviewQuerySchema = z
-  .object({
-    period: periodPresetSchema,
-  })
-  .openapi('AutomationsOverviewQuery')
+export const automationsOverviewQuerySchema = Schema.Struct({
+  period: periodPresetSchema,
+}).annotate({ identifier: 'AutomationsOverviewQuery' })
 
 /** @public */
-export type AutomationsOverviewQuery = z.input<typeof automationsOverviewQuerySchema>
+export type AutomationsOverviewQuery = typeof automationsOverviewQuerySchema.Encoded
 
 /**
  * Bucket interval used by the response `series.interval` field.
@@ -46,9 +45,9 @@ export type AutomationsOverviewQuery = z.input<typeof automationsOverviewQuerySc
  * schema do not need to import a second module. Locked to `1h` and `1d` only;
  * extending the set requires re-opening [internal ref] D5.
  */
-const seriesIntervalSchema = z
-  .enum(['1h', '1d'])
-  .describe('Bucket size for the rollup. 1h for 24h period; 1d for 7d/30d periods.')
+const seriesIntervalSchema = Schema.Literals(['1h', '1d']).annotate({
+  description: 'Bucket size for the rollup. 1h for 24h period; 1d for 7d/30d periods.',
+})
 
 /**
  * One bucketed point on the `series` rollup.
@@ -60,26 +59,18 @@ const seriesIntervalSchema = z
  * derived as `runs - failures`; the response intentionally omits it to keep
  * the bucket payload compact.
  */
-const seriesPointSchema = z
-  .object({
-    timestamp: z
-      .string()
-      .datetime()
-      .describe(
-        'ISO 8601 UTC timestamp at the start of the bucket. For 1h buckets, the minute and second components are zeroed; for 1d buckets, the time component is zeroed (start of day in UTC).'
-      ),
-    runs: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe('Total automation runs that started within this bucket.'),
-    failures: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe('Subset of `runs` that ended with status = "failed".'),
-  })
-  .openapi('AutomationsOverviewSeriesPoint')
+const seriesPointSchema = Schema.Struct({
+  timestamp: looseIsoDateTime({
+    description:
+      'ISO 8601 UTC timestamp at the start of the bucket. For 1h buckets, the minute and second components are zeroed; for 1d buckets, the time component is zeroed (start of day in UTC).',
+  }),
+  runs: Schema.Int.annotate({
+    description: 'Total automation runs that started within this bucket.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  failures: Schema.Int.annotate({
+    description: 'Subset of `runs` that ended with status = "failed".',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+}).annotate({ identifier: 'AutomationsOverviewSeriesPoint' })
 
 /**
  * Response shape of `GET /api/admin/automations/overview`.
@@ -105,52 +96,34 @@ const seriesPointSchema = z
  *   latencies; both are out-of-scope for Phase 0 (covered by sibling stories
  *   in Phase 1).
  */
-export const automationsOverviewResponseSchema = z
-  .object({
-    totals: z
-      .object({
-        automations: z
-          .number()
-          .int()
-          .nonnegative()
-          .describe('Number of automation definitions configured in the app schema.'),
-        runs_24h: z
-          .number()
-          .int()
-          .nonnegative()
-          .describe(
-            'Total automation runs that started in the last 24 hours, regardless of the requested period.'
-          ),
-        failures_24h: z
-          .number()
-          .int()
-          .nonnegative()
-          .describe(
-            'Subset of `runs_24h` that ended with status = "failed". Same 24h window as `runs_24h`.'
-          ),
-        success_rate: z
-          .number()
-          .min(0)
-          .max(1)
-          .describe(
-            'Fraction of successful runs over the requested period, in [0, 1]. Returns 1 when no runs occurred (the period is by convention 100% healthy).'
-          ),
-      })
-      .describe('Period-aware aggregate counters surfaced as dashboard tiles.'),
-    series: z
-      .object({
-        interval: seriesIntervalSchema,
-        points: z
-          .array(seriesPointSchema)
-          .describe(
-            'Dense, ascending-by-timestamp series of buckets covering the requested period. Empty buckets are present with zero counts.'
-          ),
-      })
-      .describe('Bucketed time series for chart rendering.'),
-  })
-  .openapi('AutomationsOverviewResponse')
+export const automationsOverviewResponseSchema = Schema.Struct({
+  totals: Schema.Struct({
+    automations: Schema.Int.annotate({
+      description: 'Number of automation definitions configured in the app schema.',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+    runs_24h: Schema.Int.annotate({
+      description:
+        'Total automation runs that started in the last 24 hours, regardless of the requested period.',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+    failures_24h: Schema.Int.annotate({
+      description:
+        'Subset of `runs_24h` that ended with status = "failed". Same 24h window as `runs_24h`.',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+    success_rate: Schema.Finite.annotate({
+      description:
+        'Fraction of successful runs over the requested period, in [0, 1]. Returns 1 when no runs occurred (the period is by convention 100% healthy).',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))),
+  }).annotate({ description: 'Period-aware aggregate counters surfaced as dashboard tiles.' }),
+  series: Schema.Struct({
+    interval: seriesIntervalSchema,
+    points: Schema.Array(seriesPointSchema).annotate({
+      description:
+        'Dense, ascending-by-timestamp series of buckets covering the requested period. Empty buckets are present with zero counts.',
+    }),
+  }).annotate({ description: 'Bucketed time series for chart rendering.' }),
+}).annotate({ identifier: 'AutomationsOverviewResponse' })
 
 /** @public */
-export type AutomationsOverviewResponse = z.infer<typeof automationsOverviewResponseSchema>
+export type AutomationsOverviewResponse = typeof automationsOverviewResponseSchema.Type
 /** @public */
-export type AutomationsOverviewSeriesPoint = z.infer<typeof seriesPointSchema>
+export type AutomationsOverviewSeriesPoint = typeof seriesPointSchema.Type

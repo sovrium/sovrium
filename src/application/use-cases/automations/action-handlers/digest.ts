@@ -12,7 +12,7 @@ import {
   rawActionProps,
   resolveRunContextValue,
 } from './run-context-resolution'
-import { stringProp } from './shared'
+import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionRunContext } from './shared'
 import type { DigestReleaseSort } from '@/application/ports/repositories/automations/automation-digest-repository'
 
@@ -100,7 +100,9 @@ export const handleDigestCollect: ActionHandler = (action, _app, automation, run
       status: 'success',
       output: { collected: true, digestSize: sizeResult.success },
     } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-digest-collect', { attributes: actionAttributes(action) })
+  )
 
 /**
  * `digest/release` — flush the active bucket for `props.digestKey`,
@@ -134,4 +136,6 @@ export const handleDigestRelease: ActionHandler = (action, _app, automation) =>
       return { status: 'failure', error: String(result.failure.cause) } as const
     }
     return { status: 'success', output: { items: result.success } } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-digest-release', { attributes: actionAttributes(action) })
+  )

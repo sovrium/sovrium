@@ -5,7 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { TableRecord } from '../shared/types'
+import {
+  KANBAN_FOOTER_AVATAR_CLASSES,
+  computeKanbanCardFooterChipClasses,
+  computeKanbanFooterBadgeClasses,
+} from '@/presentation/design/kanban-default-classes'
+import type { TableRecord } from '../runtime/types'
 import type { KanbanCardFooterItem } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { ReactNode } from 'react'
 
@@ -42,6 +47,15 @@ export function avatarInitials(name: string): string {
 /**
  * Render a single footer item per its format. Falls back to plain text when
  * format is unset or unrecognized.
+ *
+ * Every format now spends the shared chip recipe: 11px on the muted tone at the
+ * canvas' 6px inner gap, down from the `text-sm` (12px) that made footer
+ * metadata render at the same step as the card title above it. The `badge`
+ * format routes to the shared badge recipe rather than keeping its bespoke
+ * `rounded-full` pill — the same argument that retired the column count's pill,
+ * applied to the last chip on this board.
+ *
+ * The `data-footer-format` attributes are untouched; specs select on them.
  */
 export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord): ReactNode {
   const value = record[item.field]
@@ -52,7 +66,7 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="relative-date"
-          className="text-foreground-muted text-xs"
+          className={computeKanbanCardFooterChipClasses()}
         >
           {formatRelativeDate(value)}
         </span>
@@ -61,7 +75,7 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="short-date"
-          className="text-foreground-muted text-xs"
+          className={computeKanbanCardFooterChipClasses()}
         >
           {formatShortDate(value)}
         </span>
@@ -70,10 +84,10 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="avatar"
-          className="text-foreground inline-flex items-center gap-1.5 text-xs"
+          className={computeKanbanCardFooterChipClasses()}
         >
           <span
-            className="bg-primary-subtle text-primary-subtle-fg inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium"
+            className={KANBAN_FOOTER_AVATAR_CLASSES}
             aria-hidden="true"
           >
             {avatarInitials(String(value))}
@@ -85,7 +99,7 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="badge"
-          className="bg-background-subtle text-foreground inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+          className={computeKanbanFooterBadgeClasses()}
         >
           {String(value)}
         </span>
@@ -95,7 +109,7 @@ export function renderFooterItem(item: KanbanCardFooterItem, record: TableRecord
       return (
         <span
           data-footer-format="text"
-          className="text-foreground text-xs"
+          className={computeKanbanCardFooterChipClasses()}
         >
           {String(value)}
         </span>

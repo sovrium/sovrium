@@ -27,13 +27,13 @@ import {
   listAuditEntriesFromDb,
 } from '@/infrastructure/audit-log/drizzle-store'
 import { logWarning } from '@/infrastructure/logging/logger'
-import type { Actor } from '@/domain/models/api/admin/_shared/actor'
-import type { Severity } from '@/domain/models/api/admin/_shared/severity'
 import type {
   AuditLogEntry,
   AuditResult,
   AuditTransport,
 } from '@/domain/models/api/admin/audit-log/entry'
+import type { Actor } from '@/domain/models/api/admin/envelope/actor'
+import type { Severity } from '@/domain/models/api/admin/envelope/severity'
 import type { AuditListFilter } from '@/infrastructure/audit-log/in-memory-store'
 
 /**

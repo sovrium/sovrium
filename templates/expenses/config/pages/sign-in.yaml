@@ -16,7 +16,7 @@ components:
           - type: text
             element: h1
             props:
-              className: text-3xl font-bold mb-6 text-center
+              className: text-4xl font-bold mb-6 text-center
             content: Sign In
           - type: form
             props:

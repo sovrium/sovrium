@@ -33,8 +33,9 @@ import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { Console, Effect } from 'effect'
 import { CLAUDE_MD_BODY } from '@/cli/commands/init-scaffold-content'
-import { validateOutboundUrl } from '@/infrastructure/utils/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/utils/with-fetch-timeout'
+import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
+import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
+import { printStderr } from '@/infrastructure/logging/cli-output'
 
 const FETCH_TIMEOUT_MS = 30_000
 
@@ -53,7 +54,7 @@ export const isRemoteTemplateRef = (input: string): boolean =>
   input.includes('/') || input.startsWith('gh:')
 
 const fail = (message: string): never => {
-  Effect.runSync(Console.error(`Error: ${message}`))
+  printStderr(`Error: ${message}`)
   // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
@@ -218,17 +219,14 @@ export const scaffoldFromRemoteTemplate = async (
       (await Bun.file(join(targetDir, 'app.yaml')).exists()) ||
       (await Bun.file(join(targetDir, 'app.ts')).exists())
     if (!hasConfig) {
-      Effect.runSync(
-        Console.error(
-          `Warning: ${refSpec.owner}/${refSpec.repo} has no app.yaml or app.ts at its root — is it a Sovrium template?`
-        )
+      printStderr(
+        `Warning: ${refSpec.owner}/${refSpec.repo} has no app.yaml or app.ts at its root — is it a Sovrium template?`
       )
     }
 
     // The mirrors ship a project CLAUDE.md of their own; generate one only
     // when the remote template carries none (additive, like everything else).
     if (!(await Bun.file(join(targetDir, 'CLAUDE.md')).exists())) {
-      // eslint-disable-next-line functional/no-expression-statements
       await writeFile(join(targetDir, 'CLAUDE.md'), `# ${refSpec.repo}\n\n${CLAUDE_MD_BODY}`)
     }
 
@@ -238,7 +236,6 @@ export const scaffoldFromRemoteTemplate = async (
       )
     )
   } finally {
-    // eslint-disable-next-line functional/no-expression-statements
     await rm(tempDir, { recursive: true, force: true })
   }
 }

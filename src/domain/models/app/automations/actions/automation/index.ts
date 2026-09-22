@@ -5,21 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
-import { AutomationCallActionSchema } from './call'
-import { AutomationReturnActionSchema } from './return'
-
-/**
- * Automation Action — `call` (invoke a sub-automation) and `return` (hand
- * data back to the calling automation).
- */
-export const AutomationActionSchema = Schema.Union([
-  AutomationCallActionSchema,
-  AutomationReturnActionSchema,
-])
-
-/** @public */
-export type AutomationAction = Schema.Schema.Type<typeof AutomationActionSchema>
+export * from './automation-action'
 
 export * from './call'
 export * from './return'

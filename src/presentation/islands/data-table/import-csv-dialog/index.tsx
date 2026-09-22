@@ -6,6 +6,12 @@
  */
 
 import { useCallback } from 'react'
+import {
+  computeTableDialogPanelClasses,
+  computeTableDialogPositionerClasses,
+  computeTableDialogTitleClasses,
+} from '@/presentation/design/table-default-classes'
+import { computeOverlayBackdropClasses } from '../../overlays/overlay-default-classes'
 import { DialogFooter } from './dialog-footer'
 import { DuplicateStep } from './duplicate-step'
 import { ImportResultView } from './import-result'
@@ -112,7 +118,7 @@ export function ImportCsvDialog({
   return (
     <>
       <div
-        className="bg-scrim/50 fixed inset-0 z-40"
+        className={computeOverlayBackdropClasses()}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -120,12 +126,12 @@ export function ImportCsvDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="import-csv-dialog-title"
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        className={computeTableDialogPositionerClasses()}
       >
-        <div className="bg-background-overlay w-full max-w-2xl rounded-lg p-6 shadow-xl">
+        <div className={computeTableDialogPanelClasses({ width: 'grid' })}>
           <h2
             id="import-csv-dialog-title"
-            className="text-foreground mb-4 text-lg font-semibold"
+            className={computeTableDialogTitleClasses()}
           >
             Import CSV
           </h2>
@@ -158,7 +164,7 @@ export function ImportCsvDialog({
             />
           )}
           {state.isImporting && (
-            <div className="mt-4">
+            <div>
               <progress
                 className="w-full"
                 aria-label="Importing records"

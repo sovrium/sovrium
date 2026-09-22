@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { AiService, AiProviderError } from '@/application/ports/services/ai-service'
-import { numberProp, stringProp } from './shared'
+import { actionAttributes, numberProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type {
   AiError,
@@ -207,7 +207,7 @@ export const runAiChat = (
     return result._tag === 'Failure'
       ? aiErrorOutcome(classifyAiError(result.failure))
       : { ok: true as const, reply: result.success }
-  })
+  }).pipe(Effect.withSpan('automations.run-ai-chat'))
 
 // ---------------------------------------------------------------------------
 // `ai/generate`
@@ -233,7 +233,9 @@ export const handleAiGenerate: ActionHandler = (action, _app, _automation) =>
     return 'ok' in outcome
       ? ({ status: 'success', output: { text: outcome.reply.content } } as const)
       : outcome
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-ai-generate', { attributes: actionAttributes(action) })
+  )
 
 // ---------------------------------------------------------------------------
 // `ai/classify`
@@ -313,7 +315,9 @@ export const handleAiClassify: ActionHandler = (action, _app, _automation) =>
     }
 
     return { status: 'success', output: { category: matched } } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-ai-classify', { attributes: actionAttributes(action) })
+  )
 
 // ---------------------------------------------------------------------------
 // `ai/extract`
@@ -412,4 +416,6 @@ export const handleAiExtract: ActionHandler = (action, _app, _automation) =>
     }
 
     return { status: 'success', output: parsed as Record<string, unknown> } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-ai-extract', { attributes: actionAttributes(action) })
+  )

@@ -5,11 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  GALLERY_CARD_BODY_CLASSES,
+  GALLERY_CARD_BODY_NO_COVER_CLASSES,
+  GALLERY_CARD_DEFAULT_TITLE_CLASSES,
+  GALLERY_COVER_FALLBACK_HEIGHT_CLASS,
+  computeGalleryCardClasses,
+  computeGalleryImageClasses,
+  computeGalleryOverlayClasses,
+  resolveGalleryAspectRatio,
+} from '@/presentation/design/gallery-default-classes'
 import { renderCardChild, substitute } from '../kanban/card-template'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 import type { Action } from '@/domain/models/app/pages/components/action'
 import type { GalleryCard } from '@/domain/models/app/pages/components/component-types/data/gallery'
-import type { KeyboardEvent, MouseEvent, ReactElement } from 'react'
+import type { CSSProperties, KeyboardEvent, MouseEvent, ReactElement } from 'react'
 
 interface CardData {
   readonly navigatePath: string | undefined
@@ -58,10 +69,42 @@ function GalleryCardDefault({ record }: { readonly record: TableRecord }): React
     (record.name as string | undefined) ??
     (record.label as string | undefined) ??
     String(record.id ?? '')
-  return <p className="text-foreground text-sm font-medium">{title}</p>
+  return <p className={GALLERY_CARD_DEFAULT_TITLE_CLASSES}>{title}</p>
 }
 
-/** Render the configured card template body (cover + children). */
+/**
+ * Build the cover box's inline `style` from the author's `aspectRatio`.
+ *
+ * Inline rather than a Tailwind class because `galleryCard.aspectRatio` is a
+ * free `Schema.String` — `'4:3'`, `'16:9'`, `'1:1'` are documented examples but
+ * anything decodes — and a scan-free compiler cannot mint `aspect-[W/H]` for a
+ * ratio it has never seen. The kanban column dot and the timeline bar already
+ * carry their author-supplied value the same way.
+ *
+ * Returns `undefined` when the value is absent or unparseable; the caller then
+ * falls back to the fixed height, because a box with neither a ratio nor a
+ * height collapses to zero and the cover disappears entirely.
+ *
+ * Extracted from JSX so the object is not an inline literal prop, which
+ * `react-perf/jsx-no-new-object-as-prop` forbids.
+ */
+function coverBoxStyle(aspectRatio: string | undefined): CSSProperties | undefined {
+  const resolved = resolveGalleryAspectRatio(aspectRatio)
+  return resolved === undefined ? undefined : { aspectRatio: resolved }
+}
+
+/**
+ * Render the configured card template body (cover + children).
+ *
+ * The cover BOX owns the geometry and the image simply fills it. That split is
+ * the fix for `galleryCard.aspectRatio`, which decoded and reached
+ * `data-aspect-ratio` but painted nothing: the image carried a hard-coded
+ * `h-40` at every card width, so the box computed `aspect-ratio: auto` and an
+ * author's declared 4:3 was inert.
+ *
+ * `data-aspect-ratio` keeps carrying the RAW author value on the same element,
+ * parsed or not — `[internal ref]` asserts it there.
+ */
 function GalleryCardBody({
   card,
   record,
@@ -71,21 +114,26 @@ function GalleryCardBody({
   readonly record: TableRecord
   readonly coverImageSrc: string | undefined
 }): ReactElement {
+  const boxStyle = coverBoxStyle(card.aspectRatio)
+  const boxClasses = boxStyle
+    ? computeGalleryImageClasses()
+    : `${computeGalleryImageClasses()} ${GALLERY_COVER_FALLBACK_HEIGHT_CLASS}`
   return (
     <>
       {coverImageSrc && (
         <div
           data-aspect-ratio={card.aspectRatio}
-          className="relative w-full overflow-hidden"
+          style={boxStyle}
+          className={boxClasses}
         >
           <img
             src={coverImageSrc}
             alt=""
-            className="h-40 w-full object-cover"
+            className={computeGalleryImageClasses({ part: 'img' })}
           />
         </div>
       )}
-      <div className="flex flex-col gap-1 p-3">
+      <div className={GALLERY_CARD_BODY_CLASSES}>
         {card.children?.map((child, index) => renderCardChild(child, record, index))}
       </div>
     </>
@@ -128,7 +176,11 @@ function HoverOverlayButton({
     <button
       type="button"
       onClick={handleClick}
-      className="bg-background-raised text-foreground hover:bg-background-subtle rounded-md px-4 py-2 text-sm font-medium shadow-sm"
+      // The overlay's action is an ordinary secondary button and now looks like
+      // one: the shared F1 recipe rather than a fifth hand-written literal, so
+      // a "Quick view" on a gallery card and a "Load More" under it read as the
+      // same control.
+      className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
     >
       {content}
     </button>
@@ -155,7 +207,7 @@ function HoverOverlay({
   return (
     <div
       data-role="gallery-card-overlay"
-      className="bg-scrim/50 invisible absolute inset-0 flex items-center justify-center gap-2 opacity-0 transition-opacity group-hover:visible group-hover:opacity-100"
+      className={computeGalleryOverlayClasses()}
     >
       {overlayChildren.map((child, index) => {
         const childType = typeof child['type'] === 'string' ? child['type'] : ''
@@ -219,7 +271,7 @@ function CardBody({
     )
   }
   return (
-    <div className="p-3">
+    <div className={GALLERY_CARD_BODY_NO_COVER_CLASSES}>
       <GalleryCardDefault record={record} />
     </div>
   )
@@ -243,7 +295,7 @@ export function GalleryCardView({
       onClick={onClick}
       onKeyDown={onKeyDown}
       {...navigateProps}
-      className={`group border-border bg-background-raised relative overflow-hidden rounded-lg border shadow-sm transition-colors ${cursorClass}`}
+      className={`${computeGalleryCardClasses()} ${cursorClass}`}
     >
       <CardBody
         card={card}

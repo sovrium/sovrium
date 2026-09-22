@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isProduction as isProductionEnv } from '@/infrastructure/utils/env'
-import { logError } from '../logging'
 import type { EmailConfig } from './nodemailer'
 
 /**
@@ -28,7 +26,6 @@ export interface EmailConfigResult {
  * This module provides email configuration with:
  * 1. Type-safe environment variable access
  * 2. Email disabled (no transport) when SMTP is unconfigured
- * 3. Structured logging for missing configuration in production
  *
  * Environment Variables:
  * - SMTP_HOST: SMTP server hostname (required to enable email)
@@ -39,14 +36,6 @@ export interface EmailConfigResult {
  * - SMTP_FROM: Default "from" email address (default: noreply@sovrium.com)
  * - SMTP_FROM_NAME: Default "from" display name (default: 'Sovrium')
  */
-
-/**
- * Whether outgoing email is configured (i.e. `SMTP_HOST` is set).
- *
- * When this returns `false` the runtime sends no email — send sites log the
- * intended message and return a synthetic id instead of contacting a transport.
- */
-export const isEmailConfigured = (): boolean => Boolean(process.env.SMTP_HOST)
 
 /**
  * Read optional string from environment
@@ -74,8 +63,10 @@ const getEnvBoolean = (key: string, defaultValue: boolean): boolean => {
  *
  * When `SMTP_HOST` is set, returns the resolved SMTP config with
  * `configured: true`. When unset, returns `{ configured: false, config: undefined }`
- * — outgoing email is disabled. In production a missing `SMTP_HOST` is logged
- * as an error because it usually indicates a deployment misconfiguration.
+ * — outgoing email is disabled, silently. Who gets told about that, and how
+ * much they are told, is decided at the SEND site
+ * (`reportUndeliverableMessage`) and at boot (the startup SMTP phase), never
+ * here — see the comment on the disabled branch below.
  */
 export const getEmailConfigFromEffect = (): EmailConfigResult => {
   const host = process.env.SMTP_HOST
@@ -101,11 +92,21 @@ export const getEmailConfigFromEffect = (): EmailConfigResult => {
     }
   }
 
-  // Log error in production (this is a real issue)
-  if (isProductionEnv()) {
-    logError('[EMAIL] SMTP_HOST not configured in production mode')
-  }
-
   // Email is disabled — no transport, no localhost fallback.
+  //
+  // NOTHING IS LOGGED HERE, and the `logError('[EMAIL] SMTP_HOST not
+  // configured in production mode')` that used to sit on this line was
+  // unreachable rather than merely redundant. The only runtime route into this
+  // function is `getTransporter()`, and its only live caller — `deliver()` —
+  // reaches it exclusively on the branch where `isEmailConfigured()` already
+  // answered TRUE, i.e. where `SMTP_HOST` is set and this branch cannot be
+  // taken. (`verifyConnection` would reach it, and has no caller outside its
+  // own unit tests.)
+  //
+  // The two places that DO tell an operator are both live and both better
+  // positioned: the `⚠ Email sending disabled — SMTP not configured` startup
+  // phase, which fires once at boot and only when email is load-bearing for
+  // the config, and `reportUndeliverableMessage`, which fires per dropped
+  // message and names the recipient.
   return { configured: false, config: undefined }
 }

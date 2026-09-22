@@ -5,10 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { AnalyticsTrackActionSchema } from './track'
-
-export const AnalyticsActionSchema = AnalyticsTrackActionSchema
-/** @public */
-export type AnalyticsAction = typeof AnalyticsActionSchema.Type
+export * from './analytics-action'
 
 export * from './track'

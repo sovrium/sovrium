@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 
 /**
  * Timeline item config — the per-component display bindings supplied through
@@ -18,6 +18,8 @@ export interface TimelineConfig {
   readonly groupBy?: string
   readonly colorField?: string
   readonly defaultZoom?: 'day' | 'week' | 'month' | 'quarter' | 'year'
+  /** Field holding the record ids this record follows. */
+  readonly dependencyField?: string
 }
 
 /**
@@ -32,6 +34,8 @@ export interface TimelineItem {
   readonly kind: 'bar' | 'point'
   readonly colorValue?: string
   readonly group?: string
+  /** Ids of the records this one follows. Empty when it follows nothing. */
+  readonly dependsOn: readonly string[]
 }
 
 /** A swimlane groups timeline items under a shared header label. */
@@ -52,6 +56,29 @@ function readOptionalField(record: TableRecord, field: string | undefined): stri
   if (!field) return undefined
   const value = record[field]
   return value === undefined || value === null ? undefined : String(value)
+}
+
+/**
+ * Reads the predecessor ids off a record.
+ *
+ * The schema documents `dependencyField` as naming "an array of predecessor
+ * record IDs", but a SCALAR is accepted too, and deliberately: the
+ * single-predecessor case is what an author reaches for first, and a plain
+ * text or a link field holding one id is the shape they get. Reading only the
+ * array form would silently draw nothing for the commonest configuration.
+ *
+ * Blank entries are dropped rather than kept as an id no record can match.
+ */
+function readDependencyIds(record: TableRecord, field: string | undefined): readonly string[] {
+  if (!field) return []
+  const value = record[field]
+  if (value === undefined || value === null || value === '') return []
+  const raw = Array.isArray(value) ? value : [value]
+  return raw.flatMap((entry: unknown) => {
+    if (entry === undefined || entry === null) return []
+    const id = String(entry).trim()
+    return id === '' ? [] : [id]
+  })
 }
 
 /**
@@ -79,6 +106,7 @@ function recordToTimelineItem(
     kind: end !== undefined ? 'bar' : 'point',
     colorValue: readOptionalField(record, config.colorField),
     group: readOptionalField(record, config.groupBy),
+    dependsOn: readDependencyIds(record, config.dependencyField),
   }
 }
 
@@ -141,6 +169,48 @@ export function computeTimelineBounds(items: readonly TimelineItem[]): TimelineB
   return min === max ? { min, max: max + 86_400_000 } : { min, max }
 }
 
+/** The zoom levels the time axis can be ruled at, coarsest last. */
+export type TimelineZoom = NonNullable<TimelineConfig['defaultZoom']>
+
+/** The zoom applied when a component declares none, matching the schema. */
+export const DEFAULT_TIMELINE_ZOOM: TimelineZoom = 'month'
+
+/**
+ * How many intervals the axis is divided into at each zoom.
+ *
+ * Zoom is the axis's RESOLUTION, not its window: the plotted span is always
+ * the data's own extent, and the zoom says how finely that span is ruled.
+ * Reading it as a window instead would mean a `year` zoom padding a two-day
+ * project out to twelve months of empty chart, which is not what an author
+ * asking for a yearly view of two days wants to see.
+ *
+ * The counts are deliberately small. Every division is a dated label in a
+ * `justify-between` row, so a ruler fine enough to be exact is also one too
+ * crowded to read — and an axis is read at a glance or not at all.
+ */
+const ZOOM_DIVISIONS: Record<TimelineZoom, number> = {
+  day: 12,
+  week: 8,
+  month: 5,
+  quarter: 3,
+  year: 2,
+}
+
+/**
+ * The instants the time axis draws a tick at, first and last inclusive.
+ *
+ * Always at least two — the two ends of the plotted window — so an axis never
+ * degenerates into a single undated mark.
+ */
+export function computeTimelineTicks(
+  bounds: TimelineBounds,
+  zoom: TimelineZoom = DEFAULT_TIMELINE_ZOOM
+): readonly number[] {
+  const divisions = ZOOM_DIVISIONS[zoom]
+  const step = (bounds.max - bounds.min) / divisions
+  return Array.from({ length: divisions + 1 }, (_, index) => bounds.min + step * index)
+}
+
 /**
  * Maps an epoch-ms timestamp to a 0–100 percentage offset within the bounds.
  * Used to position bars/points along the time axis.
@@ -149,4 +219,66 @@ export function toPercent(value: number, bounds: TimelineBounds): number {
   const span = bounds.max - bounds.min
   if (span <= 0) return 0
   return ((value - bounds.min) / span) * 100
+}
+
+/**
+ * Is an instant inside the plotted window?
+ *
+ * The today marker asks this before drawing. A rule for a date the axis does
+ * not cover would have to be clamped to an edge, and an edge-pinned rule is a
+ * false statement about where today falls — so outside the window nothing is
+ * drawn at all.
+ */
+export function isWithinBounds(value: number, bounds: TimelineBounds): boolean {
+  return value >= bounds.min && value <= bounds.max
+}
+
+/**
+ * One drawn dependency: the record it comes from, the record it points at, and
+ * the horizontal band between the two anchor points, as percentages of the axis.
+ */
+export interface TimelineLink {
+  readonly fromId: string
+  readonly toId: string
+  readonly left: number
+  readonly width: number
+}
+
+/**
+ * Resolves each record's declared predecessors into drawable links, keyed by
+ * the SUCCESSOR's id — the row the connector is drawn in.
+ *
+ * A predecessor id naming no plotted record yields no link: a record can be
+ * filtered out, dropped for an unparseable start date, or simply deleted, and a
+ * connector to nothing would be a line pointing off the chart.
+ *
+ * The band runs between the predecessor's FINISH and the successor's START, and
+ * is stored as `left`/`width` rather than as a signed pair because the two are
+ * not ordered: a successor may legitimately begin before its predecessor ends
+ * (an overlap), and the connector then spans the same interval backwards.
+ */
+export function buildDependencyLinks(
+  items: readonly TimelineItem[],
+  bounds: TimelineBounds
+): ReadonlyMap<string, readonly TimelineLink[]> {
+  const byId = new Map(items.map((item) => [item.id, item] as const))
+  return new Map(
+    items.flatMap((item) => {
+      const links = item.dependsOn.flatMap((fromId) => {
+        const from = byId.get(fromId)
+        if (!from || from.id === item.id) return []
+        const fromX = toPercent(from.end ?? from.start, bounds)
+        const toX = toPercent(item.start, bounds)
+        return [
+          {
+            fromId,
+            toId: item.id,
+            left: Math.min(fromX, toX),
+            width: Math.abs(toX - fromX),
+          },
+        ]
+      })
+      return links.length === 0 ? [] : [[item.id, links] as const]
+    })
+  )
 }

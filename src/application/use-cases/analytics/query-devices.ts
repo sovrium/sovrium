@@ -42,4 +42,4 @@ export const queryDevices = (
       // type requires the field.
       granularity: 'day',
     })
-  })
+  }).pipe(Effect.withSpan('analytics.query-devices'))

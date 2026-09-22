@@ -6,7 +6,14 @@
  */
 
 import { useState } from 'react'
-import type { DataTableBulkAction } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+import {
+  computeTableBulkBarClasses,
+  computeTableBulkBarCountClasses,
+  computeTablePanelCaptionClasses,
+  computeTableToolbarButtonClasses,
+  computeTableToolbarPrimaryButtonClasses,
+} from '@/presentation/design/table-default-classes'
+import type { DataTableBulkAction } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 interface BulkActionBarProps {
   readonly bulkActions: readonly DataTableBulkAction[]
@@ -44,6 +51,16 @@ function HiddenBulkActionsPlaceholder({
   )
 }
 
+/**
+ * The bar that appears above the header row once rows are selected.
+ *
+ * ## The confirm prompt asks quietly and answers with a button
+ * It used to sit inside a bordered `warning-bg` gate with the confirm drawn as
+ * a green link — three signals for one question, and the loudest of them
+ * spending the reserved colour on an outcome that had not happened yet. It now
+ * asks with a right-aligned muted caption and answers with the one primary
+ * button on the bar, keeping colour for a FAILURE.
+ */
 export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkActionBarProps) {
   const [confirmAction, setConfirmAction] = useState<DataTableBulkAction | undefined>(undefined)
 
@@ -52,14 +69,14 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
   }
 
   return (
-    <div className="border-border bg-primary-subtle flex items-center gap-2 border-b px-3 py-2">
-      <span className="text-foreground text-sm">{selectedCount} selected</span>
+    <div className={computeTableBulkBarClasses()}>
+      <span className={computeTableBulkBarCountClasses()}>{selectedCount} selected</span>
       {!confirmAction &&
         bulkActions.map((action, i) => (
           <button
             key={i}
             type="button"
-            className="bg-background-subtle hover:bg-background-subtle rounded px-3 py-1 text-sm"
+            className={computeTableToolbarButtonClasses()}
             // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- per-row click handler closes over loop-variable `action`; useCallback inside.map has equivalent allocation cost. React Compiler will memoize this once enabled in Bun.
             onClick={() => {
               if (action.confirm) {
@@ -73,11 +90,11 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
           </button>
         ))}
       {confirmAction && confirmAction.confirm && (
-        <div className="border-warning-border bg-warning-bg ml-2 rounded border px-3 py-1 text-sm">
+        <div className={`ml-auto flex items-center gap-2 ${computeTablePanelCaptionClasses()}`}>
           {confirmAction.confirm.replace('{count}', String(selectedCount))}
           <button
             type="button"
-            className="text-success-fg ml-2 font-medium hover:underline"
+            className={computeTableToolbarPrimaryButtonClasses()}
             // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- two-statement handler closing over current confirmAction; React Compiler will memoize once enabled in Bun.
             onClick={() => {
               onExecute(confirmAction)
@@ -88,7 +105,7 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
           </button>
           <button
             type="button"
-            className="text-primary ml-2 hover:underline"
+            className={computeTableToolbarButtonClasses()}
             // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- one-statement handler; React Compiler will memoize once enabled in Bun.
             onClick={() => setConfirmAction(undefined)}
           >

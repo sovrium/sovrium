@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+export { activeFields, ActiveWhenSchema } from './active'
 export { coreFields } from './core'
 export { ContentSchema, contentFields } from './content'
 export { interactionFields } from './interaction'

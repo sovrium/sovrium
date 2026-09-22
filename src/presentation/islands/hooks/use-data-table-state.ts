@@ -13,16 +13,30 @@ import {
   type RowSelectionState,
 } from '@tanstack/react-table'
 import { useEffect, useState } from 'react'
-import type { RowHeight } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+import { computeTableCellClasses } from '@/presentation/design/table-default-classes'
+import type { RowHeight } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 // ---------------------------------------------------------------------------
 // Row height cycling
 // ---------------------------------------------------------------------------
 
+/**
+ * The class each density paints on a BODY cell.
+ *
+ * It no longer reaches the HEADER. The map used to be interpolated into the
+ * `<th>` as well, so switching a grid to `tall` grew the column labels'
+ * padding alongside the data — turning a density control for the ROWS into one
+ * that also inflated the chrome above them. A header's padding is now a fixed
+ * constant of the design, in `computeTableHeaderCellClasses()`.
+ *
+ * The map keeps its shape — it is threaded on to `build-setup-result.ts` as a
+ * plain string — and delegates each entry to the recipe, so the density
+ * control and the paint cannot disagree.
+ */
 export const ROW_HEIGHT_CLASSES: Record<RowHeight, string> = {
-  short: 'py-1 px-3 text-sm',
-  medium: 'py-2 px-4',
-  tall: 'py-4 px-4',
+  short: computeTableCellClasses({ rowHeight: 'short' }),
+  medium: computeTableCellClasses({ rowHeight: 'medium' }),
+  tall: computeTableCellClasses({ rowHeight: 'tall' }),
 }
 
 const ROW_HEIGHT_CYCLE: Record<RowHeight, RowHeight> = {

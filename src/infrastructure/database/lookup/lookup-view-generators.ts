@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getViewFormulaLayers, buildLayeredViewSQL } from '../formula/view-formula-generators'
-import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import {
   generateReverseLookupExpression,
   generateManyToManyLookupExpression,

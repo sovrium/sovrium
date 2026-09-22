@@ -11,7 +11,7 @@ import { ConnectionTokenRepository } from '@/application/ports/repositories/conn
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 import { logError } from '@/infrastructure/logging/logger'
-import { isProduction } from '@/infrastructure/utils/env'
+import { isProduction } from '@/infrastructure/process/env'
 import { SENTINEL_ACCESS_TOKEN, SENTINEL_REFRESH_TOKEN } from './sentinel-tokens'
 
 /**
@@ -421,9 +421,10 @@ export const seedAllConnectionDefinitionsProgram = (input: {
           if (!isAppScoped(conn)) return
           const connectionId = String(row['id'] ?? '')
           if (connectionId === '') return
-          yield* tokenRepo
-            .adoptLegacyUserTokenAsApp({ connectionId })
-            .pipe(Effect.orElseSucceed(() => false))
+          yield* tokenRepo.adoptLegacyUserTokenAsApp({ connectionId }).pipe(
+            // effect-swallow: stated above — the adoption is idempotent and non-destructive, and the injection path retries it per request, so a failure here costs one boot-time attempt out of many.
+            Effect.orElseSucceed(() => false)
+          )
         }),
       { concurrency: 1 }
     )

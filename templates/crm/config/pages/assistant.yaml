@@ -16,12 +16,12 @@ components:
       - type: text
         element: h1
         props:
-          className: text-2xl font-bold mb-1
+          className: text-3xl font-bold mb-1
         content: Workspace Assistant
       - type: text
         element: p
         props:
-          className: text-sm mb-6
+          className: text-md mb-6
         content: >-
           Ask the assistant to add a company, update a deal's stage, or review
           your pipeline for missing data and overdue tasks.

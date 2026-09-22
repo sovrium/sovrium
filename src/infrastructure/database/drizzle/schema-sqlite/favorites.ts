@@ -75,7 +75,3 @@ export const userRecentItems = systemTable(
 )
 
 // Type inference
-export type UserFavorite = typeof userFavorites.$inferSelect
-export type NewUserFavorite = typeof userFavorites.$inferInsert
-export type UserRecentItem = typeof userRecentItems.$inferSelect
-export type NewUserRecentItem = typeof userRecentItems.$inferInsert

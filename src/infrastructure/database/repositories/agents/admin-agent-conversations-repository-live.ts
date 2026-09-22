@@ -14,8 +14,8 @@ import {
   type AdminAgentMessageRow,
   type AdminAgentConversationsListFilters,
 } from '@/application/ports/repositories/agents/admin-agent-conversations-repository'
-import { isDefaultAgentName } from '@/domain/utils/agent-identity'
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
+import { isDefaultAgentName } from '@/domain/models/app/agents/agent-identity'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
@@ -47,7 +47,7 @@ const aiMessages = resolveDialectSchema(aiMessagesPg, aiMessagesSqlite)
  * The reserved {@link DEFAULT_AGENT_NAME} is the general-purpose agent, whose
  * view is the `agent_name IS NULL` set — the conversations no declared agent
  * claimed (every `/api/ai/chat` write path stores NULL; see
- * `src/domain/utils/agent-identity.ts`). Equality can never reach those rows:
+ * `src/domain/models/app/agents/agent-identity.ts`). Equality can never reach those rows:
  * `agent_name = 'default'` is NULL-vs-value, which SQL evaluates to NULL and
  * therefore never true, so before this the whole set was unreachable from the
  * console rather than merely mis-scoped.

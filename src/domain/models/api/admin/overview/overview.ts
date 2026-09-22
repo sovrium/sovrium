@@ -44,6 +44,12 @@
  *  - `connections.healthy`  ← count of connections whose derived `status` is
  *                             `active` (NOT `expiring-soon` / `expired`)
  *
+ * Every block additionally carries an optional `degraded` marker. Each one
+ * falls back to its zero shape when its source cannot be read, which makes a
+ * genuinely empty instance and an unreachable source render identically; the
+ * marker is what separates "there is nothing" from "I could not look". See
+ * {@link degradedField}.
+ *
  * Deliberately ABSENT (could not be sourced from any existing aggregation —
  * flagged rather than invented):
  *  - A cross-agent "recent conversations" count. The admin agent-conversations
@@ -60,7 +66,43 @@
  * @see src/presentation/api/routes/admin/buckets.ts (storage source)
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
+
+/**
+ * Marks a block whose source could not be read, so its figures are a FALLBACK
+ * rather than a measurement.
+ *
+ * WHY IT SITS ON EACH BLOCK AND NOT AT THE TOP LEVEL
+ * --------------------------------------------------
+ * Every block degrades to its zero shape when its source fails, which makes a
+ * real "0 records" and an unreachable tables source render identically — the
+ * operator reads an empty instance where the truth is an outage. The marker is
+ * what tells them apart.
+ *
+ * It belongs next to the number it qualifies because the consumer is a grid of
+ * per-domain `MetricCard` tiles: a tile renders one block and can read its own
+ * `degraded` without knowing its own name. A top-level `degraded: string[]`
+ * would move that name into the client — every tile looking itself up in a
+ * list, and a renamed block quietly clearing a tile's warning. Blocks carrying
+ * two figures (`runs`, `connections`) degrade together because one
+ * `orElseSucceed` covers the block, so one marker per block is exactly the
+ * granularity the failure has.
+ *
+ * PRESENT MEANS DEGRADED; there is no `degraded: false`. One spelling per
+ * state, so a client cannot read `false` as "unknown" or treat the key's
+ * absence as a third case. Additive and optional, so every existing decoder
+ * and every client already in production keeps working unchanged.
+ *
+ * Emitting it is the job of the roll-up (`buildAdminOverview`); the schema only
+ * declares that a block MAY say so.
+ */
+const degradedField = optionalField(
+  Schema.Literal(true).annotate({
+    description:
+      "Present (and always `true`) when this block's source could not be read, so its figures are the zero fallback rather than a measurement. Absent when the figures were measured. Never `false`.",
+  })
+)
 
 /**
  * Records roll-up — the live record count across every configured table.
@@ -68,17 +110,13 @@ import { z } from '@hono/zod-openapi'
  * `total` is the sum of `by_table[].rowCount` from tables-overview (live rows
  * only; soft-deleted rows are excluded, matching `totals.total_rows`).
  */
-export const overviewRecordsSchema = z
-  .object({
-    total: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Live record count across every configured table. Equals tables-overview `totals.total_rows` (soft-deleted rows excluded). `0` when no tables are configured.'
-      ),
-  })
-  .openapi('AdminOverviewRecords')
+export const overviewRecordsSchema = Schema.Struct({
+  total: Schema.Int.annotate({
+    description:
+      'Live record count across every configured table. Equals tables-overview `totals.total_rows` (soft-deleted rows excluded). `0` when no tables are configured.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  degraded: degradedField,
+}).annotate({ identifier: 'AdminOverviewRecords' })
 
 /**
  * Submissions roll-up — the lifetime submission count across every form.
@@ -89,17 +127,13 @@ export const overviewRecordsSchema = z
  * with no time-bucketing. `0` when no forms are configured or none have
  * received a submission.
  */
-export const overviewSubmissionsSchema = z
-  .object({
-    total: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Lifetime submission count across every configured form (sum of per-form `submissionCount`, non-deleted rows). `0` when no forms exist or none have submissions.'
-      ),
-  })
-  .openapi('AdminOverviewSubmissions')
+export const overviewSubmissionsSchema = Schema.Struct({
+  total: Schema.Int.annotate({
+    description:
+      'Lifetime submission count across every configured form (sum of per-form `submissionCount`, non-deleted rows). `0` when no forms exist or none have submissions.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  degraded: degradedField,
+}).annotate({ identifier: 'AdminOverviewSubmissions' })
 
 /**
  * Automation-runs roll-up — recent run volume + period success rate.
@@ -109,24 +143,17 @@ export const overviewSubmissionsSchema = z
  * `0`–`1` inclusive; `1` when there were zero runs, the "healthy by default"
  * convention from automations-overview).
  */
-export const overviewRunsSchema = z
-  .object({
-    recent: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Automation runs in the last 24h. Sourced from automations-overview `totals.runs_24h`. `0` when no automations have run.'
-      ),
-    successRate: z
-      .number()
-      .min(0)
-      .max(1)
-      .describe(
-        'Fraction of the last-24h runs that succeeded (0–1). Sourced from automations-overview `totals.success_rate`. `1` when there were zero runs (healthy by default).'
-      ),
-  })
-  .openapi('AdminOverviewRuns')
+export const overviewRunsSchema = Schema.Struct({
+  recent: Schema.Int.annotate({
+    description:
+      'Automation runs in the last 24h. Sourced from automations-overview `totals.runs_24h`. `0` when no automations have run.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  successRate: Schema.Finite.annotate({
+    description:
+      'Fraction of the last-24h runs that succeeded (0–1). Sourced from automations-overview `totals.success_rate`. `1` when there were zero runs (healthy by default).',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))),
+  degraded: degradedField,
+}).annotate({ identifier: 'AdminOverviewRuns' })
 
 /**
  * Users roll-up — the live user count.
@@ -134,17 +161,13 @@ export const overviewRunsSchema = z
  * `total` is the live `auth.user` count from users-overview (`totals.users`,
  * excluding soft-deleted rows). `0` when auth is disabled or no users exist.
  */
-export const overviewUsersSchema = z
-  .object({
-    total: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Live user count (excluding soft-deleted rows). Equals users-overview `totals.users`. `0` when auth is disabled or there are no users.'
-      ),
-  })
-  .openapi('AdminOverviewUsers')
+export const overviewUsersSchema = Schema.Struct({
+  total: Schema.Int.annotate({
+    description:
+      'Live user count (excluding soft-deleted rows). Equals users-overview `totals.users`. `0` when auth is disabled or there are no users.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  degraded: degradedField,
+}).annotate({ identifier: 'AdminOverviewUsers' })
 
 /**
  * Storage roll-up — total bytes stored across every bucket.
@@ -153,17 +176,13 @@ export const overviewUsersSchema = z
  * (identical semantics to buckets-overview `totals.totalBytes`). `0` when
  * storage is disabled (no provider configured) or no files are stored.
  */
-export const overviewStorageSchema = z
-  .object({
-    totalBytes: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Total stored bytes across every live bucket. Equals buckets-overview `totals.totalBytes`. `0` when storage is disabled or no files are stored.'
-      ),
-  })
-  .openapi('AdminOverviewStorage')
+export const overviewStorageSchema = Schema.Struct({
+  totalBytes: Schema.Int.annotate({
+    description:
+      'Total stored bytes across every live bucket. Equals buckets-overview `totals.totalBytes`. `0` when storage is disabled or no files are stored.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  degraded: degradedField,
+}).annotate({ identifier: 'AdminOverviewStorage' })
 
 /**
  * Connections roll-up — connection count + how many are healthy.
@@ -175,24 +194,17 @@ export const overviewStorageSchema = z
  *
  * Invariant: `0 <= healthy <= total`.
  */
-export const overviewConnectionsSchema = z
-  .object({
-    total: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Number of configured connections (one per `system.connections` row). Equals the connections-list length. `0` when no connections are configured.'
-      ),
-    healthy: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Subset of `total` whose derived status is `active` (absent or comfortably-future expiry) — excludes `expiring-soon` and `expired`. Always `<= total`.'
-      ),
-  })
-  .openapi('AdminOverviewConnections')
+export const overviewConnectionsSchema = Schema.Struct({
+  total: Schema.Int.annotate({
+    description:
+      'Number of configured connections (one per `system.connections` row). Equals the connections-list length. `0` when no connections are configured.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  healthy: Schema.Int.annotate({
+    description:
+      'Subset of `total` whose derived status is `active` (absent or comfortably-future expiry) — excludes `expiring-soon` and `expired`. Always `<= total`.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  degraded: degradedField,
+}).annotate({ identifier: 'AdminOverviewConnections' })
 
 /**
  * Response shape of `GET /api/admin/overview`.
@@ -209,32 +221,32 @@ export const overviewConnectionsSchema = z
  *  - `runs.recent`         === automations-overview `totals.runs_24h`
  *  - `storage.totalBytes`  === buckets-overview `totals.totalBytes`
  *  - `connections.healthy` <= `connections.total`
+ *  - a block carrying `degraded: true` is reporting its zero fallback, not a
+ *    measurement — so its figures say nothing about the instance
  *
  * The shape is exposed under the OpenAPI name `AdminOverviewResponse` so
  * downstream tooling generates a stable type name.
  */
-export const adminOverviewResponseSchema = z
-  .object({
-    records: overviewRecordsSchema,
-    submissions: overviewSubmissionsSchema,
-    runs: overviewRunsSchema,
-    users: overviewUsersSchema,
-    storage: overviewStorageSchema,
-    connections: overviewConnectionsSchema,
-  })
-  .openapi('AdminOverviewResponse')
+export const adminOverviewResponseSchema = Schema.Struct({
+  records: overviewRecordsSchema,
+  submissions: overviewSubmissionsSchema,
+  runs: overviewRunsSchema,
+  users: overviewUsersSchema,
+  storage: overviewStorageSchema,
+  connections: overviewConnectionsSchema,
+}).annotate({ identifier: 'AdminOverviewResponse' })
 
 /** @public */
-export type AdminOverviewResponse = z.infer<typeof adminOverviewResponseSchema>
+export type AdminOverviewResponse = typeof adminOverviewResponseSchema.Type
 /** @public */
-export type AdminOverviewRecords = z.infer<typeof overviewRecordsSchema>
+export type AdminOverviewRecords = typeof overviewRecordsSchema.Type
 /** @public */
-export type AdminOverviewSubmissions = z.infer<typeof overviewSubmissionsSchema>
+export type AdminOverviewSubmissions = typeof overviewSubmissionsSchema.Type
 /** @public */
-export type AdminOverviewRuns = z.infer<typeof overviewRunsSchema>
+export type AdminOverviewRuns = typeof overviewRunsSchema.Type
 /** @public */
-export type AdminOverviewUsers = z.infer<typeof overviewUsersSchema>
+export type AdminOverviewUsers = typeof overviewUsersSchema.Type
 /** @public */
-export type AdminOverviewStorage = z.infer<typeof overviewStorageSchema>
+export type AdminOverviewStorage = typeof overviewStorageSchema.Type
 /** @public */
-export type AdminOverviewConnections = z.infer<typeof overviewConnectionsSchema>
+export type AdminOverviewConnections = typeof overviewConnectionsSchema.Type

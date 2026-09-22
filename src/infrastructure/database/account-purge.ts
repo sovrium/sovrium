@@ -8,14 +8,14 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
+import { AVATAR_BUCKET_NAME, avatarStorageKeyFromUrl } from '@/domain/models/app/auth/avatar-url'
 import {
   createdByFieldNames,
   deletedByFieldNames,
   updatedByFieldNames,
-} from '@/domain/services/authorship-fields'
-import { AVATAR_BUCKET_NAME, avatarStorageKeyFromUrl } from '@/domain/utils/avatar-url'
-import { sanitizeTableName } from '@/domain/utils/database/table-naming'
+} from '@/domain/models/app/tables/authorship-fields'
 import { appendAuditEntryToDbTx } from '@/infrastructure/audit-log/drizzle-store'
 import { db } from '@/infrastructure/database'
 import { AUTHORSHIP_FIELDS } from '@/infrastructure/database/table-queries/mutation-helpers/authorship-helpers'
@@ -679,7 +679,6 @@ export async function purgeAccount(
   // Read the avatar BEFORE the row is deleted — see {@link readStoredAvatarImage}.
   const storedAvatarImage = await readStoredAvatarImage(userId)
 
-  // eslint-disable-next-line functional/no-expression-statements -- DB side effect inside a transaction boundary
   await db.transaction(async (tx) => {
     // Capture the email BEFORE deleting the user row — it lands in the
     // audit-event metadata so operators can answer "who was erased?" after
@@ -693,7 +692,6 @@ export async function purgeAccount(
     // 1. App-table records authored by the user, then the authorship stamps left
     //    on records authored by SOMEBODY ELSE — two deliberately different
     //    verdicts, see {@link sweepAppTableAuthorship}.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
     await sweepAppTableAuthorship(tx, userId, appTables)
 
     // 2. Form-submission ledger rows the user submitted. PHYSICAL delete, not
@@ -726,40 +724,33 @@ export async function purgeAccount(
     //    read-state watermark and the row-level access grants. Hard DELETE, and
     //    named here rather than given a cascade, for the reasons set out on
     //    `USER_OWNED_GATED_SYSTEM_TABLES`.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
     await deleteUserOwnedGatedSystemRows(tx, userId)
 
     // 4b. The grants the user ISSUED to other people. Those rows are somebody
     //     else's live authorization, so only the issuer identifier goes.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
     await shedGrantIssuerIdentifier(tx, userId)
 
     // 4c. The AI-interaction activity feed, which names the user by id AND by
     //     address across two bare columns. Hard DELETE — nothing survives the
     //     removal of the actor there.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
     await deleteAiActivityRows(tx, userId, erasedEmail)
 
     // 4d. Every table the erasure census marks `delete` — the 2026-08-26
     //     coverage audit's eighteen, driven straight off the manifest so the
     //     list an operator reads is the list the engine runs.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
     await deleteCensusRows(tx, userId)
 
     // 4e. AI tool-call transcripts, whose predicate is compound (`caller_type`
     //     scopes the bare `caller_id`).
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
     await deleteAiToolCallRows(tx, userId)
 
     // 4f. Short links the user published. SHED, not deleted — the URL is live
     //     third-party traffic; only the author's identifier goes.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
     await shedLinkAuthorIdentifier(tx, userId)
 
     // 4g. Design-system share links the user minted. SHED for the same reason:
     //     somebody outside the organisation is holding the URL, and the
     //     document it serves carries no personal data to begin with.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
     await shedDesignSystemShareMinterIdentifier(tx, userId)
 
     // 5. The admin-console search projection of this user. Not a cascade
@@ -814,7 +805,6 @@ export async function purgeAccount(
     // 10. Insert the audit entry while the user row still exists. The
     //    `actor_id` FK is valid at insert time; on commit the FK fires
     //    when step 11 deletes the user row and null-ifies `actor_id`.
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect inside the open transaction
     await appendAuditEntryToDbTx(tx, buildPurgeAuditEntry(userId, erasedEmail))
 
     // 11. The parent auth.user row — FK fires on commit, null-ifying actor_id
@@ -826,7 +816,6 @@ export async function purgeAccount(
 
   // The row is gone; now shed the personal-data OBJECT it pointed at. Post-commit
   // for the reason given on {@link removeErasedAvatarObject}.
-  // eslint-disable-next-line functional/no-expression-statements -- storage side effect
   await removeErasedAvatarObject(userId, storedAvatarImage)
 
   logInfo(`[account-purge] Hard-deleted account ${userId}`)
@@ -850,7 +839,6 @@ export async function purgeDueAccounts(
 
   // eslint-disable-next-line functional/no-loop-statements -- sequential per-account purge
   for (const row of dueRows) {
-    // eslint-disable-next-line functional/no-expression-statements -- DB side effect
     await purgeAccount(row.id, appTables)
   }
 

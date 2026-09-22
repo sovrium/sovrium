@@ -20,8 +20,11 @@
  *      current on the running fiber — so when the request runs through
  *      `runRequestEffect` (the request-edge root `http.server` span), the AI span
  *      chains under the request root, giving free request↔AI-request correlation.
- *      Off-request AI calls (no active OTLP tracer) make `withSpan` a no-op, so
- *      this stays zero-cost.
+ *      Off-request AI calls still CREATE the span: `Tracer.Tracer` is a
+ *      `Context.Reference` whose `defaultValue` is a NATIVE tracer minting real
+ *      `NativeSpan`s (`effect/Tracer.js`), so `withSpan` is never a no-op —
+ *      with no collector listening it is one in-memory allocation, dropped
+ *      unreferenced.
  *   2. `ai.request.duration` (histogram) + `ai.request.count` (sum) observations
  *      labeled `{ provider, model, operation }` (see `recordAiRequest` in
  *      `metrics.ts`), timed over the provider request itself and composed into

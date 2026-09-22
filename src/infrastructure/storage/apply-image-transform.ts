@@ -5,12 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { DEFAULT_QUALITY } from '@/domain/services/image-transform/image-transform-params'
+import { DEFAULT_QUALITY } from '@/domain/models/app/buckets/image-transform-params'
 import { MIME_BY_IMAGE_FORMAT, runImagePipeline, type ImageOutputFormat } from './bun-image'
 import type {
   TransformFormat,
   TransformParams,
-} from '@/domain/services/image-transform/image-transform-params'
+} from '@/domain/models/app/buckets/image-transform-params'
 
 /**
  * On-the-fly image transforms for the bucket download route, over `Bun.Image`.

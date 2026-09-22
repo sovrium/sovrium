@@ -6,7 +6,8 @@
  */
 
 import { useCallback } from 'react'
-import { computeAiChatContainerClasses } from '../recipes/specialty-islands-default-classes'
+import { computeAiChatErrorClasses } from '@/presentation/design/ai-chat-default-classes'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { ChatInputRow } from './chat-input-row'
 import { MessagesView } from './messages-view'
 import { useChat } from './use-chat'
@@ -29,34 +30,46 @@ import type { ReactElement } from 'react'
  * conversation-history replay when `showHistory` is enabled.
  */
 
-const DEFAULT_CHAT_HEIGHT_PX = 400
+/**
+ * Retry is a recovery affordance, not a destructive one — the error tone is
+ * already carried by the block it sits in, so the button stays quiet.
+ */
+const RETRY_BUTTON = computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })
 
 export default function AiChatIsland(props: AiChatIslandProps): ReactElement {
   const { messages, status, send, retry } = useChat(props)
-  const chatHeight = props.chatHeight ?? DEFAULT_CHAT_HEIGHT_PX
 
   const handleRetry = useCallback(() => retry(), [retry])
 
   return (
-    <div className={computeAiChatContainerClasses()}>
+    // FRAMELESS on purpose — see the comments island for the same reasoning:
+    // this renders inside the SSR host, which already draws the panel. Before R-E
+    // both sides drew it and a hydrated chat carried two nested borders.
+    //
+    // HEIGHTLESS for the same reason, since [internal ref]: the host
+    // carries the author's `chatHeight` as an inline style, so this fills it
+    // (`h-full`) and re-establishes the identical flex column the SSR skeleton
+    // draws — log, composer, chips, in that order, with the log absorbing the
+    // slack. Reading `chatHeight` here again would put a second sizer on one
+    // prop, which is exactly the defect that clipped the composer.
+    <div className="flex h-full flex-col overflow-hidden">
       <MessagesView
         messages={messages}
         status={status}
-        chatHeight={chatHeight}
       />
 
       {status === 'error' && (
         <div
           data-testid="chat-error"
           role="alert"
-          className="border-error-border bg-error-bg text-error-fg flex items-center justify-between gap-2 border-t px-3 py-2 text-sm"
+          className={`${computeAiChatErrorClasses()} flex items-center gap-2`}
         >
           <span>The assistant is unavailable. Please try again.</span>
           <button
             type="button"
             data-testid="chat-retry"
             onClick={handleRetry}
-            className="bg-error-solid text-error-solid-fg rounded px-3 py-1 text-xs font-medium hover:opacity-90"
+            className={RETRY_BUTTON}
           >
             Retry
           </button>
@@ -68,6 +81,7 @@ export default function AiChatIsland(props: AiChatIslandProps): ReactElement {
         isSending={status === 'sending'}
         allowAttachments={props.allowAttachments === true}
         initialDraft={props.initialValues?.message ?? ''}
+        suggestions={props.suggestions}
         onSend={send}
       />
     </div>

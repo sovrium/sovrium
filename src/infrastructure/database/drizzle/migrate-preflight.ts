@@ -24,11 +24,15 @@
  *    mid-flight, and the operator learns it from a bare `duplicate key value`
  *    at the worst possible moment.
  * 2. **Duplicate OAuth `client_id`s.** Same migration, same class.
- * 3. **A rewritten released migration.** Drizzle stores a sha256 of each `.sql`
- *    file in `__drizzle_migrations` and then decides purely by TIMESTAMP,
- *    never reading that hash back. A released migration edited in place is
- *    therefore invisible to drizzle and fatal to every existing install — the
- *    v0.12.0 incident. The `Released Migration Immutability` gate checks the
+ * 3. **A rewritten released migration.** Drizzle stores a sha256 of each
+ *    `migration.sql` in `__drizzle_migrations` and then decides what to apply
+ *    by NAME, never reading that hash back on the apply path. A released
+ *    migration edited in place is therefore invisible to drizzle and fatal to
+ *    every existing install — the v0.12.0 incident. It is worse than invisible
+ *    on the one-time v0→v1 table upgrade, where the hash IS read: it is the
+ *    fallback that names a legacy row whose timestamp finds nothing, so an
+ *    edited file can turn a recorded migration into an unmatched one and refuse
+ *    the boot outright. The `Released Migration Immutability` gate checks the
  *    REPOSITORY; nothing until now checked a live database.
  *
  * Nothing here de-duplicates or repairs. Deleting one of two colliding
@@ -36,28 +40,30 @@
  * hash erases the only evidence the operator has.
  */
 
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync } from 'node:fs'
 import { SQL } from 'bun'
 import { Database as BunSqlite } from 'bun:sqlite'
-import { readMigrationFiles } from 'drizzle-orm/migrator'
 import { Effect } from 'effect'
+import { applySqlitePragmas } from '../sql/sqlite-pragmas'
 import {
   detectPostgresAccountCollisions,
   detectSqliteAccountCollisions,
   type AccountCollisionRow,
 } from './account-issuer-preflight'
-import { DatabaseConnectionError, resolveMigrationsFolder } from './migrate'
+import { DatabaseConnectionError } from './migrate'
+import { resolveMigrationsFolder, shippedMigrations, truncateToSecond } from './migration-folder'
 import {
   detectPostgresOauthClientIdCollisions,
   detectSqliteOauthClientIdCollisions,
   type OauthClientIdCollisionRow,
 } from './oauth-client-id-preflight'
-import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import type { MigrationError } from './migration-error'
+import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 
 /** One released migration whose stored hash no longer matches the shipped file. */
 export interface MigrationHashDrift {
-  readonly tag: string
+  /** The migration folder name — drizzle's own identity for it under v1. */
+  readonly name: string
   readonly storedHash: string
   readonly expectedHash: string
 }
@@ -69,60 +75,60 @@ export interface MigrationPreflightReport {
   readonly hashDrift: readonly MigrationHashDrift[]
 }
 
-/** One row of `__drizzle_migrations`, as either driver returns it. */
+/**
+ * One row of `__drizzle_migrations`, as either driver returns it, on either
+ * table shape.
+ *
+ * `name` is OPTIONAL because this pre-flight deliberately runs before drizzle's
+ * one-time `upgradeIfNeeded` has had any chance to add the column. Every
+ * database that has not yet booted a v1 build — the entire population an
+ * upgrade check is for — still has the three-column shape.
+ */
 interface AppliedMigrationRow {
   readonly hash: string
   readonly created_at: string | number | bigint
-}
-
-/**
- * The shipped journal as `(tag, when, sha256)` triples.
- *
- * `readMigrationFiles` returns entries in journal order and computes the same
- * sha256 the migrator stores, but drops the TAG — so the journal is read
- * alongside it and zipped by index. Using drizzle's own reader rather than
- * hashing the files here is deliberate: a divergence between how Sovrium hashes
- * and how drizzle hashes would make every migration look drifted.
- */
-const shippedMigrations = (
-  migrationsFolder: string
-): readonly { readonly tag: string; readonly when: number; readonly hash: string }[] => {
-  const journal = JSON.parse(
-    readFileSync(join(migrationsFolder, 'meta', '_journal.json'), 'utf-8')
-  ) as { readonly entries: readonly { readonly tag: string }[] }
-
-  return readMigrationFiles({ migrationsFolder }).map((entry, index) => ({
-    tag: journal.entries[index]?.tag ?? `entry ${index}`,
-    when: entry.folderMillis,
-    hash: entry.hash,
-  }))
+  readonly name?: string | null
 }
 
 /**
  * Compare each applied row's stored hash against the shipped file's.
  *
- * Joined on `created_at` ↔ `folderMillis`, because that timestamp is drizzle's
- * own identity for a migration — the tag is never written to the database, so it
- * exists only in the journal. An applied row matching no journal entry is
- * IGNORED rather than reported: that is a migration this build does not ship (a
- * downgrade, or a fork), a different finding this check is not entitled to make.
+ * Joined by NAME where the database has one, because that is drizzle v1's own
+ * identity for a migration. A legacy row has no name, so it falls back to the
+ * second-truncated `created_at` ↔ folder-timestamp join — the same reconciliation
+ * `upgradeIfNeeded` performs, reproduced here rather than skipped: a pre-v1
+ * table is exactly the population where an edited released migration is now a
+ * boot failure, so reporting "nothing drifted" there would be vacuous in the
+ * one place the answer matters most.
+ *
+ * An applied row matching no shipped migration is IGNORED rather than reported:
+ * that is a migration this build does not ship (a downgrade, or a fork), a
+ * different finding this check is not entitled to make.
  */
 const findHashDrift = (
   migrationsFolder: string,
   applied: readonly AppliedMigrationRow[]
 ): readonly MigrationHashDrift[] => {
-  const byWhen = new Map(
-    shippedMigrations(migrationsFolder).map((entry) => [String(entry.when), entry])
-  )
+  const shipped = shippedMigrations(migrationsFolder)
+  const byName = new Map(shipped.map((entry) => [entry.name, entry] as const))
+  const byWhen = new Map(shipped.map((entry) => [entry.whenMillis, entry] as const))
 
   return applied.flatMap((row) => {
-    const shipped = byWhen.get(String(row.created_at))
-    if (shipped === undefined || shipped.hash === String(row.hash)) return []
-    return [{ tag: shipped.tag, storedHash: String(row.hash), expectedHash: shipped.hash }]
+    // A legacy row carries no name at all; a v1 row upgraded from one carries
+    // the name the timestamp join produced. Both fall through to the same
+    // second-truncated join, which is why this stays a `??` chain rather than a
+    // branch on the table shape.
+    const match =
+      (row.name ? byName.get(row.name) : undefined) ?? byWhen.get(truncateToSecond(row.created_at))
+    if (match === undefined || match.hash === String(row.hash)) return []
+    return [{ name: match.name, storedHash: String(row.hash), expectedHash: match.hash }]
   })
 }
 
-/** Read the applied rows, tolerating a database that has never been migrated. */
+/**
+ * Read the applied rows, tolerating a database that has never been migrated AND
+ * one that has never been upgraded to the v1 table shape.
+ */
 const postgresApplied = async (
   query: (sql: string) => Promise<unknown>
 ): Promise<readonly AppliedMigrationRow[]> => {
@@ -130,8 +136,16 @@ const postgresApplied = async (
     "SELECT to_regclass('drizzle.__drizzle_migrations') IS NOT NULL AS present"
   )) as readonly { readonly present: boolean }[]
   if (present[0]?.present !== true) return []
+
+  const columns = (await query(
+    "SELECT column_name FROM information_schema.columns WHERE table_schema = 'drizzle' AND table_name = '__drizzle_migrations'"
+  )) as readonly { readonly column_name: string }[]
+  const projection = columns.some((column) => column.column_name === 'name')
+    ? 'hash, created_at, name'
+    : 'hash, created_at'
+
   return (await query(
-    'SELECT hash, created_at FROM drizzle.__drizzle_migrations'
+    `SELECT ${projection} FROM drizzle.__drizzle_migrations`
   )) as readonly AppliedMigrationRow[]
 }
 
@@ -143,9 +157,15 @@ const sqliteApplied = (
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = '__drizzle_migrations'"
   )
   if (present.length === 0) return []
-  return query(
-    'SELECT hash, created_at FROM __drizzle_migrations'
-  ) as readonly AppliedMigrationRow[]
+
+  const columns = query(
+    "SELECT name AS column_name FROM pragma_table_info('__drizzle_migrations')"
+  ) as readonly { readonly column_name: string }[]
+  const projection = columns.some((column) => column.column_name === 'name')
+    ? 'hash, created_at, name'
+    : 'hash, created_at'
+
+  return query(`SELECT ${projection} FROM __drizzle_migrations`) as readonly AppliedMigrationRow[]
 }
 
 /** Every probe, against one Postgres connection. */
@@ -162,7 +182,6 @@ const postgresPreflight = async (
       hashDrift: findHashDrift(migrationsFolder, await postgresApplied(query)),
     }
   } finally {
-    // eslint-disable-next-line functional/no-expression-statements -- releasing the probe connection
     await client.close()
   }
 }
@@ -172,6 +191,11 @@ const sqlitePreflight = (path: string, migrationsFolder: string): MigrationPrefl
   // `create: false`: `--check` must not bring a database into existence merely
   // by asking after it. A missing file is a legitimate "nothing applied yet".
   const client = new BunSqlite(path, { create: false, readonly: true })
+  // Read-only, so the busy timeout alone: a reader is still refused outright by
+  // a writer holding the file, and `sovrium migrate --check` reporting "locked"
+  // where it could simply have waited is the same defect in a quieter place.
+
+  applySqlitePragmas(client, { readOnly: true })
   try {
     const query = (sql: string): readonly unknown[] => client.query(sql).all()
     return {
@@ -203,7 +227,9 @@ const NOTHING_FOUND: MigrationPreflightReport = {
  */
 export const readMigrationPreflight = (
   config: DatabaseDialectConfig
-): Effect.Effect<MigrationPreflightReport, DatabaseConnectionError> =>
+  // `MigrationError` rides along from `readMigrationFolderState`: resolving the
+  // folder unpacks the embedded migrations in a compiled binary, which can fail.
+): Effect.Effect<MigrationPreflightReport, DatabaseConnectionError | MigrationError> =>
   Effect.gen(function* () {
     const migrationsFolder = yield* resolveMigrationsFolder(
       config.dialect === 'postgres' ? 'pg' : 'sqlite'

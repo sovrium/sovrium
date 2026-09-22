@@ -7,9 +7,10 @@
 
 import {
   computeFormFieldClasses,
+  computeFormFieldErrorClasses,
   computeFormFieldLabelClasses,
-} from '@/presentation/utils/design/form-layout-classes'
-import { computeInputDefaultClasses } from '@/presentation/utils/design/input-default-classes'
+} from '@/presentation/design/form-layout-classes'
+import { computeInputDefaultClasses } from '@/presentation/design/input-default-classes'
 import { type AuthFormField, type FieldErrors } from './auth-form-validation'
 
 /**
@@ -27,6 +28,16 @@ import { type AuthFormField, type FieldErrors } from './auth-form-validation'
  * an error message appearing or clearing never changes the row height — this
  * keeps the submit button from shifting under the pointer mid-click. The
  * `data-error-empty` attribute marks the no-error state for styling/testing.
+ *
+ * It carries {@link computeFormFieldErrorClasses} — the SAME recipe the
+ * server-rendered `field-renderer.tsx` has always used. It went without one
+ * for as long as this island existed, which is not a colour that drifted but
+ * the ABSENCE of one: with no className the message inherited the body's
+ * default foreground at the body size, so an error painted at 16px in the
+ * plain text colour under a 12px label — larger and quieter than the label it
+ * corrected. The recipe's `text-error-fg text-xs` is what the canvas draws for
+ * the invalid state (11px on the error tone), pairing the message with the
+ * `error`-state border the control beside it already carries.
  *
  * Inline errors deliberately omit `role="alert"` so a `[role="alert"]`
  * selector resolves only to the form-level summary banner.
@@ -73,6 +84,7 @@ export function AuthFieldRow({
       </label>
       <div
         id={`${field.name}-error`}
+        className={computeFormFieldErrorClasses()}
         style={INLINE_ERROR_STYLE}
         {...(error ? {} : { 'data-error-empty': '' })}
       >

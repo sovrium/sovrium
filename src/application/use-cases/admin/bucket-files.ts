@@ -25,21 +25,21 @@
  * stays in the route after a successful read.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   AdminBucketFilesRepository,
   type AdminBucketFileRow,
   type AdminBucketFilesDatabaseError,
   type AdminBucketFilesListFilters,
 } from '@/application/ports/repositories/buckets/admin-bucket-files-repository'
+import { stripStorageKeyUuidPrefix } from '@/domain/kernel/identity/storage-key'
 import {
   bucketFilesResponseSchema,
   type BucketFileItem,
   type BucketFilesOrder,
   type BucketFilesSort,
 } from '@/domain/models/api/admin/buckets/files'
-import { stripStorageKeyUuidPrefix } from '@/domain/utils/storage-key'
-import { AdminBucketFilesRepositoryLive } from '@/infrastructure/database/repositories/buckets/admin-bucket-files-repository-live'
+import { decodeSafe } from '@/domain/models/api/combinators/decode'
 
 /* eslint-disable unicorn/no-null -- API envelope canonically uses `null` for an absent `nextCursor` across all cursor-paginated admin endpoints (matches the shared cursor-pagination response contract) */
 
@@ -54,10 +54,7 @@ function createdAtIso(raw: Readonly<Date> | string): string {
  * Build the canonical file-browser item from a metadata row. Pure — the row is
  * supplied by the caller (sourced via the repository).
  */
-function buildFileItem(
-  row: AdminBucketFileRow
-  // eslint-disable-next-line functional/prefer-immutable-types -- BucketFileItem is the Zod-inferred response shape (upstream-mutable); the route serializes it straight to JSON without mutating
-): BucketFileItem {
+function buildFileItem(row: AdminBucketFileRow): BucketFileItem {
   return {
     key: row.key,
     // The storage adapters set `file_storage_metadata.filename` to the key's
@@ -252,7 +249,7 @@ export const BuildBucketFiles = (
         : null
 
     const body = { items, nextCursor, totalBytes, appliedQuery: input.q ?? null }
-    const parsed = bucketFilesResponseSchema.safeParse(body)
+    const parsed = decodeSafe(bucketFilesResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
@@ -267,12 +264,7 @@ export const BuildBucketFiles = (
         // not narrow the page again over the columns it happens to render.
         appliedQuery: parsed.data.appliedQuery ?? null,
       },
-    }
-  })
+    } as const
+  }).pipe(Effect.withSpan('admin.build-bucket-files'))
 
 /* eslint-enable unicorn/no-null */
-
-/**
- * Application layer for the admin bucket-files use case.
- */
-export const AdminBucketFilesLayer = Layer.mergeAll(AdminBucketFilesRepositoryLive)

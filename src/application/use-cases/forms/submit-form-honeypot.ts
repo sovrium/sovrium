@@ -74,4 +74,4 @@ export const checkHoneypot = (input: {
       })
     }
     return yield* new FormHoneypotTrippedError({ message: 'invalid request' })
-  })
+  }).pipe(Effect.withSpan('forms.check-honeypot', { attributes: { form: input.form.name } }))

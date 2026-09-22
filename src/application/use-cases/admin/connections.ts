@@ -29,7 +29,7 @@
  * successful read.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   type ConnectionDatabaseError,
   ConnectionRepository,
@@ -46,14 +46,12 @@ import {
   type ConnectionListItem,
   type ConnectionUserToken,
 } from '@/domain/models/api/admin/connections/connections'
+import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import {
   deriveConnectionRowAction,
   deriveConnectionStatus,
   soonestExpiryMs,
-} from '@/domain/services/admin/connection-status'
-import { OAuthStateStoreLive } from '@/infrastructure/connections/oauth-state-store-live'
-import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
-import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
+} from '@/domain/models/app/admin/connection-status'
 
 /* eslint-disable unicorn/no-null -- the API envelope canonically uses `null` for an absent connection-level `expiresAt` (no token rows OR no recorded expiry) and for a per-user token with no recorded expiry, matching the nullable Zod response contract */
 
@@ -82,7 +80,6 @@ function buildConnectionItem(
   row: Readonly<Record<string, unknown>>,
   tokens: readonly ConnectionUserSummary[],
   appToken: Readonly<ConnectionAppTokenSummary> | undefined
-  // eslint-disable-next-line functional/prefer-immutable-types -- Zod-inferred response shape (upstream-mutable); the route serializes it straight to JSON without mutating
 ): ConnectionListItem {
   // The count is the UNION of the two stores, derived from which rows actually
   // exist rather than from the connection's declared `scope`. That matters:
@@ -118,10 +115,7 @@ function buildConnectionItem(
  * EXACTLY the three allow-listed keys (`userId`, `expiresAt`, `status`). The
  * summary already excludes the access/refresh-token plaintext (S4).
  */
-function buildUserToken(
-  summary: Readonly<ConnectionUserSummary>
-  // eslint-disable-next-line functional/prefer-immutable-types -- Zod-inferred response shape (upstream-mutable)
-): ConnectionUserToken {
+function buildUserToken(summary: Readonly<ConnectionUserSummary>): ConnectionUserToken {
   return {
     userId: summary.userId,
     expiresAt: expiryToIso(summary.expiresAt),
@@ -168,12 +162,12 @@ export const BuildConnectionsList: Effect.Effect<
   )
 
   const body = { connections }
-  const parsed = connectionsListResponseSchema.safeParse(body)
+  const parsed = decodeSafe(connectionsListResponseSchema)(body)
   if (!parsed.success) {
     return { _tag: 'ValidationFailed', error: parsed.error } as const
   }
-  return { _tag: 'Ok', body: { connections: parsed.data.connections } }
-})
+  return { _tag: 'Ok', body: { connections: parsed.data.connections } } as const
+}).pipe(Effect.withSpan('admin.build-connections-list'))
 
 // ─── Detail use case ──────────────────────────────────────────────────────────
 
@@ -227,24 +221,14 @@ export const BuildConnectionDetail = (
       tokens: summaries.map((summary) => buildUserToken(summary)),
     }
 
-    const parsed = connectionDetailResponseSchema.safeParse(body)
+    const parsed = decodeSafe(connectionDetailResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
-    return { _tag: 'Ok', body: { connection: parsed.data.connection, tokens: parsed.data.tokens } }
-  })
+    return {
+      _tag: 'Ok',
+      body: { connection: parsed.data.connection, tokens: parsed.data.tokens },
+    } as const
+  }).pipe(Effect.withSpan('admin.build-connection-detail'))
 
 /* eslint-enable unicorn/no-null */
-
-/**
- * Application layer for the admin connections use cases — bundles the connection
- * + connection-token repository Live layers AND the OAuth state store so the
- * route's effect-runner composition root provides a single layer. The state
- * store backs the admin OAuth action routes' authorize→callback hop
- * (`connections-actions.ts`), alongside the read endpoints' repositories.
- */
-export const AdminConnectionsLayer = Layer.mergeAll(
-  ConnectionRepositoryLive,
-  ConnectionTokenRepositoryLive,
-  OAuthStateStoreLive
-)

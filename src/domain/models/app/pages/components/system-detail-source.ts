@@ -34,7 +34,7 @@ import { Schema } from 'effect'
  *
  * Drill-down contract (list → detail):
  *  - the component fetches `endpoint` with the bound record id substituted into the
- *    endpoint's `:param` placeholder — the row id from a system-source `data-table`
+ *    endpoint's `:param` placeholder — the row id from a system-source `table`
  *    (record-drawer) or the route parameter for a page-level `mode: single`;
  *  - the response is normalized to the single record at `recordKey` (or the whole
  *    response body when `recordKey` is absent); the record's id is read from `idKey`;

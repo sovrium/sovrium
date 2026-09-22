@@ -7,8 +7,9 @@
 
 import { getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import type { ContextWithSession } from './auth'
-import type { UserSession } from '@/application/ports/models/user-session'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App } from '@/domain/models/app'
 import type { Context, Next } from 'hono'
 
@@ -116,7 +117,6 @@ export function validateTable(appOrResolver: App | (() => App)) {
     c.set('tableName', table.name)
     c.set('tableId', tableId)
 
-    // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue
     await next()
   }
 }
@@ -154,10 +154,15 @@ export function enrichUserRole(
   getUserRoleFn?: (userId: string) => Promise<string>,
   getUserGroupsFn?: (userId: string) => Promise<readonly string[]>
 ) {
-  const resolveRole = getUserRoleFn ?? getUserRole
-  const resolveGroups = getUserGroupsFn ?? getUserGroups
-
   return async (c: Context, next: Next) => {
+    // Resolved per request, not once at mount: without an injected override
+    // both reads run on the services THIS request carries, so the role and
+    // group lookups share its fiber and its span.
+    const resolveRole =
+      getUserRoleFn ?? ((userId: string) => runDomainPromise(c, getUserRole(userId)))
+    const resolveGroups =
+      getUserGroupsFn ?? ((userId: string) => runDomainPromise(c, getUserGroups(userId)))
+
     const { session } = (c as ContextWithSession).var
 
     // Defensive check (should not happen if requireAuth() used before)
@@ -175,7 +180,6 @@ export function enrichUserRole(
     // submission — and so `resolveRole('guest')` does not fail on a
     // user-not-found.
     if (session.userId === 'guest') {
-      // eslint-disable-next-line functional/no-expression-statements -- middleware continuation
       await next()
       return
     }
@@ -188,7 +192,6 @@ export function enrichUserRole(
     c.set('userRole', userRole)
     c.set('userGroups', userGroups)
 
-    // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue
     await next()
   }
 }

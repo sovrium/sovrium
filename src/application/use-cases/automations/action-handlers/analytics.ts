@@ -30,7 +30,7 @@
 
 import { Effect } from 'effect'
 import { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
-import { recordProp, stringProp } from './shared'
+import { actionAttributes, recordProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
 /** Synthetic identifier used for system-generated (non-visitor) events. */
@@ -76,4 +76,6 @@ export const handleAnalyticsTrack: ActionHandler = (action, app, _automation) =>
       status: 'success',
       output: { event },
     } as const satisfies ActionOutcome
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-analytics-track', { attributes: actionAttributes(action) })
+  )

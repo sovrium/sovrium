@@ -101,7 +101,7 @@ export const createLink = (
           Effect.fail(new LinkMutationConflictError({ code: 'LINK_SLUG_TAKEN', slug: input.slug }))
         )
       )
-  })
+  }).pipe(Effect.withSpan('links.create-link'))
 
 /**
  * Re-point or re-label an existing link.
@@ -137,7 +137,7 @@ export const updateLink = (
       ...input,
       ...(utm === undefined ? {} : { utm }),
     })
-  })
+  }).pipe(Effect.withSpan('links.update-link'))
 
 /**
  * Retire a link without erasing it.
@@ -171,4 +171,4 @@ export const deleteLink = (input: {
 
     yield* repository.archive({ appName: app.name, slug })
     return { changed: true }
-  })
+  }).pipe(Effect.withSpan('links.delete-link'))

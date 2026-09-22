@@ -9,7 +9,7 @@ import { useEffect, useRef } from 'react'
 import {
   computeAiChatMessageBubbleClasses,
   computeAiChatMessageListClasses,
-} from '../recipes/specialty-islands-default-classes'
+} from '@/presentation/design/ai-chat-default-classes'
 import type { ChatMessage, ChatStatus } from './types'
 import type { ReactElement } from 'react'
 
@@ -21,15 +21,26 @@ import type { ReactElement } from 'react'
  *, and auto-scrolls to the latest message on update
  *. Long messages wrap via `break-words`
  *.
+ *
+ * It takes NO height, and that absence is the fix for [internal ref].
+ * This log used to carry an inline `min-height: {chatHeight}px` — the same prop
+ * the SSR container already applies as its own `height` — which floored the log
+ * at the full height of the box that contains it. A flex item cannot shrink
+ * below its `min-height`, so `flex-1` yielded nothing, the composer and the
+ * chip strip were laid out past the container's bottom edge, and
+ * `overflow-hidden` clipped them away: on the shipped default the input row sat
+ * fifty-one pixels outside the visible panel, on every `ai-chat` in every app.
+ *
+ * The height has one owner now — `computeAiChatContainerClasses`, sized by the
+ * renderer — and the log simply takes what the composer leaves it.
  */
 
 interface MessagesViewProps {
   readonly messages: readonly ChatMessage[]
   readonly status: ChatStatus
-  readonly chatHeight: number
 }
 
-export function MessagesView({ messages, status, chatHeight }: MessagesViewProps): ReactElement {
+export function MessagesView({ messages, status }: MessagesViewProps): ReactElement {
   const endRef = useRef<HTMLDivElement>(null)
 
   // Keep the latest message in view on every update.
@@ -46,8 +57,6 @@ export function MessagesView({ messages, status, chatHeight }: MessagesViewProps
       aria-label="Chat messages"
       aria-live="polite"
       className={`chat-messages ${computeAiChatMessageListClasses()}`}
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one height-merge per render in a leaf island component
-      style={{ minHeight: `${chatHeight}px` }}
     >
       {messages.map((message, index) => (
         <div
@@ -66,11 +75,11 @@ export function MessagesView({ messages, status, chatHeight }: MessagesViewProps
           data-testid="chat-loading"
           role="status"
           aria-label="Assistant is responding"
-          className="bg-background-subtle mr-auto flex w-fit gap-1 rounded-lg px-3 py-2"
+          className="bg-background-subtle mr-auto flex w-fit gap-1 rounded-[10px_10px_10px_2px] px-2.5 py-1.5"
         >
-          <span className="bg-border-strong h-2 w-2 animate-bounce rounded-full" />
-          <span className="bg-border-strong h-2 w-2 animate-bounce rounded-full [animation-delay:150ms]" />
-          <span className="bg-border-strong h-2 w-2 animate-bounce rounded-full [animation-delay:300ms]" />
+          <span className="bg-foreground-disabled size-1.5 animate-bounce rounded-full" />
+          <span className="bg-foreground-disabled size-1.5 animate-bounce rounded-full [animation-delay:150ms]" />
+          <span className="bg-foreground-disabled size-1.5 animate-bounce rounded-full [animation-delay:300ms]" />
         </div>
       )}
       <div ref={endRef} />

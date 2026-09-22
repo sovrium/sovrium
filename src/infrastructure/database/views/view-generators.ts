@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { quoteSqlIdentifier } from '@/domain/utils/database/sql-formatting'
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { shouldUseView } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
@@ -351,7 +351,6 @@ const findObsoleteViewNames = (
  * Drop all views that are not defined in any table's schema
  * This ensures orphaned views (manually created or from previous schemas) are cleaned up
  */
-/* eslint-disable functional/no-expression-statements */
 export const dropAllObsoleteViews = async (
   tx: TransactionLike,
   tables: readonly Table[]
@@ -376,4 +375,3 @@ export const dropAllObsoleteViews = async (
 
   await Effect.runPromise(program)
 }
-/* eslint-enable functional/no-expression-statements */

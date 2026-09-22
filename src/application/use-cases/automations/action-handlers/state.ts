@@ -7,8 +7,8 @@
 
 import { Effect } from 'effect'
 import { AutomationStateRepository } from '@/application/ports/repositories/automations/automation-state-repository'
-import { parseDuration } from '@/domain/utils/parse-duration'
-import { numberProp, stringProp } from './shared'
+import { parseDuration } from '@/domain/kernel/time/parse-duration'
+import { actionAttributes, numberProp, stringProp } from './shared'
 import type { ActionHandler } from './shared'
 
 /**
@@ -44,7 +44,7 @@ export const handleStateSet: ActionHandler = (action, _app, automation) =>
       return { status: 'failure', error: String(result.failure.cause) } as const
     }
     return { status: 'success' } as const
-  })
+  }).pipe(Effect.withSpan('automations.handle-state-set', { attributes: actionAttributes(action) }))
 
 /**
  * `state/get` — read the value stored under `key`. Returns `null` (visible
@@ -62,7 +62,7 @@ export const handleStateGet: ActionHandler = (action, _app, automation) =>
       return { status: 'failure', error: String(result.failure.cause) } as const
     }
     return { status: 'success', output: { value: result.success } } as const
-  })
+  }).pipe(Effect.withSpan('automations.handle-state-get', { attributes: actionAttributes(action) }))
 
 /**
  * `state/list` — return all keys matching `props.prefix`, scoped to the
@@ -87,7 +87,9 @@ export const handleStateList: ActionHandler = (action, _app, automation) =>
         values: entries.map((entry) => entry.value),
       },
     } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-state-list', { attributes: actionAttributes(action) })
+  )
 
 /**
  * `state/delete` — remove a key. Idempotent: missing keys do not fail.
@@ -105,7 +107,9 @@ export const handleStateDelete: ActionHandler = (action, _app, automation) =>
       return { status: 'failure', error: String(result.failure.cause) } as const
     }
     return { status: 'success' } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-state-delete', { attributes: actionAttributes(action) })
+  )
 
 /**
  * `state/increment` — atomic numeric increment via JSONB-numeric cast in
@@ -127,4 +131,6 @@ export const handleStateIncrement: ActionHandler = (action, _app, automation) =>
       return { status: 'failure', error: String(result.failure.cause) } as const
     }
     return { status: 'success', output: { value: result.success } } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-state-increment', { attributes: actionAttributes(action) })
+  )

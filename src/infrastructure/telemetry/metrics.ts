@@ -144,6 +144,37 @@ export const recordDbQuery = (
   return Metric.update(dbQueryDuration.pipe(Metric.withAttributes(attributes)), durationSeconds)
 }
 
+/**
+ * Per-request DB query-count histogram boundaries. Counts, not seconds: the
+ * interesting resolution is "0 / a handful / tens / hundreds" — the N+1 shapes
+ * a performance gate wants to see — so the buckets widen geometrically.
+ */
+const DB_QUERIES_PER_REQUEST_BOUNDARIES = [0, 1, 2, 5, 10, 20, 50, 100, 200, 500] as const
+
+/**
+ * Per-request DB query-count histogram — OTLP `histogram`, unit `{query}`.
+ * One observation per served HTTP request: the number of SQL statements issued
+ * while serving it, as counted by the per-request query-count seam
+ * (`db-query-counter.ts` + the Drizzle `countingLogger` in `db-bun.ts`).
+ */
+const dbQueriesPerRequest = Metric.histogram('db.query.per_request', {
+  description: 'Number of database queries issued while serving one HTTP request.',
+  boundaries: DB_QUERIES_PER_REQUEST_BOUNDARIES,
+}).pipe(Metric.withAttributes({ unit: '{query}' }))
+
+/**
+ * Build the effect that observes ONE served request's DB query count on the
+ * `db.query.per_request` histogram. No labels: the request's `{ method, route,
+ * status }` breakdown already lives on the HTTP instruments, and the count is
+ * correlated per-trace via the root span's `db.query.count` attribute — a
+ * label set here would only multiply cardinality. Recorded UNCONDITIONALLY by
+ * the `db-query-count-header` middleware (only the response HEADER is
+ * env-gated). The returned effect writes the process-global registry
+ * synchronously — run it via `emitMetric` on the observability runtime.
+ */
+export const recordDbQueriesPerRequest = (count: number): Effect.Effect<void> =>
+  Metric.update(dbQueriesPerRequest, count)
+
 /** Monotonic AI-request counter — OTLP `sum`, unit `{request}`. */
 const aiRequestCount = Metric.counter('ai.request.count', {
   description: 'Number of AI provider requests issued.',

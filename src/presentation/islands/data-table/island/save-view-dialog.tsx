@@ -7,6 +7,17 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useState } from 'react'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  computeTableDialogBodyClasses,
+  computeTableDialogPanelClasses,
+  computeTableDialogPositionerClasses,
+  computeTableDialogTitleClasses,
+  computeTableAddRowInputClasses,
+  computeTableEditorLabelClasses,
+  computeTableEditorFooterClasses,
+} from '@/presentation/design/table-default-classes'
+import { computeOverlayBackdropClasses } from '../../overlays/overlay-default-classes'
 import { DROPDOWN_TRIGGER_CLASS } from './use-dropdown-state'
 
 /**
@@ -134,8 +145,8 @@ export function SaveViewDialog({
       onOpenChange={handleOpenChange}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="bg-scrim/40 fixed inset-0 z-50" />
-        <Dialog.Popup className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <Dialog.Backdrop className={computeOverlayBackdropClasses()} />
+        <Dialog.Popup className={computeTableDialogPositionerClasses()}>
           <SaveViewForm
             name={name}
             error={error}
@@ -166,16 +177,16 @@ function SaveViewForm({ name, error, pending, onNameChange, onSubmit }: SaveView
   return (
     <form
       onSubmit={onSubmit}
-      className="bg-background-overlay border-border w-full max-w-sm rounded-lg border p-6 shadow-xl"
+      className={computeTableDialogPanelClasses()}
     >
-      <Dialog.Title className="text-foreground text-lg font-semibold">Save view</Dialog.Title>
-      <Dialog.Description className="text-foreground-muted mt-1 text-sm">
+      <Dialog.Title className={computeTableDialogTitleClasses()}>Save view</Dialog.Title>
+      <Dialog.Description className={computeTableDialogBodyClasses()}>
         Name this view so you can come back to it from the Views menu.
       </Dialog.Description>
-      <div className="mt-4">
+      <div>
         <label
           htmlFor="save-view-name"
-          className="text-foreground mb-1 block text-sm font-medium"
+          className={`${computeTableEditorLabelClasses()} mb-1 block`}
         >
           Name
         </label>
@@ -185,7 +196,7 @@ function SaveViewForm({ name, error, pending, onNameChange, onSubmit }: SaveView
           value={name}
           onChange={onNameChange}
           autoFocus
-          className="border-border focus:border-primary focus:ring-focus-ring w-full rounded border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+          className={computeTableAddRowInputClasses()}
           aria-label="Name"
           aria-invalid={error !== undefined}
         />
@@ -198,7 +209,7 @@ function SaveViewForm({ name, error, pending, onNameChange, onSubmit }: SaveView
           </p>
         )}
       </div>
-      <div className="mt-4 flex justify-end gap-2">
+      <div className={computeTableEditorFooterClasses()}>
         <Dialog.Close
           type="button"
           className={DROPDOWN_TRIGGER_CLASS}
@@ -208,7 +219,7 @@ function SaveViewForm({ name, error, pending, onNameChange, onSubmit }: SaveView
         <button
           type="submit"
           disabled={pending}
-          className="bg-primary hover:bg-primary-emphasis text-on-primary rounded px-3 py-1 text-sm disabled:opacity-60"
+          className={computeButtonDefaultClasses({ variant: 'default', size: 'sm' })}
         >
           {pending ? 'Saving…' : 'Save'}
         </button>

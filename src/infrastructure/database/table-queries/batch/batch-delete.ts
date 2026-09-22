@@ -11,11 +11,17 @@ import { db, DatabaseError, type DrizzleTransaction } from '@/infrastructure/dat
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import { nowExpr } from '@/infrastructure/database/sql/dialect-sql'
+import { withTransaction } from '@/infrastructure/database/transaction'
 import { fetchRecordsByIds } from '../mutation-helpers/record-fetch-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
-import { passthroughError, unwrapPassthrough, wrapDatabaseError } from '../shared/error-handling'
-import { validateTableName } from '../shared/validation'
-import { BATCH_FANOUT_CONCURRENCY, runEffectInTx } from './batch-helpers'
+import {
+  passthroughError,
+  unwrapPassthrough,
+  wrapDatabaseError,
+  type PassthroughError,
+} from '../statement/error-handling'
+import { validateTableName } from '../statement/validation'
+import { BATCH_FANOUT_CONCURRENCY, BatchValidationError } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -30,48 +36,56 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
  * the `recordId` reported below is still the first MISSING id by array
  * position — not whichever probe happened to finish first.
  */
-async function validateRecordsForDelete(
+const validateRecordsForDelete = (
   tx: Readonly<DrizzleTransaction>,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
-): Promise<void> {
-  const validationResults = await runEffectInTx(
-    Effect.all(
-      recordIds.map((recordId) =>
-        // The `catch` TAGS the rejection into a `PassthroughError` carrier,
-        // which `validateRecordsForDeleteWithEffect` unwraps before it
-        // composes its message and stores its `cause`. That keeps the error
-        // channel TYPED here without changing what the outer handler sees: the
-        // final `DatabaseError` still reads its message from the driver error
-        // and still points its `cause` AT it, at the chain depth
-        // `classifyDriverFailure` is tested against. The plain identity mapper
-        // this replaces left the channel `unknown`.
-        // A "not found" record is NOT a rejection — it is a returned marker,
-        // handled below.
-        Effect.tryPromise({
-          try: async () => {
-            const checkResult = await executeRaw(
-              tx,
-              sql`SELECT id FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
-            )
+): Effect.Effect<void, PassthroughError | BatchValidationError> =>
+  Effect.all(
+    recordIds.map((recordId) =>
+      // The `catch` TAGS the rejection into a `PassthroughError` carrier,
+      // which `validateRecordsForDeleteWithEffect` unwraps before it
+      // composes its message and stores its `cause`. That keeps the error
+      // channel TYPED here without changing what the outer handler sees: the
+      // final `DatabaseError` still reads its message from the driver error
+      // and still points its `cause` AT it, at the chain depth
+      // `classifyDriverFailure` is tested against. The plain identity mapper
+      // this replaces left the channel `unknown`.
+      // A "not found" record is NOT a rejection — it is a returned marker,
+      // handled below.
+      Effect.tryPromise({
+        try: async () => {
+          const checkResult = await executeRaw(
+            tx,
+            sql`SELECT id FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
+          )
 
-            return checkResult.length === 0
-              ? { recordId, error: 'not found' as string | undefined }
-              : { recordId, error: undefined }
-          },
-          catch: passthroughError,
-        })
-      ),
-      { concurrency: BATCH_FANOUT_CONCURRENCY }
-    )
+          return checkResult.length === 0
+            ? { recordId, error: 'not found' as string | undefined }
+            : { recordId, error: undefined }
+        },
+        catch: passthroughError,
+      })
+    ),
+    { concurrency: BATCH_FANOUT_CONCURRENCY }
+  ).pipe(
+    Effect.flatMap((validationResults) => {
+      const firstError = validationResults.find((result) => result.error !== undefined)
+      // Absence is a FAILURE here, where the old async version threw. The
+      // wording is what the handler below reads to compose `Validation failed:
+      // <message>`, and the error itself becomes the `DatabaseError`'s `cause`
+      // — where `classifyDriverFailure` walks the chain and finds no driver
+      // marker, so it stays `application`-origin exactly as the thrown `Error`
+      // did (`driver-failure.test.ts` pins that for this very message). A
+      // TAGGED error rather than a global one, for the reason `PassthroughError`
+      // gives: an untagged `Error` in a failure channel merges with every other.
+      return firstError
+        ? Effect.fail(
+            new BatchValidationError({ message: `Record ${firstError.recordId} not found` })
+          )
+        : Effect.void
+    })
   )
-
-  const firstError = validationResults.find((result) => result.error !== undefined)
-  if (firstError) {
-    // eslint-disable-next-line functional/no-throw-statements -- Required for Effect.tryPromise error handling
-    throw new Error(`Record ${firstError.recordId} not found`)
-  }
-}
 
 /**
  * Validate records exist for batch delete with Effect error handling
@@ -81,9 +95,8 @@ function validateRecordsForDeleteWithEffect(
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<void, DatabaseError> {
-  return Effect.tryPromise({
-    try: () => validateRecordsForDelete(tx, tableIdent, recordIds),
-    catch: (error) => {
+  return validateRecordsForDelete(tx, tableIdent, recordIds).pipe(
+    Effect.mapError((error) => {
       // Unwrap FIRST so both the composed message and the stored `cause`
       // refer to the original driver error, not to the carrier the inner
       // probe tagged it with. Depth here is a tested contract — see
@@ -91,8 +104,8 @@ function validateRecordsForDeleteWithEffect(
       const original = unwrapPassthrough(error)
       const errorMessage = original instanceof Error ? original.message : 'Unknown error'
       return new DatabaseError(`Validation failed: ${errorMessage}`, original)
-    },
-  })
+    })
+  )
 }
 
 /**
@@ -199,34 +212,32 @@ export function batchDeleteRecords(
   permanent = false
 ): Effect.Effect<number, DatabaseError> {
   return Effect.gen(function* () {
-    const { deletedCount, recordsBefore } = yield* Effect.tryPromise({
-      try: () =>
-        db.transaction(async (tx) => {
+    const { deletedCount, recordsBefore } = yield* withTransaction(
+      db,
+      (tx) =>
+        Effect.gen(function* () {
           validateTableName(tableName)
           const tableIdent = sql.identifier(tableName)
 
-          // eslint-disable-next-line functional/no-expression-statements -- Required for transaction validation
-          await runEffectInTx(validateRecordsForDeleteWithEffect(tx, tableIdent, recordIds))
+          yield* validateRecordsForDeleteWithEffect(tx, tableIdent, recordIds)
 
-          const before = await runEffectInTx(fetchRecordsByIds(tx, tableName, recordIds))
-          const hasSoftDelete = await runEffectInTx(checkSoftDeleteSupport(tx, tableName))
-          const hasDeletedBy = await runEffectInTx(checkDeletedBySupport(tx, tableName))
+          const before = yield* fetchRecordsByIds(tx, tableName, recordIds)
+          const hasSoftDelete = yield* checkSoftDeleteSupport(tx, tableName)
+          const hasDeletedBy = yield* checkDeletedBySupport(tx, tableName)
 
-          const count = await runEffectInTx(
-            executeDeleteQuery(tx, {
-              tableName,
-              recordIds,
-              hasSoftDelete,
-              hasDeletedBy,
-              permanent,
-              userId: session.userId,
-            })
-          )
+          const count = yield* executeDeleteQuery(tx, {
+            tableName,
+            recordIds,
+            hasSoftDelete,
+            hasDeletedBy,
+            permanent,
+            userId: session.userId,
+          })
 
           return { deletedCount: count, recordsBefore: before }
         }),
-      catch: wrapDatabaseError(`Failed to delete records in ${tableName}`),
-    })
+      wrapDatabaseError(`Failed to delete records in ${tableName}`)
+    )
 
     yield* logDeleteActivities(session, tableName, recordsBefore)
 

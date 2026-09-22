@@ -6,10 +6,10 @@
  */
 
 import { useCallback, useMemo } from 'react'
-import { cn } from '@/presentation/utils/design/class-merge'
-import { computeFormLayoutClasses } from '@/presentation/utils/design/form-layout-classes'
-import { type FieldDef } from '../components/crud-form/fields'
-import { FormBody } from '../components/crud-form/layout'
+import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { type FieldDef } from '../parts/crud-form/fields'
+import { FormBody } from '../parts/crud-form/layout'
 import { findMissingRequiredFields, submitCrudForm } from './submit-pipeline'
 import { SuccessPage } from './success-page'
 import { type CrudFormIslandProps, type FormState, type SubmitContext } from './types'
@@ -113,7 +113,7 @@ function CrudFormElement(props: {
       method={useNativeForm ? 'POST' : undefined}
       action={formAction}
       onSubmit={onSubmit}
-      className={cn(computeFormLayoutClasses(), className)}
+      className={resolveClasses(computeFormLayoutClasses(), className)}
       id={island.id}
       data-testid={island['data-testid']}
       data-action-type="crud"

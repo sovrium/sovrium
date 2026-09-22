@@ -12,7 +12,7 @@ import { resolveAuthSecret } from '@/infrastructure/auth/auth-secret'
  *
  * There are two signers — the route that mints a token
  * (`presentation/api/routes/buckets/signed-urls.ts`) and the record enricher
- * that mints one alongside a read (`tables/utils/attachment-url-enricher.ts`) —
+ * that mints one alongside a read (`tables/attachment-url-enricher.ts`) —
  * and a token minted by either must verify through the other. They previously
  * kept two copies of the same expression, each ending in the same hard-coded
  * `'sovrium-signed-url-dev-secret'`. That constant was public: all of `src/` is

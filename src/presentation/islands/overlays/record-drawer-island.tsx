@@ -28,6 +28,9 @@
  *    from `props.title`.
  *  - CAP-3 `recordFields[].renderAs`: per-field structured rendering — see
  *    `record-drawer-content.tsx`.
+ *  - CAP-5 `children`: the author's composed content, injected between the
+ *    record's form and the footer row, with its `$record.*` tokens resolved once
+ *    the record lands — see `record-drawer-children.tsx`.
  *
  * The drawer binds to EITHER the DB-table records API (`dataSource.table`) OR a
  * system DETAIL endpoint (`dataSource.system` → `useRecordQuery` /
@@ -56,6 +59,7 @@
  * still blank pre-load registers no edit and silently reverts on arrival.)
  */
 
+import { useQuery } from '@tanstack/react-query'
 import {
   useCallback,
   useEffect,
@@ -64,7 +68,7 @@ import {
   type ReactElement,
   type SetStateAction,
 } from 'react'
-import { dispatch, subscribe } from '@/presentation/islands/_shared/event-bus'
+import { dispatch, subscribe } from '@/presentation/islands/runtime/event-bus'
 import { useRecordQuery } from '../hooks/use-records-query'
 import {
   DrawerContent,
@@ -96,6 +100,12 @@ interface RecordDrawerIslandProps {
   readonly recordFields?: ReadonlyArray<RecordDrawerField>
   /** Footer action slot (CAP-1) — fires against the loaded record at click time. */
   readonly actions?: ReadonlyArray<DrawerAction>
+  /**
+   * CAP-5 composed-content slot — the author's `children`, SSR'd to markup by
+   * the host. Absent unless the author declared any, which is what keeps a
+   * childless drawer rendering exactly what it rendered before the slot existed.
+   */
+  readonly childrenHtml?: string
   readonly canEdit?: boolean
   /**
    * Interpreter-provided control labels, resolved against the app's language by
@@ -137,6 +147,53 @@ async function fetchRecord(table: string, recordId: string): Promise<RawRecord> 
   return body.record ?? (body as RawRecord)
 }
 
+/**
+ * Read the DB-table record for the open drawer, and seed the editable copy.
+ *
+ * The record is read per (table, id) and re-read on EVERY open — the drawer is
+ * an edit surface, so a copy cached from a previous open could be a value the
+ * operator has since changed through the grid. `staleTime` is therefore left at
+ * zero, and re-enabling the query on open is what re-issues the GET.
+ *
+ * The effect this replaced had no cancellation at all: a second open before the
+ * first response landed could paint the earlier record over the later one.
+ * Keying the read retires that race rather than guarding it — a response for a
+ * key nothing is observing is never rendered.
+ *
+ * Seeding `values` stays an effect, and that is not a leftover. `values` is not
+ * the server's state: it is the operator's draft, diverging from the response
+ * the moment they type. The LOAD GATE is what makes the seeding safe — the body
+ * accepts no input until `loading` clears, so this can never overwrite a
+ * keystroke.
+ */
+function useTableRecordRead(
+  open: boolean,
+  table: string | undefined,
+  recordId: string | undefined,
+  setValues: Dispatch<SetStateAction<Values>>
+): { readonly record: RawRecord; readonly loading: boolean } {
+  const enabled = open && Boolean(table) && Boolean(recordId)
+  const recordQuery = useQuery({
+    queryKey: ['record-drawer', 'table-record', table, recordId],
+    queryFn: () => fetchRecord(table ?? '', recordId ?? ''),
+    enabled,
+    retry: false,
+    refetchOnWindowFocus: false,
+  })
+
+  const { data } = recordQuery
+  useEffect(() => {
+    if (data !== undefined) setValues(toFormValues(data))
+  }, [data, setValues])
+
+  return {
+    record: data ?? EMPTY_RECORD,
+    // True while the record GET is in flight — see the LOAD GATE note in the
+    // module docblock for why the body is inert until it resolves.
+    loading: enabled && recordQuery.isFetching,
+  }
+}
+
 /** The drawer's open lifecycle + DB-table record fetch, keyed to the dispatched id. */
 function useRecordDrawer(
   id: string | undefined,
@@ -145,11 +202,7 @@ function useRecordDrawer(
 ) {
   const [open, setOpen] = useState(false)
   const [recordId, setRecordId] = useState<string | undefined>()
-  const [record, setRecord] = useState<RawRecord>(EMPTY_RECORD)
   const [values, setValues] = useState<Values>({})
-  // True while the record GET is in flight — see the LOAD GATE note in the
-  // module docblock for why the body is inert until it resolves.
-  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!id) return undefined
@@ -184,15 +237,7 @@ function useRecordDrawer(
     return () => timers.forEach((timer) => clearTimeout(timer))
   }, [table, system])
 
-  useEffect(() => {
-    if (!open || !table || !recordId) return
-    setLoading(true)
-    void fetchRecord(table, recordId).then((raw) => {
-      setRecord(raw)
-      setValues(toFormValues(raw))
-      setLoading(false)
-    })
-  }, [open, table, recordId])
+  const { record, loading } = useTableRecordRead(open, table, recordId, setValues)
 
   return { open, setOpen, recordId, record, values, setValues, loading }
 }
@@ -297,17 +342,19 @@ function resolveDrawerLabels(props: RecordDrawerIslandProps): {
 }
 
 /**
- * The two body props that must be ABSENT rather than `undefined`.
+ * The body props that must be ABSENT rather than `undefined`.
  * `exactOptionalPropertyTypes` distinguishes the two, so each is spread in only
  * when it has a value.
  */
 function optionalBodyProps(
   error: string | undefined,
-  table: string | undefined
-): Partial<Pick<DrawerContentProps, 'error' | 'table'>> {
+  table: string | undefined,
+  childrenHtml: string | undefined
+): Partial<Pick<DrawerContentProps, 'error' | 'table' | 'childrenHtml'>> {
   return {
     ...(error === undefined ? {} : { error }),
     ...(table === undefined ? {} : { table }),
+    ...(childrenHtml === undefined ? {} : { childrenHtml }),
   }
 }
 
@@ -347,7 +394,7 @@ export default function RecordDrawerIsland(props: RecordDrawerIslandProps): Reac
     onChange,
     onSave,
     saveLabel: labels.save,
-    ...optionalBodyProps(error, table),
+    ...optionalBodyProps(error, table, props.childrenHtml),
   })
 
   if (role === 'region') {

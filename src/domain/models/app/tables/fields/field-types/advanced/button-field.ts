@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { FieldConditionSchema } from '../../../../../shared/condition-operators'
+import { FieldConditionSchema } from '../../../condition-operators'
 import { BaseFieldWithoutLabelSchema } from '../base-field'
 import { validateButtonAction } from '../validation-utils'
 
@@ -52,7 +52,7 @@ const ButtonFieldBaseSchema = BaseFieldWithoutLabelSchema.pipe(
     /**
      * Per-record visibility predicate. Omitted, the button renders on every
      * record; supplied, only on records whose named field satisfies the
-     * operator(s). Reuses the shared condition vocabulary the `data-table`
+     * operator(s). Reuses the shared condition vocabulary the `table`
      * action column already spends, so "show this control on some rows" has
      * one grammar across the config surface.
      */

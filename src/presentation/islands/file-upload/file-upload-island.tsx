@@ -6,7 +6,17 @@
  */
 
 import { useRef, type ChangeEventHandler, type ReactElement, type Ref } from 'react'
-import { cn } from '@/presentation/utils/design/class-merge'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  FILE_UPLOAD_DROPZONE_PROMPT,
+  fileUploadDropzoneHint,
+  computeFileUploadDropzoneClasses,
+  computeFileUploadDropzoneHintClasses,
+  computeFileUploadDropzoneIconClasses,
+  computeFileUploadDropzoneTextClasses,
+  computeFileUploadErrorClasses,
+} from '@/presentation/design/file-upload-default-classes'
+import { UploadGlyph } from '@/presentation/design/form-glyphs'
 import { FileNameList } from './file-name-list'
 import { useFileUploadState } from './use-file-upload-state'
 import type {
@@ -38,6 +48,8 @@ interface UploadLabelProps {
   readonly dropZone: boolean
   readonly disabled: boolean
   readonly buttonText: string
+  /** The drop target's constraint line; absent when there is nothing to say. */
+  readonly hint: string | undefined
 }
 
 interface UploadInputProps {
@@ -81,22 +93,52 @@ function UploadInput({
   )
 }
 
-function UploadLabel({ inputId, dropZone, disabled, buttonText }: UploadLabelProps): ReactElement {
+/**
+ * The control the user clicks — a drop target when `dropZone`, a plain
+ * secondary button otherwise.
+ *
+ * Both shapes come from the SHARED recipes in `presentation/utils/recipes`,
+ * the same ones the SSR skeleton in `form-control-renderers.tsx` paints. Wave
+ * R-E: this used to be a hand-written `cn(...)` composition that agreed with
+ * the skeleton on nothing — it drew `min-h-[120px] px-4 py-2 shadow-sm` where
+ * the skeleton drew `p-6 border-2 gap-2` — so the control resized and
+ * repainted the moment the island mounted. One recipe, drawn twice, cannot do
+ * that.
+ */
+function UploadLabel({
+  inputId,
+  dropZone,
+  disabled,
+  buttonText,
+  hint,
+}: UploadLabelProps): ReactElement {
+  const state = disabled ? 'disabled' : 'default'
   return (
     <label
       htmlFor={inputId}
-      className={cn(
-        'inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium shadow-sm transition-colors',
-        dropZone &&
-          'min-h-[120px] cursor-pointer flex-col justify-center border-dashed text-center',
-        disabled
-          ? 'cursor-not-allowed opacity-50'
-          : 'border-border bg-background text-foreground hover:bg-background-subtle cursor-pointer'
-      )}
+      className={
+        dropZone
+          ? computeFileUploadDropzoneClasses({ state })
+          : computeButtonDefaultClasses({
+              variant: 'secondary',
+              state,
+            })
+      }
       aria-disabled={disabled ? 'true' : undefined}
     >
-      <span aria-hidden="true">+</span>
-      <span>{dropZone ? `Drag and drop files here or browse — ${buttonText}` : buttonText}</span>
+      {dropZone ? (
+        <>
+          <UploadGlyph className={computeFileUploadDropzoneIconClasses()} />
+          <span className={computeFileUploadDropzoneTextClasses()}>
+            {FILE_UPLOAD_DROPZONE_PROMPT}
+          </span>
+          {hint !== undefined && (
+            <span className={computeFileUploadDropzoneHintClasses()}>{hint}</span>
+          )}
+        </>
+      ) : (
+        buttonText
+      )}
     </label>
   )
 }
@@ -115,7 +157,7 @@ function FileUploadFeedback({
     return (
       <p
         role="alert"
-        className="text-destructive text-sm"
+        className={computeFileUploadErrorClasses()}
       >
         {error}
       </p>
@@ -135,6 +177,14 @@ function FileUploadFeedback({
  * file additionally POSTs it as `multipart/form-data` and runs the configured
  * `onSuccess` effects (persistent `role="status"` badge + sibling `refetch`) /
  * `onError` toast via the shipped action-effects mechanism.
+ *
+ * Two notes about the wrapper it returns. It deliberately does NOT re-emit
+ * `id` / `className` / `data-testid`: the island's HOST element — the SSR
+ * placeholder in `renderFileUploadIsland` — already carries those, and
+ * repeating them on a child causes duplicate-`id` strict-mode violations on
+ * `page.locator('#x')`. And the control is disabled while a multipart upload
+ * is in flight, which is the island's whole progress affordance; it re-enables
+ * when the request settles.
  */
 export default function FileUploadIsland({
   accept,
@@ -159,14 +209,9 @@ export default function FileUploadIsland({
   const allowMultiple = typeof maxFiles === 'number' ? maxFiles > 1 : false
   const inputId = id ? `${id}-input` : undefined
   const buttonText = label ?? 'Upload file'
-  // Disable the control while a multipart upload is in flight (minimal progress
-  // affordance) — re-enabled when the request settles.
+  const hint = fileUploadDropzoneHint({ accept, maxFiles })
   const controlsDisabled = disabled || submitting
 
-  // NOTE: We deliberately do NOT re-emit `id` / `className` / `data-testid` on
-  // this inner wrapper. The island's host element (the SSR placeholder div in
-  // `renderFileUploadIsland`) already carries those — re-emitting them on a
-  // child causes duplicate-`id` strict-mode violations on `page.locator('#x')`.
   return (
     <div
       className="flex flex-col gap-2"
@@ -179,6 +224,7 @@ export default function FileUploadIsland({
         dropZone={dropZone}
         disabled={controlsDisabled}
         buttonText={buttonText}
+        hint={hint}
       />
       <UploadInput
         inputRef={inputRef}

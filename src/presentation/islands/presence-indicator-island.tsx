@@ -102,7 +102,7 @@ function PresenceChip({ user }: { readonly user: PresenceUser }): ReactElement {
     <span
       data-presence-user-id={user.id}
       title={user.name}
-      className="border-border bg-background-raised text-foreground inline-flex items-center gap-2 rounded-full border py-0.5 pr-3 pl-0.5 text-sm"
+      className="border-border bg-background-raised text-foreground text-md inline-flex items-center gap-2 rounded-full border py-0.5 pr-3 pl-0.5"
     >
       {user.avatarUrl ? (
         <img
@@ -115,7 +115,7 @@ function PresenceChip({ user }: { readonly user: PresenceUser }): ReactElement {
       ) : (
         <span
           aria-hidden="true"
-          className="bg-primary text-primary-foreground flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold"
+          className="bg-primary text-primary-fg flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold"
         >
           {initials(user.name)}
         </span>

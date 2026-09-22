@@ -38,7 +38,7 @@ import { isValidTimezone, PatternProp, TimezoneProp } from './props'
  * Note `locale` is absent by design: locale NAME tokens (`MMMM`, `EEEE`) are
  * format-only. `mars` is ambiguous across locales and abbreviation styles, so
  * accepting it on the parse side would be guesswork. See `TOKENS[].parseable`
- * in `domain/services/date-tokens.ts`.
+ * in `domain/kernel/format/date-tokens.ts`.
  */
 export const DateParseActionSchema = Schema.Struct({
   ...ActionBaseFields,

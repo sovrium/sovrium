@@ -23,7 +23,7 @@ components:
           - type: link
             props:
               href: /
-              className: text-sm mb-8 inline-block text-primary hover:underline
+              className: text-md mb-8 inline-block text-primary hover:underline
             content: ← Back to all posts
 
           - type: text
@@ -34,7 +34,7 @@ components:
 
           - type: container
             props:
-              className: flex items-center gap-3 mb-10 text-sm text-muted-foreground
+              className: flex items-center gap-3 mb-10 text-md text-muted-foreground
             children:
               - type: text
                 element: span

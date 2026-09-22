@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { executeRaw, type RawSqlRunner } from './dialect-execute'
 import { sqliteSystemTableName } from './dialect-sql'
 

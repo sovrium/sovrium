@@ -10,7 +10,11 @@
    its onChange closes over the draft HTML. */
 
 import { useRef, useState } from 'react'
-import { RichTextEditorField } from '../../components/rich-text-editor-field'
+import {
+  TABLE_EDITOR_PROSE_WIDTH,
+  computeTableEditorPopoverClasses,
+} from '@/presentation/design/table-default-classes'
+import { RichTextEditorField } from '../../parts/rich-text-editor-field'
 import { editMetaOf, type CellEditorProps } from './editor-contract'
 import { EditorPopover } from './editor-popover'
 import type { ReactElement } from 'react'
@@ -81,7 +85,9 @@ export default function RichTextCellEditor(props: CellEditorProps): ReactElement
       tabValue={() => htmlRef.current}
       {...(tabNext && { tabNext })}
     >
-      <div className="border-border bg-background absolute top-0 left-0 z-20 w-80 rounded border p-2 shadow-md">
+      <div
+        className={`${computeTableEditorPopoverClasses()} ${TABLE_EDITOR_PROSE_WIDTH} top-0 left-0`}
+      >
         <RichTextEditorField
           name={fieldName ?? 'value'}
           value={initialHtml}

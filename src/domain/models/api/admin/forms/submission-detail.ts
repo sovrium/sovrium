@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { coercedBoolean, coercedNumber } from '@/domain/models/api/combinators/coerce'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { withDefault } from '../../combinators/schema-defaults'
 import { formSubmissionAdminItemSchema } from './submissions-list'
 
 /**
@@ -42,22 +45,27 @@ import { formSubmissionAdminItemSchema } from './submissions-list'
  * canonical detail shape WITHOUT the body and WITHOUT the inline audit
  * trail.
  */
-export const formSubmissionDetailQuerySchema = z.object({
-  reveal: z.coerce
-    .boolean()
-    .default(false)
-    .describe(
-      'When true, include the submitted `body` field. Requires admin role AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true`. Returns 403 `body-capture-disabled` if the env var is unset/false; 403 if the caller is not an admin. Successful reveals emit `form.submission.body.revealed` (severity: critical).'
-    ),
-  audit: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(50)
-    .optional()
-    .describe(
-      'When set, include up to N recent audit-log entries scoped to this submission resource under `_admin.recentAuditTrail`. Max 50; over-max returns 400 invalid query. Default omitted (no inline trail).'
-    ),
+export const formSubmissionDetailQuerySchema = Schema.Struct({
+  reveal: coercedBoolean
+    .annotate({
+      description:
+        'When true, include the submitted `body` field. Requires admin role AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true`. Returns 403 `body-capture-disabled` if the env var is unset/false; 403 if the caller is not an admin. Successful reveals emit `form.submission.body.revealed` (severity: critical).',
+    })
+    .pipe(withDefault(false)),
+  audit: optionalField(
+    coercedNumber
+      .annotate({
+        description:
+          'When set, include up to N recent audit-log entries scoped to this submission resource under `_admin.recentAuditTrail`. Max 50; over-max returns 400 invalid query. Default omitted (no inline trail).',
+      })
+      .pipe(
+        Schema.check(
+          Schema.isInt(),
+          Schema.isGreaterThanOrEqualTo(1),
+          Schema.isLessThanOrEqualTo(50)
+        )
+      )
+  ),
 })
 
 /**
@@ -67,8 +75,9 @@ export const formSubmissionDetailQuerySchema = z.object({
  * conditional `body` and `_admin.recentAuditTrail` fields are populated
  * per the D6/D7 rules above.
  */
-export const formSubmissionDetailResponseSchema =
-  formSubmissionAdminItemSchema.openapi('FormSubmissionDetail')
+export const formSubmissionDetailResponseSchema = formSubmissionAdminItemSchema.annotate({
+  identifier: 'FormSubmissionDetail',
+})
 
 /**
  * Error payload returned when `?reveal=true` is requested but
@@ -80,19 +89,16 @@ export const formSubmissionDetailResponseSchema =
  * UIs render a "Body capture disabled by operator" banner without parsing
  * arbitrary error strings.
  */
-export const bodyCaptureDisabledErrorSchema = z
-  .object({
-    error: z
-      .literal('body-capture-disabled')
-      .describe(
-        'Stable error code returned when `?reveal=true` is requested but `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED` is unset or false. Admin UIs match this string to render a configuration warning.'
-      ),
-  })
-  .openapi('BodyCaptureDisabledError')
+export const bodyCaptureDisabledErrorSchema = Schema.Struct({
+  error: Schema.Literal('body-capture-disabled').annotate({
+    description:
+      'Stable error code returned when `?reveal=true` is requested but `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED` is unset or false. Admin UIs match this string to render a configuration warning.',
+  }),
+}).annotate({ identifier: 'BodyCaptureDisabledError' })
 
 /** @public */
-export type FormSubmissionDetailQuery = z.infer<typeof formSubmissionDetailQuerySchema>
+export type FormSubmissionDetailQuery = typeof formSubmissionDetailQuerySchema.Type
 /** @public */
-export type FormSubmissionDetailResponse = z.infer<typeof formSubmissionDetailResponseSchema>
+export type FormSubmissionDetailResponse = typeof formSubmissionDetailResponseSchema.Type
 /** @public */
-export type BodyCaptureDisabledError = z.infer<typeof bodyCaptureDisabledErrorSchema>
+export type BodyCaptureDisabledError = typeof bodyCaptureDisabledErrorSchema.Type

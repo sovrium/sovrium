@@ -5,14 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isValidEmail } from '@/domain/kernel/sanitize/email-validation'
+import { parseDuration } from '@/domain/kernel/time/parse-duration'
+import { resolvePasswordPolicy } from '@/domain/models/app/auth/password-policy'
 import {
   assignableRoleNames,
   isAdminEquivalent,
   isAssignableRole,
 } from '@/domain/models/app/auth/roles'
-import { resolvePasswordPolicy } from '@/domain/utils/auth/password-policy'
-import { isValidEmail } from '@/domain/utils/email-validation'
-import { parseDuration } from '@/domain/utils/parse-duration'
 import {
   deleteCredentialAccountForUser,
   deletePendingInvitationsForUser,
@@ -231,7 +231,6 @@ const findOrCreateInvitedUser = async (
       }
     }
     // Pending user — clear any stale invitation tokens and re-issue.
-    // eslint-disable-next-line functional/no-expression-statements -- DB delete is a side effect
     await deletePendingInvitationsForUser(existing.id)
     return { outcome: 'ready', user: existing }
   }
@@ -251,7 +250,6 @@ const findOrCreateInvitedUser = async (
   // Better Auth's admin.createUser linked a credential account using the
   // throwaway password. Strip it so the user cannot accidentally sign in
   // with anything we generated — the invitation flow is the only path.
-  // eslint-disable-next-line functional/no-expression-statements -- DB cleanup is a side effect
   await deleteCredentialAccountForUser(createdUserId)
 
   return {
@@ -391,7 +389,6 @@ export const inviteUser = async (params: {
 
   // Fire-and-forget — the email handler swallows errors internally. We
   // await so that test fixtures observing mailpit don't race the response.
-  // eslint-disable-next-line functional/no-expression-statements -- email send is a side effect
   await params.emailHandlers.invitation({
     email: user.email,
     name: user.name,
@@ -590,7 +587,6 @@ export const acceptInvitation = async (params: {
   const linkFailure = await linkPassword(params.authInstance, user.id, validated.password)
   if (linkFailure) return linkFailure
 
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort bookkeeping
   await finalizeAcceptedInvitation(user.id, row.id)
   return { status: 'accepted', user }
 }

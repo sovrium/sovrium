@@ -47,10 +47,10 @@
  */
 
 import { and, eq, isNull, sql } from 'drizzle-orm'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import { AVATAR_BUCKET_NAME, avatarStorageKeyFromUrl } from '@/domain/models/app/auth/avatar-url'
+import { DEFAULT_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
-import { AVATAR_BUCKET_NAME, avatarStorageKeyFromUrl } from '@/domain/utils/avatar-url'
-import { DEFAULT_BUCKET_NAME } from '@/domain/utils/bucket-identity'
-import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { db } from '@/infrastructure/database'
 import {
   authUsersTable,
@@ -59,7 +59,7 @@ import {
 import { logError, logInfo } from '@/infrastructure/logging/logger'
 import { getBaseTableName, shouldUseView } from './lookup/lookup-view-generators'
 import { executeRaw } from './sql/dialect-execute'
-import { shouldCreateDatabaseColumn } from './table-queries/shared/field-utils'
+import { shouldCreateDatabaseColumn } from './sql/sql-field-predicates'
 import type { App, Table } from '@/domain/models/app'
 
 /** The URL shape every bucket file is published under. */

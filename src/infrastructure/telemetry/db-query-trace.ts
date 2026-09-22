@@ -18,7 +18,10 @@
  *      running fiber — so when the request runs through `runRequestEffect` (the
  *      request-edge root `http.server` span), the DB span chains under the
  *      request root, giving free request↔query correlation. Off-request DB calls
- *      (no active OTLP tracer) make `withSpan` a no-op, so this stays zero-cost.
+ *      still CREATE the span: `Tracer.Tracer` is a `Context.Reference` whose
+ *      `defaultValue` is a NATIVE tracer minting real `NativeSpan`s
+ *      (`effect/Tracer.js`), so `withSpan` is never a no-op — with no collector
+ *      listening it is one in-memory allocation, dropped unreferenced.
  *   2. a `db.query.duration` HISTOGRAM observation labeled `{ operation, table }`
  *      (see `recordDbQuery` in `metrics.ts`), timed over the query itself and
  *      composed into the Effect so the observation writes the process-global

@@ -11,7 +11,7 @@ import {
   UserEntityListRepository,
   UserEntityListDatabaseError,
 } from '@/application/ports/repositories/tables/user-entity-list-repository'
-import { sanitizeTableName } from '@/domain/utils/database/table-naming'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
@@ -185,6 +185,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
     // Never fails: any DB failure resolves to `false` so a dead/unreadable
     // record is hidden rather than throwing. Pages and entities without a known
     // table are always-present (there is no row to probe).
+    // effect-promise: total -- the only `await` in the thunk sits inside the try/catch three lines below, which returns `false`; the two early returns are pure. That is the "never fails" the comment above states, made checkable.
     Effect.promise(async () => {
       if (entity.entityType !== 'record' || entity.tableId === null) return true
       const physicalName = sanitizeTableName(entity.tableId)

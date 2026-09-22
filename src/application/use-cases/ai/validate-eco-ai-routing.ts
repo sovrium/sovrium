@@ -7,10 +7,12 @@
 
 import { Effect } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
+import { appRequiresAi } from '@/domain/models/app/requires-ai'
 import {
   parseAiProviderPrecedence,
   resolveOllamaBaseUrl,
-} from '@/domain/models/env/ai/ai-eco-routing'
+} from '@/domain/models/process-env/ai/ai-eco-routing'
+import type { App } from '@/domain/models/app'
 
 /**
  * Startup gate for `ECO_AI_PROVIDER_PRECEDENCE=local-only`: a local-only
@@ -20,14 +22,28 @@ import {
  * resolver simply routes to the configured cloud provider — so this check is
  * a no-op for them.
  *
+ * ── THE REFUSAL IS ABOUT THE APP, NOT ABOUT ITS HOST ───────────────────────
+ *
+ * `ECO_AI_PROVIDER_PRECEDENCE` is an ENV var, so it is set once for a host and
+ * inherited by every app that runs on it. An operator running one AI app under
+ * `local-only` and one plain marketing site must not find the marketing site
+ * refusing to boot because a model it never asked for is unreachable — so the
+ * gate returns early for an app with no AI surface at all. What makes the
+ * refusal a service to the operator rather than an obstruction is precisely
+ * that the config declares something only a model can answer
+ * ([internal ref] against [internal ref]).
+ *
  * `probeOllama` is injected (the real fetch-based probe lives in
  * `@/infrastructure/ai/ollama-reachability`) so this use-case stays unit-testable.
  */
 export const validateEcoAiRouting = (
+  app: Readonly<App>,
   processEnv: Readonly<Record<string, string | undefined>>,
   probeOllama: (baseUrl: string | undefined) => Promise<boolean>
 ): Effect.Effect<void, AppValidationError> =>
   Effect.gen(function* () {
+    if (!appRequiresAi(app)) return
+
     const precedence = parseAiProviderPrecedence(processEnv)
     if (precedence !== 'local-only') return
 
@@ -40,6 +56,7 @@ export const validateEcoAiRouting = (
       )
     }
 
+    // effect-promise: total -- the probe wraps its whole `fetch` in a try/catch returning `false`; unreachability is its RESULT, which is exactly what this validation branches on.
     const reachable = yield* Effect.promise(() => probeOllama(ollamaBaseUrl))
     if (!reachable) {
       return yield* Effect.fail(
@@ -48,4 +65,4 @@ export const validateEcoAiRouting = (
         )
       )
     }
-  })
+  }).pipe(Effect.withSpan('ai.validate-eco-ai-routing'))

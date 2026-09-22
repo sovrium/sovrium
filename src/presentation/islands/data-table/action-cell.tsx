@@ -32,9 +32,16 @@
 /* eslint-disable react-perf/jsx-no-new-function-as-prop -- conventional React event-handler pattern (per-row onClick + confirm-swap toggle closing over the row record); these are presentational cells re-rendered only on row/confirm-state changes, not a hot path. Mirrors the same exemption in formatting.tsx. */
 
 import { useState, type ReactElement } from 'react'
-import { ObjectConfirmDialog } from '../shared/inline-confirm-dialog'
-import type { TableRecord } from '../shared/types'
-import type { ActionColumnItem } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+import {
+  computeTableActionButtonClasses,
+  computeTableInlineConfirmClasses,
+  computeTablePanelCaptionClasses,
+  computeTablePanelControlClasses,
+} from '@/presentation/design/table-default-classes'
+import { ObjectConfirmDialog } from '../runtime/inline-confirm-dialog'
+import { useArmedConfirm } from './armed-confirm'
+import type { TableRecord } from '../runtime/types'
+import type { ActionColumnItem } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 /** Per-row action click handler (mirrors `RowActionHandler` in formatting.tsx). */
 export type ActionClickHandler = (
@@ -102,13 +109,13 @@ function ConfirmDialog({
       role="alertdialog"
       aria-modal="false"
       aria-label={prompt}
-      className="border-border bg-background-raised flex items-center gap-2 rounded-md border p-2"
+      className={computeTableInlineConfirmClasses()}
     >
-      <span className="text-foreground-subtle text-xs">{prompt}</span>
+      <span className={computeTablePanelCaptionClasses()}>{prompt}</span>
       <button
         type="button"
         data-action-type={actionTypeAttr(action)}
-        className="bg-error-bg text-error-fg rounded-md px-2 py-1 text-xs font-medium transition-opacity hover:opacity-90"
+        className={computeTableActionButtonClasses({ tone: 'destructive' })}
         onClick={() => {
           onCancel()
           void onConfirm(action, record)
@@ -119,7 +126,7 @@ function ConfirmDialog({
       <button
         type="button"
         aria-label={labels.cancel}
-        className="border-border text-foreground-subtle hover:bg-background-subtle rounded-md border px-2 py-1 text-xs transition-colors"
+        className={computeTableActionButtonClasses()}
         onClick={onCancel}
       >
         {labels.cancel}
@@ -157,14 +164,21 @@ function EditSelectEditor({
   const [value, setValue] = useState(String(record[editSelect.field] ?? ''))
 
   return (
-    <div className="border-border bg-background-raised flex items-center gap-2 rounded-md border p-2">
+    <div className={computeTableInlineConfirmClasses()}>
       <select
         aria-label={editSelect.label}
         value={value}
         onChange={(event) => setValue(event.target.value)}
-        className="border-border bg-background text-foreground focus:border-primary focus:ring-primary rounded-md border px-2 py-1 text-xs focus:ring-1 focus:outline-none"
+        className={computeTablePanelControlClasses()}
       >
-        {editSelect.options.map((option) => (
+        {/*
+          `options` became optional when `optionsSource` arrived, but is never
+          absent HERE: an option source is resolved server-side and REPLACED
+          with a concrete array before the grid's props are serialised, so an
+          island receiving neither would be a resolver bug, not a config one.
+          An empty listbox is the honest degradation for that.
+        */}
+        {(editSelect.options ?? []).map((option) => (
           <option
             key={option.value}
             value={option.value}
@@ -176,7 +190,7 @@ function EditSelectEditor({
       <button
         type="button"
         data-action-type={actionTypeAttr(action)}
-        className="bg-primary text-primary-fg rounded-md px-2 py-1 text-xs font-medium transition-opacity hover:opacity-90"
+        className={computeTableActionButtonClasses({ tone: 'primary' })}
         onClick={() => onCommit(value)}
       >
         {editSelect.saveLabel ?? labels.save}
@@ -184,13 +198,32 @@ function EditSelectEditor({
       <button
         type="button"
         aria-label={labels.cancel}
-        className="border-border text-foreground-subtle hover:bg-background-subtle rounded-md border px-2 py-1 text-xs transition-colors"
+        className={computeTableActionButtonClasses()}
         onClick={onCancel}
       >
         {labels.cancel}
       </button>
     </div>
   )
+}
+
+/**
+ * The recipe tone an authored `variant` asks for.
+ *
+ * An UNNAMED variant returns `undefined` so the recipe applies its own default
+ * rather than being told what that default is — which is what makes omission and
+ * an explicit `secondary` reach the same class string, and what keeps the two
+ * from drifting the day the default moves. Only the TRIGGER is toned: the
+ * confirm and commit buttons inside an armed action answer to the gate's own
+ * weight, not to the affordance that opened it.
+ */
+function triggerTone(
+  variant: ActionColumnItem['variant']
+): 'primary' | 'ghost' | 'destructive' | undefined {
+  if (variant === 'default') return 'primary'
+  if (variant === 'ghost') return 'ghost'
+  if (variant === 'destructive') return 'destructive'
+  return undefined
 }
 
 /**
@@ -209,10 +242,14 @@ function ActionTriggerButton({
   readonly onArm: () => void
 }): ReactElement {
   const armed = action.editSelect !== undefined || action.confirm !== undefined
+  const tone = triggerTone(action.variant)
   return (
     <button
       type="button"
-      className="text-primary hover:bg-primary-subtle rounded px-2 py-1 text-xs disabled:opacity-50"
+      className={computeTableActionButtonClasses({
+        disabled: !onActionClick,
+        ...(tone === undefined ? {} : { tone }),
+      })}
       data-action-type={actionTypeAttr(action)}
       disabled={!onActionClick}
       onClick={
@@ -228,19 +265,32 @@ function ActionTriggerButton({
  * A single per-row action button. An `editSelect`-bearing action reveals an inline
  * single-select editor on the first click; a `confirm`-bearing action arms an
  * inline `alertdialog`; otherwise the action dispatches immediately.
+ *
+ * The armed CONFIRM is held by `confirmKey` in the grid-level store rather than
+ * here, because this component is destroyed and rebuilt whenever the island
+ * re-renders — see `armed-confirm.ts` for why that is structural. The inline
+ * editor's `editing` stays local: it is not a destructive question, and its
+ * in-progress `<select>` value would not survive a rebuild in any case.
+ *
+ * A gate that survived a rebuild is handed the row's CURRENT record rather than
+ * the one it was armed against, so it answers for the row as the server last
+ * described it.
  */
 export function ActionButton({
   action,
   record,
   onActionClick,
   labels,
+  confirmKey,
 }: {
   readonly action: ActionColumnItem
   readonly record: TableRecord
   readonly onActionClick?: ActionClickHandler
   readonly labels: ActionControlLabels
+  /** Identifies this action's gate across a rebuild — `<row id>::action-<n>`. */
+  readonly confirmKey: string
 }): ReactElement {
-  const [confirming, setConfirming] = useState(false)
+  const confirm = useArmedConfirm(confirmKey)
   const [editing, setEditing] = useState(false)
   const { editSelect } = action
 
@@ -263,13 +313,13 @@ export function ActionButton({
     )
   }
 
-  if (action.confirm && confirming && onActionClick) {
+  if (action.confirm && confirm.armed && onActionClick) {
     return (
       <ConfirmDialog
         action={action}
         record={record}
         onConfirm={onActionClick}
-        onCancel={() => setConfirming(false)}
+        onCancel={confirm.disarm}
         labels={labels}
       />
     )
@@ -280,7 +330,7 @@ export function ActionButton({
       action={action}
       record={record}
       onActionClick={onActionClick}
-      onArm={() => (editSelect ? setEditing(true) : setConfirming(true))}
+      onArm={() => (editSelect ? setEditing(true) : confirm.arm())}
     />
   )
 }

@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { cn } from '@/presentation/utils/design/class-merge'
-import { type FieldDef, labelOf } from '../components/crud-form/fields'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { cn } from '@/presentation/design/class-merge'
+import { type FieldDef, labelOf } from '../parts/crud-form/fields'
 import { type SuccessPageConfig } from './types'
 
 /**
@@ -102,7 +103,7 @@ export function SuccessPage(props: {
                 key={action.label}
                 href={action.url ?? '/'}
                 data-success-action="navigate"
-                className="btn btn-secondary"
+                className={computeButtonDefaultClasses({ variant: 'secondary' })}
               >
                 {action.label}
               </a>
@@ -112,7 +113,7 @@ export function SuccessPage(props: {
                 type="button"
                 data-success-action="reset"
                 onClick={onReset}
-                className="btn btn-primary"
+                className={computeButtonDefaultClasses()}
               >
                 {action.label}
               </button>

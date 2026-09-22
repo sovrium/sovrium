@@ -54,7 +54,7 @@ export const resolveAutomationIdSilent = (
     const created = createResult.success
     if (typeof created['id'] !== 'string') return undefined
     return created['id']
-  })
+  }).pipe(Effect.withSpan('automations.resolve-automation-id-silent'))
 
 /**
  * Dispatch a single automation through the shared engine loop given a
@@ -97,4 +97,4 @@ export const dispatchAutomationOnce = (input: {
       handlers: defaultActionHandlers,
       userId,
     })
-  })
+  }).pipe(Effect.withSpan('automations.dispatch-automation-once'))

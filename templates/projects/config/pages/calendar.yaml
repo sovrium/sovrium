@@ -16,12 +16,12 @@ components:
       - type: text
         element: h1
         props:
-          className: text-2xl font-bold mb-1
+          className: text-3xl font-bold mb-1
         content: Calendar
       - type: text
         element: p
         props:
-          className: text-sm mb-6
+          className: text-md mb-6
         content: Every task with a due date, laid out on the month.
 
       # `colorField: status` paints each deadline with the option colour declared

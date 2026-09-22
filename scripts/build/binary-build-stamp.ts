@@ -54,9 +54,10 @@
  */
 
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { walkSync } from '../lib/drift/walk'
 
 /**
  * Repo root, resolved from this module's own location rather than `process.cwd()`
@@ -82,7 +83,7 @@ export const STAMP_PATH = join(PROJECT_ROOT, '.sovrium-binary-build.json')
  * | `templates`        | embedded verbatim by `generate-embedded-static-assets.ts`, and scanned for |
  * |                    | Tailwind candidates by `generate-css-assets.ts`                           |
  * | `drizzle`          | migration journal + `*.sql`, embedded by the static-asset manifest         |
- * | `scripts/build`    | the generators themselves — a codegen change changes the embedded output   |
+ * | `[internal ref]` | the generators themselves — a codegen change changes the embedded output |
  * | `package.json`     | `--define=__SOVRIUM_VERSION__` and the dependency set                      |
  * | `bun.lock`         | resolved dependency versions, incl. the `typescript` whose `lib.*.d.ts`    |
  * |                    | corpus is embedded by `generate-embedded-ts-lib-types.ts`                  |
@@ -100,28 +101,18 @@ const INPUT_ROOTS = ['src', 'templates', 'drizzle', 'scripts/build'] as const
 const INPUT_FILES = ['package.json', 'bun.lock'] as const
 
 /**
- * Directory names never descended into.
+ * Directory names never descended into, on top of {@link walkSync}'s own
+ * defaults (`node_modules`, `vendor`, `dist`, `coverage`, `.git`, and every
+ * dot-directory).
  *
- * `.sovrium` is the load-bearing one: `bun run app:template` and the template
- * previews create `templates/<name>/.sovrium/` (SQLite db + lock + storage), so a
- * fingerprint that walked it would change on every preview boot and rebuild the
- * binary for no reason. Dot-directories are skipped wholesale for that reason;
- * none of them is a build input.
+ * The dot-directory default is the load-bearing one here, not `__snapshots__`:
+ * `bun run app:template` and the template previews create
+ * `templates/<name>/.sovrium/` (SQLite db + lock + storage), so a fingerprint
+ * that walked it would change on every preview boot and rebuild the binary for
+ * no reason. `__snapshots__` is the one exclusion {@link walkSync} does not
+ * already cover, so it is the only entry left to name explicitly.
  */
-const SKIPPED_DIRS = new Set(['node_modules', 'dist', '__snapshots__'])
-
-function walk(absDir: string, out: string[]): void {
-  const entries = readdirSync(absDir, { withFileTypes: true })
-  for (const entry of entries) {
-    if (entry.name.startsWith('.') || SKIPPED_DIRS.has(entry.name)) continue
-    const abs = join(absDir, entry.name)
-    if (entry.isDirectory()) {
-      walk(abs, out)
-    } else if (entry.isFile()) {
-      out.push(abs)
-    }
-  }
-}
+const EXTRA_SKIPPED_DIRS = ['__snapshots__']
 
 /**
  * SHA-256 over every build input, path-qualified and order-stable.
@@ -139,7 +130,7 @@ export function computeBinaryInputFingerprint(): string {
 
   for (const root of INPUT_ROOTS) {
     const abs = join(PROJECT_ROOT, root)
-    if (existsSync(abs)) walk(abs, absolute)
+    if (existsSync(abs)) absolute.push(...walkSync({ root: abs, excludeDirs: EXTRA_SKIPPED_DIRS }))
   }
   for (const file of INPUT_FILES) {
     const abs = join(PROJECT_ROOT, file)

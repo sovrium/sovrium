@@ -10,45 +10,58 @@
  *
  * This file provides:
  * 1. Runtime functions (start, build) used internally by the CLI (src/cli/index.ts)
- * 2. Type exports used by the @sovrium/types build script (scripts/build-types.ts)
+ * 2. The config-type surface `scripts/build/build-types.ts` extracts to produce the
+ *    `declare module 'sovrium'` declaration the binary embeds and `sovrium types`
+ *    writes out. That makes the type-export block below a PUBLIC CONTRACT: adding a
+ *    name here and to that script's TYPE_EXPORTS is what ships it to config authors.
  *
- * This is NOT a public npm library API. Sovrium is distributed as a standalone CLI binary.
- * See src/cli/index.ts for the CLI entry point.
- * See packages/types/ for the @sovrium/types npm package.
+ * The bare `sovrium` specifier resolves HERE in-repo, via the `paths` alias in
+ * tsconfig.json — so `apps/*` configs typecheck against exactly the surface the
+ * emitter reads. That is deliberate: a separate alias target was maintained by hand
+ * until it drifted, and `AgentConfig`/`ActionTemplate` typechecked in-repo for months
+ * while being absent from the shipped declaration. One surface, no drift.
+ *
+ * This is NOT a public npm library API. Sovrium is distributed as a standalone CLI
+ * binary; nothing is published to npm. See src/cli/index.ts for the CLI entry point.
  */
 
 import { Cause, Effect, Exit, Result } from 'effect'
+import { ServerFactory } from '@/application/ports/services/server-factory'
 import { createAdminAccount } from '@/application/use-cases/auth/bootstrap-admin'
-import { decodeAppConfigObject } from '@/application/use-cases/schema/decode-app-config'
+import { decodeAppConfigObject } from '@/application/use-cases/config/decode-app-config'
 import {
   extractCodeActionRefusal,
   findCodeActionRefusalInCause,
   validateCodeActionBodies,
-} from '@/application/use-cases/schema/validate-code-actions'
+} from '@/application/use-cases/config/validate-code-actions'
 import { generateSearchIndex } from '@/application/use-cases/server/generate-search-index'
 import { generateStatic as generateStaticUseCase } from '@/application/use-cases/server/generate-static'
+import { prebuildSearchIndex as prebuildSearchIndexUseCase } from '@/application/use-cases/server/prebuild-search-index'
 import { startServer } from '@/application/use-cases/server/start-server'
 import { ConfigRejectedError, isConfigRejectedError } from '@/domain/errors/config-rejected'
 import { isDatabaseUnreachable } from '@/domain/errors/driver-failure'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { provisionRootSecret } from '@/infrastructure/crypto/root-secret'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { createAppLayer, createStaticBuildLayer } from '@/infrastructure/layers/app-layer'
 import { formatRuntimeError, logDebug } from '@/infrastructure/logging'
 import { installShutdownHandlers } from '@/infrastructure/server/lifecycle'
-import type { ServerInstance } from '@/application/models/server'
-import type { DecodeAppConfigResult } from '@/application/use-cases/schema/decode-app-config'
+import type { ServerInstance } from '@/application/ports/services/server-instance'
+import type { DecodeAppConfigResult } from '@/application/use-cases/config/decode-app-config'
 import type {
   GenerateStaticOptions,
   GenerateStaticResult,
 } from '@/application/use-cases/server/generate-static'
 import type { StartOptions } from '@/application/use-cases/server/start-server'
-import type { AppEncoded } from '@/domain/models/app'
+import type { App, AppEncoded } from '@/domain/models/app'
+import type { ActionTemplate as ActionTemplateModel } from '@/domain/models/app/actions'
+import type { Agent } from '@/domain/models/app/agents'
 import type { BuiltInAnalytics } from '@/domain/models/app/analytics'
 import type { Auth } from '@/domain/models/app/auth'
 import type { Automation } from '@/domain/models/app/automations'
+import type { Action as AutomationActionUnion } from '@/domain/models/app/automations/actions'
 import type { ComponentTemplate } from '@/domain/models/app/components/component'
 import type { Connection } from '@/domain/models/app/connections'
 import type { Design } from '@/domain/models/app/design'
@@ -57,7 +70,6 @@ import type { Form } from '@/domain/models/app/forms'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { Table } from '@/domain/models/app/tables'
-import type { Theme } from '@/domain/models/app/theme'
 
 // ============================================================================
 // Internal Runtime API (used by src/cli/index.ts — NOT a public npm API)
@@ -66,13 +78,37 @@ import type { Theme } from '@/domain/models/app/theme'
 /** Simple server interface with Promise-based methods. */
 export interface SimpleServer {
   readonly url: string
+  /**
+   * The port the listener ACTUALLY bound to, which is not necessarily the one
+   * that was asked for: `PORT=0` asks the kernel to choose, and a bind retries
+   * on an OS-assigned port when the requested one is taken. `--watch` needs the
+   * result rather than the request, so a full restart rebinds the port the
+   * operator's browser tab is already pointed at.
+   */
+  readonly port: number
+  /**
+   * The DECODED config this server is running. `--watch` diffs it against the
+   * config a save produced to decide whether that save can be swapped in place
+   * (`classifyConfigChange`); without it the first edit of a session would have
+   * nothing to compare against.
+   */
+  readonly config: App
   stop: () => Promise<void>
+  /**
+   * Swap the request handler in place, keeping the listener bound. The
+   * Promise-shaped view of `ServerInstance.reload` — see that member for what
+   * a swap does and does not re-run.
+   */
+  reload: (app: App, configHash?: string) => Promise<void>
 }
 
 /** Convert Effect-based ServerInstance to simple Promise-based interface. */
-const toSimpleServer = (server: Readonly<ServerInstance>): SimpleServer => ({
+const toSimpleServer = (server: Readonly<ServerInstance>, config: App): SimpleServer => ({
   url: server.url,
+  port: server.server.port ?? 0,
+  config,
   stop: () => Effect.runPromise(server.stop),
+  reload: (app, configHash) => Effect.runPromise(server.reload(app, configHash)),
 })
 
 /**
@@ -142,7 +178,7 @@ export const start = async (app: AppConfig, options: StartOptions = {}): Promise
       // eslint-disable-next-line functional/no-throw-statements -- re-raise the squashed failure verbatim
       throw Cause.squash(exit.cause)
     }
-    return toSimpleServer(exit.value)
+    return toSimpleServer(exit.value, validatedApp)
   } catch (error) {
     // A refused config is already an author-readable report. Enriching it with
     // a stack and an issue link would tell the author to file a bug about their
@@ -170,6 +206,32 @@ export const start = async (app: AppConfig, options: StartOptions = {}): Promise
 }
 
 /**
+ * Run the process-wide startup chains a build needs, exactly once, before its
+ * render pass.
+ *
+ * `build` used to run no migrations of its own: the database reached the chain
+ * ONLY through the throwaway servers the render pass booted, so a build
+ * migrated once per supported language plus once for the root index — two runs
+ * for the single-language case, and it scaled with the language count
+ *. The render pass creates no server at all
+ * now — `buildRenderApp` binds nothing and runs neither chain — so this call is
+ * the only place either one happens, and it has to come first: the tables a
+ * `dataSource`-bound page renders against must exist before anything renders
+ *.
+ *
+ * `ephemeral: true` on the receipt-producing call, because a build starts
+ * nothing — it emits a site and exits — so it records no boot-ledger row, which
+ * is also what it did before this hoist. The receipt itself is discarded: a
+ * build prints no startup banner, so there are no rows to carry.
+ */
+const runBuildStartupOnce = (validatedApp: App) =>
+  Effect.gen(function* () {
+    const serverFactory = yield* ServerFactory
+    yield* serverFactory.startDatabase(validatedApp, { ephemeral: true })
+    yield* serverFactory.runDeferredMaintenance(validatedApp)
+  })
+
+/**
  * Build static site files. Used internally by the CLI build command.
  */
 export const build = async (
@@ -194,12 +256,13 @@ export const build = async (
     }
 
     const program = Effect.gen(function* () {
+      yield* runBuildStartupOnce(validatedApp)
       logDebug('[ssg] generating static site...')
       const result = yield* generateStaticUseCase(rawApp, options)
       logDebug(`[ssg] static site generated to ${result.outputDir} (${result.files.length} files)`)
 
       // Activation gate for the public-pages search feature: only run the
-      // search indexer when a `type: 'pageSearch'` component is present
+      // search indexer when a page-scoped `search-input` component is present
       // somewhere in the page tree. Absent the component, no
       // `<outputDir>/sovrium-search/` directory is emitted.
       // See: src/domain/models/app/pages/has-page-search.ts
@@ -242,89 +305,39 @@ export const build = async (
 }
 
 /**
- * Pre-build the public-pages search artifacts into a `publicDir` so the
- * `sovrium start` server can serve `/sovrium-search/index.json` and
- * `/sovrium-search/runtime.js` via the static-asset route.
+ * Pre-build the public-pages search artifacts into a `publicDir` so a running
+ * server can serve `/sovrium-search/index.json` and `/sovrium-search/runtime.js`
+ * via the static-asset route.
  *
- * Architecturally this mirrors `build()`: it validates the app, gates on
- * `hasPageSearchComponent`, runs `generateStatic` into a TEMP directory just
- * to materialize HTML the indexer can read, then runs `generateSearchIndex`
- * writing into `<publicDir>/sovrium-search/`. The temp directory is removed
- * before returning.
+ * THIS IS NO LONGER ON THE BOOT PATH. `startServer` runs the same indexer
+ * itself, as a step of its boot sequence, so every caller of it gets the
+ * artifacts — see `application/use-cases/server/prebuild-search-index.ts`. What
+ * remains here is the standalone entry point: the `--watch` reload path calls
+ * it to re-emit the index after a config change (via `buildSearchIndex` in
+ * `cli/commands/utils.ts`), where there is no boot to hang the work on, and it
+ * stays part of the published `sovrium` specifier surface.
  *
- * Trade-off (v1): we run the full `generateStatic` pipeline (CSS, hydration,
- * asset copies, optimizations) into the temp dir rather than a leaner
- * "HTML-only" pass. The indexer only reads HTML — the CSS/JS/asset work is
- * wasted — but factoring that out across `generate-static.ts`'s seven steps
- * is a larger refactor. The waste only happens at boot when a `pageSearch`
- * component is present, so the simpler implementation wins for now.
+ * Trade-off (v1): the full `generateStatic` pipeline (CSS, hydration, asset
+ * copies, optimizations) runs into a temp dir rather than a leaner "HTML-only"
+ * pass. The indexer only reads HTML, so the rest is wasted — but factoring
+ * that out across `generate-static.ts`'s seven steps is a larger refactor, and
+ * the waste only happens when a page-scoped `search-input` component is present.
  *
- * @param app - Raw application config (will be validated identically to
- *              `build()` / `start()`).
- * @param publicDir - Directory that will be served by the running CLI.
- *                    `sovrium-search/` is written under this directory. The
- *                    caller is responsible for ensuring this matches what
- *                    `start()` actually serves.
+ * @param app - Raw application config (validated identically to `build()` /
+ *              `start()`).
+ * @param publicDir - Directory that will be served. `sovrium-search/` is
+ *                    written under it; the caller guarantees it matches what
+ *                    the server actually serves.
  * @returns `true` when the indexer ran (artifacts were written), `false` when
- *          the activation gate is closed (no `pageSearch` component).
+ *          the activation gate is closed (no page-scoped `search-input` component).
  */
 export const prebuildSearchIndex = async (app: AppConfig, publicDir: string): Promise<boolean> => {
   const { raw: rawApp, app: validatedApp } = decodeOrThrow(app)
-
-  if (!hasPageSearchComponent(validatedApp)) {
-    return false
-  }
-
-  // Lazy-load the heavy dependencies only when the gate is open — avoids
-  // pulling fs/os into the path for apps that don't use page-search.
-  const fs = await import('node:fs/promises')
-  const os = await import('node:os')
-  const path = await import('node:path')
-
-  const tempStaticDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sovrium-search-'))
-
-  try {
-    const publicPagePaths = getPublicPagePaths(validatedApp.pages)
-
-    const program = Effect.gen(function* () {
-      // Static HTML emission into the temp dir. We pass the validated app
-      // (NOT raw) so `generateStatic` re-validates against the same schema
-      // and never drifts from this caller. Hydration is disabled because
-      // the indexer only reads HTML — the hydration runtime would be
-      // copy-wasted into a dir we're about to delete.
-      yield* generateStaticUseCase(rawApp, {
-        outputDir: tempStaticDir,
-        hydration: false,
-        generateSitemap: false,
-        generateRobotsTxt: false,
-        generateManifest: false,
-        // This pass exists only to materialize HTML for the indexer, into a
-        // temp dir removed moments later. Emitting the pre-compiled CSS
-        // artifact would overwrite a stylesheet this boot does not own — the
-        // one `sovrium build` produced, or whatever `SOVRIUM_CSS_FILE` points
-        // at (which may be shared by other processes).
-        emitPrecompiledCss: false,
-      })
-
-      // Indexer reads `tempStaticDir/*.html`, writes to
-      // `publicDir/sovrium-search/{index.json,runtime.js}` — exactly the
-      // two paths the `setupPublicDirRoute` will serve via Hono.
-      yield* generateSearchIndex({
-        inputDir: tempStaticDir,
-        outputDir: publicDir,
-        publicPagePaths,
-      })
-    }).pipe(Effect.provide(createStaticBuildLayer))
-
-    // eslint-disable-next-line functional/no-expression-statements -- driver for the pure Effect program
-    await Effect.runPromise(program)
-    return true
-  } finally {
-    // Always remove the temp dir, even on error. The publicDir output (if
-    // partially written) is fine to leave — it's either complete or absent.
-    // eslint-disable-next-line functional/no-expression-statements -- best-effort fs cleanup
-    await fs.rm(tempStaticDir, { recursive: true, force: true }).catch(() => undefined)
-  }
+  return Effect.runPromise(
+    prebuildSearchIndexUseCase(rawApp, validatedApp, publicDir).pipe(
+      Effect.provide(createStaticBuildLayer)
+    )
+  )
 }
 
 /** Credentials for `createAdmin`. */
@@ -413,7 +426,7 @@ export const createAdmin = async (
 }
 
 // ============================================================================
-// Type Exports (consumed by scripts/build-types.ts → @sovrium/types)
+// Type Exports (consumed by scripts/build/build-types.ts → the shipped sovrium.d.ts)
 // ============================================================================
 
 /** Application configuration type for YAML/JSON/TypeScript config files. */
@@ -429,13 +442,13 @@ export type TableConfig = Table
 export type ComponentConfig = ComponentTemplate
 
 /**
- * Theme / design tokens configuration.
+ * Design / design tokens configuration.
  *
- * The canonical position is `AppConfig['design']['theme']`; top-level
- * `AppConfig['theme']` is a deprecated alias for the same type, removed at the
+ * The canonical position is `AppConfig['design']['design']`; top-level
+ * `AppConfig['design']` is a deprecated alias for the same type, removed at the
  * next major. The alias here is unchanged — one type serves both positions.
  */
-export type ThemeConfig = Theme
+export type ThemeConfig = Design
 
 /** Design-system configuration (`AppConfig['design']`) — tokens, principles, voice, usage rules. */
 export type DesignConfig = Design
@@ -461,8 +474,213 @@ export type FormConfig = Form
 /** Single env-var declaration (element of `AppConfig['env']`). */
 export type EnvConfig = EnvVar
 
+/** Single autonomous AI agent configuration (element of `AppConfig['agents']`). */
+export type AgentConfig = Agent
+
+/**
+ * Reusable action template (element of `AppConfig['actions']`).
+ *
+ * Deliberately NOT named `ActionConfig`, which the `*Config` convention above would
+ * suggest: `ActionTemplate` is already the public name every config author writes,
+ * and one public name per concept beats naming symmetry.
+ */
+export type ActionTemplate = ActionTemplateModel
+
 // Re-export function parameter and return types
 export type { StartOptions, GenerateStaticOptions, GenerateStaticResult }
+
+// ============================================================================
+// Sandbox action surface (`CodeContext['actions']`)
+// ============================================================================
+
+/**
+ * The action families callable from a `code` action body, DERIVED from the
+ * automation action schemas rather than restated by hand.
+ *
+ * WHY DERIVED, AND WHY CLOSED
+ * ---------------------------
+ * `actions` used to be an open index signature:
+ *
+ *   { ref: … } & Record<string, Record<string, (props?: Record<string, unknown>) => Promise<any>>>
+ *
+ * Two things were wrong with it, and the second is the one that made the first
+ * unavoidable. `sovrium types` emits a `tsconfig.json` setting
+ * `noUncheckedIndexedAccess: true`, and under that flag every index-signature
+ * access gains `| undefined` — so the call the docs give,
+ * `context.actions.http.request({…})`, produced TS18048 + TS2722 against the very
+ * tsconfig the same command wrote. And an open signature accepts
+ * `context.actions.record.lst({})` — a typo for `list` — which then fails at
+ * runtime with nothing having warned.
+ *
+ * Closing it fixes both at once, and deriving it means the closed surface cannot
+ * fall behind the schema the way a hand-written list would.
+ *
+ * `ref` is deliberately NOT part of this map: it is a reserved method on
+ * `actions`, not a family, and `Exclude<…, 'ref'>` keeps the `ref` action type
+ * (a declaration-time indirection, expanded before dispatch) out of the surface.
+ *
+ * WHAT THESE TYPES DO NOT PROMISE
+ * -------------------------------
+ * Props are NOT validated against these schemas at runtime — the native dispatch
+ * path performs template substitution and no schema decode. So a wrong prop is
+ * caught in the editor and nowhere else; treat these as authoring aids, not as a
+ * runtime contract. *
+ * THREE MEMBERS ARE TYPED BUT DO NOT WORK FROM A CODE BODY
+ * --------------------------------------------------------
+ * The surface describes what DISPATCH accepts, which is every registered
+ * handler. Three of them are broken in this position, for one shared reason:
+ * the sandbox sub-run-context built in `run/action-invokers.ts` omits fields the
+ * top-level step context sets.
+ *
+ *   - `automation.call`   ALWAYS REJECTS. The sub-context has no
+ *                         `invokeAutomation`, so the handler fails with
+ *                         "not available in this execution context".
+ *   - `filter.continue`   Silent no-op. Returns `{status:'filtered'}`, which the
+ *                         dispatcher does not treat as failure, so it resolves
+ *                         `undefined` and the halt never propagates.
+ *   - `flow.stop`         Inert. Its effect rides in `responseOverride` /
+ *                         `returnData`, both discarded by the dispatcher.
+ *
+ * They are NOT excluded from the type. Excluding them would mean a hand-kept
+ * deny-list that silently goes stale the day one is fixed, and nothing can
+ * mechanically prove "still broken". These are runtime defects; the fix belongs
+ * in the sandbox context, not in a type that hides them.
+ */
+type ActionFamily = Exclude<AutomationActionUnion['type'], 'ref'>
+
+type ActionMemberOf<T extends ActionFamily> = Extract<AutomationActionUnion, { readonly type: T }>
+
+/**
+ * `A` is a naked defaulted parameter so the conditional DISTRIBUTES over the
+ * union — that is what collects every member's operator into one union, and what
+ * flattens a member whose `operator` is itself a union (`http` declares one
+ * schema member with `"post" | "put" | "patch"`, since the three share a shape).
+ */
+type ActionOperatorOf<T extends ActionFamily, A = ActionMemberOf<T>> = A extends {
+  readonly operator: infer O
+}
+  ? O
+  : never
+
+/**
+ * Reverse assignability on purpose: `O extends Op`, never
+ * `Extract<…, { operator: O }>`. Extract fails on the merged `http` member
+ * because `"post" | "put" | "patch"` is not assignable to `"post"`, which would
+ * silently drop props for three real operators.
+ */
+type ActionPropsOf<T extends ActionFamily, O extends string, A = ActionMemberOf<T>> = A extends {
+  readonly operator: infer Op
+  readonly props: infer P
+}
+  ? O extends Op
+    ? P
+    : never
+  : never
+
+/**
+ * `{} extends P` holds exactly when every prop of `P` is optional, so the
+ * argument is optional for those operators (`context.actions.date.now()`) and
+ * required for the rest (`context.actions.http.request()` is an error).
+ */
+export type CodeContextActions = {
+  readonly [T in ActionFamily]: {
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- `{} extends P` is the all-props-optional test; Record<never, never> does not behave the same here
+    readonly [O in ActionOperatorOf<T> & string]: {} extends ActionPropsOf<T, O>
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- handler return shapes are per-operator and not modelled in the schema
+        (props?: ActionPropsOf<T, O>) => Promise<any>
+      : // eslint-disable-next-line @typescript-eslint/no-explicit-any -- same
+        (props: ActionPropsOf<T, O>) => Promise<any>
+  }
+}
+
+// `CodeContext` is an INTERFACE and must stay one. `build-types.ts` cannot extract it
+// structurally: its loop only resolves `SymbolFlags.TypeAlias`, so `typeToString` on an
+// interface prints the interface NAME and would emit `export type CodeContext =
+// CodeContext` (TS2456). Declaring it as a type alias to force extraction is worse —
+// `typeToString` emits no comments at all, which would strip the `log` warning below
+// from every user's generated `sovrium.d.ts`. The emitter therefore hand-writes this
+// text (see its `lines.push` block); `[internal ref]`
+// keeps the copies honest.
+//
+// That check slices from the FIRST occurrence of the declaration keyword+name pair
+// below, so no comment in this file may spell that pair literally — the slice would
+// start in the comment and parse zero properties. This paragraph is deliberately
+// worded around it; the first draft was not, and failed exactly that way.
+
+/**
+ * CodeContext - typed context object passed to every runTypescript code action.
+ *
+ * Operators MUST annotate their execute() parameter as CodeContext:
+ *   async function execute(context: CodeContext) { ... }
+ *
+ * The TypeScriptValidator rejects any code action whose execute() declares a
+ * first parameter without this annotation, so type errors on context.<key>
+ * accesses surface at server startup instead of failing silently at request
+ * time.
+ *
+ * Five properties: `inputData`, `actions`, `env`, `log`, `run`. The
+ * trigger payload and prior step outputs are NOT exposed directly — every
+ * value the code needs must be declared explicitly via the action's
+ * `inputData` prop using `{{trigger.data.X}}` / `{{steps.Y.Z}}` template
+ * references, resolved before the sandbox sees the data. This makes a
+ * code action a pure function of its declared inputs.
+ *
+ * `actions` references reusable action templates declared at the schema
+ * root (`app.actions[]`), NOT sibling steps in the same automation.
+ * `context.actions.<templateName>(input)` invokes the named template,
+ * substituting its `$vars` with the caller-supplied `input` shallow-
+ * merged on top of declared variable defaults.
+ *
+ * `inputData` and the `actions` return type use `any` (not `unknown`):
+ * they hold dynamic JSON / action-output shapes, and `unknown` would
+ * force narrowing on every property access. `log` is strictly typed so
+ * `context.log.debug()` (or any unknown method) fails type-checking at
+ * startup.
+ */
+export interface CodeContext {
+  /** Template-resolved key-value pairs declared in the action's inputData prop */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic JSON shape, see interface JSDoc
+  readonly inputData: Record<string, any>
+  /**
+   * Two-shape callable surface:
+   * - `actions.ref('<templateName>', vars)` — invoke a template declared at app.actions[]
+   * - `actions.<actionType>.<operator>(props)` — invoke a native action type directly (no template required)
+   *
+   * The reserved method `ref` disambiguates templates from native types;
+   * a template named `ref` is rejected at schema validation.
+   */
+  readonly actions: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, functional/prefer-immutable-types -- dynamic return shape (templates return arbitrary handler output). No Readonly<> here: this interface is a hand-maintained MIRROR of the CodeContext text emitted by scripts/build/build-types.ts (and of CODE_CONTEXT_PRELUDE in src/infrastructure/automations/typescript-validator/layer.ts).
+    readonly ref: (templateName: string, vars?: Record<string, unknown>) => Promise<any>
+  } & CodeContextActions
+  /** Environment variables (values redacted in logs when length >= 8) */
+  readonly env: Record<string, string>
+  /**
+   * Structured logging — info/warn/error.
+   *
+   * NOT YET WIRED: all three methods currently DISCARD their arguments. The
+   * sandbox is handed a no-op implementation, so `context.log.info(…)` emits
+   * nothing — not to stdout, not to run history, not to the error tracker.
+   * The surface is typed and stable so code actions can call it today and
+   * start producing output when a real sink lands, without a rewrite; until
+   * then, anything a code action must actually surface belongs in its return
+   * value (which is persisted as the step output) or in a thrown error.
+   */
+  readonly log: {
+    readonly info: (...args: ReadonlyArray<unknown>) => void
+    readonly warn: (...args: ReadonlyArray<unknown>) => void
+    readonly error: (...args: ReadonlyArray<unknown>) => void
+  }
+  /**
+   * Run-scoped metadata. `attempt` is the 1-indexed retry attempt number —
+   * 1 on the initial dispatch, 2 on the first retry, etc. Used by code
+   * actions that want to short-circuit retry on a recoverable transient:
+   * `if (context.run.attempt === 1) throw …`.
+   */
+  readonly run: {
+    readonly attempt: number
+  }
+}
 
 // ============================================================================
 // Removed: `validateConfig` and the `generateAppJsonSchema` re-export
@@ -473,7 +691,7 @@ export type { StartOptions, GenerateStaticOptions, GenerateStaticResult }
 // `{ valid: true }` said nothing about what would actually run. It had zero
 // call sites anywhere in this repository. Config validation now has exactly one
 // implementation, `decodeAppConfigObject`
-// (`@/application/use-cases/schema/decode-app-config`), reachable from a shell
+// (`@/application/use-cases/config/decode-app-config`), reachable from a shell
 // as `sovrium validate` and run implicitly by `sovrium start` / `sovrium build`.
 //
 // `generateAppJsonSchema` here was a dead re-export of

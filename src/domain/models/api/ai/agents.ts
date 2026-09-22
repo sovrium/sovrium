@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * AI agent facts-memory API contract schemas.
@@ -17,32 +18,34 @@ import { z } from '@hono/zod-openapi'
  */
 
 /** Request body for a memory-enabled agent chat turn. */
-export const agentFactsChatRequestSchema = z.object({
-  message: z.string(),
-  sessionId: z.string().optional(),
+export const agentFactsChatRequestSchema = Schema.Struct({
+  message: Schema.String,
+  sessionId: optionalField(Schema.String),
 })
 
 /** Response of a memory-enabled agent chat turn. */
-export const agentFactsChatResponseSchema = z.object({
-  reply: z.string(),
-  actions: z.array(z.unknown()),
-  sessionId: z.string(),
+export const agentFactsChatResponseSchema = Schema.Struct({
+  reply: Schema.String,
+  actions: Schema.Array(Schema.Unknown),
+  sessionId: Schema.String,
 })
 
 /** A single stored agent fact. */
-export const agentFactSchema = z.object({
-  fact: z.string(),
-  createdAt: z.string().describe('ISO 8601 timestamp'),
+export const agentFactSchema = Schema.Struct({
+  fact: Schema.String,
+  createdAt: Schema.String.annotate({ description: 'ISO 8601 timestamp' }),
 })
 
 /** Response of an agent facts recall. */
-export const agentFactsRecallResponseSchema = z.object({ facts: z.array(agentFactSchema) })
+export const agentFactsRecallResponseSchema = Schema.Struct({
+  facts: Schema.Array(agentFactSchema),
+})
 
 /** @public */
-export type AgentFactsChatRequest = z.infer<typeof agentFactsChatRequestSchema>
+export type AgentFactsChatRequest = typeof agentFactsChatRequestSchema.Type
 /** @public */
-export type AgentFactsChatResponse = z.infer<typeof agentFactsChatResponseSchema>
+export type AgentFactsChatResponse = typeof agentFactsChatResponseSchema.Type
 /** @public */
-export type AgentFact = z.infer<typeof agentFactSchema>
+export type AgentFact = typeof agentFactSchema.Type
 /** @public */
-export type AgentFactsRecallResponse = z.infer<typeof agentFactsRecallResponseSchema>
+export type AgentFactsRecallResponse = typeof agentFactsRecallResponseSchema.Type

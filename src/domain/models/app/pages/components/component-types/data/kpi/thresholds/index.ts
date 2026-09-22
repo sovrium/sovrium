@@ -5,18 +5,4 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
-
-export const KPIThresholdSchema = Schema.Struct({
-  value: Schema.Finite.annotate({ description: 'Threshold boundary value' }),
-  color: Schema.String.annotate({
-    description: 'Color name or hex applied when metric meets this threshold',
-  }),
-}).annotate({
-  title: 'KPI Threshold',
-  description:
-    'Conditional color threshold — applied when the metric value meets or exceeds the boundary',
-})
-
-/** @public */
-export type KPIThreshold = Schema.Schema.Type<typeof KPIThresholdSchema>
+export * from './thresholds'

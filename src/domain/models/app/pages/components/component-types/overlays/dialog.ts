@@ -75,6 +75,34 @@ export const dialogFields = {
    * formRef: new-client
    * ```
    */
+  /**
+   * Whether this dialog hydrates. Default `true`.
+   *
+   * ─── WHY THIS IS DECLARED AND NOT INFERRED ─────────────────────────────────
+   *
+   * `false` renders a dialog the always-present click enhancer opens and closes
+   * — `data-modal-container`, `[data-backdrop]`, `[data-modal-close]`, Escape —
+   * and mounts no island at all. That is the shape the retired `modal` type
+   * had, and it costs nothing on the wire.
+   *
+   * What it gives up is FOCUS CONTAINMENT and focus restoration. Those are
+   * unconditional properties of the hydrated dialog that no other field
+   * governs, which is exactly why the choice cannot be inferred: every
+   * candidate signal (`formRef`, `children`, `confirmLabel`) is orthogonal to
+   * them, so an inference would silently take focus management away from some
+   * future dialog with no config diff to show for it.
+   *
+   * Top-level rather than inside `props` because `props` is an open record with
+   * no per-key validation and no JSON Schema surface — a behavioural switch
+   * there would be neither typechecked nor documented.
+   */
+  hydrate: Schema.optional(
+    Schema.Boolean.annotate({
+      title: 'Hydrate',
+      description:
+        'Whether the dialog mounts its island. Default true. `false` renders a zero-JavaScript dialog driven by the page click enhancer, giving up focus containment and focus restoration in exchange for shipping no island.',
+    })
+  ),
   formRef: Schema.optional(
     FormNameSchema.annotate({
       description:

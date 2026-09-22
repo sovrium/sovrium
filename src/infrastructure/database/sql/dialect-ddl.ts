@@ -7,6 +7,7 @@
 
 import { Database as BunSqlite } from 'bun:sqlite'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { applySqlitePragmas } from './sqlite-pragmas'
 import type { TransactionLike } from './sql-execution'
 
 /**
@@ -44,19 +45,20 @@ import type { TransactionLike } from './sql-execution'
 /**
  * Open a hardened `bun:sqlite` database for DDL execution.
  *
- * Applies the same production PRAGMAs as the runtime client in `db-bun.ts`
- * (`foreign_keys`, WAL journaling, `busy_timeout`) so the schema-initializer's
+ * Applies the same production PRAGMAs as every other connection this process
+ * opens, from the one module that spells them, so the schema-initializer's
  * connection behaves identically to the connection records-CRUD uses. The file
  * is created if it does not exist (zero-config first boot).
+ *
+ * This used to hold its own copy of the list with `busy_timeout` LAST, which
+ * left its own WAL switch unprotected — that switch takes a lock of its own and
+ * fails instantly without a timeout already in force. See
+ * {@link applySqlitePragmas} for the measurement.
  */
 export const openSqliteDdlDatabase = (path: string): BunSqlite => {
   const client = new BunSqlite(path, { create: true })
-  // eslint-disable-next-line functional/no-expression-statements -- driver-level connection setup; bun:sqlite exec returns void
-  client.exec('PRAGMA foreign_keys = ON')
-  // eslint-disable-next-line functional/no-expression-statements -- WAL journaling for concurrent readers
-  client.exec('PRAGMA journal_mode = WAL')
-  // eslint-disable-next-line functional/no-expression-statements -- 5s lock wait before SQLITE_BUSY
-  client.exec('PRAGMA busy_timeout = 5000')
+
+  applySqlitePragmas(client)
   return client
 }
 
@@ -178,7 +180,6 @@ export const runSqliteSchemaTransaction = async (
   // eslint-disable-next-line functional/no-expression-statements -- transaction boundary
   client.exec('BEGIN')
   try {
-    // eslint-disable-next-line functional/no-expression-statements -- run the DDL work
     await work(tx)
     const violation = describeForeignKeyViolations(client)
     // eslint-disable-next-line functional/no-throw-statements -- reject before COMMIT so a genuinely dangling reference still rolls back

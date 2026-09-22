@@ -29,9 +29,9 @@ import { systemSchema } from './migration-audit'
  * because an operator who can re-read it never learns it was compromised.
  *
  * The uniqueness constraint therefore lives on the DIGEST, the only column that
- * exists at rest. (`src/domain/utils/share-link-helpers.ts` promises a UNIQUE
- * index on a plaintext `token` column; that helper is not used here and its
- * table was never created.)
+ * exists at rest. (A `share-link-helpers.ts` under `src/domain/utils/` promised
+ * a UNIQUE index on a plaintext `token` column; it was never used here, its
+ * table was never created, and the layout programme removed it.)
  *
  * ─── REVOCATION IS A TIMESTAMP, NOT A DELETE ────────────────────────────────
  *

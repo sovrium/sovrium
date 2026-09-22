@@ -7,30 +7,34 @@
 
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 
 /**
  * Resolve a user's stored role by id.
  *
- * Promise-based wrapper around the Effect-native `AuthRepository.getUserRole`
- * so the plain-async Better Auth `before` hooks (last-admin lockout guard,
- * impersonation target guard) can read the CURRENT role of the target user
- * before the mutation runs.
+ * Reads the CURRENT role of a target user so the plain-async Better Auth
+ * `before` hooks (last-admin lockout guard, impersonation target guard) can see
+ * it before the mutation runs.
  *
- * Returns `undefined` when the user does not exist, carries no role, or the
+ * Yields `undefined` when the user does not exist, carries no role, or the
  * lookup fails. Both callers treat `undefined` as "cannot establish that this
  * is a privileged target" and fall through to Better Auth's own handling
- * (which 404s an unknown user id).
+ * (which 404s an unknown user id) — so the failure is folded into the value
+ * HERE rather than left for each caller to re-swallow, and the effect cannot
+ * fail.
+ *
+ * `AuthRepository` is declared rather than provided (standing rule E1): the
+ * composition root that owns a runtime discharges it. The Better Auth hook that
+ * consumes this has no request and no fiber of its own, so the Promise bridge
+ * lives beside that hook in `infrastructure/auth/better-auth/admin-role-guards.ts`.
  */
-export async function getUserRoleById(userId: string): Promise<string | undefined> {
-  const program = Effect.gen(function* () {
+export const readUserRoleById = (
+  userId: string
+): Effect.Effect<string | undefined, never, AuthRepository> =>
+  Effect.gen(function* () {
     const repo = yield* AuthRepository
     return yield* repo.getUserRole(userId)
-  }).pipe(Effect.provide(AuthRepositoryLive))
-
-  try {
-    return await Effect.runPromise(program)
-  } catch {
-    return undefined
-  }
-}
+  }).pipe(
+    // effect-swallow: an unreadable role is reported as `undefined`, which both Better Auth guards already treat as "cannot establish that this is a privileged target" and answer by falling through to Better Auth's own 404. Logging here would fire on every unknown user id a probe sends.
+    Effect.orElseSucceed(() => undefined),
+    Effect.withSpan('auth.read-user-role-by-id')
+  )

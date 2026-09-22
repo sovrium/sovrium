@@ -9,6 +9,8 @@
 
 import { Effect, Stream } from 'effect'
 import { AiProviderError } from '@/application/ports/services/ai-service'
+import { egressRetrySchedule, isRetryableHttpStatus } from '@/infrastructure/egress/egress-retry'
+import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import type {
   AiError,
   ChatChunk,
@@ -164,49 +166,84 @@ const mapOllamaError = (cause: unknown): AiError => {
   })
 }
 
+/**
+ * Deadline for one non-streaming Ollama chat request (standing rule E6).
+ *
+ * Ollama buffers a non-streaming reply until generation finishes, so the
+ * response headers do not arrive until the model is done — this bound is
+ * therefore the whole generation, not just the connect. Two minutes is chosen
+ * against the worst realistic local case (a large model, CPU-only, a long
+ * answer); the alternative today is no bound at all, which is what makes a
+ * saturated Ollama hold a Sovrium request forever.
+ */
+const OLLAMA_CHAT_TIMEOUT_MS = 120_000
+
+/**
+ * Retry policy for a non-streaming Ollama chat.
+ *
+ * Safe because nothing has been emitted to the caller yet and Ollama creates
+ * no server-side record of a completion: a retried request is a fresh
+ * generation, not a duplicate side effect. Only a transient status earns it —
+ * a 404 (model not pulled) repeated three times is three identical failures.
+ */
+const retryTransientOllamaChat = (
+  effect: Effect.Effect<ChatReply, AiError>
+): Effect.Effect<ChatReply, AiError> =>
+  Effect.retry(effect, {
+    schedule: egressRetrySchedule(),
+    while: (error: AiError) =>
+      error._tag === 'AiProviderError' && isRetryableHttpStatus(error.statusCode),
+  })
+
 /** POST to Ollama's `/api/chat` (non-streaming) and reduce to a {@link ChatReply}. */
 export const ollamaChat = (conn: OllamaConn, input: ChatInput): Effect.Effect<ChatReply, AiError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const model = input.model ?? conn.defaultModel
-      const response = await fetch(ollamaUrl(conn.baseUrl), {
-        method: 'POST',
-        headers: ollamaHeaders(conn.apiKey),
-        // Schema would be ceremonial here: the request body is Ollama's
-        // native `/api/chat` wire format (an opaque `Record<string, unknown>`
-        // assembled by `ollamaBody`). The HTTP layer needs a JSON string,
-        // not a decoded domain value.
-        body: JSON.stringify(ollamaBody(conn, input, false)),
-      })
-      if (!response.ok) {
-        const body = await response.text().catch(() => '')
-        // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
-        throw new AiProviderError({
-          statusCode: response.status,
-          message: `Ollama returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
-        })
-      }
-      const payload = (await response.json()) as OllamaChatPayload
-      const toolCalls = extractOllamaToolCalls(payload.message?.tool_calls)
-      const rawContent = payload.message?.content
-      // A tool-call turn legitimately carries no assistant text, so an absent
-      // `content` is only malformed when no tool calls came back with it.
-      const content = typeof rawContent === 'string' ? rawContent : toolCalls ? '' : undefined
-      if (content === undefined) {
-        // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
-        throw new AiProviderError({
-          statusCode: 502,
-          message: 'Ollama returned a malformed chat response',
-        })
-      }
-      return {
-        content,
-        model: payload.model ?? model,
-        ...(toolCalls !== undefined && { toolCalls }),
-      } satisfies ChatReply
-    },
-    catch: mapOllamaError,
-  })
+  retryTransientOllamaChat(
+    Effect.tryPromise({
+      try: async () => {
+        const model = input.model ?? conn.defaultModel
+        const response = await withFetchTimeout(
+          ollamaUrl(conn.baseUrl),
+          {
+            method: 'POST',
+            headers: ollamaHeaders(conn.apiKey),
+            // Schema would be ceremonial here: the request body is Ollama's
+            // native `/api/chat` wire format (an opaque `Record<string, unknown>`
+            // assembled by `ollamaBody`). The HTTP layer needs a JSON string,
+            // not a decoded domain value.
+            body: JSON.stringify(ollamaBody(conn, input, false)),
+          },
+          OLLAMA_CHAT_TIMEOUT_MS
+        )
+        if (!response.ok) {
+          const body = await response.text().catch(() => '')
+          // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
+          throw new AiProviderError({
+            statusCode: response.status,
+            message: `Ollama returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
+          })
+        }
+        const payload = (await response.json()) as OllamaChatPayload
+        const toolCalls = extractOllamaToolCalls(payload.message?.tool_calls)
+        const rawContent = payload.message?.content
+        // A tool-call turn legitimately carries no assistant text, so an absent
+        // `content` is only malformed when no tool calls came back with it.
+        const content = typeof rawContent === 'string' ? rawContent : toolCalls ? '' : undefined
+        if (content === undefined) {
+          // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
+          throw new AiProviderError({
+            statusCode: 502,
+            message: 'Ollama returned a malformed chat response',
+          })
+        }
+        return {
+          content,
+          model: payload.model ?? model,
+          ...(toolCalls !== undefined && { toolCalls }),
+        } satisfies ChatReply
+      },
+      catch: mapOllamaError,
+    })
+  )
 
 /** Stream variant: issues a non-streaming Ollama request and emits the reply
  * as a single `content` chunk followed by the terminating `done` chunk. */

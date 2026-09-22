@@ -6,10 +6,11 @@
  */
 
 import { Menu } from '@base-ui/react/menu'
-import { cn } from '@/presentation/utils/design/class-merge'
-import { NavChevronDown, NavItemBadge } from '@/presentation/utils/recipes/nav-menu-parts'
+import { cn } from '@/presentation/design/class-merge'
+import { NavChevronDown, NavItemBadge } from '@/presentation/design/nav-menu-parts'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { computeMenuPopupClasses, computeNavMenuTriggerClasses } from './overlay-default-classes'
-import type { BadgeVariant } from '@/presentation/utils/recipes/navbar-default-classes'
+import type { BadgeVariant } from '@/presentation/design/navbar-default-classes'
 import type { ReactElement } from 'react'
 
 interface NavBadge {
@@ -60,7 +61,7 @@ function NavDropdownChild({ child }: { readonly child: NavChild }): ReactElement
       href={child.href ?? '#'}
       target={child.target}
       rel={child.rel}
-      className="data-[highlighted]:bg-background-subtle flex flex-col rounded-md px-3 py-2 text-sm transition-colors outline-none"
+      className="data-[highlighted]:bg-background-subtle text-md flex flex-col rounded-md px-3 py-2 transition-colors outline-none"
     >
       <span className="text-foreground flex items-center gap-2 font-medium">
         {child.label}
@@ -72,7 +73,7 @@ function NavDropdownChild({ child }: { readonly child: NavChild }): ReactElement
         )}
       </span>
       {child.description && (
-        <span className="text-foreground-muted mt-0.5 text-xs">{child.description}</span>
+        <span className="text-foreground-muted mt-0.5 text-sm">{child.description}</span>
       )}
     </Menu.LinkItem>
   )
@@ -170,7 +171,7 @@ export default function NavMenuIsland({
 }: NavMenuIslandProps): ReactElement {
   return (
     <div
-      className={cn('flex items-center gap-1', className)}
+      className={resolveClasses('flex items-center gap-1', className)}
       id={id}
       data-testid={testId}
     >

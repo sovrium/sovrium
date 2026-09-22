@@ -8,11 +8,11 @@
 import { Suspense } from 'react'
 import { CalendarIslandLazy, GalleryIslandLazy, KanbanIslandLazy } from '../../view-type-islands'
 import type { ActiveViewType } from './use-ui-state'
-import type { TableRecord } from '../../shared/types'
-import type { DataTableKanbanGroupBy } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+import type { TableRecord } from '../../runtime/types'
+import type { DataTableKanbanGroupBy } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { ReactElement } from 'react'
 
-interface AlternateViewProps {
+export interface AlternateViewProps {
   /** Which non-grid view the switcher selected. Never `'grid'` — see the guard. */
   readonly activeView: Exclude<ActiveViewType, 'grid'>
   /**
@@ -75,7 +75,7 @@ function KanbanView({
       ) : (
         <p
           role="status"
-          className="text-foreground-muted p-4 text-sm"
+          className="text-foreground-muted text-md p-4"
         >
           {emptyMessage}
         </p>

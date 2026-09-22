@@ -6,6 +6,16 @@
  */
 
 import { useCallback, useState } from 'react'
+import {
+  computeTableChipClasses,
+  computeTableChipValueClasses,
+  computeTablePanelCaptionClasses,
+  computeTablePanelClasses,
+  computeTablePanelControlClasses,
+  computeTablePanelLinkClasses,
+  computeTablePanelRemoveClasses,
+  computeTableToolbarPrimaryButtonClasses,
+} from '@/presentation/design/table-default-classes'
 import type { SortRow } from './use-ui-state'
 
 /**
@@ -61,11 +71,13 @@ function ActiveSortChip({ row, index, total, onRemove, onReorder }: ActiveSortCh
     <span
       data-testid="sort-row"
       data-sort-priority={index + 1}
-      className="bg-background-subtle border-border inline-flex items-center gap-2 rounded border px-2 py-1 text-sm"
+      className={computeTableChipClasses()}
     >
-      <span className="text-foreground-muted text-xs">{index + 1}</span>
+      {/* The rank is a caption ON the chip — it says where this key sits in the
+          order, which is information about the chip rather than part of it. */}
+      <span className={computeTablePanelCaptionClasses()}>{index + 1}</span>
       <span>
-        {row.field} {row.direction}
+        {row.field} <span className={computeTableChipValueClasses()}>{row.direction}</span>
       </span>
       <button
         type="button"
@@ -73,7 +85,7 @@ function ActiveSortChip({ row, index, total, onRemove, onReorder }: ActiveSortCh
         title="Move up"
         disabled={!canMoveUp}
         onClick={handleMoveUp}
-        className="text-foreground-muted hover:text-foreground disabled:opacity-30"
+        className={`${computeTablePanelRemoveClasses()} disabled:opacity-30`}
       >
         ↑
       </button>
@@ -83,7 +95,7 @@ function ActiveSortChip({ row, index, total, onRemove, onReorder }: ActiveSortCh
         title="Move down"
         disabled={!canMoveDown}
         onClick={handleMoveDown}
-        className="text-foreground-muted hover:text-foreground disabled:opacity-30"
+        className={`${computeTablePanelRemoveClasses()} disabled:opacity-30`}
       >
         ↓
       </button>
@@ -92,7 +104,7 @@ function ActiveSortChip({ row, index, total, onRemove, onReorder }: ActiveSortCh
         aria-label="Remove sort"
         title="Remove sort"
         onClick={handleRemove}
-        className="text-foreground-muted hover:text-foreground"
+        className={computeTablePanelRemoveClasses()}
       >
         ×
       </button>
@@ -138,23 +150,25 @@ export function SortOverlay({
       data-testid="sort-panel"
       role="dialog"
       aria-label="Sort"
-      className="border-border bg-background-raised border-b p-4"
+      className={computeTablePanelClasses()}
     >
-      <div className="mb-3 flex items-center gap-3">
-        <span className="text-foreground-muted text-sm">Sort priority (top = primary)</span>
+      {/* The panel is a flex COLUMN with its own gap now, so the rows no longer
+          carry per-row bottom margins that had to agree with each other. */}
+      <div className="flex items-center gap-3">
+        <span className={computeTablePanelCaptionClasses()}>Sort priority (top = primary)</span>
         {activeSorts.length > 0 && (
           <button
             type="button"
             aria-label="Clear all sorts"
             onClick={onClearAll}
-            className="text-foreground-muted hover:text-foreground ml-auto text-xs underline"
+            className={`ml-auto ${computeTablePanelLinkClasses()}`}
           >
             Clear all
           </button>
         )}
       </div>
       {activeSorts.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           {activeSorts.map((row, index) => (
             <ActiveSortChip
               key={row.id}
@@ -179,7 +193,7 @@ export function SortOverlay({
           aria-label="Sort field"
           value={field}
           onChange={handleFieldChange}
-          className="border-border rounded border px-2 py-1 text-sm"
+          className={computeTablePanelControlClasses()}
         >
           {tableFields.map((f) => (
             <option
@@ -201,7 +215,7 @@ export function SortOverlay({
           aria-label="Direction"
           value={direction}
           onChange={handleDirectionChange}
-          className="border-border rounded border px-2 py-1 text-sm"
+          className={computeTablePanelControlClasses()}
         >
           <option value="asc">asc</option>
           <option value="desc">desc</option>
@@ -210,7 +224,12 @@ export function SortOverlay({
           type="button"
           onClick={handleAddSort}
           aria-label="Add sort"
-          className="border-border bg-primary text-primary-foreground hover:bg-primary-hover rounded border px-3 py-1 text-sm"
+          // PRIMARY for the same specified reason as `Add filter`:
+          // `[internal ref]` reads this control's
+          // resolved pixel against the author `primary` token, so it is the
+          // panel's canonical recolorable surface rather than drift from the
+          // canvas' secondary commit.
+          className={computeTableToolbarPrimaryButtonClasses()}
         >
           Add sort
         </button>

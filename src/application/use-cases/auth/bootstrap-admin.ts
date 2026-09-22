@@ -10,10 +10,10 @@ import {
   AuthRepository,
   type AuthDatabaseError,
 } from '@/application/ports/repositories/auth/auth-repository'
+import { isValidEmail } from '@/domain/kernel/sanitize/email-validation'
 import { getStrategy } from '@/domain/models/app/auth'
-import { isValidEmail } from '@/domain/utils/email-validation'
-import { Auth } from '@/infrastructure/auth/better-auth'
-import { logDebug } from '@/infrastructure/logging/logger'
+import { Auth } from '@/infrastructure/auth/better-auth/auth-service'
+import { Logger } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'effect'
 
@@ -172,15 +172,16 @@ const createAdminUser = (
  */
 const validateBootstrapConfig = (
   config: AdminBootstrapConfig
-): Effect.Effect<void, InvalidEmailError | WeakPasswordError> =>
+): Effect.Effect<void, InvalidEmailError | WeakPasswordError, Logger> =>
   Effect.gen(function* () {
+    const logger = yield* Logger
     if (!isValidEmail(config.email)) {
-      logDebug('[bootstrap-admin] invalid email format', { email: config.email })
+      yield* logger.debug('[bootstrap-admin] invalid email format', { email: config.email })
       return yield* new InvalidEmailError({ email: config.email })
     }
 
     if (!isValidPassword(config.password)) {
-      logDebug('[bootstrap-admin] password too weak')
+      yield* logger.debug('[bootstrap-admin] password too weak')
       return yield* new WeakPasswordError({
         message: 'Password must be at least 8 characters',
       })
@@ -194,16 +195,17 @@ const validateBootstrapConfig = (
 const checkBootstrapPreconditions = (
   app: App,
   config: AdminBootstrapConfig | undefined
-): Effect.Effect<AdminBootstrapConfig | undefined, never> =>
-  Effect.sync(() => {
+): Effect.Effect<AdminBootstrapConfig | undefined, never, Logger> =>
+  Effect.gen(function* () {
+    const logger = yield* Logger
     if (!config) {
-      logDebug('[bootstrap-admin] no admin bootstrap config — skipping')
+      yield* logger.debug('[bootstrap-admin] no admin bootstrap config — skipping')
       return undefined
     }
 
     // Admin features are always enabled when auth is configured
     if (!app.auth) {
-      logDebug('[bootstrap-admin] auth not configured — skipping')
+      yield* logger.debug('[bootstrap-admin] auth not configured — skipping')
       return undefined
     }
 
@@ -216,10 +218,11 @@ const checkBootstrapPreconditions = (
 const handlePostCreation = (
   requireEmailVerification: boolean,
   userId: string | undefined
-): Effect.Effect<void, never> =>
-  Effect.sync(() => {
+): Effect.Effect<void, never, Logger> =>
+  Effect.gen(function* () {
     if (requireEmailVerification && userId) {
-      logDebug('[bootstrap-admin] verification email required for new admin')
+      const logger = yield* Logger
+      yield* logger.debug('[bootstrap-admin] verification email required for new admin')
     }
   })
 
@@ -242,7 +245,7 @@ export const createAdminAccount = (
 ): Effect.Effect<
   { readonly alreadyExists: boolean; readonly userId?: string },
   InvalidEmailError | WeakPasswordError | BootstrapDatabaseError | AuthDatabaseError,
-  Auth | AuthRepository
+  Auth | AuthRepository | Logger
 > =>
   Effect.gen(function* () {
     yield* validateBootstrapConfig(config)
@@ -250,7 +253,7 @@ export const createAdminAccount = (
     const emailAndPasswordStrategy = getStrategy(app.auth, 'emailAndPassword')
     const requireEmailVerification = emailAndPasswordStrategy?.requireEmailVerification ?? false
     return yield* createAdminUser(auth, config, requireEmailVerification)
-  })
+  }).pipe(Effect.withSpan('auth.create-admin-account'))
 
 /**
  * Bootstrap admin account at application startup
@@ -280,7 +283,7 @@ export const bootstrapAdmin = (
 ): Effect.Effect<
   void,
   InvalidEmailError | WeakPasswordError | BootstrapDatabaseError | AuthDatabaseError,
-  Auth | AuthRepository
+  Auth | AuthRepository | Logger
 > =>
   Effect.gen(function* () {
     const parsedConfig = parseAdminBootstrapConfig()
@@ -300,10 +303,11 @@ export const bootstrapAdmin = (
     // `auth.account` row. Counting those agent users here would make the
     // env-var admin bootstrap wrongly no-op for any agent-bearing app, leaving
     // the operator with no admin account to sign in as.
+    const logger = yield* Logger
     const authRepo = yield* AuthRepository
     const existingUserCount = yield* authRepo.countHumanUsers
     if (existingUserCount > 0) {
-      logDebug(
+      yield* logger.debug(
         '[bootstrap-admin] skipped — human user(s) already exist (env-var bootstrap no-op)',
         {
           humanUsers: String(existingUserCount),
@@ -322,10 +326,12 @@ export const bootstrapAdmin = (
     const { alreadyExists, userId } = yield* createAdminUser(auth, config, requireEmailVerification)
 
     if (alreadyExists) {
-      logDebug('[bootstrap-admin] skipped — admin user already exists', { email: config.email })
+      yield* logger.debug('[bootstrap-admin] skipped — admin user already exists', {
+        email: config.email,
+      })
       return
     }
 
-    logDebug('[bootstrap-admin] admin account created', { email: config.email })
+    yield* logger.debug('[bootstrap-admin] admin account created', { email: config.email })
     yield* handlePostCreation(requireEmailVerification, userId)
-  })
+  }).pipe(Effect.withSpan('auth.bootstrap-admin'))

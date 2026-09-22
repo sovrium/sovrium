@@ -38,9 +38,9 @@ import {
   type AuthDatabaseError,
 } from '@/application/ports/repositories/auth/auth-repository'
 import { BootstrapTokenRepository } from '@/application/ports/repositories/auth/bootstrap-token-repository'
-import { Auth } from '@/infrastructure/auth/better-auth'
+import { Auth } from '@/infrastructure/auth/better-auth/auth-service'
 import type { BootstrapTokenDatabaseError } from '@/application/ports/repositories/auth/bootstrap-token-repository'
-import type { BootstrapTokenError } from '@/domain/models/system'
+import type { BootstrapTokenError } from '@/domain/models/process-env'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -138,7 +138,7 @@ export const generateBootstrapTokenIfNeeded = (
     yield* repo.create({ tokenHash, expiresAt })
 
     return { kind: 'generated', plaintext, expiresAt } as const
-  })
+  }).pipe(Effect.withSpan('auth.generate-bootstrap-token-if-needed'))
 
 // ---------------------------------------------------------------------------
 // Use case: claimBootstrapToken
@@ -221,4 +221,4 @@ export const claimBootstrapToken = (
     yield* authRepo.verifyUserEmail(userId)
 
     return { userId, email: input.email }
-  })
+  }).pipe(Effect.withSpan('auth.claim-bootstrap-token'))

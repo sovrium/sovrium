@@ -8,7 +8,7 @@ fields:
     relationType: many-to-one
     required: true
     # Names the column a human should see instead of the foreign key. Measured
-    # against the running app: this reaches the data-table's inline record
+    # against the running app: this reaches the `table` grid's inline record
     # PICKER (`record-picker-editor.tsx` searches and labels on it) but NOT the
     # read-only cell, which still renders the raw integer, and not a `form`
     # bound to this field, which renders a plain text input rather than a

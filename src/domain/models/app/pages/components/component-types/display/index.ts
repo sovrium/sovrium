@@ -5,13 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-export { StaticTableTypeLiteral, staticTableFields } from './static-table'
 export { EmptyStateTypeLiteral, emptyStateFields } from './empty-state'
 export { MarqueeTypeLiteral, marqueeFields } from './marquee'
 export { ScrollAreaTypeLiteral, scrollAreaFields } from './scroll-area'
 export { AccordionTypeLiteral, accordionFields } from './accordion'
-export { TabsTypeLiteral, tabsFields } from './tabs'
-export { TimelineTypeLiteral, timelineFields } from './timeline'
+export { TabsTypeLiteral, TabPanelSchema, tabsFields } from './tabs'
+export { TimelineTypeLiteral, TimelineZoomSchema, timelineFields } from './timeline'
+export type { TimelineZoom } from './timeline'
 export { ListItemTypeLiteral, listItemFields } from './list-item'
-export { SpeechBubbleTypeLiteral, speechBubbleFields } from './speech-bubble'
 export { RecordFieldTypeLiteral, recordFieldFields } from './record-field'
+export { SwatchTypeLiteral, SwatchModeSchema, swatchFields } from './swatch'
+export { AvatarTypeLiteral, AvatarSizeSchema, AvatarStatusSchema, avatarFields } from './avatar'
+export { DescriptionListTypeLiteral, descriptionListFields } from './description-list'

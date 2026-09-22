@@ -34,8 +34,9 @@
  *      reference scope
  */
 
-import { z } from '@hono/zod-openapi'
-import { periodPresetSchema, seriesIntervalSchema } from '../_shared/period-preset'
+import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { periodPresetSchema, seriesIntervalSchema } from '../envelope/period-preset'
 
 /**
  * Query schema for `GET /api/admin/buckets/overview`.
@@ -44,7 +45,7 @@ import { periodPresetSchema, seriesIntervalSchema } from '../_shared/period-pres
  * the preset by the server (24h → 1h, 7d/30d → 1d) — see
  * `periodPresetSchema` for the locked mapping.
  */
-export const bucketsOverviewQuerySchema = z.object({
+export const bucketsOverviewQuerySchema = Schema.Struct({
   period: periodPresetSchema,
 })
 
@@ -85,28 +86,19 @@ export const bucketsOverviewQuerySchema = z.object({
  * a contiguous series for chart rendering; sparse arrays force frontends
  * to interpolate, which silently lies about idle periods.
  */
-export const bucketsOverviewSeriesPointSchema = z
-  .object({
-    timestamp: z
-      .string()
-      .datetime()
-      .describe(
-        "ISO 8601 UTC timestamp of the bucket's **start** edge (the bucket covers `[timestamp, timestamp + interval)`)."
-      ),
-    uploads: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Count of stored files created during this bucket interval. Read from the storage catalog, so deleting a file lowers the interval it was uploaded into.'
-      ),
-    bytes: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe('Sum of the byte sizes of the files counted by `uploads` for this interval.'),
-  })
-  .openapi('BucketsOverviewSeriesPoint')
+export const bucketsOverviewSeriesPointSchema = Schema.Struct({
+  timestamp: looseIsoDateTime({
+    description:
+      "ISO 8601 UTC timestamp of the bucket's **start** edge (the bucket covers `[timestamp, timestamp + interval)`).",
+  }),
+  uploads: Schema.Int.annotate({
+    description:
+      'Count of stored files created during this bucket interval. Read from the storage catalog, so deleting a file lowers the interval it was uploaded into.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  bytes: Schema.Int.annotate({
+    description: 'Sum of the byte sizes of the files counted by `uploads` for this interval.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+}).annotate({ identifier: 'BucketsOverviewSeriesPoint' })
 
 /**
  * Per-provider aggregate snapshot. Reports current-state counts of buckets
@@ -117,54 +109,40 @@ export const bucketsOverviewSeriesPointSchema = z
  * The three keys are present even when the count is zero — fixed-shape
  * objects are easier to render in the dashboard than sparse maps.
  */
-export const bucketsOverviewByProviderSchema = z
-  .object({
-    s3: z.number().int().nonnegative().describe('Count of S3 buckets currently configured.'),
-    local: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe('Count of local-filesystem buckets currently configured.'),
-    bytea: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe('Count of Postgres-bytea buckets currently configured.'),
-  })
-  .openapi('BucketsOverviewByProvider')
+export const bucketsOverviewByProviderSchema = Schema.Struct({
+  s3: Schema.Int.annotate({ description: 'Count of S3 buckets currently configured.' }).pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(0))
+  ),
+  local: Schema.Int.annotate({
+    description: 'Count of local-filesystem buckets currently configured.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  bytea: Schema.Int.annotate({
+    description: 'Count of Postgres-bytea buckets currently configured.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+}).annotate({ identifier: 'BucketsOverviewByProvider' })
 
 /**
  * Right-edge "totals" block — the current-state snapshot complementing the
  * historical `series` block.
  */
-export const bucketsOverviewTotalsSchema = z
-  .object({
-    buckets: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Number of live (non-deleted) buckets the app declares in `app.buckets`, or 1 for the virtual `default` bucket when it declares none. Zero when no storage provider resolves — a declaration that cannot store a byte is not a bucket.'
-      ),
-    files: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Total number of stored files across every live bucket. A GLOBAL figure, never the per-bucket figure multiplied by the bucket count: Sovrium stores every upload under a flat `<uuid>-<filename>` key with no bucket component, so there is no per-bucket attribution to sum over.'
-      ),
-    totalBytes: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Sum of stored file sizes in bytes across every live bucket. Identical semantics to the retired `/api/admin/buckets/quota.totalBytes` (preserved for migration parity).'
-      ),
-    by_provider: bucketsOverviewByProviderSchema.describe(
-      'Per-provider bucket-count breakdown. The sum of `by_provider.{s3,local,bytea}` always equals `totals.buckets`.'
-    ),
-  })
-  .openapi('BucketsOverviewTotals')
+export const bucketsOverviewTotalsSchema = Schema.Struct({
+  buckets: Schema.Int.annotate({
+    description:
+      'Number of live (non-deleted) buckets the app declares in `app.buckets`, or 1 for the virtual `default` bucket when it declares none. Zero when no storage provider resolves — a declaration that cannot store a byte is not a bucket.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  files: Schema.Int.annotate({
+    description:
+      'Total number of stored files across every live bucket. A GLOBAL figure, never the per-bucket figure multiplied by the bucket count: Sovrium stores every upload under a flat `<uuid>-<filename>` key with no bucket component, so there is no per-bucket attribution to sum over.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  totalBytes: Schema.Int.annotate({
+    description:
+      'Sum of stored file sizes in bytes across every live bucket. Identical semantics to the retired `/api/admin/buckets/quota.totalBytes` (preserved for migration parity).',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  by_provider: bucketsOverviewByProviderSchema.annotate({
+    description:
+      'Per-provider bucket-count breakdown. The sum of `by_provider.{s3,local,bytea}` always equals `totals.buckets`.',
+  }),
+}).annotate({ identifier: 'BucketsOverviewTotals' })
 
 /**
  * The historical `series` block. `interval` is server-determined from the
@@ -180,39 +158,34 @@ export const bucketsOverviewTotalsSchema = z
  * components iterate left-to-right and operators expect the rightmost
  * point to be "now".
  */
-export const bucketsOverviewSeriesSchema = z
-  .object({
-    interval: seriesIntervalSchema,
-    points: z
-      .array(bucketsOverviewSeriesPointSchema)
-      .describe(
-        'Time-bucketed upload history. Length is fixed per preset (24, 7, or 30 entries). Empty intervals emit zeros, not gaps.'
-      ),
-  })
-  .openapi('BucketsOverviewSeries')
+export const bucketsOverviewSeriesSchema = Schema.Struct({
+  interval: seriesIntervalSchema,
+  points: Schema.Array(bucketsOverviewSeriesPointSchema).annotate({
+    description:
+      'Time-bucketed upload history. Length is fixed per preset (24, 7, or 30 entries). Empty intervals emit zeros, not gaps.',
+  }),
+}).annotate({ identifier: 'BucketsOverviewSeries' })
 
 /**
  * Response schema for `GET /api/admin/buckets/overview`.
  */
-export const bucketsOverviewResponseSchema = z
-  .object({
-    totals: bucketsOverviewTotalsSchema,
-    series: bucketsOverviewSeriesSchema,
-  })
-  .openapi('BucketsOverviewResponse')
+export const bucketsOverviewResponseSchema = Schema.Struct({
+  totals: bucketsOverviewTotalsSchema,
+  series: bucketsOverviewSeriesSchema,
+}).annotate({ identifier: 'BucketsOverviewResponse' })
 
 /**
  * TypeScript types inferred from the schemas.
  * @public
  */
-export type BucketsOverviewQuery = z.infer<typeof bucketsOverviewQuerySchema>
+export type BucketsOverviewQuery = typeof bucketsOverviewQuerySchema.Type
 /** @public */
-export type BucketsOverviewSeriesPoint = z.infer<typeof bucketsOverviewSeriesPointSchema>
+export type BucketsOverviewSeriesPoint = typeof bucketsOverviewSeriesPointSchema.Type
 /** @public */
-export type BucketsOverviewByProvider = z.infer<typeof bucketsOverviewByProviderSchema>
+export type BucketsOverviewByProvider = typeof bucketsOverviewByProviderSchema.Type
 /** @public */
-export type BucketsOverviewTotals = z.infer<typeof bucketsOverviewTotalsSchema>
+export type BucketsOverviewTotals = typeof bucketsOverviewTotalsSchema.Type
 /** @public */
-export type BucketsOverviewSeries = z.infer<typeof bucketsOverviewSeriesSchema>
+export type BucketsOverviewSeries = typeof bucketsOverviewSeriesSchema.Type
 /** @public */
-export type BucketsOverviewResponse = z.infer<typeof bucketsOverviewResponseSchema>
+export type BucketsOverviewResponse = typeof bucketsOverviewResponseSchema.Type

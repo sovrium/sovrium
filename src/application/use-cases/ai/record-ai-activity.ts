@@ -34,4 +34,4 @@ export const recordAiActivity = (
   Effect.gen(function* () {
     const repo = yield* AiActivityLogRepository
     yield* repo.append(row)
-  })
+  }).pipe(Effect.withSpan('ai.record-ai-activity'))

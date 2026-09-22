@@ -31,7 +31,7 @@
  * bucket grid.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   AdminAutomationsRepository,
   type AdminAutomationOverviewRow,
@@ -40,10 +40,12 @@ import {
 } from '@/application/ports/repositories/automations/admin-automations-repository'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import {
-  resolvePeriodWindow,
-  type PeriodPreset,
-  type PeriodWindow,
-} from '@/domain/models/api/admin/_shared/period-preset'
+  bucketRowsByTimestamp,
+  buildDenseBucketGrid,
+  coerceTimestampToMs,
+  DAY_MS,
+  intervalStepMs,
+} from '@/domain/kernel/time/time-series-bucketing'
 import {
   automationsOverviewResponseSchema,
   automationsRunsDetailWithStepsResponseSchema,
@@ -54,16 +56,13 @@ import {
   type AutomationsOverviewSeriesPoint,
   type AutomationsRunsDetailWithStepsResponse,
 } from '@/domain/models/api/admin/automations'
-import { runStatusSchema, type RunStatus } from '@/domain/models/api/automations'
 import {
-  bucketRowsByTimestamp,
-  buildDenseBucketGrid,
-  coerceTimestampToMs,
-  DAY_MS,
-  intervalStepMs,
-} from '@/domain/utils/time-series-bucketing'
-import { AdminAutomationsRepositoryLive } from '@/infrastructure/database/repositories/automations/admin-automations-repository-live'
-import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-repository-live'
+  resolvePeriodWindow,
+  type PeriodPreset,
+  type PeriodWindow,
+} from '@/domain/models/api/admin/envelope/period-preset'
+import { runStatusSchema, type RunStatus } from '@/domain/models/api/automations'
+import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import type { App } from '@/domain/models/app'
 
 // ─── Shared item helpers ───────────────────────────────────────────────────────
@@ -85,7 +84,7 @@ function toIso(value: Readonly<Date> | string | null | undefined): string | null
  * malformed values fall back to 'pending' so the response always validates.
  */
 function coerceStatus(raw: unknown): RunStatus {
-  const parsed = runStatusSchema.safeParse(raw)
+  const parsed = decodeSafe(runStatusSchema)(raw)
   return parsed.success ? parsed.data : 'pending'
 }
 
@@ -110,7 +109,6 @@ function resolveTriggerType(app: App, automationName: string): string {
 function buildAdminRunItem(
   row: AdminAutomationRunRow,
   triggerType: string
-  // eslint-disable-next-line functional/prefer-immutable-types -- AutomationRunAdminItem is the Zod-inferred response shape (upstream-mutable); the route serializes it straight to JSON without mutating
 ): AutomationRunAdminItem {
   const startedAtIso = toIso(row.startedAt) ?? toIso(row.createdAt) ?? new Date().toISOString()
   return {
@@ -295,12 +293,12 @@ export const BuildAutomationsOverview = (
       },
     } satisfies AutomationsOverviewResponse
 
-    const parsed = automationsOverviewResponseSchema.safeParse(body)
+    const parsed = decodeSafe(automationsOverviewResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
     return { _tag: 'Ok', body: parsed.data } as const
-  })
+  }).pipe(Effect.withSpan('admin.build-automations-overview'))
 
 // ─── Runs-list use case ─────────────────────────────────────────────────────────
 
@@ -409,7 +407,7 @@ export const BuildAdminRunsList = (
     // eslint-disable-next-line unicorn/no-null -- the tri-state contract distinguishes `null` (searches, no term) from an ABSENT key (does not search)
     const appliedQuery = input.q ?? null
     const body = { items, nextCursor, appliedQuery }
-    const parsed = automationsRunsListResponseSchema.safeParse(body)
+    const parsed = decodeSafe(automationsRunsListResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
@@ -417,7 +415,7 @@ export const BuildAdminRunsList = (
       _tag: 'Ok',
       body: { items: parsed.data.items, nextCursor: parsed.data.nextCursor, appliedQuery },
     } as const
-  })
+  }).pipe(Effect.withSpan('admin.build-admin-runs-list'))
 
 // ─── Run-detail use case ────────────────────────────────────────────────────────
 
@@ -445,13 +443,14 @@ export type AdminRunDetailOutcome =
  */
 function buildAdminRunStep(step: {
   readonly actionName: string
+  readonly stepIndex: number
   readonly status: string
   readonly input: unknown
   readonly output: unknown
   readonly error: string | null
-  // eslint-disable-next-line functional/prefer-immutable-types -- AdminRunStep is the Zod-inferred shape (upstream-mutable); serialized straight to JSON
 }): AdminRunStep {
   return {
+    index: step.stepIndex,
     name: step.actionName,
     status: step.status,
     // eslint-disable-next-line unicorn/no-null -- schema declares input/output `.nullable()`; null is the canonical absent value
@@ -487,25 +486,16 @@ export const BuildAdminRunDetail = (
     // Fetch the per-step I/O rows (best-effort: a step read failure degrades to
     // an empty step list rather than failing the whole detail read).
     const runRepo = yield* AutomationRunRepository
-    const stepRows = yield* runRepo
-      .findStepsByRunId(runId)
-      .pipe(Effect.orElseSucceed(() => [] as const))
+    const stepRows = yield* runRepo.findStepsByRunId(runId).pipe(
+      // effect-swallow: stated two lines up — the run's own row has already been read and IS the answer; the per-step I/O is detail, and losing it degrades the detail view rather than failing it.
+      Effect.orElseSucceed(() => [] as const)
+    )
     const steps = stepRows.map(buildAdminRunStep)
 
     const item = buildAdminRunItem(row, resolveTriggerType(app, row.automationName))
-    const parsed = automationsRunsDetailWithStepsResponseSchema.safeParse({ ...item, steps })
+    const parsed = decodeSafe(automationsRunsDetailWithStepsResponseSchema)({ ...item, steps })
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
     return { _tag: 'Ok', body: parsed.data } as const
-  })
-
-/**
- * Application layer for the admin-automations use cases. Merges the admin
- * read repository (overview / list / detail row reads) with the automation-run
- * repository (per-step I/O reads for the run-detail panel).
- */
-export const AdminAutomationsLayer = Layer.mergeAll(
-  AdminAutomationsRepositoryLive,
-  AutomationRunRepositoryLive
-)
+  }).pipe(Effect.withSpan('admin.build-admin-run-detail'))

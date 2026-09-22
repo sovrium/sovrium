@@ -23,8 +23,10 @@ import {
   readAiComputeStatusesForRecords,
   type AiComputeFieldStatus,
 } from '@/infrastructure/database/ai-compute-status-repository'
+import { logError } from '@/infrastructure/logging/logger'
+import { AiComputeStoreError } from './refine-field'
 import type { App } from '@/domain/models/app'
-import type { AiComputeKind } from '@/domain/services/ai-compute/baseline'
+import type { AiComputeKind } from '@/domain/models/app/tables/ai-compute-baseline'
 
 const AI_COMPUTE_KINDS: ReadonlySet<string> = new Set<AiComputeKind>([
   'ai-summary',
@@ -76,7 +78,12 @@ const toProjection = (
  * The read itself is a single `WHERE record_id IN (…)` — the repository has
  * always accepted a batch, it was simply only ever called with one id.
  *
- * The returned Effect never fails (best-effort read).
+ * The returned Effect never fails — and now actually does not. The status read
+ * used to run under `Effect.promise`, so the `never` was a claim rather than a
+ * fact: a rejecting read became a defect and took down the whole record-list
+ * response that this decoration hangs off. The read is typed, logged, and
+ * degraded to "no projections", which is the same thing a caller sees for a
+ * table whose worker has not run yet.
  */
 export const buildAiComputeProjections = (
   app: App,
@@ -86,8 +93,19 @@ export const buildAiComputeProjections = (
   Effect.gen(function* () {
     if (recordIds.length === 0) return new Map()
     if (!tableHasAiComputeFields(app, tableName)) return new Map()
-    const statuses = yield* Effect.promise(() =>
-      readAiComputeStatusesForRecords(app.name, tableName, recordIds)
+    const statuses = yield* Effect.tryPromise({
+      try: () => readAiComputeStatusesForRecords(app.name, tableName, recordIds),
+      catch: (cause) => new AiComputeStoreError({ step: 'read-status', cause }),
+    }).pipe(
+      Effect.tapCause((cause) =>
+        Effect.sync(() => {
+          logError('[ai-compute] status projection read failed', cause, { tableName })
+        })
+      ),
+      // effect-swallow: see the tap above — the cause is logged first. This is a
+      // decoration on a record list, so losing it degrades the response to the
+      // pre-worker state rather than failing a read the user did ask for.
+      Effect.orElseSucceed(() => new Map<string, Record<string, AiComputeFieldStatus>>())
     )
     return new Map(
       [...statuses.entries()].flatMap(([recordId, forRecord]) => {
@@ -95,7 +113,7 @@ export const buildAiComputeProjections = (
         return projection ? [[recordId, projection] as const] : []
       })
     )
-  })
+  }).pipe(Effect.withSpan('ai-compute.build-ai-compute-projections'))
 
 /**
  * Build the `_aiCompute` projection for ONE record. Returns `undefined` when
@@ -113,4 +131,4 @@ export const buildAiComputeProjection = (
 ): Effect.Effect<AiComputeProjection | undefined, never> =>
   Effect.map(buildAiComputeProjections(app, tableName, [recordId]), (byRecord) =>
     byRecord.get(String(recordId))
-  )
+  ).pipe(Effect.withSpan('ai-compute.build-ai-compute-projection'))

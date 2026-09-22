@@ -81,7 +81,10 @@ export const formatOauthClientIdCollisionMessage = (
  * Normalise a driver row into {@link OauthClientIdCollisionRow}.
  *
  * Counts come back as a number on SQLite and as a string from Postgres, which
- * returns `COUNT(*)` as a bigint.
+ * returns `COUNT(*)` as a 64-bit integer. `Number()` is load-bearing rather than
+ * defensive: it is also what keeps this correct if a driver hands back a BigInt
+ * instead, as drizzle-orm 1.0.0-rc.4 did until the migration client stopped
+ * forcing that option on.
  */
 const toCollisionRow = (row: Readonly<Record<string, unknown>>): OauthClientIdCollisionRow => ({
   clientId: String(row['client_id'] ?? ''),

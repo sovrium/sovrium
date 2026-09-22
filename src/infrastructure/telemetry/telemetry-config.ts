@@ -19,7 +19,10 @@
  * "telemetry off" rather than crashing a running server.
  */
 
-import { parseTelemetryConfig, type TelemetryConfig } from '@/domain/models/env/telemetry/telemetry'
+import {
+  parseTelemetryConfig,
+  type TelemetryConfig,
+} from '@/domain/models/process-env/telemetry/telemetry'
 
 /** The empty config — every signal off. */
 const OFF: TelemetryConfig = {}

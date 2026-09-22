@@ -19,11 +19,12 @@
  *
  * @see plan §6.4 (canonical `series` rollup shape — locked in story #1)
  * @see [internal ref] D5 (locked `series` rollup with fixed buckets)
- * @see src/domain/models/api/admin/_shared/period-preset.ts (CC-2 — story #1)
+ * @see src/domain/models/api/admin/envelope/period-preset.ts (CC-2 — story #1)
  */
 
-import { z } from '@hono/zod-openapi'
-import { periodPresetSchema } from '@/domain/models/api/admin/_shared/period-preset'
+import { Schema } from 'effect'
+import { periodPresetSchema } from '@/domain/models/api/admin/envelope/period-preset'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
 
 /**
  * Query parameters accepted by `GET /api/admin/users/overview`.
@@ -33,33 +34,31 @@ import { periodPresetSchema } from '@/domain/models/api/admin/_shared/period-pre
  * the overview is a tile, not a report. Adding `?inactive_for=` later would not
  * break this contract.
  */
-export const usersOverviewQuerySchema = z
-  .object({
-    period: periodPresetSchema,
-  })
-  .openapi('UsersOverviewQuery')
+export const usersOverviewQuerySchema = Schema.Struct({
+  period: periodPresetSchema,
+}).annotate({ identifier: 'UsersOverviewQuery' })
 
 /**
- * Use `z.infer<typeof usersOverviewQuerySchema>` (resolved type with the default
+ * Use `typeof usersOverviewQuerySchema.Type` (resolved type with the default
  * applied) rather than `z.input<...>` so handler code can treat `period` as a
  * literal `PeriodPreset`, not `PeriodPreset | undefined`. Per the brief: the
  * default-fill happens at the Zod parse layer before the handler runs.
  * @public
  */
-export type UsersOverviewQuery = z.infer<typeof usersOverviewQuerySchema>
+export type UsersOverviewQuery = typeof usersOverviewQuerySchema.Type
 
 /**
  * Bucket interval used by the response `series.interval` field.
  *
- * Re-declared locally rather than re-exported from `_shared/period-preset.ts`
+ * Re-declared locally rather than re-exported from `envelope/period-preset.ts`
  * because the `1h` / `1d` literal union is a response-shape concern (visible
  * to OpenAPI consumers as part of `UsersOverviewResponse`) while the period
  * preset is a request-shape concern. Both schemas agree on the values; the
  * agreement is structural, not by import.
  */
-const seriesIntervalSchema = z
-  .enum(['1h', '1d'])
-  .describe('Bucket size for the rollup. 1h for 24h period; 1d for 7d/30d periods.')
+const seriesIntervalSchema = Schema.Literals(['1h', '1d']).annotate({
+  description: 'Bucket size for the rollup. 1h for 24h period; 1d for 7d/30d periods.',
+})
 
 /**
  * One bucketed point on the `series` rollup.
@@ -71,28 +70,19 @@ const seriesIntervalSchema = z
  * open sessions without signing up. Both are integers ≥ 0, scoped to the
  * half-open bucket window `[bucket_start, bucket_start + interval)`.
  */
-const seriesPointSchema = z
-  .object({
-    timestamp: z
-      .string()
-      .datetime()
-      .describe(
-        'ISO 8601 UTC timestamp at the start of the bucket. For 1h buckets, the minute and second components are zeroed; for 1d buckets, the time component is zeroed (start of day in UTC).'
-      ),
-    signups: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe('Total users whose created_at falls within this bucket.'),
-    sessions_started: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Total sessions whose created_at falls within this bucket. May exceed `signups` because returning users open sessions without signing up.'
-      ),
-  })
-  .openapi('UsersOverviewSeriesPoint')
+const seriesPointSchema = Schema.Struct({
+  timestamp: looseIsoDateTime({
+    description:
+      'ISO 8601 UTC timestamp at the start of the bucket. For 1h buckets, the minute and second components are zeroed; for 1d buckets, the time component is zeroed (start of day in UTC).',
+  }),
+  signups: Schema.Int.annotate({
+    description: 'Total users whose created_at falls within this bucket.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  sessions_started: Schema.Int.annotate({
+    description:
+      'Total sessions whose created_at falls within this bucket. May exceed `signups` because returning users open sessions without signing up.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+}).annotate({ identifier: 'UsersOverviewSeriesPoint' })
 
 /**
  * Per-role count breakdown — exhaustive over the three installed Sovrium roles.
@@ -107,13 +97,19 @@ const seriesPointSchema = z
  * If a fifth role is added in a future feature, this schema gets a
  * non-breaking additive field alongside the existing four.
  */
-const byRoleSchema = z
-  .object({
-    admin: z.number().int().nonnegative().describe('Users holding the `admin` role.'),
-    operator: z.number().int().nonnegative().describe('Users holding the `operator` role.'),
-    member: z.number().int().nonnegative().describe('Users holding the `member` role.'),
-  })
-  .describe('Per-role count breakdown. The sum across all three roles equals `totals.users`.')
+const byRoleSchema = Schema.Struct({
+  admin: Schema.Int.annotate({ description: 'Users holding the `admin` role.' }).pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(0))
+  ),
+  operator: Schema.Int.annotate({ description: 'Users holding the `operator` role.' }).pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(0))
+  ),
+  member: Schema.Int.annotate({ description: 'Users holding the `member` role.' }).pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(0))
+  ),
+}).annotate({
+  description: 'Per-role count breakdown. The sum across all three roles equals `totals.users`.',
+})
 
 /**
  * Response shape of `GET /api/admin/users/overview`.
@@ -141,54 +137,38 @@ const byRoleSchema = z
  *   PII-free by construction (integer aggregates only) so it is safe to surface
  *   to the operator tier.
  */
-export const usersOverviewResponseSchema = z
-  .object({
-    totals: z
-      .object({
-        users: z
-          .number()
-          .int()
-          .nonnegative()
-          .describe(
-            'Total live users in the auth.user table (excluding soft-deleted rows). Equals `by_role.admin + by_role.operator + by_role.member` per the single-role-per-user invariant.'
-          ),
-        active_24h: z
-          .number()
-          .int()
-          .nonnegative()
-          .describe(
-            'Distinct users with session activity in the last 24 hours, regardless of the requested period.'
-          ),
-        new_in_period: z
-          .number()
-          .int()
-          .nonnegative()
-          .describe(
-            'Users created within the requested period (24h / 7d / 30d). Equals the sum of `series.points[].signups` for the same period.'
-          ),
-        by_role: byRoleSchema,
-      })
-      .describe('Period-aware aggregate counters surfaced as dashboard tiles.'),
-    series: z
-      .object({
-        interval: seriesIntervalSchema,
-        points: z
-          .array(seriesPointSchema)
-          .describe(
-            'Dense, ascending-by-timestamp series of buckets covering the requested period. Empty buckets are present with zero counts.'
-          ),
-      })
-      .describe('Bucketed time series for chart rendering.'),
-  })
-  .openapi('UsersOverviewResponse')
+export const usersOverviewResponseSchema = Schema.Struct({
+  totals: Schema.Struct({
+    users: Schema.Int.annotate({
+      description:
+        'Total live users in the auth.user table (excluding soft-deleted rows). Equals `by_role.admin + by_role.operator + by_role.member` per the single-role-per-user invariant.',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+    active_24h: Schema.Int.annotate({
+      description:
+        'Distinct users with session activity in the last 24 hours, regardless of the requested period.',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+    new_in_period: Schema.Int.annotate({
+      description:
+        'Users created within the requested period (24h / 7d / 30d). Equals the sum of `series.points[].signups` for the same period.',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+    by_role: byRoleSchema,
+  }).annotate({ description: 'Period-aware aggregate counters surfaced as dashboard tiles.' }),
+  series: Schema.Struct({
+    interval: seriesIntervalSchema,
+    points: Schema.Array(seriesPointSchema).annotate({
+      description:
+        'Dense, ascending-by-timestamp series of buckets covering the requested period. Empty buckets are present with zero counts.',
+    }),
+  }).annotate({ description: 'Bucketed time series for chart rendering.' }),
+}).annotate({ identifier: 'UsersOverviewResponse' })
 
 /**
- * Use `z.infer<typeof usersOverviewResponseSchema>` (resolved type) so consumer
+ * Use `typeof usersOverviewResponseSchema.Type` (resolved type) so consumer
  * code can read response fields as plain non-optional values rather than the
  * pre-defaults input type. The handler is responsible for emitting all required
  * fields; the schema's `.parse()` is the contract gate at both ends.
  * @public
  */
-export type UsersOverviewResponse = z.infer<typeof usersOverviewResponseSchema>
+export type UsersOverviewResponse = typeof usersOverviewResponseSchema.Type
 /** @public */
-export type UsersOverviewSeriesPoint = z.infer<typeof seriesPointSchema>
+export type UsersOverviewSeriesPoint = typeof seriesPointSchema.Type

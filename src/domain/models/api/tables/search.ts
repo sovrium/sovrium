@@ -5,15 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 // ---------------------------------------------------------------------------
 // Search engine enum (mirrors Effect Schema SearchEngineSchema)
 // ---------------------------------------------------------------------------
 
-export const searchEngineEnum = z
-  .enum(['client', 'fts', 'trigram', 'hybrid'])
-  .describe('Search backend engine used for the query')
+export const searchEngineEnum = Schema.Literals(['client', 'fts', 'trigram', 'hybrid']).annotate({
+  description: 'Search backend engine used for the query',
+})
 
 // ---------------------------------------------------------------------------
 // Search request schema
@@ -24,21 +25,37 @@ export const searchEngineEnum = z
  *
  * Used for:
  * - OpenAPI documentation generation
- * - Runtime API request validation via @hono/zod-validator
+ * - Runtime API request validation via `effectValidator`
  * - Hono RPC client type inference
  */
-export const searchRequestSchema = z.object({
-  query: z.string().min(1).describe('Search query string'),
-  table: z.string().min(1).describe('Table name to search'),
-  fields: z
-    .array(z.string().min(1))
-    .min(1)
-    .optional()
-    .describe('Specific fields to search (defaults to all indexed fields)'),
-  engine: searchEngineEnum.optional().describe('Search engine override (defaults to client)'),
-  limit: z.number().int().positive().max(200).optional().describe('Maximum results to return'),
-  offset: z.number().int().min(0).optional().describe('Pagination offset'),
-  highlight: z.boolean().optional().describe('Return highlight snippets for matched terms'),
+export const searchRequestSchema = Schema.Struct({
+  query: Schema.String.annotate({ description: 'Search query string' }).pipe(
+    Schema.check(Schema.isMinLength(1))
+  ),
+  table: Schema.String.annotate({ description: 'Table name to search' }).pipe(
+    Schema.check(Schema.isMinLength(1))
+  ),
+  fields: optionalField(
+    Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1))))
+      .annotate({ description: 'Specific fields to search (defaults to all indexed fields)' })
+      .pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  engine: optionalField(
+    searchEngineEnum.annotate({ description: 'Search engine override (defaults to client)' })
+  ),
+  limit: optionalField(
+    Schema.Int.annotate({ description: 'Maximum results to return' }).pipe(
+      Schema.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(200))
+    )
+  ),
+  offset: optionalField(
+    Schema.Int.annotate({ description: 'Pagination offset' }).pipe(
+      Schema.check(Schema.isGreaterThanOrEqualTo(0))
+    )
+  ),
+  highlight: optionalField(
+    Schema.Boolean.annotate({ description: 'Return highlight snippets for matched terms' })
+  ),
 })
 
 // ---------------------------------------------------------------------------
@@ -48,14 +65,19 @@ export const searchRequestSchema = z.object({
 /**
  * A single search result with optional relevance score and highlights.
  */
-export const searchResultItemSchema = z.object({
-  id: z.string().describe('Record primary key'),
-  score: z.number().optional().describe('Relevance score (FTS/hybrid engine only)'),
-  highlights: z
-    .record(z.string(), z.string())
-    .optional()
-    .describe('Map of field name to highlighted snippet with <mark> tags'),
-  record: z.record(z.string(), z.unknown()).describe('Full or partial record data'),
+export const searchResultItemSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Record primary key' }),
+  score: optionalField(
+    Schema.Finite.annotate({ description: 'Relevance score (FTS/hybrid engine only)' })
+  ),
+  highlights: optionalField(
+    Schema.Record(Schema.String, Schema.String).annotate({
+      description: 'Map of field name to highlighted snippet with <mark> tags',
+    })
+  ),
+  record: Schema.Record(Schema.String, Schema.Unknown).annotate({
+    description: 'Full or partial record data',
+  }),
 })
 
 // ---------------------------------------------------------------------------
@@ -70,17 +92,19 @@ export const searchResultItemSchema = z.object({
  * - Runtime API response validation
  * - Hono RPC client type inference
  */
-export const searchResponseSchema = z.object({
-  results: z.array(searchResultItemSchema).describe('Matching records'),
-  total: z.number().int().min(0).describe('Total number of matching records'),
-  query: z.string().describe('Echo of the search query'),
-  engine: searchEngineEnum.describe('Engine that was used for the query'),
+export const searchResponseSchema = Schema.Struct({
+  results: Schema.Array(searchResultItemSchema).annotate({ description: 'Matching records' }),
+  total: Schema.Int.annotate({ description: 'Total number of matching records' }).pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(0))
+  ),
+  query: Schema.String.annotate({ description: 'Echo of the search query' }),
+  engine: searchEngineEnum.annotate({ description: 'Engine that was used for the query' }),
 })
 
 // ---------------------------------------------------------------------------
 // Type exports
 // ---------------------------------------------------------------------------
 
-export type SearchRequest = z.infer<typeof searchRequestSchema>
-export type SearchResultItem = z.infer<typeof searchResultItemSchema>
-export type SearchResponse = z.infer<typeof searchResponseSchema>
+export type SearchRequest = typeof searchRequestSchema.Type
+export type SearchResultItem = typeof searchResultItemSchema.Type
+export type SearchResponse = typeof searchResponseSchema.Type

@@ -17,7 +17,7 @@
  *
  * ─── THE CONFIDENTIALITY BOUND ──────────────────────────────────────────────
  *
- * This reads `app.design.*` (equivalently the deprecated top-level `app.theme`,
+ * This reads `app.design.*` (equivalently the deprecated top-level `app.design`,
  * which `normalizeAppDesign` mirrors at the decode boundary) and NOTHING ELSE.
  * It never resolves an `app.env[]` value — `app.env[]` declares NAMES, and
  * resolving one here would re-implement `/_admin/env` without [internal ref] A1's
@@ -33,8 +33,8 @@
  * vanish without trace either. Two buckets carry the difference:
  *
  *  - **`inert`** — declared, validated, and then discarded by the renderer
- * ([internal ref]: `fonts.*.lineHeight` reaches nothing; `fonts.*.size` and
- *    `.weights` reach only the legacy `hero` section renderer). Each entry
+ * ([internal ref]: all three of `fonts.*.lineHeight`, `.size` and `.weights`
+ *    reach nothing at all). Each entry
  *    carries the REASON, so the author can stop maintaining it. These three are
  * now SUPERSEDED by `design.typeScale` and are still reported
  *    here, because supersession does not make a declaration take effect — the
@@ -45,25 +45,29 @@
  *    a single-mode document. Their raw text is preserved verbatim.
  */
 
+import { projectCatalogue } from '@/application/use-cases/admin/design-system-catalogue-export'
 import { SOVRIUM_EXTENSION_KEY } from '@/domain/models/api/admin/design-system'
-import { TYPE_SCALE_STEPS } from '@/domain/models/app/design/type-scale'
 import {
   INHERITED_BREAKPOINT_TOKENS,
   INHERITED_COLOR_TOKENS,
   INHERITED_DURATION_TOKENS,
   INHERITED_FONT_TOKENS,
+  INHERITED_EASING_TOKENS,
   INHERITED_RADIUS_TOKENS,
+  INHERITED_SHADOW_TOKENS,
   INHERITED_SPACING_TOKENS,
-} from '@/domain/services/design-system/inherited-tokens'
+} from '@/domain/models/app/design/inherited-tokens'
 import {
   parseColorValue,
+  parseCubicBezierValue,
   parseDimensionValue,
   parseDurationValue,
-} from '@/domain/services/design-system/token-values'
+} from '@/domain/models/app/design/token-value-dtcg-service'
+import { TYPE_SCALE_STEPS } from '@/domain/models/app/design/type-scale'
 import type { DesignSystemDocument } from '@/domain/models/api/admin/design-system'
 import type { App } from '@/domain/models/app'
-import type { TypeScale } from '@/domain/models/app/design/type-scale'
-import type { Theme } from '@/domain/models/app/theme'
+import type { Design } from '@/domain/models/app/design'
+import type { TypeScale, TypeScaleSteps } from '@/domain/models/app/design/type-scale'
 
 /** One declared value the renderer discards, with the reason it does. */
 interface InertEntry {
@@ -129,9 +133,9 @@ function projectGroup<V>(input: ProjectGroupInput<V>): Projection<{
 const INERT_FONT_FIELDS: Readonly<Record<string, string>> = {
   lineHeight:
     'Declared and validated, but no renderer reads it — `generateThemeFonts` emits no line-height variable and nothing else in the engine consumes the value.',
-  size: 'Reaches only the legacy `hero` section renderer as an inline font size. It never becomes a CSS variable, so no other surface honours it.',
+  size: 'Declared and validated, but no renderer reads it — its one consumer was the withdrawn `hero` section renderer, and it never became a CSS variable.',
   weights:
-    'Only the first entry reaches the legacy `hero` section renderer. No additional font face is loaded, so the extra weights render as synthetic bolding or not at all.',
+    'Declared and validated, but no renderer reads it — only the first entry was ever read, by the withdrawn `hero` section renderer. No additional font face is loaded, so extra weights render as synthetic bolding or not at all.',
 }
 
 /**
@@ -162,7 +166,7 @@ const fontStack = (font: {
       ]
 
 /** Every inert declaration across the app's declared font categories. */
-const collectInertFontFields = (fonts: Theme['fonts']): readonly InertEntry[] =>
+const collectInertFontFields = (fonts: TypeScale['families']): readonly InertEntry[] =>
   Object.entries(fonts ?? {}).flatMap(([category, font]) =>
     Object.entries(INERT_FONT_FIELDS).flatMap(([field, reason]) => {
       const declared = (font as Readonly<Record<string, unknown>>)[field]
@@ -170,7 +174,7 @@ const collectInertFontFields = (fonts: Theme['fonts']): readonly InertEntry[] =>
         ? []
         : [
             {
-              path: `design.theme.fonts.${category}.${field}`,
+              path: `design.typeScale.families.${category}.${field}`,
               declared: asDeclaredText(declared),
               reason,
             },
@@ -179,14 +183,16 @@ const collectInertFontFields = (fonts: Theme['fonts']): readonly InertEntry[] =>
   )
 
 /** Font fields that ship but this document cannot type. */
-const collectUnmappableFontFields = (fonts: Theme['fonts']): Readonly<Record<string, string>> =>
+const collectUnmappableFontFields = (
+  fonts: TypeScale['families']
+): Readonly<Record<string, string>> =>
   Object.fromEntries(
     Object.entries(fonts ?? {}).flatMap(([category, font]) =>
       UNMAPPABLE_FONT_FIELDS.flatMap((field) => {
         const declared = (font as Readonly<Record<string, unknown>>)[field]
         return declared === undefined
           ? []
-          : [[`design.theme.fonts.${category}.${field}`, asDeclaredText(declared)] as const]
+          : [[`design.typeScale.families.${category}.${field}`, asDeclaredText(declared)] as const]
       })
     )
   )
@@ -199,25 +205,55 @@ const atPath = (
   Object.fromEntries(Object.entries(values ?? {}).map(([name, raw]) => [`${path}.${name}`, raw]))
 
 /**
- * The `duration` sub-record of `theme.animations`, when the author used the
- * nested token form rather than the legacy flat animation names.
+ * One string-valued LADDER of `design.motion`.
+ *
+ * These used to be reserved keys INSIDE the animation map, read as
+ * `animations.duration` / `animations.easing`. They are siblings of
+ * `animations` now, so reading the old path returns nothing at all — the
+ * export would have reported an app with a full duration ladder as having
+ * none, and said so in a document whose whole purpose is to be believed.
+ *
+ * The defensiveness stays. This runs over a decoded config, but the document
+ * is also built for configs read through looser paths, and a value of the
+ * wrong shape must yield `{}` rather than throw: a design-system export that
+ *500s is worse than one that reports an empty group.
  */
-const durationTokensOf = (theme: Theme | undefined): Readonly<Record<string, string>> => {
-  const durations = theme?.animations?.['duration']
-  if (typeof durations !== 'object' || durations === null || Array.isArray(durations)) return {}
+const motionLadderOf = (
+  design: Design | undefined,
+  key: 'durations' | 'easings'
+): Readonly<Record<string, string>> => {
+  const tokens = design?.motion?.[key]
+  if (typeof tokens !== 'object' || tokens === null || Array.isArray(tokens)) return {}
   return Object.fromEntries(
-    Object.entries(durations as Readonly<Record<string, unknown>>).flatMap(([name, value]) =>
+    Object.entries(tokens as Readonly<Record<string, unknown>>).flatMap(([name, value]) =>
       typeof value === 'string' ? [[name, value] as const] : []
     )
   )
 }
 
 /**
+ * `design.motion.durations` — the ladder that DOES have a DTCG home, projected
+ * into the `duration` token group.
+ */
+const durationTokensOf = (design: Design | undefined): Readonly<Record<string, string>> =>
+  motionLadderOf(design, 'durations')
+
+/**
+ * `design.motion.easings` — the ladder that does NOT, and is therefore reported
+ * under `unmappable` rather than emitted as a token.
+ */
+const easingTokensOf = (design: Design | undefined): Readonly<Record<string, string>> =>
+  motionLadderOf(design, 'easings')
+
+/** Where a declared easing lives in the config, and how `unmappable` names it. */
+const EASING_PATH = 'design.motion.easings'
+
+/**
  * The `typography` group: one DTCG composite token per declared type-scale step.
  *
  * ─── WHY THIS GROUP EXISTS AND THE INERT FONT FIELDS STILL DO NOT ───────────
  *
- * `theme.fonts.*.size` and `.lineHeight` are reported under `inert` — declared,
+ * `design.typeScale?.families.*.size` and `.lineHeight` are reported under `inert` — declared,
  * validated, discarded. `design.typeScale` is their replacement and appears
  * HERE, in the live token tree, because it genuinely ships: every step emits
  * `--text-{step}` plus its Tailwind modifiers, and a working `text-{step}`
@@ -247,12 +283,9 @@ const trackingOf = (raw: string | undefined) =>
   raw === undefined ? undefined : parseDimensionValue(raw)
 
 const projectTypography = (
-  typeScale: TypeScale | undefined,
-  fonts: Theme['fonts']
-): Projection<{
-  $type: string
-  $value: Readonly<Record<string, unknown>>
-}> => {
+  typeScale: TypeScaleSteps | undefined,
+  fonts: TypeScale['families']
+): Projection<DesignSystemDocument['typography'][string]> => {
   const declaredSteps = TYPE_SCALE_STEPS.flatMap((step) => {
     const declared = typeScale?.[step]
     return declared === undefined ? [] : [[step, declared] as const]
@@ -300,7 +333,7 @@ const projectTypography = (
 /** The font group: the inherited stacks, plus whatever the app declared. */
 type FontToken = Readonly<{ $type: string; $value: readonly string[] }>
 
-const projectFonts = (fonts: Theme['fonts']): Readonly<Record<string, FontToken>> => {
+const projectFonts = (fonts: TypeScale['families']): Readonly<Record<string, FontToken>> => {
   const inherited: readonly (readonly [string, FontToken])[] = Object.entries(
     INHERITED_FONT_TOKENS
   ).map(([name, stack]) => [name, { $type: 'fontFamily', $value: [...stack] }])
@@ -356,9 +389,33 @@ const projectZones = (
     ...optional('voice', entry.voice ? projectVoice(entry.voice) : undefined),
   }))
 
+/**
+ * Component guidance, gathered off the TEMPLATES and re-keyed by name.
+ *
+ * The published `$extensions.components` shape is unchanged — a record of
+ * component name → guidance — because that is the shape every consumer of the
+ * document reads (the markdown projection, the console's Components page, an
+ * agent). What moved is the SOURCE: guidance now lives on the template it
+ * describes (`components[].guidance`) rather than in a parallel
+ * `design.components` record keyed by name.
+ *
+ * Templates without guidance are omitted rather than emitted empty, so the
+ * document distinguishes "documented and says nothing" from "not documented" —
+ * and so an app that documents none produces no key at all, which is what the
+ * console's emptiness registry reads.
+ */
+const projectComponentGuidance = (
+  components: App['components']
+): Readonly<Record<string, unknown>> | undefined => {
+  const documented = (components ?? []).flatMap((component) =>
+    component.guidance ? [[component.name, structuredClone(component.guidance)] as const] : []
+  )
+  return documented.length === 0 ? undefined : Object.fromEntries(documented)
+}
+
 /** The Sovrium guidance layer, mirrored out of `design.*` with its readonly arrays copied. */
-const projectGuidance = (design: App['design']): Readonly<Record<string, unknown>> => {
-  const declared = design ?? {}
+const projectGuidance = (app: App): Readonly<Record<string, unknown>> => {
+  const declared = app.design ?? {}
   return {
     ...optional('principles', declared.principles ? [...declared.principles] : undefined),
     // Structural clones: the contract types mutable arrays, and these carry
@@ -371,12 +428,86 @@ const projectGuidance = (design: App['design']): Readonly<Record<string, unknown
       'colorRoles',
       declared.colorRoles ? structuredClone(declared.colorRoles) : undefined
     ),
-    ...optional(
-      'components',
-      declared.components ? structuredClone(declared.components) : undefined
-    ),
+    ...optional('components', projectComponentGuidance(app.components)),
     ...optional('zones', declared.zones ? projectZones(declared.zones) : undefined),
   }
+}
+
+/**
+ * The easing group — the curves the app SHIPS, as DTCG `cubicBezier` tokens.
+ *
+ * ─── A PROMOTION, NOT A WIDENING ───────────────────────────────────────────
+ *
+ * A `cubic-bezier(x1, y1, x2, y2)` maps exactly onto DTCG's four-number
+ * `cubicBezier` value, so filing one under `unmappable` reported it as
+ * inexpressible when it is not. A CSS KEYWORD is a different case: `ease-in-out`
+ * has no four-number form, and translating it into the bezier the spec says it
+ * equals would be an interpretation. So the parser decides, and only what parses
+ * is promoted.
+ *
+ * ─── AND WHY THE UNMAPPABLE HALF IS FILTERED ───────────────────────────────
+ *
+ * {@link projectGroup} reports every refused entry at `path.name`, which is a
+ * CONFIG path. The inherited curves were never written in a config, so an
+ * inherited value that failed to parse would be reported at a line its reader
+ * never wrote — a platform defect dressed as an authoring mistake. Only the
+ * author's own declarations are reported. All four inherited curves parse
+ * today, so this filter changes nothing now and is what keeps it honest if one
+ * ever stops.
+ */
+const projectEasing = (design: Design | undefined) => {
+  const declared = easingTokensOf(design)
+  const group = projectGroup({
+    entries: { ...INHERITED_EASING_TOKENS, ...declared },
+    parse: parseCubicBezierValue,
+    type: 'cubicBezier',
+    path: EASING_PATH,
+  })
+  return {
+    tokens: group.tokens,
+    unmappable: Object.fromEntries(
+      Object.keys(declared)
+        .map((name) => [`${EASING_PATH}.${name}`, group.unmappable[`${EASING_PATH}.${name}`]])
+        .filter((entry): entry is [string, string] => entry[1] !== undefined)
+    ),
+  }
+}
+
+/**
+ * The elevation ramp the app SHIPS, each step saying who chose it.
+ *
+ * ─── THE MERGE, AND WHY IT NEEDS PROVENANCE TO BE HONEST ───────────────────
+ *
+ * Foundations draws `{ ...INHERITED, ...declared }`, and an export reporting
+ * only the subset the config names would document a different system than the
+ * console does — the failure `[internal ref]` already argues for
+ * breakpoints, where inheritance is precisely what an author cannot learn from
+ * their own config.
+ *
+ * But a BARE merge is worse than either half for the reader this export is for.
+ * An agent handed five shadows cannot tell the one that was decided from the
+ * four the platform supplied, so it preserves defaults as though they were
+ * intentional. `provenance` is the whole difference.
+ *
+ * ─── THIS DOES NOT PUT A SHADOW IN THE TOKEN TREE ──────────────────────────
+ *
+ * A DTCG `shadow` needs a decomposed `{color, offsetX, offsetY, blur, spread}`
+ * and three of the five inherited steps are two-layer, so the tree still emits
+ * no `shadow` group and a declared value still reaches `unmappable` verbatim.
+ * The extension is the reverse-domain escape hatch, not a DTCG mapping, so a
+ * structured ramp here says nothing about the tree — `-015` asserts both halves
+ * and both hold.
+ */
+const projectShadows = (
+  design: Design | undefined
+): Readonly<Record<string, { readonly value: string; readonly provenance: string }>> => {
+  const declared = design?.elevation ?? {}
+  return Object.fromEntries(
+    Object.entries({ ...INHERITED_SHADOW_TOKENS, ...declared }).map(([name, value]) => [
+      name,
+      { value, provenance: name in declared ? 'declared' : 'inherited' },
+    ])
+  )
 }
 
 /**
@@ -387,44 +518,45 @@ const projectGuidance = (design: App['design']): Readonly<Record<string, unknown
  * that declared `primary` overrides only that.
  */
 const projectTokenGroups = (
-  theme: Theme | undefined,
+  design: Design | undefined,
   roles: NonNullable<App['design']>['colorRoles']
 ) => ({
   color: projectGroup({
-    entries: { ...INHERITED_COLOR_TOKENS, ...(theme?.colors ?? {}) },
+    entries: { ...INHERITED_COLOR_TOKENS, ...(design?.colors ?? {}) },
     parse: parseColorValue,
     type: 'color',
-    path: 'design.theme.colors',
+    path: 'design.colors',
     describe: (name) => roles?.[name]?.usage,
   }),
   spacing: projectGroup({
-    entries: { ...INHERITED_SPACING_TOKENS, ...(theme?.spacing ?? {}) },
+    entries: { ...INHERITED_SPACING_TOKENS, ...(design?.spacing ?? {}) },
     parse: parseDimensionValue,
     type: 'dimension',
-    path: 'design.theme.spacing',
+    path: 'design.spacing',
   }),
   radius: projectGroup({
-    entries: { ...INHERITED_RADIUS_TOKENS, ...(theme?.borderRadius ?? {}) },
+    entries: { ...INHERITED_RADIUS_TOKENS, ...(design?.radius ?? {}) },
     parse: parseDimensionValue,
     type: 'dimension',
-    path: 'design.theme.borderRadius',
+    path: 'design.radius',
   }),
   breakpoint: projectGroup({
-    // Tailwind's default scale UNDER the author's, because `theme.breakpoints`
+    // Tailwind's default scale UNDER the author's, because `design.breakpoints`
     // overrides one entry of it rather than replacing it: an app declaring only
     // `md` still responds at `lg`, and reporting just `md` would describe the
     // config rather than the app.
-    entries: { ...INHERITED_BREAKPOINT_TOKENS, ...(theme?.breakpoints ?? {}) },
+    entries: { ...INHERITED_BREAKPOINT_TOKENS, ...(design?.breakpoints ?? {}) },
     parse: parseDimensionValue,
     type: 'dimension',
-    path: 'design.theme.breakpoints',
+    path: 'design.breakpoints',
   }),
   duration: projectGroup({
-    entries: { ...INHERITED_DURATION_TOKENS, ...durationTokensOf(theme) },
+    entries: { ...INHERITED_DURATION_TOKENS, ...durationTokensOf(design) },
     parse: parseDurationValue,
     type: 'duration',
-    path: 'design.theme.animations.duration',
+    path: 'design.motion.durations',
   }),
+  easing: projectEasing(design),
 })
 
 /**
@@ -433,7 +565,7 @@ const projectTokenGroups = (
  */
 const collectUnmappable = (
   groups: Readonly<ReturnType<typeof projectTokenGroups>>,
-  theme: Theme | undefined,
+  design: Design | undefined,
   typography: Readonly<{ unmappable: Readonly<Record<string, string>> }>
 ): Readonly<Record<string, string>> => ({
   ...typography.unmappable,
@@ -442,32 +574,71 @@ const collectUnmappable = (
   ...groups.radius.unmappable,
   ...groups.breakpoint.unmappable,
   ...groups.duration.unmappable,
-  ...collectUnmappableFontFields(theme?.fonts),
+  ...collectUnmappableFontFields(design?.typeScale?.families),
   // DTCG `shadow` requires a decomposed `{color, offsetX, offsetY, blur,
   // spread}`. Parsing arbitrary `box-shadow` syntax back into those five parts
   // fails in exactly the cases that matter — multiple layers, `inset`, colour
   // functions — so v1 emits NO shadow group rather than a malformed one.
-  ...atPath(theme?.shadows, 'design.theme.shadows'),
+  ...atPath(design?.elevation, 'design.elevation'),
   // A dark palette is perfectly expressible in DTCG; a SINGLE-MODE document has
   // nowhere to put it. Kept verbatim so the author can see the engine received
   // it, rather than dropped or flattened into the light tokens.
-  ...atPath(theme?.darkColors, 'design.theme.darkColors'),
+  ...atPath(design?.darkColors, 'design.darkColors'),
+  // The OTHER half of `design.motion?.animations`, and only the part of it that has no
+  // DTCG form. Its `duration` sibling has always been a real token group; the
+  // easing half is one now too — a `cubic-bezier(...)` maps exactly onto DTCG's
+  // four-number `cubicBezier`, so the promotion `projectEasing` performs was
+  // owed rather than optional.
+  //
+  // What reaches here is what still cannot be carried: a CSS keyword such as
+  // `ease-in-out`, which a four-number array has no room for. It is reported
+  // rather than left out because SILENCE is the one outcome the honesty
+  // contract forbids — an author told nothing cannot tell "Sovrium applied it"
+  // from "Sovrium threw it away", and goes on maintaining a dead line.
+  //
+  // A promoted curve is NOT also reported here. Leaving it in both places would
+  // let a reader believe it is still inexpressible; the move is the point.
+  ...groups.easing.unmappable,
 })
 
 /**
  * Build the DTCG document describing the design system this app actually ships.
  *
- * @param app - A decoded, normalized app config. `normalizeAppDesign` has
- *   already mirrored a deprecated top-level `theme` onto `design.theme`, so
- *   both authored positions arrive here as one.
+ * @param app - A decoded app config. There is one position for the design
+ *   system, so nothing is mirrored on the way in.
  * @returns The document, ready to serve as JSON or to project into markdown.
  */
+/**
+ * Everything under the Sovrium extension key: the guidance prose, the shadows
+ * that have no DTCG home, the platform catalogue, and the two report sections
+ * that are omitted rather than emitted empty.
+ *
+ * Its own function so `buildDesignSystem` stays a flat projection. The two
+ * omissions are the only branches in this document, and they are here.
+ */
+const sovriumExtension = (
+  app: App,
+  design: Design | undefined,
+  unmappable: Readonly<Record<string, string>>,
+  inert: readonly InertEntry[]
+): Readonly<Record<string, unknown>> => ({
+  ...projectGuidance(app),
+  shadows: projectShadows(design),
+  // The catalogue is the PLATFORM's, not the operator's: it is the same for
+  // every app on a given build, and it is here because it is the one thing an
+  // agent building from this document cannot derive from the tokens — which
+  // types exist, and which of them will render nothing.
+  catalogue: [...projectCatalogue()],
+  ...(Object.keys(unmappable).length > 0 ? { unmappable } : {}),
+  ...(inert.length > 0 ? { inert: [...inert] } : {}),
+})
+
 export function buildDesignSystem(app: App): Readonly<DesignSystemDocument> {
-  const theme = app.design?.theme ?? app.theme
-  const groups = projectTokenGroups(theme, app.design?.colorRoles)
-  const typography = projectTypography(app.design?.typeScale, theme?.fonts)
-  const unmappable = collectUnmappable(groups, theme, typography)
-  const inert = collectInertFontFields(theme?.fonts)
+  const { design } = app
+  const typeScale = design?.typeScale
+  const families = typeScale?.families
+  const groups = projectTokenGroups(design, design?.colorRoles)
+  const typography = projectTypography(typeScale?.steps, families)
 
   return {
     $description: `The design system of ${app.name}, as it actually ships.`,
@@ -475,15 +646,17 @@ export function buildDesignSystem(app: App): Readonly<DesignSystemDocument> {
     spacing: groups.spacing.tokens,
     radius: groups.radius.tokens,
     breakpoint: groups.breakpoint.tokens,
-    font: projectFonts(theme?.fonts),
+    font: projectFonts(families),
     typography: typography.tokens,
     duration: groups.duration.tokens,
+    easing: groups.easing.tokens,
     $extensions: {
-      [SOVRIUM_EXTENSION_KEY]: {
-        ...projectGuidance(app.design),
-        ...(Object.keys(unmappable).length > 0 ? { unmappable } : {}),
-        ...(inert.length > 0 ? { inert: [...inert] } : {}),
-      },
+      [SOVRIUM_EXTENSION_KEY]: sovriumExtension(
+        app,
+        design,
+        collectUnmappable(groups, design, typography),
+        collectInertFontFields(families)
+      ),
     },
   } as DesignSystemDocument
 }

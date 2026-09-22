@@ -25,7 +25,7 @@ import {
   rawActionProps,
   resolveRunContextValue,
 } from './run-context-resolution'
-import { stringProp } from './shared'
+import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
 /**
@@ -85,7 +85,9 @@ export const handleFileUpload: ActionHandler = (action, _app, _automation) =>
       status: 'success',
       output: hasPath ? { ...base, path } : { ...base, temporary: true },
     } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-file-upload', { attributes: actionAttributes(action) })
+  )
 
 // ---------------------------------------------------------------------------
 // download
@@ -110,7 +112,9 @@ export const handleFileDownload: ActionHandler = (action, _app, _automation) =>
       status: 'success',
       output: { contentType: mime, tempKey: target, size: bytes.length },
     } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-file-download', { attributes: actionAttributes(action) })
+  )
 
 // ---------------------------------------------------------------------------
 // generateCsv
@@ -201,7 +205,11 @@ export const handleFileGenerateCsv: ActionHandler = (action, _app, _automation, 
       status: 'success',
       output: destination ? { ...base, path: destination } : { ...base, temporary: true },
     } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-file-generate-csv', {
+      attributes: actionAttributes(action),
+    })
+  )
 
 // ---------------------------------------------------------------------------
 // parseCsv
@@ -318,4 +326,6 @@ export const handleFileParseCsv: ActionHandler = (action, _app, _automation) =>
       : undefined
 
     return { status: 'success', output: { data: csvRows(records, columnDefs) } } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-file-parse-csv', { attributes: actionAttributes(action) })
+  )

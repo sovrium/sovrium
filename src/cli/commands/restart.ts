@@ -6,7 +6,7 @@
  */
 
 import { Effect, Console } from 'effect'
-import { printFailure } from '@/infrastructure/logging/cli-output'
+import { printFailure, printStderr } from '@/infrastructure/logging/cli-output'
 import {
   isProcessRunning,
   readLockFile,
@@ -42,7 +42,6 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
       // eslint-disable-next-line functional/no-expression-statements
       process.exit(1)
     }
-    // eslint-disable-next-line functional/no-expression-statements
     await removeLockFile()
   }
 
@@ -50,7 +49,7 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
   const effectiveConfigFile = configFile || lockData?.configPath
 
   if (!effectiveConfigFile) {
-    Effect.runSync(Console.error('Error: No config file specified and none found in lock file'))
+    printStderr('Error: No config file specified and none found in lock file')
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }

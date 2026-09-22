@@ -6,7 +6,7 @@
  */
 
 // eslint-disable-next-line no-restricted-syntax -- Per-user entity lists are a cross-cutting concern, not phase-specific
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   UserEntityListRepository,
   type EntityMutation,
@@ -15,7 +15,6 @@ import {
   type RecentRow,
   type UserEntityListDatabaseError,
 } from '@/application/ports/repositories/tables/user-entity-list-repository'
-import { UserEntityListRepositoryLive } from '@/infrastructure/database/repositories/tables/user-entity-list-repository-live'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 
 /**
@@ -97,7 +96,7 @@ export const ListFavorites = (
       tableId: row.tableId,
       createdAt: toIso(row.createdAt),
     }))
-  })
+  }).pipe(Effect.withSpan('user-entity-lists.list-favorites'))
 
 /**
  * Add an entity to the caller's favorites. Reviving a soft-deleted row keeps a
@@ -116,7 +115,7 @@ export const AddFavorite = (
       return
     }
     yield* repo.insertFavorite(userId, input)
-  })
+  }).pipe(Effect.withSpan('user-entity-lists.add-favorite'))
 
 /**
  * Soft-delete an entity from the caller's favorites.
@@ -128,7 +127,7 @@ export const RemoveFavorite = (
   Effect.gen(function* () {
     const repo = yield* UserEntityListRepository
     yield* repo.softDeleteFavorite(userId, input.entityType, input.entityId)
-  })
+  }).pipe(Effect.withSpan('user-entity-lists.remove-favorite'))
 
 /**
  * List the caller's recent items, most recently viewed first. Items whose
@@ -150,7 +149,7 @@ export const ListRecent = (
       tableId: row.tableId,
       viewedAt: toIso(row.viewedAt),
     }))
-  })
+  }).pipe(Effect.withSpan('user-entity-lists.list-recent'))
 
 /**
  * Record a view of an entity for the caller. Re-visiting an entity refreshes
@@ -170,9 +169,4 @@ export const RecordRecent = (
     }
     yield* repo.insertRecent(userId, input)
     yield* repo.pruneRecent(userId, MAX_RECENT_ITEMS)
-  })
-
-/**
- * Application layer for the per-user entity-list use cases.
- */
-export const UserEntityListsLayer = Layer.mergeAll(UserEntityListRepositoryLive)
+  }).pipe(Effect.withSpan('user-entity-lists.record-recent'))

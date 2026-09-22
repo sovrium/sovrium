@@ -7,7 +7,7 @@
 
 import { eq, and, asc, gte, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { activityLogRetentionCutoff } from '@/domain/services/activity-log-retention'
+import { activityLogRetentionCutoff } from '@/domain/models/app/admin/activity-log-retention'
 import { DatabaseError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import {
@@ -16,8 +16,8 @@ import {
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
-import { extractUserFromRow } from '../shared/user-join-helpers'
 import { castToInt } from './aggregation-helpers'
+import { extractUserFromRow } from './user-join-helpers'
 import type { ActivityHistoryEntry } from '@/application/ports/repositories/analytics/activity-repository'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 

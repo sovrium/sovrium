@@ -20,7 +20,7 @@
  * (commits 02b2f35f3 + 571ae53ce + 5527660bc + 000f835d7 + 386e9dc35):
  * layout / spacing classes stay as raw Tailwind utilities; only color /
  * radius / shadow / motion / focus classes go through {@link withVarFallback}
- * so `app.theme.*` overrides still win at the CSS cascade layer (var lookups
+ * so `app.design.*` overrides still win at the CSS cascade layer (var lookups
  * resolve `--sv-*` first, fall back to the inline OKLCH literal).
  *
  * Sovrium's date-picker is a CUSTOM popover-anchored calendar (not
@@ -51,13 +51,13 @@
  * `numeric-default-classes.ts`.
  */
 
-import { TOKENS as T, withVarFallback as v } from '@/presentation/utils/design/css-var'
+import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 import {
   FOCUS_VISIBLE_RING,
   MOTION_COLORS,
   POPUP_SURFACE,
   RADIUS_MD,
-} from '../recipes/shared-tokens-default-classes'
+} from '../../design/shared-tokens-default-classes'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared building blocks
@@ -75,7 +75,7 @@ type DayCellState =
   | 'range-end'
   | 'range-middle'
 
-const RADIUS_LG = `rounded-[${v('sv-radius-lg', T.radiusLg)}]`
+const RADIUS_LG = `rounded-[${v('radius-lg', T.radiusLg)}]`
 
 const DISABLED = 'disabled:cursor-not-allowed disabled:opacity-50'
 
@@ -83,8 +83,20 @@ const DISABLED = 'disabled:cursor-not-allowed disabled:opacity-50'
 // TRIGGER (closed-state button that opens the popup)
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The trigger's box.
+ *
+ * `w-full` and NO minimum. The `min-w-[12rem]` this carried was a floor of
+ * exactly 192px, propped there because the island's root used to shrink to fit,
+ * which left `w-full` resolving against nothing — so without the floor the
+ * control was only as wide as its caption. Both date roots are full-width
+ * blocks now, which is what makes `w-full` mean the container; the floor then
+ * stopped being a safety net and became the thing overflowing a narrower
+ * column. Measured on a two-column form: 192px of control in a 178.5px column,
+ * 13.5px out into the gutter.
+ */
 const TRIGGER_LAYOUT =
-  'inline-flex items-center justify-between gap-2 px-3 py-2 text-sm w-full min-w-[12rem]'
+  'inline-flex h-9 w-full items-center justify-between gap-2 px-3 py-2 text-base'
 
 const TRIGGER_SURFACE = [
   'border',
@@ -93,8 +105,6 @@ const TRIGGER_SURFACE = [
   `text-[${v('sv-fg', T.fg)}]`,
   `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
 ].join(' ')
-
-const TRIGGER_SHADOW = `shadow-[${v('sv-shadow-xs', T.shadowXs)}]`
 
 const TRIGGER_OPEN = [
   `aria-expanded:border-[${v('sv-focus-ring', T.focusRing)}]`,
@@ -108,9 +118,13 @@ const TRIGGER_MOTION = 'transition-[box-shadow,border-color,background-color] du
  * Compute the default className for the closed-state date-picker trigger
  * button — the `aria-haspopup="dialog"` control that opens the calendar
  * popup. Mirrors the select trigger shape (bordered raised surface, focus
- * ring, elevation-xs) so a row of date-pickers and selects reads as one
- * cohesive form. Open state lights up the border via the `aria-expanded`
- * attribute that the island already wires.
+ * ring) so a row of date-pickers and selects reads as one cohesive form.
+ * Open state lights up the border via the `aria-expanded` attribute that the
+ * island already wires.
+ *
+ * The trigger casts NO shadow. Its border already separates it from the page,
+ * and doubling a border with an elevation reads as two competing signals for
+ * one edge — so the bound is the border alone.
  *
  * The `state` parameter is reserved for forward compatibility — current Base
  * UI plumbing exposes open / disabled via `aria-expanded` and `:disabled`
@@ -126,7 +140,6 @@ export const computeDateTriggerClasses = ({
     TRIGGER_LAYOUT,
     RADIUS_MD,
     TRIGGER_SURFACE,
-    TRIGGER_SHADOW,
     TRIGGER_MOTION,
     FOCUS_VISIBLE_RING,
     TRIGGER_OPEN,
@@ -140,9 +153,41 @@ export const computeDateTriggerClasses = ({
 // POPUP (floating calendar dialog)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const POPUP_LAYOUT = 'absolute left-0 top-full z-50 mt-1 p-3'
+/**
+ * The popup's box.
+ *
+ * `max-w-[calc(100vw-2rem)]` is a floor under every calendar popup rather
+ * than a fix for one: the panel is absolutely positioned, so nothing in the
+ * document constrains its width, and a two-calendar range panel measured 562px
+ * against a 375px viewport — drawn, clipped, and unreachable, with the page
+ * refusing to scroll sideways to it. The cap leaves a 1rem margin on each side
+ * so the panel reads as a floating layer rather than a full-bleed sheet.
+ *
+ * It is a LAST resort, not the mechanism: a panel whose contents still want
+ * more than the cap allows is clipped by it. The contents adapt first — see
+ * `range-panel.tsx`, which stacks its preset column and drops its second month
+ * below `md` so the cap is never the thing doing the work.
+ */
+const POPUP_LAYOUT = 'absolute left-0 top-full z-50 mt-1 max-w-[calc(100vw-2rem)] p-3'
 
-const POPUP_SHADOW = `shadow-[${v('sv-shadow-lg', T.shadowLg)}]`
+/**
+ * The same panel, drawn IN FLOW — the layout a still DEPICTION of the open
+ * state needs.
+ *
+ * `absolute left-0 top-full z-50` is what makes the live popup float over the
+ * page from its trigger, and it is the one part of the panel a document cannot
+ * keep: a specimen strip lays its cells out side by side, so an absolutely
+ * positioned calendar would lift out of its own cell and cover its neighbours.
+ * Everything else — the radius, the surface, the shadow, the padding — is the
+ * component's own, which is what keeps the drawing the component rather than a
+ * picture of it.
+ *
+ * This is the layout half of why `open` is filed as `depicted` rather than
+ * `rendered`: the appearance is real markup and the POSITION is the console's.
+ */
+const POPUP_LAYOUT_DEPICTED = 'relative mt-1 max-w-[calc(100vw-2rem)] p-3'
+
+const POPUP_SHADOW = `shadow-[${v('shadow-lg', T.shadowLg)}]`
 
 /**
  * Compute the default className for the calendar popup `<div role="dialog">`
@@ -151,14 +196,20 @@ const POPUP_SHADOW = `shadow-[${v('sv-shadow-lg', T.shadowLg)}]`
  * layer above the trigger; shadow-lg lifts it above background content with
  * enough contrast to be obvious in dark mode too.
  */
-export const computeDatePopupClasses = (): string =>
-  [POPUP_LAYOUT, RADIUS_LG, POPUP_SURFACE, POPUP_SHADOW].join(' ')
+export const computeDatePopupClasses = ({
+  depicted = false,
+}: {
+  depicted?: boolean
+} = {}): string =>
+  [depicted ? POPUP_LAYOUT_DEPICTED : POPUP_LAYOUT, RADIUS_LG, POPUP_SURFACE, POPUP_SHADOW].join(
+    ' '
+  )
 
 // ──────────────────────────────────────────────────────────────────────────────
 // NAV BUTTON (prev / next month chevrons)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const NAV_BUTTON_LAYOUT = 'inline-flex h-7 w-7 items-center justify-center text-sm'
+const NAV_BUTTON_LAYOUT = 'inline-flex h-7 w-7 items-center justify-center text-base'
 
 const NAV_BUTTON_SURFACE = [
   'border',
@@ -190,7 +241,7 @@ export const computeDateNavButtonClasses = ({
 // CAPTION (current month / year label)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const CAPTION_LAYOUT = 'text-sm font-medium'
+const CAPTION_LAYOUT = 'text-base font-medium'
 
 const CAPTION_SURFACE = `text-[${v('sv-fg', T.fg)}]`
 

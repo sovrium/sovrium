@@ -13,17 +13,17 @@ import {
   loadCurrentUserContext,
   toSessionProjection,
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
+import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
-import { createdByFieldNames } from '@/domain/services/authorship-fields'
-import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
-import { evaluateRecordAgainstPredicate } from '@/domain/validators/row-level-evaluator'
+import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import { createdByFieldNames } from '@/domain/models/app/tables/authorship-fields'
+import { evaluateRecordAgainstPredicate } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
-import type { UserSession } from '@/application/ports/models/user-session'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { App } from '@/domain/models/app'
@@ -466,5 +466,6 @@ export const triggerCommentEventAutomations = (
       Effect.sync(() => {
         logError('[automation:comment-posted] dispatch failure', cause)
       })
-    )
+    ),
+    Effect.withSpan('automations.trigger-comment-event-automations')
   )

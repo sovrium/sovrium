@@ -18,14 +18,14 @@ components:
           - type: text
             element: h1
             props:
-              className: text-5xl font-bold mb-6
+              className: text-6xl font-bold mb-6
               style:
                 color: var(--color-foreground)
             content: One place for the whole company
           - type: text
             element: p
             props:
-              className: text-xl mb-8
+              className: text-2xl mb-8
               style:
                 color: var(--color-foreground-muted)
             content: A public welcome page for everyone. A private hub where the team finds announcements, colleagues, and shared resources.
@@ -70,7 +70,7 @@ components:
           - type: text
             element: h2
             props:
-              className: text-3xl font-bold mb-10 text-center
+              className: text-4xl font-bold mb-10 text-center
               style:
                 color: var(--color-foreground)
             content: What's inside
@@ -91,7 +91,7 @@ components:
                   - type: text
                     element: h3
                     props:
-                      className: text-lg font-semibold mb-2
+                      className: text-xl font-semibold mb-2
                     content: People directory
                   - type: text
                     element: p
@@ -109,7 +109,7 @@ components:
                   - type: text
                     element: h3
                     props:
-                      className: text-lg font-semibold mb-2
+                      className: text-xl font-semibold mb-2
                     content: Announcements
                   - type: text
                     element: p
@@ -127,7 +127,7 @@ components:
                   - type: text
                     element: h3
                     props:
-                      className: text-lg font-semibold mb-2
+                      className: text-xl font-semibold mb-2
                     content: Manager tools
                   - type: text
                     element: p

@@ -7,8 +7,11 @@
 
 /* eslint-disable functional/no-expression-statements */
 
+import { Context, Effect, Layer } from 'effect'
 import { Client } from 'pg'
-import { pinPostgresSslMode } from '@/domain/utils/database/postgres-ssl-mode'
+import { pinPostgresSslMode } from '@/domain/kernel/sql/postgres-ssl-mode'
+import { filterAgentKnowledgeTables } from '@/domain/models/app/agents/rag-knowledge-access'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { runSyncDocumentsAtStartup } from '@/infrastructure/ai/document-sync'
 import {
   buildKnowledgeBindings,
@@ -18,12 +21,13 @@ import {
 } from '@/infrastructure/ai/knowledge-sync'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
 import { isSqliteRuntime } from './unsupported-in-sqlite'
+import type { App } from '@/domain/models/app'
 import type { RagAgent } from '@/infrastructure/ai/rag-agent-input'
 
 /**
  * AI Knowledge Listener — auto-embeds table-knowledge on record change.
  *
- * Mirrors {@link AiComputeListener}. PostgreSQL `AFTER INSERT/UPDATE/DELETE`
+ * Mirrors the AI compute listener. PostgreSQL `AFTER INSERT/UPDATE/DELETE`
  * triggers `pg_notify` the `sovrium_ai_knowledge` channel; this listener
  * receives each event and (re)embeds or removes the affected record's
  * embeddings via the eco-routed `AiService` ([internal ref]:
@@ -78,34 +82,51 @@ const buildTriggerSql = (table: string): readonly string[] => {
 }
 
 /**
- * AI knowledge listener. Installs per-table triggers and embeds/cleans up
- * record changes asynchronously. Best-effort: a failure never crashes the
- * server.
+ * The knowledge listener as a service.
+ *
+ * This was a mutable class plus a module-level `listenerHolder` singleton, an
+ * exported `startAiKnowledgeListener`, and an exported `stopAiKnowledgeListener`
+ * that `createStopEffect` had to remember to call. The singleton existed only
+ * because nothing else owned the connection's lifetime; the server's domain
+ * `ManagedRuntime` now does, so both the holder and the disposer are gone
+ * (standing rule E3). That also removes a real in-process hazard: a
+ * module-level holder is shared by every server booted in one Playwright worker
+ * under `serverMode: 'inprocess'`, while a layer-scoped connection is not.
  */
-export class AiKnowledgeListener {
-  private client: Client | undefined = undefined
-  private stopped = false
+export class AiKnowledgeListener extends Context.Service<
+  AiKnowledgeListener,
+  AiKnowledgeListenerStatus
+>()('AiKnowledgeListener') {}
 
-  constructor(
-    private readonly databaseUrl: string,
-    private readonly bindings: ReadonlyArray<KnowledgeTableBinding>
-  ) {}
+/** What a built listener layer reports about itself. */
+export interface AiKnowledgeListenerStatus {
+  /** `true` only when a `pg` connection is open and `LISTEN` succeeded. */
+  readonly listening: boolean
+}
 
-  /** Distinct knowledge table names across all agent bindings. */
-  private get tables(): ReadonlyArray<string> {
-    return [...new Set(this.bindings.map((b) => b.table))]
-  }
+const INERT: AiKnowledgeListenerStatus = { listening: false }
 
-  /** All agent bindings interested in a given table. */
-  private bindingsFor(table: string): ReadonlyArray<KnowledgeTableBinding> {
-    return this.bindings.filter((b) => b.table === table)
-  }
+/** This app's RAG agents, with knowledge tables filtered by role. */
+export const filterRagKnowledgeByRole = (app: App): ReadonlyArray<RagAgent> =>
+  (app.agents ?? []).map((agent) => filterAgentKnowledgeTables(agent, app.tables ?? []))
 
-  async start(): Promise<void> {
-    if (this.bindings.length === 0) return
-    const client = new Client({ connectionString: pinPostgresSslMode(this.databaseUrl) })
+/**
+ * Open the connection, install the per-table triggers, and subscribe — or
+ * resolve `undefined`.
+ *
+ * Never rejects: a knowledge listener that cannot connect means records stop
+ * auto-embedding, not that the server fails to boot. Because this is the
+ * acquire half of an `Effect.acquireRelease`, a rejection here would take the
+ * whole layer build — and therefore the boot — down with it.
+ */
+const connect = async (
+  databaseUrl: string,
+  bindings: ReadonlyArray<KnowledgeTableBinding>,
+  handle: (raw: string) => void
+): Promise<Client | undefined> => {
+  const client = new Client({ connectionString: pinPostgresSslMode(databaseUrl) })
+  try {
     await client.connect()
-    this.client = client
 
     // Install AFTER-change triggers on every knowledge table.
     //
@@ -118,7 +139,7 @@ export class AiKnowledgeListener {
     //
     // `flatMap` preserves each table's own function → drop → create ordering,
     // which is the ordering that actually matters.
-    await this.tables
+    await [...new Set(bindings.map((binding) => binding.table))]
       .flatMap((table) => buildTriggerSql(table))
       .reduce(
         (chain, stmt) =>
@@ -133,43 +154,66 @@ export class AiKnowledgeListener {
 
     client.on('notification', (msg) => {
       if (msg.channel !== CHANNEL || !msg.payload) return
-      this.handlePayload(msg.payload).catch((error: unknown) => {
-        logError('[ai-knowledge] payload handler error', error)
-      })
+      handle(msg.payload)
     })
     client.on('error', () => {
       // Recoverable on next restart — never crash on connection error.
     })
     await client.query(`LISTEN ${CHANNEL}`)
+    return client
+  } catch (error: unknown) {
+    logError('[ai-knowledge] listener failed to start', error)
+    await client.end().catch(() => undefined)
+    return undefined
   }
+}
 
-  async stop(): Promise<void> {
-    this.stopped = true
-    const { client } = this
-    this.client = undefined
-    if (client) {
-      try {
-        await client.query(`UNLISTEN ${CHANNEL}`)
-      } catch {
-        // best-effort
-      }
-      try {
-        await client.end()
-      } catch {
-        // best-effort
-      }
-    }
-  }
+/** `UNLISTEN` then close. Best-effort on both, and never rejects. */
+// eslint-disable-next-line functional/prefer-immutable-types -- pg's `Client` is an inherently mutable driver handle; a `Readonly<Client>` would refuse the `query`/`end` calls that ARE the release
+const disconnect = async (client: Client): Promise<void> => {
+  await client.query(`UNLISTEN ${CHANNEL}`).catch(() => undefined)
+  await client.end().catch(() => undefined)
+}
 
-  private async handlePayload(raw: string): Promise<void> {
-    if (this.stopped) return
-    const payload = parsePayload(raw)
-    if (!payload) return
-    const bindings = this.bindingsFor(payload.table)
-    if (bindings.length === 0) return
+/**
+ * The `pg` boundary as one injectable pair — see the sibling in
+ * `ai-compute-listener.ts` for why this is a parameter rather than a direct
+ * call: it lets the acquire/release contract be unit-tested without
+ * `mock.module`. Nothing in production passes anything but {@link liveDriver}.
+ */
+export interface AiKnowledgeListenerDriver {
+  readonly open: (
+    databaseUrl: string,
+    bindings: ReadonlyArray<KnowledgeTableBinding>,
+    handle: (raw: string) => void
+  ) => Promise<Client | undefined>
+  // eslint-disable-next-line functional/prefer-immutable-types -- pg's `Client` is an inherently mutable driver handle; a `Readonly<Client>` would refuse the `query`/`end` calls that ARE the release
+  readonly close: (client: Client) => Promise<void>
+}
 
-    await Promise.all(
-      bindings.map((binding) =>
+const liveDriver: AiKnowledgeListenerDriver = { open: connect, close: disconnect }
+
+const handlePayload = async (
+  bindings: ReadonlyArray<KnowledgeTableBinding>,
+  raw: string
+): Promise<void> => {
+  const payload = parsePayload(raw)
+  if (!payload) return
+  const matched = bindings.filter((binding) => binding.table === payload.table)
+  if (matched.length === 0) return
+
+  // SEQUENTIAL, and the width is the point. This was a `Promise.all` over
+  // `matched`, whose length is "however many agents happen to declare this
+  // table" — an unstated fan-out against the shared connection pool, which is
+  // the shape `sovrium/no-unbounded-promise-fanout` exists to refuse
+  //. Each element is
+  // an AI-provider round trip plus an embedding write, and this is a
+  // best-effort background embed nobody is waiting on, so a width of 1 costs
+  // latency that has no observer. Same `reduce` chain as the trigger DDL above,
+  // and for the same reason.
+  await matched.reduce(
+    (chain, binding) =>
+      chain.then(() =>
         payload.op === 'DELETE'
           ? removeKnowledgeRecordEmbeddings({
               agentName: binding.agentName,
@@ -184,73 +228,75 @@ export class AiKnowledgeListener {
               filter: binding.filter,
               recordId: payload.id,
             }).catch(() => undefined)
+      ),
+    Promise.resolve<unknown>(undefined)
+  )
+}
+
+/**
+ * The live knowledge listener, scoped to the layer that builds it.
+ *
+ * `Layer.effect` IS Effect 4's scoped layer constructor — there is no
+ * `Layer.scoped` — so the `Scope` that `Effect.acquireRelease` needs is
+ * supplied by the layer and stripped from its type.
+ *
+ * `app` is optional so the layer is nameable from a runtime built without a
+ * config (`createDomainRuntime(undefined)`): with no app there are no bindings
+ * and the layer resolves inert.
+ */
+export const makeAiKnowledgeListenerLayer = (
+  app: App | undefined,
+  driver: AiKnowledgeListenerDriver = liveDriver
+): Layer.Layer<AiKnowledgeListener> =>
+  Layer.effect(
+    AiKnowledgeListener,
+    Effect.gen(function* () {
+      if (app === undefined) return INERT
+      // SQLite has no PL/pgSQL triggers, `pg_notify`, or `LISTEN` — the
+      // auto-embed knowledge listener is a PostgreSQL-only feature (RAG search
+      // itself degrades to 501 requires-postgres).
+      const dialect = parseDatabaseDialectConfig()
+      if (dialect.dialect !== 'postgres' || !dialect.databaseUrl) {
+        logDebug('[ai-knowledge] listener disabled — requires PostgreSQL (SQLite runtime)')
+        return INERT
+      }
+      const bindings = buildKnowledgeBindings(filterRagKnowledgeByRole(app))
+      if (bindings.length === 0) return INERT
+
+      const { databaseUrl } = dialect
+      const client = yield* Effect.acquireRelease(
+        // effect-promise: total -- `connect` catches its own rejections and resolves `undefined`; see its doc comment.
+        Effect.promise(() =>
+          driver.open(databaseUrl, bindings, (raw) => {
+            void handlePayload(bindings, raw).catch((error: unknown) => {
+              logError('[ai-knowledge] payload handler error', error)
+            })
+          })
+        ),
+        // effect-promise: total -- `disconnect` swallows both cleanup rejections.
+        (open) => (open === undefined ? Effect.void : Effect.promise(() => driver.close(open)))
       )
-    )
-  }
-}
 
-/**
- * Module-level singleton listener holder. A mutable container (not a bare
- * `let`) so the value can be swapped on config reload while satisfying the
- * `functional/no-let` rule. The server process is killed per-test, so an
- * explicit teardown is belt-and-braces; the connection is reclaimed on
- * process exit regardless.
- */
-// eslint-disable-next-line functional/prefer-immutable-types -- intentional mutable singleton holder (swapped on config reload)
-const listenerHolder: { current: AiKnowledgeListener | undefined } = { current: undefined }
-
-/**
- * Start the knowledge auto-embed listener for a set of table bindings.
- * Best-effort: a connection failure is logged but never thrown — the startup
- * knowledge sync still embedded the records that existed at boot.
- */
-export const startAiKnowledgeListener = async (
-  databaseUrl: string,
-  bindings: ReadonlyArray<KnowledgeTableBinding>
-): Promise<void> => {
-  if (bindings.length === 0) return
-  // SQLite has no PL/pgSQL triggers, `pg_notify`, or `LISTEN` — the
-  // auto-embed knowledge listener is a PostgreSQL-only feature. Skip wiring
-  // entirely on SQLite (RAG search itself degrades to 501 requires-postgres).
-  if (isSqliteRuntime()) {
-    logDebug('[ai-knowledge] listener disabled — requires PostgreSQL (SQLite runtime)')
-    return
-  }
-  // Replace any prior listener (config reload across a restart).
-  if (listenerHolder.current) {
-    await listenerHolder.current.stop().catch(() => undefined)
-  }
-  const listener = new AiKnowledgeListener(databaseUrl, bindings)
-  // eslint-disable-next-line functional/immutable-data -- module-level singleton holder
-  listenerHolder.current = listener
-  await listener.start().catch((error: unknown) => {
-    logError('[ai-knowledge] listener failed to start', error)
-  })
-}
-
-/** Stop the active knowledge listener, if any. Idempotent. */
-export const stopAiKnowledgeListener = async (): Promise<void> => {
-  const listener = listenerHolder.current
-  // eslint-disable-next-line functional/immutable-data -- module-level singleton holder
-  listenerHolder.current = undefined
-  if (listener) await listener.stop().catch(() => undefined)
-}
+      return client === undefined ? INERT : { listening: true }
+    })
+  )
 
 /**
  * Combined RAG startup runner — embeds the document knowledge in
- * `AI_KNOWLEDGE_DIR` and the table-knowledge that exists at boot, then
- * installs the auto-embed change listener. Best-effort: never blocks server
- * startup. Single entry point so the server composition root has one call
- * instead of three.
+ * `AI_KNOWLEDGE_DIR` and the table-knowledge that exists at boot. Best-effort:
+ * never blocks server startup. Single entry point so the server composition
+ * root has one call instead of two ([internal ref] /
+ * TABLE-KNOWLEDGE).
  *
- * SQLite skip — PARTIAL, and deliberately so. Two of the three steps are
- * genuinely PostgreSQL-only and stay skipped:
+ * The auto-embed CHANGE listener is no longer started from here: it is
+ * {@link makeAiKnowledgeListenerLayer}, built with the domain runtime — which
+ * happens EARLIER in the boot than this call, so a record written during the
+ * startup sync is observed rather than missed.
  *
- *   - `runSyncKnowledgeAtStartup` reads the user's knowledge TABLES through a
- *     raw `db.execute(sql\`…\`)` (`knowledge-sync.ts`), which the SQLite `db`
- *     facade does not expose.
- *   - `startAiKnowledgeListener` is built on `LISTEN`/`NOTIFY`; it already
- *     self-skips, and the boot banner reports it as degraded.
+ * SQLite skip — PARTIAL, and deliberately so. `runSyncKnowledgeAtStartup` reads
+ * the user's knowledge TABLES through a raw `db.execute(sql\`…\`)`
+ * (`knowledge-sync.ts`), which the SQLite `db` facade does not expose, so it
+ * stays skipped.
  *
  * `runSyncDocumentsAtStartup` is NOT one of them. It reads files from
  * `AI_KNOWLEDGE_DIR`, chunks them, embeds via the eco-routed `AiService`, and
@@ -262,8 +308,7 @@ export const stopAiKnowledgeListener = async (): Promise<void> => {
  * only ever true of the Postgres arm of a repository that has two.
  */
 export const runRagKnowledgeStartup = async (
-  agents: ReadonlyArray<RagAgent> | undefined,
-  databaseUrl: string
+  agents: ReadonlyArray<RagAgent> | undefined
 ): Promise<void> => {
   await runSyncDocumentsAtStartup()
   if (isSqliteRuntime()) {
@@ -273,7 +318,6 @@ export const runRagKnowledgeStartup = async (
     return
   }
   await runSyncKnowledgeAtStartup({ agents })
-  await startAiKnowledgeListener(databaseUrl, buildKnowledgeBindings(agents))
 }
 
 const parsePayload = (raw: string): KnowledgePayload | undefined => {

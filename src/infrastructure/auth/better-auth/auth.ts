@@ -9,27 +9,27 @@ import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { createAuthMiddleware, APIError } from 'better-auth/api'
 import { openAPI } from 'better-auth/plugins'
-import { Effect } from 'effect'
 import {
   triggerAuthEventAutomations,
   type AuthTriggerEvent,
   // eslint-disable-next-line boundaries/dependencies -- Better Auth databaseHooks fire from within the auth library's lifecycle; the infrastructure-auth layer is the only point where we can observe signUp/emailVerified events. The application-layer use case is the dispatch contract that routes through the AU-02 scheduler — same shape as the record-event trigger bridge.
 } from '@/application/use-cases/automations/trigger-auth-event'
+import { stripHtmlToText } from '@/domain/kernel/sanitize/html-sanitization'
 import { getStrategy, hasStrategy } from '@/domain/models/app/auth'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
-import { resolvePasswordPolicy } from '@/domain/utils/auth/password-policy'
-import { stripHtmlToText } from '@/domain/utils/html-sanitization'
+import { resolvePasswordPolicy } from '@/domain/models/app/auth/password-policy'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { resolveAuthSecret } from '@/infrastructure/auth/auth-secret'
-import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
 import { db } from '@/infrastructure/database'
 import * as authOauthResourceSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-oauth-resource-tables'
 import * as authSchemaSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-tables'
 import { logError } from '@/infrastructure/logging/logger'
-import { isTransportRelaxed } from '@/infrastructure/utils/security-posture'
+import { isTransportRelaxed } from '@/infrastructure/process/security-posture'
+import { runOnDomain } from '@/infrastructure/server/domain-runtime'
 import { withDriverErrorMessages } from './adapter-errors'
 import { applyAdminRoleGuards } from './admin-role-guards'
 import { applyAvatarUrlGuard } from './avatar-url-guard'
 import { createEmailHandlers } from './email-handlers'
+import { applyLanguagePreferenceGuard } from './language-preference-guard'
 import { SOVRIUM_ORGANIZATION_ID, ensureMembership, ensureOrganization } from './org-team-seeder'
 import { buildAdminPlugin } from './plugins/admin'
 import { buildApiKeyPlugin } from './plugins/api-key'
@@ -63,6 +63,8 @@ import type { AuthHookDeps } from './admin-role-guards'
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/domain/models/app/auth'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
+import type { Languages } from '@/domain/models/app/languages/language'
+import type { DomainContext } from '@/infrastructure/server/domain-runtime'
 
 /**
  * Build socialProviders configuration from auth config
@@ -333,7 +335,6 @@ async function handleTwoFactorEnable(
   if (!data?.backupCodes) return
   const user = ctx.context.session?.user as AuthSessionUser
   if (!user?.email) return
-  // eslint-disable-next-line functional/no-expression-statements
   await sendBackupCodes({
     email: user.email,
     name: user.name,
@@ -350,7 +351,6 @@ async function handleDeleteUser(
   if (!isSuccess) return
   const user = ctx.context.session?.user as AuthSessionUser
   if (!user?.email) return
-  // eslint-disable-next-line functional/no-expression-statements
   await sendAccountDeletion({ email: user.email, name: user.name })
 }
 
@@ -388,7 +388,6 @@ async function handleAdminSetUserPassword(
   if (!isSuccess) return
   const userId = (ctx.body as { readonly userId?: unknown } | undefined)?.userId
   if (typeof userId !== 'string' || userId === '') return
-  // eslint-disable-next-line functional/no-expression-statements
   await ctx.context.internalAdapter.deleteUserSessions(userId)
 }
 
@@ -413,7 +412,8 @@ async function handleAdminSetUserPassword(
 export function buildAuthHooks(
   handlers?: Readonly<ReturnType<typeof createEmailHandlers>>,
   authConfig?: Auth,
-  deps?: AuthHookDeps
+  deps?: AuthHookDeps,
+  languages?: Languages
 ) {
   const roleApp: AdminRoleResolvable = { auth: authConfig }
   return {
@@ -422,7 +422,6 @@ export function buildAuthHooks(
         sanitizeNameField(ctx)
       }
       if (ctx.path === '/admin/create-user') {
-        // eslint-disable-next-line functional/no-expression-statements
         await validateAdminCreateUserPassword(ctx)
       }
       // Refuse a client-supplied `auth.user.image` on every path that can write
@@ -430,20 +429,21 @@ export function buildAuthHooks(
       // it into OTHER users' browsers, so this `before` hook is the only point
       // at which the value can be rejected before the row changes.
       applyAvatarUrlGuard(ctx)
-      // eslint-disable-next-line functional/no-expression-statements
+      // Refuse a language this app does not declare, on every path that can
+      // write it. Better Auth stores a DECLARED additional field verbatim, so
+      // without this the column would keep a value nothing can honour — and the
+      // account export would publish it.
+      applyLanguagePreferenceGuard(ctx, languages)
       await applyAdminRoleGuards(ctx, roleApp, deps)
     }),
     after: createAuthMiddleware(async (ctx) => {
       if (ctx.path === '/two-factor/enable' && handlers?.twoFactorBackupCodes) {
-        // eslint-disable-next-line functional/no-expression-statements
         await handleTwoFactorEnable(ctx, handlers.twoFactorBackupCodes)
       }
       if (ctx.path === '/delete-user' && handlers?.accountDeletion) {
-        // eslint-disable-next-line functional/no-expression-statements
         await handleDeleteUser(ctx, handlers.accountDeletion)
       }
       if (ctx.path === '/admin/set-user-password') {
-        // eslint-disable-next-line functional/no-expression-statements
         await handleAdminSetUserPassword(ctx)
       }
     }),
@@ -493,9 +493,30 @@ function buildAdvancedConfig() {
  * lifecycle hooks fire. Callers pass the full `App` (server.ts:191) so
  * structural typing gives both pieces from the same object.
  */
+/**
+ * What the Better Auth database hooks need beyond the config: the app they
+ * belong to, and the running server's resolved services.
+ *
+ * The services are what let an auth-event trigger reach the ONE automation
+ * runtime the server composed at boot. Before this they were rebuilt per event
+ * — a second composition of a layer whose own header says there must be exactly
+ * one, and the reason the automation route runner could not retire.
+ */
+interface AuthHookContext {
+  readonly appMeta: AppMetaForOrg | undefined
+  readonly domainContext: DomainContext | undefined
+}
+
 type AppMetaForOrg = {
   readonly name?: string
   readonly automations?: App['automations']
+  /**
+   * The app's declared languages, read by the write-door guard on
+   * `auth.user.language`. Carried here rather than on `authConfig` because the
+   * preference is a property of the ACCOUNT while the vocabulary that makes a
+   * value legal belongs to the APP being served.
+   */
+  readonly languages?: App['languages']
 }
 
 /**
@@ -514,11 +535,17 @@ type AppMetaForOrg = {
 const dispatchAuthEvent = (
   event: AuthTriggerEvent,
   user: Readonly<Record<string, unknown>>,
-  appMeta: AppMetaForOrg | undefined
+  hookContext: AuthHookContext
 ): Promise<void> => {
+  const { appMeta, domainContext } = hookContext
   if (!appMeta || !appMeta.automations || appMeta.automations.length === 0) {
     return Promise.resolve()
   }
+  // No server context means no server: this is the schema-generation instance
+  // (`export const auth = createAuthInstance()`), which has no app and fires no
+  // automations. It cannot reach the automation services and must not build a
+  // second set to pretend otherwise.
+  if (domainContext === undefined) return Promise.resolve()
   const program = triggerAuthEventAutomations({
     app: appMeta as App,
     event,
@@ -526,11 +553,10 @@ const dispatchAuthEvent = (
     processEnv: process.env,
     userId: typeof user['id'] === 'string' ? (user['id'] as string) : undefined,
   })
-  return Effect.runPromise(provideAutomationRuntime(program)).catch((err) => {
-    // The use case absorbs its own errors via `Effect.catchAllCause`, so
-    // this `.catch` only fires if the runtime layer itself failed to
-    // provide (DB unavailable at boot, etc.). Log-only — never throw.
-    logError('[automation:auth-event] runtime provision failed', err)
+  return runOnDomain(domainContext, program).catch((err) => {
+    // The use case absorbs its own errors via `Effect.catchAllCause`, so this
+    // `.catch` only fires if the run itself rejects. Log-only — never throw.
+    logError('[automation:auth-event] auth-event dispatch failed', err)
   })
 }
 
@@ -564,7 +590,7 @@ function buildDatabaseHooks(
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
   authConfig: Auth | undefined,
   connections: readonly ConnectionForSeed[] | undefined,
-  appMeta: AppMetaForOrg | undefined
+  hookContext: AuthHookContext
 ) {
   return {
     session: {
@@ -582,7 +608,6 @@ function buildDatabaseHooks(
     user: {
       create: {
         after: async (user: Readonly<{ id: string; email: string; name: string }>) => {
-          // eslint-disable-next-line functional/no-expression-statements -- Better Auth databaseHook requires side effect
           await handlers.welcome({ email: user.email, name: user.name })
           // Auto-enroll the user into the single per-app organization so the
           // organization-plugin team endpoints (`/api/auth/organization/*`)
@@ -590,8 +615,7 @@ function buildDatabaseHooks(
           if (authConfig) {
             try {
               // eslint-disable-next-line functional/no-expression-statements -- seeding side effect
-              await ensureOrganization(appMeta?.name ?? 'sovrium')
-              // eslint-disable-next-line functional/no-expression-statements -- seeding side effect
+              await ensureOrganization(hookContext.appMeta?.name ?? 'sovrium')
               await ensureMembership(user.id)
             } catch {
               // Non-fatal: org enrollment is best-effort.
@@ -605,7 +629,6 @@ function buildDatabaseHooks(
           if (connections !== undefined && connections.length > 0) {
             const { runSeedTestConnectionTokens } =
               await import('@/infrastructure/connections/test-token-seeder')
-            // eslint-disable-next-line functional/no-expression-statements -- Better Auth databaseHook requires side effect
             await runSeedTestConnectionTokens({
               userId: user.id,
               userEmail: user.email,
@@ -621,8 +644,7 @@ function buildDatabaseHooks(
           // sign-up. AWAIT it here (not bare promise) so the response
           // body the spec asserts (`/api/tables/activity-log/records`
           // already populated) doesn't race the automation dispatch.
-          // eslint-disable-next-line functional/no-expression-statements -- Better Auth databaseHook requires side effect
-          await dispatchAuthEvent('signUp', user, appMeta)
+          await dispatchAuthEvent('signUp', user, hookContext)
         },
       },
       update: {
@@ -641,8 +663,7 @@ function buildDatabaseHooks(
           // non-existent user, which is idempotent and must return 200 with an
           // empty user. Guard so the missing-user path never throws a 500.
           if (user !== null && user['emailVerified'] === true) {
-            // eslint-disable-next-line functional/no-expression-statements -- Better Auth databaseHook requires side effect
-            await dispatchAuthEvent('emailVerified', user, appMeta)
+            await dispatchAuthEvent('emailVerified', user, hookContext)
           }
         },
       },
@@ -667,8 +688,10 @@ function buildDatabaseHooks(
 export function createAuthInstance(
   authConfig?: Auth,
   connections?: readonly ConnectionForSeed[],
-  appMeta?: AppMetaForOrg
+  appMeta?: AppMetaForOrg,
+  domainContext?: DomainContext
 ) {
+  const hookContext: AuthHookContext = { appMeta, domainContext }
   const handlers = createEmailHandlers(authConfig)
   const emailAndPasswordConfig = buildEmailAndPasswordConfig(authConfig, handlers)
   const { requireEmailVerification } = emailAndPasswordConfig
@@ -695,12 +718,21 @@ export function createAuthInstance(
     },
     user: {
       changeEmail: { enabled: true, sendChangeEmailVerification: handlers.verification },
+      // The account's own interface language — engine-owned, so no app opts in.
+      // `input: true` lets a person set their own through `/update-user`; the
+      // VALUE is then checked against the app's declared languages by
+      // `applyLanguagePreferenceGuard`, because Better Auth validates an
+      // additional field's type and nothing more.
+      additionalFields: { language: { type: 'string', required: false, input: true } },
     },
     socialProviders: buildSocialProviders(authConfig),
     plugins: buildAuthPlugins(handlers, authConfig),
     rateLimit: buildRateLimitConfig(),
-    hooks: buildAuthHooks(handlers, authConfig),
-    databaseHooks: buildDatabaseHooks(handlers, authConfig, connections, appMeta),
+    // `deps` is undefined here on purpose: the admin-role guards resolve their
+    // own database access, and only the LANGUAGE guard needs anything from the
+    // app — the vocabulary a written preference has to belong to.
+    hooks: buildAuthHooks(handlers, authConfig, undefined, appMeta?.languages),
+    databaseHooks: buildDatabaseHooks(handlers, authConfig, connections, hookContext),
   })
 }
 

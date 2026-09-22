@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { mapStringsDeep, resolveTranslation } from '@/domain/utils/translation-resolver'
+import {
+  mapStringsDeep,
+  resolveTranslation,
+} from '@/domain/models/app/languages/translation-resolver'
 import type { App, Page } from '@/domain/models/app'
 import type { Languages } from '@/domain/models/app/languages'
 import type { LanguageConfig } from '@/domain/models/app/languages/supported/language-config'

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { showSuccessToast } from '../components/crud-form/toast'
+import { showSuccessToast } from '../parts/crud-form/toast'
 import type { KanbanDrag } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 
 export interface DragPersistContext {
@@ -15,7 +15,6 @@ export interface DragPersistContext {
    * override: a different target table and the success/error toasts.
    */
   readonly drag: KanbanDrag | undefined
-  readonly groupByField: string
   readonly tableName: string
 }
 
@@ -38,12 +37,15 @@ function resolveUpdateOverride(drag: KanbanDrag | undefined) {
 }
 
 /**
- * Persist a cross-column drop.
+ * Persist a drop.
  *
- * A drop writes the target column value to the groupBy field whenever the
- * board is bound to a table. `drag.persistAction` is an OVERRIDE — it may
- * redirect the write to another table and attach success/error toasts — and is
- * no longer the enabler.
+ * A drop writes the values its target names whenever the board is bound to a
+ * table: the groupBy field on a single-axis board, and on a two-axis board the
+ * groupBy field, the swimlane field, or BOTH — one drop is one move, so a
+ * diagonal drag that crosses a column boundary and a lane boundary at once is
+ * ONE request carrying both changes rather than two racing each other.
+ * `drag.persistAction` is an OVERRIDE — it may redirect the write to another
+ * table and attach success/error toasts — and is no longer the enabler.
  *
  * It used to be. A board with `drag: { enabled: true }` and no `persistAction`
  * returned `{ ok: true }` here having written nothing, so the card animated
@@ -54,8 +56,8 @@ function resolveUpdateOverride(drag: KanbanDrag | undefined) {
  * and Trello all persist a drop immediately.
  *
  * Two gaps remain, and both are deliberate:
- *   - the PATCH body is the groupBy field alone, so an override's configured
- *     crud payload is still ignored;
+ *   - the PATCH body is the axis fields the drop moved across, so an override's
+ *     configured crud payload is still ignored;
  *   - within-column reorders never reach this function — only cross-column
  *     moves carry a value to write.
  *
@@ -66,7 +68,7 @@ function resolveUpdateOverride(drag: KanbanDrag | undefined) {
 export async function persistKanbanDrop(
   ctx: DragPersistContext,
   recordId: string,
-  newGroupValue: string
+  updates: Readonly<Record<string, string>>
 ): Promise<{ readonly ok: boolean }> {
   const action = resolveUpdateOverride(ctx.drag)
 
@@ -80,7 +82,7 @@ export async function persistKanbanDrop(
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [ctx.groupByField]: newGroupValue }),
+      body: JSON.stringify(updates),
     })
     if (!res.ok) return { ok: false }
 

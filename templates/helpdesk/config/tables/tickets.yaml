@@ -10,7 +10,7 @@ fields:
     type: long-text
   # Option `color` is the author's own datum (ADR-024 A7 ruling 1) and MUST be a
   # literal `#RRGGBB` — the schema rejects `var(--color-*)`, so these five stay
-  # hex rather than becoming theme tokens. They are five separable hues that each
+  # hex rather than becoming design tokens. They are five separable hues that each
   # say who is holding the ticket:
   #   New       the app's rose accent — the queue's call to action.
   #   Open      amber: in flight, on us.

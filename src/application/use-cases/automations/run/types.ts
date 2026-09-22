@@ -14,9 +14,10 @@
  * the run-loop type contract without re-declaring it.
  */
 
-import { Duration, Effect } from 'effect'
+import { Duration, Effect, Schedule } from 'effect'
 import type { ActionHandler, ActionKey, ActionOutcome, AutomationContext } from '../action-handlers'
 import type { TriggerData } from '../resolve-trigger-data'
+import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
@@ -136,6 +137,19 @@ export interface RunAccumulator {
  */
 export interface StepContext {
   readonly app: App
+  /**
+   * Run a sub-program on the services THIS run is already using, returning a
+   * Promise.
+   *
+   * The code-action sandbox and the `automation:call` invoker both have to hand
+   * user code a Promise, so one of the two sides of that boundary has to make
+   * the crossing. Carrying the runner on the context means the run loop makes
+   * it once, from the fiber that holds the services — instead of each invoker
+   * rebuilding the whole automation runtime per dispatched step, which is what
+   * they did before. Supplied by `buildStepContext`; see
+   * `infrastructure/automations/runtime-layer.ts` for the bridge itself.
+   */
+  readonly runProgram: <A, E>(program: Effect.Effect<A, E, RunRequirements>) => Promise<A>
   readonly envLookup: Readonly<Record<string, string>>
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly handlers: ReadonlyMap<ActionKey, ActionHandler>
@@ -195,6 +209,7 @@ export type StepRequirements =
   | ConnectionTokenRepository
   | AnalyticsRepository
   | AiService
+  | AiEmbeddingRepository
   | StorageService
   | ImageTransformService
   | LinkRepository
@@ -216,6 +231,7 @@ export type RunRequirements =
   | ConnectionTokenRepository
   | AnalyticsRepository
   | AiService
+  | AiEmbeddingRepository
   | StorageService
   | ImageTransformService
   | LinkRepository
@@ -379,14 +395,37 @@ const DEFAULT_RETRY_DELAY_MS = 50
 const MAX_RETRY_DELAY_MS = 30_000
 
 /**
- * Compute the delay (ms) before retry attempt `retryIndex` (1-indexed: the
- * 1st retry after the initial attempt). `'exponential'` doubles each step;
- * `'fixed'` is constant. Capped at {@link MAX_RETRY_DELAY_MS}.
+ * The retry policy for one action, as an Effect `Schedule`.
+ *
+ * Emits one delay before each RETRY — none before the first attempt, and none
+ * after the last failure — so a `maxAttempts: N` config yields `N - 1` delays
+ * and exactly `N` invocations. `'exponential'` doubles from the base
+ * (`base * 2^(n-1)`, matching `Schedule.exponential`'s 1-indexed `attempt`);
+ * `'fixed'` holds the base constant. Every delay is capped at
+ * {@link MAX_RETRY_DELAY_MS}, and a `delayMs` of 0 (the shape `toResolvedRetry`
+ * produces when the config omits it) falls back to
+ * {@link DEFAULT_RETRY_DELAY_MS}.
+ *
+ * The exact sequence is pinned in `retry-schedule.test.ts` — no E2E spec can
+ * observe it, so that unit test is the only guard against silent drift.
  */
-export const retryDelayMs = (retry: ResolvedRetryConfig, retryIndex: number): number => {
+export const retrySchedule = (retry: ResolvedRetryConfig): Schedule.Schedule<Duration.Duration> => {
   const base = retry.delayMs > 0 ? retry.delayMs : DEFAULT_RETRY_DELAY_MS
-  const raw = retry.strategy === 'exponential' ? base * 2 ** Math.max(0, retryIndex - 1) : base
-  return Math.min(raw, MAX_RETRY_DELAY_MS)
+  // `exponential` computes `base * factor^(attempt - 1)`, so a factor of 1 is
+  // precisely the `'fixed'` strategy — one constructor covers both, and both
+  // branches then share the `Duration` output type.
+  const growth = Schedule.exponential(
+    Duration.millis(base),
+    retry.strategy === 'exponential' ? 2 : 1
+  )
+  return growth.pipe(
+    Schedule.modifyDelay(({ duration }) =>
+      Effect.succeed(Duration.min(duration, Duration.millis(MAX_RETRY_DELAY_MS)))
+    ),
+    // `maxAttempts` counts TOTAL attempts and the first one is not a retry, so
+    // the schedule may recur at most `maxAttempts - 1` times.
+    Schedule.upTo({ times: Math.max(0, retry.maxAttempts - 1) })
+  )
 }
 
 /**
@@ -421,14 +460,6 @@ export const resolveRetryForAction = (
   const actionRetry = toResolvedRetry(rawAction['retry'])
   return actionRetry ?? automationRetry
 }
-
-/**
- * Sleep for `ms` milliseconds inside an Effect. A 0ms delay short-circuits
- * to a no-op so retry-with-no-delay paths (a per-action `{ maxAttempts: N }`
- * override) don't pay the scheduler round-trip — keeps the E2E specs fast.
- */
-export const sleepEffect = (ms: number): Effect.Effect<void> =>
-  ms <= 0 ? Effect.void : Effect.sleep(Duration.millis(ms))
 
 export const cryptoRandomId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

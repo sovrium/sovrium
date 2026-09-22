@@ -9,7 +9,13 @@ import { stat } from 'node:fs/promises'
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { resolveAdminRole } from '@/domain/models/app/auth/roles'
-import { parseStorageEnvConfig, type StorageEnvConfig } from '@/domain/models/env/storage/storage'
+import { appRequiresAi } from '@/domain/models/app/requires-ai'
+import { appUsesStorage } from '@/domain/models/app/requires-storage'
+import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
+import {
+  parseStorageEnvConfig,
+  type StorageEnvConfig,
+} from '@/domain/models/process-env/storage/storage'
 import {
   describeRootSecretSource,
   provisionRootSecret,
@@ -20,10 +26,10 @@ import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { formatPathForDisplay } from '@/infrastructure/logging/format-path'
 import { formatDuration } from '@/infrastructure/logging/startup-summary'
+import { collectInsecureEnvWarning, getNodeEnv } from '@/infrastructure/process/env'
 import { getTelemetryConfig } from '@/infrastructure/telemetry/telemetry-config'
-import { collectInsecureEnvWarning, getNodeEnv } from '@/infrastructure/utils/env'
 import type { App } from '@/domain/models/app'
-import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
 
 /**
@@ -56,8 +62,19 @@ import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
  * storage is unconfigured, the warning text matches the docstring in
  * `storage-service-live.ts` verbatim so a "grep for the warning" search works
  * from either side.
+ *
+ * ── GATED ON THE CONFIG, BOTH BRANCHES ─────────────────────────────────────
+ *
+ * An app that declares no bucket, no attachment column and no file-upload form
+ * field cannot put a byte in storage, so NEITHER branch has anything to tell
+ * its operator: the success row names a subsystem they do not use, and the
+ * warning warns about a capability they never asked for. Both go silent there
+ * — the same silent-skip contract as `collectPublicDirPhases` /
+ * `collectAiListenerPhases`. [internal ref] (a bucket → the row appears)
+ * against [internal ref] (nothing → no row in either form).
  */
-export const collectStoragePhases = (): readonly StartupPhase[] => {
+export const collectStoragePhases = (app: Readonly<App>): readonly StartupPhase[] => {
+  if (!appUsesStorage(app)) return []
   const config = parseStorageEnvConfig()
   if (config === undefined) {
     return [
@@ -122,6 +139,37 @@ export const collectAiListenerPhases = (app: Readonly<App>): readonly StartupPha
   return [
     {
       label: 'AI knowledge listener disabled — requires PostgreSQL',
+      type: 'warning' as const,
+    },
+  ]
+}
+
+/**
+ * Emit a warning startup phase when the app USES AI but no provider is chosen.
+ *
+ * With `AI_PROVIDER` unset an AI-bearing app still boots — that is deliberate
+ *: declared agents come up INERT, discoverable but not runnable, and
+ * an `ai-*` column keeps serving its baseline value rather than erroring. A
+ * template deployed without an API key must be a working app with the
+ * assistant switched off, never a refusal.
+ *
+ * That graceful degradation is exactly what makes the notice necessary: from
+ * the outside an inert agent looks identical to a working one until someone
+ * tries to use it. The label names BOTH consequences, because "AI disabled"
+ * alone leaves the operator to guess whether their agents crashed or their
+ * `ai-*` columns went null.
+ *
+ * Gated on the CONFIG in the same way the SMTP phase is: an app that declares
+ * no AI surface loses nothing to an unset `AI_PROVIDER`, so warning it would
+ * describe a capability it never asked for.
+ */
+export const collectAiProviderPhases = (app: Readonly<App>): readonly StartupPhase[] => {
+  if (!appRequiresAi(app) || isAiProviderConfigured(process.env)) return []
+  return [
+    {
+      label:
+        'AI disabled — AI_PROVIDER not set ' +
+        '(agents are inert, ai-* fields fall back to their baseline)',
       type: 'warning' as const,
     },
   ]
@@ -210,6 +258,7 @@ export const collectAdminPhases = (app: Readonly<App>): Promise<readonly Startup
     ] as const
   }).pipe(
     Effect.provide(AuthRepositoryLive),
+    // effect-swallow: stated in the doc comment above — this only decides whether the startup BANNER prints an admin line, and a banner lookup must not regress the boot it is describing. A real misconfiguration is caught earlier, by the Better Auth users-table check.
     Effect.orElseSucceed(() => [] as readonly StartupPhase[])
   )
   return Effect.runPromise(program)
@@ -262,7 +311,7 @@ export const collectTelemetryPhases = (): readonly StartupPhase[] => {
  * `development`. Extracted from `server.ts` to keep the composition root under
  * the `max-lines` / `max-statements` budgets.
  */
-export const collectRootSecretPhases = (): readonly StartupPhase[] => {
+export const collectRootSecretPhases = (app: Readonly<App>): readonly StartupPhase[] => {
   const resolution = provisionRootSecret()
   const reported: StartupPhase = {
     label: `Encryption key: ${describeRootSecretSource(resolution, formatPathForDisplay)}`,
@@ -273,8 +322,16 @@ export const collectRootSecretPhases = (): readonly StartupPhase[] => {
   // key means every connection token written before this restart just became
   // unreadable — and will again on the next one. Nothing else in the system
   // notices, which is precisely why it is said out loud here.
+  //
+  // `connections[]` is the third condition and it is not decoration: connection
+  // tokens are the ONLY thing sealed with the root secret, so an app that
+  // declares none has nothing durable encrypted with the key that just changed.
+  // Warning it about a loss it cannot suffer is the noise this whole pass
+  // exists to remove.
   const ephemeral: readonly StartupPhase[] =
-    resolution.source === 'generated' && (process.env['DATABASE_URL'] ?? '') !== ''
+    resolution.source === 'generated' &&
+    (process.env['DATABASE_URL'] ?? '') !== '' &&
+    (app.connections ?? []).length > 0
       ? [
           {
             label:
@@ -288,6 +345,7 @@ export const collectRootSecretPhases = (): readonly StartupPhase[] => {
 }
 
 export const buildStartupPhases = (params: {
+  readonly app: Readonly<App>
   readonly infraPhases: readonly StartupPhase[]
   readonly cssLabel: string
   readonly durationMs: number
@@ -298,7 +356,7 @@ export const buildStartupPhases = (params: {
   return [
     ...(insecureEnvPhase ? [insecureEnvPhase] : []),
     { label: `Mode: ${mode}`, type: 'success' as const },
-    ...collectRootSecretPhases(),
+    ...collectRootSecretPhases(params.app),
     ...params.infraPhases,
     { label: params.cssLabel, type: 'success' as const },
     { label: `Server ready in ${formatDuration(params.durationMs)}`, type: 'success' as const },

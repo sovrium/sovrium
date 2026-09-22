@@ -37,17 +37,20 @@
  *
  * @see ./list.ts — sibling bucket-index endpoint (uses the `_admin` envelope)
  * @see ./overview.ts — sibling aggregate-chart endpoint
- * @see ../../_shared/cursor-pagination.ts — opaque base64 cursor contract
+ * @see ../../combinators/cursor-pagination.ts — opaque base64 cursor contract
  * @see ../audit-log/action-catalog.ts — `bucket.files.queried` (resource.type `bucket`)
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 import {
   appliedQuerySchema,
   cursorPaginationQuerySchema,
   cursorPaginationResponseSchema,
   searchTermSchema,
-} from '../../_shared'
+} from '../../combinators'
+import { withDefault } from '../../combinators/schema-defaults'
 
 /**
  * Sort key for the file browser — one per COLUMN the browser renders.
@@ -72,12 +75,12 @@ import {
  * the tie-breaker, so two files with the same `createdAt`, `size` or folded name
  * never collapse into one cursor position.
  */
-export const bucketFilesSortSchema = z
-  .enum(['filename', 'mimeType', 'size', 'createdAt'])
-  .default('createdAt')
-  .describe(
-    'File-browser sort key — one per rendered column: `filename`, `mimeType`, `size`, `createdAt`. Default `createdAt` (newest-first). The legacy spelling `date` is accepted as an alias of `createdAt`. The two string keys order case-insensitively, identically on both engines. Combined with `order`, drives the deterministic `(<sortKey>, id)` cursor seek.'
-  )
+export const bucketFilesSortSchema = Schema.Literals(['filename', 'mimeType', 'size', 'createdAt'])
+  .annotate({
+    description:
+      'File-browser sort key — one per rendered column: `filename`, `mimeType`, `size`, `createdAt`. Default `createdAt` (newest-first). The legacy spelling `date` is accepted as an alias of `createdAt`. The two string keys order case-insensitively, identically on both engines. Combined with `order`, drives the deterministic `(<sortKey>, id)` cursor seek.',
+  })
+  .pipe(withDefault('createdAt'))
 
 /**
  * Legacy sort spellings still accepted, mapped to their canonical column name.
@@ -109,10 +112,12 @@ export function normalizeBucketFilesSortKey(raw: string | undefined): string | u
  * Sort direction. Default `desc` (newest / largest first), matching the
  * cursor-pagination convention of descending recency.
  */
-export const bucketFilesOrderSchema = z
-  .enum(['asc', 'desc'])
-  .default('desc')
-  .describe('Sort direction. Default `desc` (newest-first for `date`, largest-first for `size`).')
+export const bucketFilesOrderSchema = Schema.Literals(['asc', 'desc'])
+  .annotate({
+    description:
+      'Sort direction. Default `desc` (newest-first for `date`, largest-first for `size`).',
+  })
+  .pipe(withDefault('desc'))
 
 /**
  * A single file row in the browser. Flat projection of
@@ -124,35 +129,25 @@ export const bucketFilesOrderSchema = z
  * byte `size` (for the quota mental model), the `mimeType` (for the `type`
  * filter + an icon hint), and the `createdAt` upload timestamp.
  */
-export const bucketFileItemSchema = z
-  .object({
-    key: z
-      .string()
-      .min(1)
-      .describe(
-        'Unique storage key for this file (the `file_storage_metadata.key` column — the path segment used by the file download route). Stable across the file lifetime.'
-      ),
-    filename: z
-      .string()
-      .min(1)
-      .describe('Original filename supplied at upload time (`file_storage_metadata.filename`).'),
-    size: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe('File size in bytes (`file_storage_metadata.size`).'),
-    mimeType: z
-      .string()
-      .min(1)
-      .describe(
-        'MIME content type recorded at upload (`file_storage_metadata.mime_type`), e.g. `image/png`, `application/pdf`. Used by the `type` filter and the dashboard icon hint.'
-      ),
-    createdAt: z
-      .string()
-      .datetime()
-      .describe('ISO 8601 UTC timestamp of the upload (`file_storage_metadata.created_at`).'),
-  })
-  .openapi('BucketFileItem')
+export const bucketFileItemSchema = Schema.Struct({
+  key: Schema.String.annotate({
+    description:
+      'Unique storage key for this file (the `file_storage_metadata.key` column — the path segment used by the file download route). Stable across the file lifetime.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  filename: Schema.String.annotate({
+    description: 'Original filename supplied at upload time (`file_storage_metadata.filename`).',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  size: Schema.Int.annotate({
+    description: 'File size in bytes (`file_storage_metadata.size`).',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  mimeType: Schema.String.annotate({
+    description:
+      'MIME content type recorded at upload (`file_storage_metadata.mime_type`), e.g. `image/png`, `application/pdf`. Used by the `type` filter and the dashboard icon hint.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  createdAt: looseIsoDateTime({
+    description: 'ISO 8601 UTC timestamp of the upload (`file_storage_metadata.created_at`).',
+  }),
+}).annotate({ identifier: 'BucketFileItem' })
 
 /**
  * Query schema for `GET /api/admin/buckets/:bucketName/files`.
@@ -180,19 +175,20 @@ export const bucketFileItemSchema = z
  * for under a category match they did not ask for. The two knobs compose with
  * AND instead: `?type=image/&q=logo` is "images whose name contains logo".
  */
-export const bucketFilesQuerySchema = cursorPaginationQuerySchema.extend({
+export const bucketFilesQuerySchema = Schema.Struct({
+  ...cursorPaginationQuerySchema.fields,
   sort: bucketFilesSortSchema,
   order: bucketFilesOrderSchema,
-  type: z
-    .string()
-    .min(1)
-    .optional()
-    .describe(
-      'Optional mimeType filter. A trailing-slash value (`image/`) matches by prefix; a full type (`image/png`) matches exactly. Omit for "all types".'
-    ),
-  q: searchTermSchema.describe(
-    'Optional free-text search over the file `filename` and storage `key`, as a case-insensitive literal substring. Composes with `type` (AND) and with the cursor, so the page is a page of MATCHES. `mimeType` is intentionally not searched — use `type` for that. Empty / whitespace-only means "no search".'
+  type: optionalField(
+    Schema.String.annotate({
+      description:
+        'Optional mimeType filter. A trailing-slash value (`image/`) matches by prefix; a full type (`image/png`) matches exactly. Omit for "all types".',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
+  q: searchTermSchema.annotate({
+    description:
+      'Optional free-text search over the file `filename` and storage `key`, as a case-insensitive literal substring. Composes with `type` (AND) and with the cursor, so the page is a page of MATCHES. `mimeType` is intentionally not searched — use `type` for that. Empty / whitespace-only means "no search".',
+  }),
 })
 
 /**
@@ -205,28 +201,24 @@ export const bucketFilesQuerySchema = cursorPaginationQuerySchema.extend({
  * (per the user story's contract). `totalBytes` is invariant across pages —
  * paginating does not change the bucket total.
  */
-export const bucketFilesResponseSchema = cursorPaginationResponseSchema(bucketFileItemSchema)
-  .extend({
-    totalBytes: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        "Sum of all stored file sizes (bytes) in this bucket across every page — NOT just the current page, and NOT narrowed by `type` or `q`. Lets the file browser render its quota bar without a second query to `/api/admin/buckets`. Invariant across pagination AND across filtering: the quota bar answers 'how full is this bucket', which a search does not change. Mirrors the bucket's `_admin.metadata.totalBytes` from the list endpoint."
-      ),
-    appliedQuery: appliedQuerySchema,
-  })
-  .openapi('BucketFilesResponse')
+export const bucketFilesResponseSchema = Schema.Struct({
+  ...cursorPaginationResponseSchema(bucketFileItemSchema).fields,
+  totalBytes: Schema.Int.annotate({
+    description:
+      "Sum of all stored file sizes (bytes) in this bucket across every page — NOT just the current page, and NOT narrowed by `type` or `q`. Lets the file browser render its quota bar without a second query to `/api/admin/buckets`. Invariant across pagination AND across filtering: the quota bar answers 'how full is this bucket', which a search does not change. Mirrors the bucket's `_admin.metadata.totalBytes` from the list endpoint.",
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  appliedQuery: appliedQuerySchema,
+}).annotate({ identifier: 'BucketFilesResponse' })
 
 /**
  * TypeScript types inferred from the schemas.
  * @public
  */
-export type BucketFilesSort = z.infer<typeof bucketFilesSortSchema>
+export type BucketFilesSort = typeof bucketFilesSortSchema.Type
 /** @public */
-export type BucketFilesOrder = z.infer<typeof bucketFilesOrderSchema>
-export type BucketFileItem = z.infer<typeof bucketFileItemSchema>
+export type BucketFilesOrder = typeof bucketFilesOrderSchema.Type
+export type BucketFileItem = typeof bucketFileItemSchema.Type
 /** @public */
-export type BucketFilesQuery = z.infer<typeof bucketFilesQuerySchema>
+export type BucketFilesQuery = typeof bucketFilesQuerySchema.Type
 /** @public */
-export type BucketFilesResponse = z.infer<typeof bucketFilesResponseSchema>
+export type BucketFilesResponse = typeof bucketFilesResponseSchema.Type

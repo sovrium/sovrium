@@ -10,8 +10,8 @@ tables:
   - $ref: ./config/tables/posts.yaml
   - $ref: ./config/tables/resources.yaml
 
-theme:
-  $ref: ./config/theme.yaml
+design:
+  $ref: ./config/design.yaml
 
 pages:
   - $ref: ./config/pages/home.yaml

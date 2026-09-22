@@ -36,6 +36,3 @@ export const designSystemShares = systemTable(
     index('design_system_shares_app_revoked_idx').on(table.appName, table.revokedAt),
   ]
 )
-
-export type DesignSystemShare = typeof designSystemShares.$inferSelect
-export type NewDesignSystemShare = typeof designSystemShares.$inferInsert

@@ -61,6 +61,7 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import {
   TIMESTAMPTZ_MIGRATION_ENV_VAR,
   TIMESTAMPTZ_MIGRATION_ACK_NON_UTC_ENV_VAR,
@@ -68,8 +69,7 @@ import {
   isTimestamptzMigrationEnabled,
   isNonUtcConversionAcknowledged,
   isUtcTimeZoneName,
-} from '@/domain/models/env/database/timestamptz-migration'
-import { sanitizeTableName } from '@/domain/utils/database/table-naming'
+} from '@/domain/models/process-env/database/timestamptz-migration'
 import { db } from '@/infrastructure/database'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import { logInfo, logWarning } from '@/infrastructure/logging/logger'

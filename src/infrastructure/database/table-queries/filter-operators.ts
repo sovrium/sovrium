@@ -6,7 +6,7 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm'
-import { LIKE_ESCAPE_CHARACTER, escapeLikeMetacharacters } from '../sql/dialect-sql-helpers'
+import { LIKE_ESCAPE_CHARACTER, escapeLikeMetacharacters } from '@/domain/kernel/sql/sql-formatting'
 import { formatSqlValue, formatLikePattern, escapeSqlString } from '../sql/sql-utils'
 
 /**

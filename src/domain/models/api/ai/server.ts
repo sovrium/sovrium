@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
 
 /**
  * MCP server-mode API contract schema — the `server` sub-resource of the
@@ -17,19 +17,19 @@ import { z } from '@hono/zod-openapi'
  */
 
 /** Enabled MCP server: the active transport and the path the server mounts on. */
-export const aiServerStatusSchema = z.object({
-  enabled: z.literal(true),
-  transport: z.string(),
-  mountPath: z.string(),
+export const aiServerStatusSchema = Schema.Struct({
+  enabled: Schema.Literal(true),
+  transport: Schema.String,
+  mountPath: Schema.String,
 })
 
 /** Envelope returned (with status 404) when MCP server mode is disabled. */
-export const aiServerDisabledSchema = z.object({
-  enabled: z.literal(false),
-  error: z.string(),
+export const aiServerDisabledSchema = Schema.Struct({
+  enabled: Schema.Literal(false),
+  error: Schema.String,
 })
 
 /** @public */
-export type AiServerStatus = z.infer<typeof aiServerStatusSchema>
+export type AiServerStatus = typeof aiServerStatusSchema.Type
 /** @public */
-export type AiServerDisabled = z.infer<typeof aiServerDisabledSchema>
+export type AiServerDisabled = typeof aiServerDisabledSchema.Type

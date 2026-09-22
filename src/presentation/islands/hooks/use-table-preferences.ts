@@ -7,7 +7,7 @@
 
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { useCallback } from 'react'
-import type { RowHeight } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+import type { RowHeight } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 /**
  * Hook for reading + persisting per-user, per-table runtime preferences

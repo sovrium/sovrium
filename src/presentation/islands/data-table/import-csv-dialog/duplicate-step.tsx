@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeTableDialogBodyClasses,
+  computeTableEditorLabelClasses,
+  computeTablePanelControlClasses,
+} from '@/presentation/design/table-default-classes'
 import type { DuplicateStrategy } from './types'
 
 interface DuplicateStepProps {
@@ -51,7 +56,7 @@ export function DuplicateStep({
   const showUniqueField = duplicateStrategy === 'skip' || duplicateStrategy === 'overwrite'
   return (
     <div className="space-y-3">
-      <p className="text-foreground-muted mb-4 text-sm">How should duplicate records be handled?</p>
+      <p className={computeTableDialogBodyClasses()}>How should duplicate records be handled?</p>
       <StrategyRadio
         value="skip"
         current={duplicateStrategy}
@@ -74,7 +79,7 @@ export function DuplicateStep({
         <div className="mt-3 flex items-center gap-2">
           <label
             htmlFor="csv-import-unique-field"
-            className="text-foreground text-sm font-medium"
+            className={computeTableEditorLabelClasses()}
           >
             Unique field
           </label>
@@ -84,7 +89,7 @@ export function DuplicateStep({
             value={uniqueField ?? ''}
             // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- one-statement select handler; React Compiler will memoize once enabled in Bun.
             onChange={(e) => setUniqueField(e.target.value || undefined)}
-            className="border-border rounded border px-2 py-1 text-sm"
+            className={computeTablePanelControlClasses()}
           >
             <option value="">Select a field…</option>
             {tableFields?.map((field) => (

@@ -63,7 +63,9 @@
  * @see src/application/use-cases/automations/resolve-env-vars.ts — `buildEnvLookup`
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * The constant every set value is reported as.
@@ -90,12 +92,48 @@ export const ENV_VALUE_MASK = '***'
  * "configured on this box" from "silently coasting on a default", and that
  * distinction is the whole diagnostic.
  */
-export const envValueSourceSchema = z
-  .enum(['environment', 'default', 'unset'])
-  .describe('Which rung of the resolution order supplied this variable value')
+export const envValueSourceSchema = Schema.Literals(['environment', 'default', 'unset']).annotate({
+  description: 'Which rung of the resolution order supplied this variable value',
+})
 
 /** @public */
-export type EnvValueSource = z.infer<typeof envValueSourceSchema>
+export type EnvValueSource = typeof envValueSourceSchema.Type
+
+/**
+ * What this variable's DECLARED default is, as a single three-state fact.
+ *
+ *   - `none`      — `app.env[].default` is not declared at all
+ *   - `withheld`  — a default is declared, and the author did not release it
+ *   - `disclosed` — a default is declared and marked `secret: false`, so
+ *                   `defaultValue` carries the literal
+ *
+ * ─── WHY A THIRD FIELD RATHER THAN A DERIVATION AT THE READER ──────────────
+ *
+ * `hasDefault` and `defaultValue` already carry this between them, and every
+ * JavaScript reader can compute it in one expression. A DECLARATIVE reader
+ * cannot: the console's `/env` page is an authored row template whose per-row
+ * gate (`visibility.record`) evaluates ONE field against one operator, with no
+ * conjunction and no presence test. "A default exists AND its literal is
+ * absent" is exactly the cross-field predicate that vocabulary cannot express,
+ * so the page could either drop the `has a default` hint for the withheld
+ * majority — the diagnostic the endpoint exists to serve — or print a bare
+ * `Default` with nothing after it.
+ *
+ * It is a derived FACT and deliberately not a label: no English, no formatting,
+ * nothing a second locale would have to re-translate. The presentation copy
+ * stays in the page, where it belongs.
+ *
+ * It is also additive and non-authoritative: `hasDefault` and `defaultValue`
+ * keep their exact meanings, and a consumer that ignores this field is
+ * unaffected. `disclosed` is emitted if and only if `defaultValue` is present,
+ * which is the invariant `[internal ref]` pins.
+ */
+export const envDefaultStateSchema = Schema.Literals(['none', 'withheld', 'disclosed']).annotate({
+  description: 'Whether a default is declared, and whether its literal is released to the reader',
+})
+
+/** @public */
+export type EnvDefaultState = typeof envDefaultStateSchema.Type
 
 /**
  * One declared environment variable and its resolution status.
@@ -127,51 +165,47 @@ export type EnvValueSource = z.infer<typeof envValueSourceSchema>
  * The marker's polarity carries the safety: it defaults to `true`, so a config
  * that never heard of it keeps every default withheld.
  */
-export const envVarStatusSchema = z
-  .object({
-    key: z
-      .string()
-      .regex(/^[A-Z][A-Z0-9_]*$/)
-      .describe(
-        'The declared variable key, verbatim from app.env[].key (uppercase snake_case). Never masked — a key name is an identifier the operator authored, not a credential.'
-      ),
-    description: z
-      .string()
-      .optional()
-      .describe('Operator-authored description from app.env[].description, verbatim when declared'),
-    required: z
-      .boolean()
-      .describe(
-        'Whether this variable must be set. Reflects app.env[].required, resolved to its documented default of true when the config omits it, so consumers never branch on undefined.'
-      ),
-    hasDefault: z
-      .boolean()
-      .describe(
-        'Whether app.env[].default is declared. Answers "is there a fallback at all?" for every variable, including those whose default value is withheld.'
-      ),
-    defaultValue: z
-      .string()
-      .optional()
-      .describe(
-        'The declared app.env[].default, verbatim — present ONLY when the author marked the variable `secret: false`. Absent when the marker is omitted or true, which is the safe default: an unmarked default is treated as a credential. Absence is never ambiguous, because hasDefault already reports whether a default exists at all.'
-      ),
-    isSet: z
-      .boolean()
-      .describe(
-        'Whether this instance resolved a non-empty value for the key, from any rung. Equivalent to source !== "unset"; kept as its own field because it is the flag the UI renders.'
-      ),
-    source: envValueSourceSchema,
-    masked: z
-      .literal(ENV_VALUE_MASK)
-      .nullable()
-      .describe(
-        'The constant "***" when a value resolved, null when it did not. Fixed-width by design: a length-revealing mask would fingerprint the credential format.'
-      ),
-  })
-  .openapi('EnvVarStatus')
+export const envVarStatusSchema = Schema.Struct({
+  key: Schema.String.annotate({
+    description:
+      'The declared variable key, verbatim from app.env[].key (uppercase snake_case). Never masked — a key name is an identifier the operator authored, not a credential.',
+  }).pipe(Schema.check(Schema.isPattern(/^[A-Z][A-Z0-9_]*$/))),
+  description: optionalField(
+    Schema.String.annotate({
+      description:
+        'Operator-authored description from app.env[].description, verbatim when declared',
+    })
+  ),
+  required: Schema.Boolean.annotate({
+    description:
+      'Whether this variable must be set. Reflects app.env[].required, resolved to its documented default of true when the config omits it, so consumers never branch on undefined.',
+  }),
+  hasDefault: Schema.Boolean.annotate({
+    description:
+      'Whether app.env[].default is declared. Answers "is there a fallback at all?" for every variable, including those whose default value is withheld.',
+  }),
+  defaultState: envDefaultStateSchema,
+  defaultValue: optionalField(
+    Schema.String.annotate({
+      description:
+        'The declared app.env[].default, verbatim — present ONLY when the author marked the variable `secret: false`. Absent when the marker is omitted or true, which is the safe default: an unmarked default is treated as a credential. Absence is never ambiguous, because hasDefault already reports whether a default exists at all.',
+    })
+  ),
+  isSet: Schema.Boolean.annotate({
+    description:
+      'Whether this instance resolved a non-empty value for the key, from any rung. Equivalent to source !== "unset"; kept as its own field because it is the flag the UI renders.',
+  }),
+  source: envValueSourceSchema,
+  masked: Schema.NullOr(
+    Schema.Literal(ENV_VALUE_MASK).annotate({
+      description:
+        'The constant "***" when a value resolved, null when it did not. Fixed-width by design: a length-revealing mask would fingerprint the credential format.',
+    })
+  ),
+}).annotate({ identifier: 'EnvVarStatus' })
 
 /** @public */
-export type EnvVarStatus = z.infer<typeof envVarStatusSchema>
+export type EnvVarStatus = typeof envVarStatusSchema.Type
 
 /**
  * Response shape of `GET /api/admin/env`.
@@ -183,20 +217,16 @@ export type EnvVarStatus = z.infer<typeof envVarStatusSchema>
  * declares no variables" is an answer, and it is a different answer from
  * "this endpoint could not tell you".
  */
-export const envConfigResponseSchema = z
-  .object({
-    variables: z
-      .array(envVarStatusSchema)
-      .describe(
-        'Every variable declared in app.env[], in declaration order. Empty array when the app declares no env block.'
-      ),
-    generatedAt: z.iso
-      .datetime()
-      .describe(
-        'ISO 8601 UTC timestamp of when the resolution status was read. Per-request: unlike the config surface, is-set status can change between reads without a restart.'
-      ),
-  })
-  .openapi('EnvConfigResponse')
+export const envConfigResponseSchema = Schema.Struct({
+  variables: Schema.Array(envVarStatusSchema).annotate({
+    description:
+      'Every variable declared in app.env[], in declaration order. Empty array when the app declares no env block.',
+  }),
+  generatedAt: looseIsoDateTime({
+    description:
+      'ISO 8601 UTC timestamp of when the resolution status was read. Per-request: unlike the config surface, is-set status can change between reads without a restart.',
+  }),
+}).annotate({ identifier: 'EnvConfigResponse' })
 
 /** @public */
-export type EnvConfigResponse = z.infer<typeof envConfigResponseSchema>
+export type EnvConfigResponse = typeof envConfigResponseSchema.Type

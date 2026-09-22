@@ -14,7 +14,7 @@ import { commentReadState as commentReadStatePg } from '@/infrastructure/databas
 import { recordComments as recordCommentsPg } from '@/infrastructure/database/drizzle/schema/record-comments'
 import { commentReadState as commentReadStateSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/comment-read-state'
 import { recordComments as recordCommentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/record-comments'
-import { wrapDatabaseError } from '../shared/error-handling'
+import { wrapDatabaseError } from '../statement/error-handling'
 import { castToInt } from './aggregation-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 

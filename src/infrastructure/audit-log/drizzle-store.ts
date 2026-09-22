@@ -36,13 +36,13 @@ import { db } from '@/infrastructure/database'
 import { auditLog } from '@/infrastructure/database/drizzle/schema/audit-log'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import { logError } from '@/infrastructure/logging/logger'
-import type { ActorRole, ActorType } from '@/domain/models/api/admin/_shared/actor'
-import type { Severity } from '@/domain/models/api/admin/_shared/severity'
 import type {
   AuditLogEntry,
   AuditResult,
   AuditTransport,
 } from '@/domain/models/api/admin/audit-log/entry'
+import type { ActorRole, ActorType } from '@/domain/models/api/admin/envelope/actor'
+import type { Severity } from '@/domain/models/api/admin/envelope/severity'
 import type { AuditListFilter } from '@/infrastructure/audit-log/in-memory-store'
 import type { DrizzleDB, DrizzleTransaction } from '@/infrastructure/database'
 

@@ -58,14 +58,14 @@ function MessageTurn({ message }: { readonly message: ThreadMessage }): ReactEle
 
   return (
     <div className={`flex flex-col gap-1 ${align}`}>
-      <div className="text-foreground-subtle flex items-center gap-2 px-1 text-xs">
+      <div className="text-foreground-subtle flex items-center gap-2 px-1 text-sm">
         <span className="font-medium">{roleLabel(message.role)}</span>
         <span aria-hidden="true">·</span>
         <span className="tabular-nums">{formatDateTime(message.createdAt)}</span>
       </div>
-      <div className={`max-w-[44rem] rounded-lg px-3.5 py-2.5 text-sm leading-relaxed ${bubble}`}>
+      <div className={`text-md max-w-[44rem] rounded-lg px-3.5 py-2.5 leading-relaxed ${bubble}`}>
         {isTool ? (
-          <pre className="overflow-x-auto text-xs whitespace-pre-wrap">
+          <pre className="overflow-x-auto text-sm whitespace-pre-wrap">
             {formatToolPayload(message)}
           </pre>
         ) : (
@@ -90,7 +90,7 @@ function MessageFootnote({
   const interrupted = message.status === 'incomplete'
   if (parts.length === 0 && !interrupted) return undefined
   return (
-    <div className="text-foreground-subtle flex items-center gap-2 px-1 text-xs">
+    <div className="text-foreground-subtle flex items-center gap-2 px-1 text-sm">
       {parts.length > 0 ? <span className="font-mono">{parts.join(' · ')}</span> : undefined}
       {interrupted ? (
         <span className="text-foreground-muted inline-flex items-center gap-1 font-medium">
@@ -105,8 +105,8 @@ function MessageFootnote({
 function ThreadHeader({ header }: { readonly header: ConversationHeader }): ReactElement {
   return (
     <header className="border-border flex flex-col gap-1 border-b pb-3">
-      <h3 className="text-foreground text-lg font-semibold tracking-tight">{header.title}</h3>
-      <p className="text-foreground-subtle flex flex-wrap items-center gap-2 text-xs">
+      <h3 className="text-foreground text-xl font-semibold tracking-tight">{header.title}</h3>
+      <p className="text-foreground-subtle flex flex-wrap items-center gap-2 text-sm">
         <span className="font-mono">{header.sessionId}</span>
         <span aria-hidden="true">·</span>
         <span>Last activity {formatDateTime(header.lastActivityAt)}</span>
@@ -132,8 +132,8 @@ function ThreadStateCard({
       aria-label={label}
       className="border-border bg-background-raised flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-10 text-center"
     >
-      <p className="text-foreground text-sm font-medium">{title}</p>
-      <p className="text-foreground-muted max-w-sm text-sm leading-relaxed">{body}</p>
+      <p className="text-foreground text-md font-medium">{title}</p>
+      <p className="text-foreground-muted text-md max-w-sm leading-relaxed">{body}</p>
       {children}
     </section>
   )
@@ -188,7 +188,7 @@ export function ConversationThread({
         <button
           type="button"
           onClick={onRetry}
-          className="text-foreground-muted hover:text-foreground-muted/80 mt-1 text-sm font-medium"
+          className="text-foreground-muted hover:text-foreground-muted/80 text-md mt-1 font-medium"
         >
           Retry
         </button>

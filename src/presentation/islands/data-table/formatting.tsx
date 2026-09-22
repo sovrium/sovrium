@@ -5,19 +5,23 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
 import {
   matchesConditionOperators,
   satisfiesFieldCondition,
-} from '@/domain/models/shared/condition-operators'
-import { formatCurrencyValue, type CurrencyDisplayOptions } from '@/domain/utils/currency-format'
-import { resolveDisplayLabel } from '@/presentation/utils/field-display'
-import { computeCurrencyDisplayClasses } from '../recipes/field-affordances-default-classes'
-import { RecordButton } from '../shared/record-button'
+} from '@/domain/models/app/tables/condition-operators'
+import { resolveDisplayLabel } from '@/presentation/design/field-display'
+import { computeTableActionRowClasses } from '@/presentation/design/table-default-classes'
+import { computeCurrencyDisplayClasses } from '../../design/field-affordances-default-classes'
+import { RecordButton } from '../runtime/record-button'
 import { ActionButton, type ActionControlLabels } from './action-cell'
 import { FIELD_TYPE_TO_CELL_RENDERER } from './cell-renderer-registry'
+import { rowIdOf } from './row-identity'
 import type { CellFieldOptions } from './cell-renderers'
 import type { FieldMeta, FieldMetaMap } from '../hooks/use-inline-editing'
-import type { TableRecord } from '../shared/types'
+import type { DataTableCellContext, DataTableColumnDef } from './island/table-features'
+import type { TableRecord } from '../runtime/types'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type {
   ActionColumn,
   ActionColumnItem,
@@ -25,8 +29,7 @@ import type {
   ColumnFormat,
   DataTableColumn,
   FieldColumn,
-} from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
-import type { CellContext, ColumnDef } from '@tanstack/react-table'
+} from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 /**
  * Callback for executing a per-row action button click.
@@ -37,119 +40,6 @@ export type RowActionHandler = (
   action: ActionColumnItem,
   record: TableRecord
 ) => void | Promise<void>
-
-// ---------------------------------------------------------------------------
-// Date formatting helpers
-// ---------------------------------------------------------------------------
-
-function formatDate(value: unknown, options: Intl.DateTimeFormatOptions): string {
-  const date = value instanceof Date ? value : new Date(String(value))
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('en-US', options)
-}
-
-function formatRelativeDate(value: unknown): string {
-  const date = value instanceof Date ? value : new Date(String(value))
-  if (Number.isNaN(date.getTime())) return String(value)
-  const diffDays = Math.floor((Date.now() - date.getTime()) / 86_400_000)
-  if (diffDays === 0) return 'today'
-  if (diffDays === 1) return 'yesterday'
-  if (diffDays < 30) return `${diffDays} days ago`
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`
-  return `${Math.floor(diffDays / 365)} years ago`
-}
-
-/**
- * The active page locale for locale-aware cell formats (`relative-time`).
- *
- * Reads the `<html lang>` attribute (set from the page's `meta.lang` via
- * `resolvePageLanguage`), so a French page (`meta.lang: 'fr-FR'`) renders the
- * French short form. Falls back to `en-US` outside a DOM (defensive — data-table
- * cells only render client-side) or when no page lang is set.
- */
-export function resolvePageLocale(): string {
-  if (typeof document === 'undefined') return 'en-US'
-  const { lang } = document.documentElement
-  return lang.length > 0 ? lang : 'en-US'
-}
-
-/**
- * Signed, locale-aware relative-time format — the bidirectional counterpart to
- * the past-only English `relative-date`. A FUTURE date renders forward
- * ("dans 5 j" in fr), a PAST date backward ("il y a 5 j"), via
- * `Intl.RelativeTimeFormat(locale, { style: 'short' }).format(diffDays, 'day')`.
- * `diffDays` is positive for the future (so a grace-window "scheduled erasure"
- * date reads as a countdown) and negative for the past.
- */
-function formatRelativeTime(value: unknown, locale: string): string {
-  const date = value instanceof Date ? value : new Date(String(value))
-  if (Number.isNaN(date.getTime())) return String(value)
-  const diffDays = Math.round((date.getTime() - Date.now()) / 86_400_000)
-  return new Intl.RelativeTimeFormat(locale, { style: 'short' }).format(diffDays, 'day')
-}
-
-// ---------------------------------------------------------------------------
-// Cell value formatting
-// ---------------------------------------------------------------------------
-
-/**
- * Formats a cell value according to the column format specification.
- *
- * `locale` is the active page locale (`resolvePageLocale()`), consumed by the
- * locale-aware `relative-time` format; the other formats are locale-independent.
- *
- * `currencyOptions` carries the bound field's declared currency treatment. It
- * used to be unreachable: this formatter hard-coded `$` and `en-US` while the
- * field's own `currency` never crossed into the browser, so a field declaring
- * `currency: 'EUR'` rendered `$0.35`. The arithmetic now lives in
- * `@/domain/utils/currency-format`, shared with the records API's
- * `?format=display` path, so a grid cell and the formatted API value agree.
- * With no declared properties it falls back to the USD / 2-decimal / comma
- * defaults this formatter always emitted.
- */
-export function formatCellValue(
-  value: unknown,
-  format: ColumnFormat,
-  locale: string,
-  currencyOptions?: CurrencyDisplayOptions
-): string {
-  if (value === undefined || value === null) return ''
-  const str = String(value)
-
-  const formatters: Record<ColumnFormat, () => string> = {
-    truncate: () => (str.length > 50 ? `${str.slice(0, 50)}…` : str),
-    currency: () => {
-      const num = Number(value)
-      return Number.isNaN(num) ? str : formatCurrencyValue(num, currencyOptions)
-    },
-    percentage: () => {
-      const num = Number(value)
-      return Number.isNaN(num) ? str : `${num}%`
-    },
-    compact: () => {
-      const num = Number(value)
-      return Number.isNaN(num) ? str : Intl.NumberFormat('en', { notation: 'compact' }).format(num)
-    },
-    'relative-date': () => formatRelativeDate(value),
-    // Signed, locale-aware counterpart to the past-only English `relative-date`:
-    // a future date renders "dans 5 j" (fr) and a past one "il y a 5 j" via
-    // `Intl.RelativeTimeFormat(<page locale>, { style: 'short' })`.
-    'relative-time': () => formatRelativeTime(value, locale),
-    'short-date': () => formatDate(value, { month: 'short', day: 'numeric', year: 'numeric' }),
-    'long-date': () => formatDate(value, { month: 'long', day: 'numeric', year: 'numeric' }),
-    datetime: () =>
-      formatDate(value, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    'yes-no': () => (value ? 'Yes' : 'No'),
-    'check-cross': () => (value ? '✓' : '✗'),
-  }
-
-  return formatters[format]()
-}
 
 // ---------------------------------------------------------------------------
 // Conditional cell styling
@@ -181,12 +71,45 @@ function isActionVisible(action: ActionColumnItem, record: TableRecord): boolean
 // ---------------------------------------------------------------------------
 
 /**
- * Currency + percentage column formats render with the prestyled
- * `tabular-nums` display recipe so a column of monetary / percentage
- * readouts aligns at the decimal point (matches the field-affordance
- * design intent shared with the CRUD-form currency input).
+ * The formats that render as a FIXED-ADVANCE readout.
+ *
+ * Every numeric and every date format is one, because all of them produce a
+ * value a reader scans DOWN a column rather than reads across a line: a price
+ * against the price above it, a byte count against a byte count, a timestamp
+ * against a timestamp. Proportional digits defeat that — `1,111` is narrower
+ * than `9,999` — so the column stops being comparable at a glance and the
+ * decimal points wander.
+ *
+ * This used to hold `currency` and `percentage` alone, which is why a column of
+ * `compact` counts and a column of `bytes` aligned and a column of `short-date`
+ * did not, in the same table, with nothing in the config to say why.
+ *
+ * `truncate` is deliberately absent: it shortens PROSE, and prose in a fixed
+ * face is harder to read, not easier. So are `yes-no` and `check-cross`, which
+ * produce a word and a glyph.
  */
-const NUMERIC_DISPLAY_FORMATS = new Set<ColumnFormat>(['currency', 'percentage'])
+const MONO_DISPLAY_FORMATS = new Set<ColumnFormat>([
+  'currency',
+  'percentage',
+  'compact',
+  'bytes',
+  'relative-date',
+  'relative-time',
+  'short-date',
+  'long-date',
+  'datetime',
+])
+
+/**
+ * `check-cross` renders a 14px `✓` / `✗` and NO colour.
+ *
+ * A green tick and a red cross would be the platform choosing a vocabulary the
+ * column never declared, and would put the whole meaning in a hue for a reader
+ * who cannot separate the two. The glyphs already differ in shape, which is
+ * what carries it; the extra step of size is there because a 12px tick in a
+ * column of 12px words disappears into them.
+ */
+const GLYPH_DISPLAY_FORMATS = new Set<ColumnFormat>(['check-cross'])
 
 /**
  * Builds a cell renderer for a field column that applies format and cellStyle.
@@ -296,11 +219,11 @@ interface ButtonCellOptions {
 function buildButtonCellRenderer(
   field: string,
   options: ButtonCellOptions
-): ((ctx: CellContext<TableRecord, unknown>) => React.ReactNode) | undefined {
+): ((ctx: DataTableCellContext) => React.ReactNode) | undefined {
   const { tableName, fieldMeta, onButtonInvoked } = options
   const config = fieldMeta?.[field]?.button
   if (!config) return undefined
-  return ({ row }: CellContext<TableRecord, unknown>) => (
+  return ({ row }: DataTableCellContext) => (
     <RecordButton
       config={config}
       fieldName={field}
@@ -345,7 +268,7 @@ function buildFieldCellRenderer(col: FieldColumn, locale: string, options: MapCo
 
   if (!col.format && !col.cellStyle && !fieldTypeRenderer && !col.valueLabels) return undefined
 
-  return ({ getValue, row }: CellContext<TableRecord, unknown>) =>
+  return ({ getValue, row }: DataTableCellContext) =>
     renderValueCell(
       getValue(),
       { col, locale, fieldTypeRenderer, fieldOptions, currencyOptions },
@@ -386,10 +309,12 @@ function renderValueCell(value: unknown, chrome: ValueCellChrome, displayLabel?:
   // Path 1 — explicit format override
   if (col.format) {
     const displayValue = formatCellValue(value, col.format, locale, currencyOptions)
-    const numericClass = NUMERIC_DISPLAY_FORMATS.has(col.format)
-      ? computeCurrencyDisplayClasses()
-      : ''
-    const composed = [numericClass, conditionalClass].filter(Boolean).join(' ')
+    const formatClass = MONO_DISPLAY_FORMATS.has(col.format)
+      ? `${computeCurrencyDisplayClasses()} font-mono`
+      : GLYPH_DISPLAY_FORMATS.has(col.format)
+        ? 'inline-block text-md leading-none'
+        : ''
+    const composed = [formatClass, conditionalClass].filter(Boolean).join(' ')
     return wrapWithClass(displayValue, composed)
   }
 
@@ -430,19 +355,27 @@ const DEFAULT_CANCEL_LABEL = 'Cancel'
  * action delegates to {@link ActionButton}, which arms an inline `alertdialog`
  * confirm when the action item carries a `confirm` message (the per-row analog of
  * the bulk-action confirm gate).
+ *
+ * The renderer is a fresh CLOSURE on every island render, and `flexRender` makes
+ * a closure an element type — so every cell this builds is destroyed and rebuilt
+ * whenever the grid re-reads itself. That is why an armed confirm is addressed
+ * by `confirmKey` and held above the rows: the key is the row identity React
+ * already reconciles by, paired with the same ordinal as the child `key`, so a
+ * rebuilt cell asks for its gate back under exactly the name it stored it under.
  */
 function buildActionCellRenderer(
   col: ActionColumn,
   onActionClick: RowActionHandler | undefined,
   labels: ActionControlLabels
 ) {
-  return ({ row }: CellContext<TableRecord, unknown>) => (
-    <div className="flex gap-1">
+  return ({ row }: DataTableCellContext) => (
+    <div className={computeTableActionRowClasses()}>
       {col.actions
         .filter((action) => isActionVisible(action, row.original))
         .map((action, actionIndex) => (
           <ActionButton
             key={`action-${String(actionIndex)}`}
+            confirmKey={`${rowIdOf(row)}::action-${String(actionIndex)}`}
             action={action}
             record={row.original}
             onActionClick={onActionClick}
@@ -484,7 +417,7 @@ export interface MapColumnsOptions {
 export function mapColumnsToColumnDefs(
   columns: readonly DataTableColumn[],
   options: MapColumnsOptions
-): readonly ColumnDef<TableRecord>[] {
+): readonly DataTableColumnDef[] {
   const { locale, onActionClick } = options
   const actionLabels: ActionControlLabels = {
     save: options.saveLabel ?? DEFAULT_SAVE_LABEL,
@@ -511,8 +444,11 @@ export function mapColumnsToColumnDefs(
           cellStyle: col.cellStyle,
           field: col.field,
           editable: col.editable,
+          // Carried beside `size` above so the header cell can tell an authored
+          // width from TanStack's merged-in default, which `getSize()` cannot.
+          authoredWidth: col.width,
         },
-      } satisfies ColumnDef<TableRecord>
+      } satisfies DataTableColumnDef
     }
     return {
       id: `actions-${String(index)}`,
@@ -520,7 +456,10 @@ export function mapColumnsToColumnDefs(
       enableSorting: false,
       enableColumnFilter: false,
       cell: buildActionCellRenderer(col, onActionClick, actionLabels),
-    } satisfies ColumnDef<TableRecord>
+      // The cluster is a set of buttons, and the row renderer has to know that
+      // before it decides whose click a press is.
+      meta: { actions: true },
+    } satisfies DataTableColumnDef
   })
 }
 
@@ -533,7 +472,7 @@ export function mapColumnsToColumnDefs(
 function buildAutoCellRenderer(
   field: string,
   options: AutoColumnOptions
-): ((ctx: CellContext<TableRecord, unknown>) => React.ReactNode) | undefined {
+): ((ctx: DataTableCellContext) => React.ReactNode) | undefined {
   const { fieldMeta } = options
   // A button field is an action, not a readout — it takes precedence over the
   // value-rendering path below, which would render its (always absent) value.
@@ -545,7 +484,7 @@ function buildAutoCellRenderer(
   const renderer = FIELD_TYPE_TO_CELL_RENDERER[fieldType]
   if (!renderer) return undefined
   const fieldOptions = buildCellFieldOptions(fieldMeta?.[field], DEFAULT_AUTO_COLUMN_LOCALE)
-  return ({ getValue, row }: CellContext<TableRecord, unknown>) =>
+  return ({ getValue, row }: DataTableCellContext) =>
     renderer({ value: readDisplayLabel(row.original, field) ?? getValue(), fieldOptions })
 }
 
@@ -570,7 +509,7 @@ export interface AutoColumnOptions {
 }
 
 /** The column def shared by both auto-generation paths. */
-function buildAutoColumn(field: string, options: AutoColumnOptions): ColumnDef<TableRecord> {
+function buildAutoColumn(field: string, options: AutoColumnOptions): DataTableColumnDef {
   const cellRenderer = buildAutoCellRenderer(field, options)
   // A button column's header is the button's own label — `ship_button` is a
   // config identifier, not something to show a reader. Otherwise the field's
@@ -584,7 +523,7 @@ function buildAutoColumn(field: string, options: AutoColumnOptions): ColumnDef<T
     enableSorting: true,
     meta: { field, ...(options.editable === true && { editable: true }) },
     ...(cellRenderer && { cell: cellRenderer }),
-  } satisfies ColumnDef<TableRecord>
+  } satisfies DataTableColumnDef
 }
 
 /**
@@ -593,7 +532,7 @@ function buildAutoColumn(field: string, options: AutoColumnOptions): ColumnDef<T
 export function autoGenerateColumns(
   records: readonly TableRecord[],
   options: AutoColumnOptions
-): readonly ColumnDef<TableRecord>[] {
+): readonly DataTableColumnDef[] {
   const firstRecord = records[0]
   if (!firstRecord) return []
   // Record keys come from the database, and a button field has no column
@@ -612,6 +551,6 @@ export function autoGenerateColumns(
 export function autoGenerateColumnsFromFields(
   fields: readonly string[],
   options: AutoColumnOptions
-): readonly ColumnDef<TableRecord>[] {
+): readonly DataTableColumnDef[] {
   return fields.map((field) => buildAutoColumn(field, options))
 }

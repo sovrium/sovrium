@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Context, Effect, Layer, Data } from 'effect'
-import { logWarning } from '../logging'
-import { isEmailConfigured } from './email-config'
+import { Context, Duration, Effect, Layer, Data } from 'effect'
+import { isEmailConfigured } from '@/infrastructure/process/env'
 import { getTransporter, getDefaultFrom, type SendMailOptions } from './nodemailer'
+import { reportUndeliverableMessage } from './undeliverable-message'
 
 /**
  * Email service error types
@@ -29,26 +29,87 @@ export class EmailConnectionError extends Data.TaggedError('EmailConnectionError
 const EMAIL_DISABLED_MESSAGE_ID = 'noop:email-disabled'
 
 /**
+ * Total budget for one SMTP send, across every phase (standing rule E6).
+ *
+ * The transport is ALREADY bounded per phase — `createTransporter` sets
+ * `connectionTimeout`, `greetingTimeout` and `socketTimeout`, each 10 s by
+ * default and each env-overridable — and those bounds are the ones that
+ * matter, because they cut the socket. This is the backstop above them: a
+ * per-phase timer resets on every byte, so a relay that dribbles one byte at a
+ * time never trips any of them and the send runs indefinitely. 30 s is three
+ * default phases, so the transport's more specific error still wins in every
+ * ordinary failure and this only fires on the pathological one.
+ *
+ * The automation `email` action keeps its own, TIGHTER 15 s budget
+ * (`action-handlers/email.ts`): that one is sized against an HTTP request that
+ * awaits the send inline, which is a different question from "has this send
+ * stopped making progress".
+ */
+const SMTP_SEND_TIMEOUT_MS = 30_000
+
+/**
+ * The total-send budget expired with the transport still mid-exchange.
+ *
+ * Tagged rather than a bare `Error` so it stays distinguishable from a
+ * rejection nodemailer itself produced: everything else reaching {@link deliver}'s
+ * caller is the transport's own value, and this is the one failure Sovrium
+ * invented. It surfaces through `EmailError` like any other send failure.
+ */
+class SmtpSendTimeoutError extends Data.TaggedError('SmtpSendTimeoutError')<{
+  readonly timeoutMs: number
+  readonly message: string
+}> {}
+
+/**
  * Deliver an email through the SMTP transport, or no-op when email is disabled.
  *
  * When `SMTP_HOST` is unset there is no transport: the intended message is
- * logged and a synthetic id is returned without touching the network. This
+ * REPORTED and a synthetic id is returned without touching the network. This
  * keeps Better Auth and automation flows resolving cleanly instead of throwing
  * ECONNREFUSED against a non-existent local SMTP server.
+ *
+ * How much of the message is reported depends on who is reading the stream —
+ * the whole thing in a developer's journal, one line in a production log. See
+ * {@link reportUndeliverableMessage}, which owns that decision so this function
+ * stays about delivery.
+ *
+ * NEVER RETRIED, at any level. A send that times out may already have been
+ * accepted by the relay, and the caller cannot tell a lost response from a
+ * lost request — so a retry is a second email in the recipient's inbox.
  */
 async function deliver(options: Readonly<SendMailOptions>): Promise<string> {
   if (!isEmailConfigured()) {
-    logWarning(
-      `[EMAIL] Email sending disabled (SMTP not configured) — skipped sending to "${String(
-        options.to ?? 'unknown'
-      )}" with subject "${String(options.subject ?? '')}"`
-    )
+    reportUndeliverableMessage(options)
     return EMAIL_DISABLED_MESSAGE_ID
   }
 
   const transporter = getTransporter()
   if (!transporter) return EMAIL_DISABLED_MESSAGE_ID
-  const info = await transporter.sendMail(options)
+  // Effect 4's `runPromise` rejects with the RAW failure value, so a transport
+  // rejection still reaches the callers' own `catch` unchanged; only the
+  // timeout path substitutes an error of its own.
+  const info = await Effect.runPromise(
+    Effect.timeoutOrElse(
+      // Deliberate `unknown` on the error channel: the transport's own rejection
+      // must reach this function's caller VERBATIM — `EmailError` already wraps
+      // it and every `catch` site reads `.message` off it.
+      // @effect-diagnostics-next-line unknownInEffectCatch:off -- the error channel here is the peer's value, not one of ours
+      Effect.tryPromise({
+        try: () => transporter.sendMail(options),
+        catch: (cause: unknown) => cause,
+      }),
+      {
+        duration: Duration.millis(SMTP_SEND_TIMEOUT_MS),
+        orElse: () =>
+          Effect.fail(
+            new SmtpSendTimeoutError({
+              timeoutMs: SMTP_SEND_TIMEOUT_MS,
+              message: `SMTP send made no progress within ${String(SMTP_SEND_TIMEOUT_MS)}ms and was abandoned`,
+            })
+          ),
+      }
+    )
+  )
   return info.messageId
 }
 

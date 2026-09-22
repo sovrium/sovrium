@@ -15,11 +15,11 @@ import {
 import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
 import {
   refreshAccessToken,
-  withRefreshLock,
+  withRefreshLockEffect,
   type OAuth2RefreshProps,
 } from '@/infrastructure/connections/token-refresh'
-import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 import { isEncryptionKeyMismatch } from '@/infrastructure/errors/encryption-key-mismatch-error'
+import { logError } from '@/infrastructure/logging/logger'
 import { buildEnvLookup } from '../resolve-env-vars'
 import { stringProp } from './shared'
 import { buildStaticAuthHeader, type ConnectionDef } from './static-auth-header'
@@ -225,6 +225,7 @@ const persistRefreshedTokens = (input: {
         : tokenRepo.upsertForApp(common)
     return yield* write.pipe(
       Effect.map(() => ({ ok: true }) as const),
+      // effect-swallow: the failure is not lost, it is RETURNED — `{ ok: false }` is the caller's branch for "the token was not stored", and it is checked. This converts a channel, it does not discard one.
       Effect.orElseSucceed(() => ({ ok: false }) as const)
     )
   })
@@ -276,7 +277,15 @@ const deleteStoredToken = (
       scope.kind === 'user'
         ? tokenRepo.deleteForUser({ connectionId, userId: scope.userId })
         : tokenRepo.deleteForApp({ connectionId })
-    yield* drop.pipe(Effect.catch(() => Effect.void))
+    yield* drop.pipe(
+      // A token that could not be deleted stays usable. Non-fatal — the caller is
+      // already on a failure path — but an operator revoking access needs to know
+      // the revocation did not land.
+      Effect.tapCause((cause) =>
+        Effect.sync(() => logError('[connections] stale token not deleted', cause))
+      ),
+      Effect.catch(() => Effect.void)
+    )
   })
 
 /**
@@ -363,28 +372,24 @@ const refreshAndPersistInner = (
  * (which is what the previous structure did, exposing the
  * persist/findForUser race that flaked [internal ref]).
  *
- * Inner Effect → Promise conversion goes through the live token
- * repository layer because the lock is a Promise-shaped primitive
- * (`withRefreshLock` is in token-refresh.ts which has no Effect
- * Context dependency). The dynamic import mirrors the lazy-load
- * pattern used by `runSeedTestConnectionTokens` and `getUserRole`.
+ * The lock is a Promise-shaped primitive, so crossing into Promise
+ * land is inherent to it. `withRefreshLockEffect` owns that crossing
+ * (it lives beside the lock in token-refresh.ts) and runs the inner
+ * program on the services THIS fiber already holds, so the token
+ * repository is the automation runtime's rather than a fresh one per
+ * arrival.
  */
 const performTokenRefresh = (
   conn: ConnectionDef,
   token: StoredToken,
   connectionId: string,
   scope: TokenScope
-): Effect.Effect<RefreshOutcome, never, never> =>
-  Effect.tryPromise({
-    try: () =>
-      withRefreshLock({ connectionId, userId: scopeUserId(scope) }, async () => {
-        const program = refreshAndPersistInner(conn, token, connectionId, scope).pipe(
-          Effect.provide(ConnectionTokenRepositoryLive)
-        )
-        return Effect.runPromise(program)
-      }),
-    catch: (cause) => new RefreshTransportError({ cause }),
-  }).pipe(
+): Effect.Effect<RefreshOutcome, never, ConnectionTokenRepository> =>
+  withRefreshLockEffect(
+    { connectionId, userId: scopeUserId(scope) },
+    refreshAndPersistInner(conn, token, connectionId, scope),
+    (cause) => new RefreshTransportError({ cause })
+  ).pipe(
     Effect.catchTag('RefreshTransportError', (err) =>
       Effect.succeed(
         refreshFailure(
@@ -482,9 +487,10 @@ const lookUpAppToken = (
   Effect.gen(function* () {
     const first = yield* readAppToken(tokenRepo, connectionId)
     if (first.kind !== 'absent') return first
-    const adopted = yield* tokenRepo
-      .adoptLegacyUserTokenAsApp({ connectionId })
-      .pipe(Effect.orElseSucceed(() => false))
+    const adopted = yield* tokenRepo.adoptLegacyUserTokenAsApp({ connectionId }).pipe(
+      // effect-swallow: `false` means "nothing was adopted", which is also what a failed adoption leaves behind — the caller then returns the original lookup, so the failure changes nothing it could have acted on.
+      Effect.orElseSucceed(() => false)
+    )
     if (!adopted) return first
     return yield* readAppToken(tokenRepo, connectionId)
   })
@@ -593,6 +599,32 @@ const resolveUserScopedToken = (
     return { ok: true, token: token.accessToken } as const
   })
 
+/**
+ * Look a connection row up, keeping "the store failed" distinct from "there is
+ * no such row".
+ *
+ * Both used to arrive as `undefined` (`Effect.catch(() => Effect.void)`), so a
+ * database outage was reported to the operator as `not yet authorized` or
+ * `was the connection deleted?` — an instruction to go and re-authorize a
+ * connection that is fine, while the actual fault left no trace anywhere. The
+ * REFUSAL is correct and stays (an action failing is not a server error); what
+ * changes is that it now says which of the two happened, and logs the cause.
+ *
+ * `ok: false` carries the refusal wording so both callers phrase a lookup
+ * failure identically; `ok: true` with `row: undefined` is a genuine miss.
+ */
+const lookupConnectionRow = (name: string) =>
+  Effect.gen(function* () {
+    const connRepo = yield* ConnectionRepository
+    const outcome = yield* Effect.result(connRepo.findByName(name))
+    if (outcome._tag === 'Success') return { ok: true, row: outcome.success } as const
+    logError('Connection lookup failed while resolving automation auth headers', outcome.failure, {
+      'sovrium.connection.name': name,
+    })
+    const reason = `connection ${name}: lookup failed (the connection store could not be read)`
+    return { ok: false, reason } as const
+  })
+
 const resolveOAuth2AccessToken = (
   conn: ConnectionDef,
   automation: AutomationContext
@@ -614,8 +646,9 @@ const resolveOAuth2AccessToken = (
         reason: `connection ${conn.name}: no user context (cron/system trigger)`,
       } as const
     }
-    const connRepo = yield* ConnectionRepository
-    const row = yield* connRepo.findByName(conn.name).pipe(Effect.catch(() => Effect.void))
+    const lookup = yield* lookupConnectionRow(conn.name)
+    if (!lookup.ok) return lookup
+    const { row } = lookup
     if (row === undefined) {
       return {
         ok: false,
@@ -644,16 +677,18 @@ export interface InjectedHeaders {
  * connection is called) rather than a generic "connection error".
  *
  * Returns `undefined` on success, a refusal-reason string on failure.
- * The DB-error and not-found branches both surface as a refusal so
- * the action's run-history error is human-readable.
+ * Both the DB-error and the not-found branch surface as a refusal — an action
+ * failing is not a server error — but they no longer surface as the SAME
+ * refusal: telling an operator the connection was deleted when the store simply
+ * could not be read sends them to fix the wrong thing.
  */
 const ensureConnectionExistsInDb = (
   connectionName: string
 ): Effect.Effect<string | undefined, never, ConnectionRepository> =>
   Effect.gen(function* () {
-    const connRepo = yield* ConnectionRepository
-    const row = yield* connRepo.findByName(connectionName).pipe(Effect.catch(() => Effect.void))
-    if (row === undefined) {
+    const lookup = yield* lookupConnectionRow(connectionName)
+    if (!lookup.ok) return lookup.reason
+    if (lookup.row === undefined) {
       return `connection ${connectionName}: not found at runtime (was the connection deleted?)`
     }
     return undefined
@@ -713,4 +748,4 @@ export const resolveConnectionHeaders = (
     const built = buildStaticAuthHeader(conn, envLookup)
     if ('error' in built) return { headers: baseHeaders, error: built.error }
     return { headers: { ...baseHeaders, [built.header]: built.value } }
-  })
+  }).pipe(Effect.withSpan('automations.resolve-connection-headers'))

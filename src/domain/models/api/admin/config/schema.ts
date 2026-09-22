@@ -75,7 +75,8 @@
  * @see src/application/use-cases/automations/redact-secrets.ts
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
 
 /**
  * The redaction placeholder every scrubbed value is replaced with.
@@ -109,20 +110,16 @@ export const REDACTION_PLACEHOLDER = '***'
  * What this contract owns is the two things Effect Schema does NOT guarantee:
  * that the object has been through the redactor, and when it was read.
  */
-export const configSchemaResponseSchema = z
-  .object({
-    app: z
-      .record(z.string(), z.unknown())
-      .describe(
-        'The live App configuration object this instance booted from, after server-side secret redaction. Shape is defined by AppSchema (Effect Schema); typed opaquely here to avoid a second, drifting definition of the config contract. Redacted values are replaced with the literal "***"; `$env.VAR` reference tokens are NOT redacted (a variable name is not a credential).'
-      ),
-    generatedAt: z.iso
-      .datetime()
-      .describe(
-        'ISO 8601 UTC timestamp of when this reflection was read. Unlike config/version.startedAt this is per-request, because it timestamps the read rather than the process.'
-      ),
-  })
-  .openapi('ConfigSchemaResponse')
+export const configSchemaResponseSchema = Schema.Struct({
+  app: Schema.Record(Schema.String, Schema.Unknown).annotate({
+    description:
+      'The live App configuration object this instance booted from, after server-side secret redaction. Shape is defined by AppSchema (Effect Schema); typed opaquely here to avoid a second, drifting definition of the config contract. Redacted values are replaced with the literal "***"; `$env.VAR` reference tokens are NOT redacted (a variable name is not a credential).',
+  }),
+  generatedAt: looseIsoDateTime({
+    description:
+      'ISO 8601 UTC timestamp of when this reflection was read. Unlike config/version.startedAt this is per-request, because it timestamps the read rather than the process.',
+  }),
+}).annotate({ identifier: 'ConfigSchemaResponse' })
 
 /** @public */
-export type ConfigSchemaResponse = z.infer<typeof configSchemaResponseSchema>
+export type ConfigSchemaResponse = typeof configSchemaResponseSchema.Type

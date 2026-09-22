@@ -54,7 +54,7 @@ import {
   type DynamicRecordCondition,
   type DynamicRecordFilter,
 } from '@/application/ports/repositories/tables/dynamic-record-repository'
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'

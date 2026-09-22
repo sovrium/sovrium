@@ -5,10 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeTableGroupSummaryCellClasses } from '@/presentation/design/table-default-classes'
 import { readSummaryValue } from './summary-aggregate'
 import { summaryCellText } from './summary-format'
 import type { GroupSummaryContext, GroupSummaryLayout } from './group-summary'
-import type { DataTableSummaryItem } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+import type { DataTableSummaryItem } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { ReactElement } from 'react'
 
 /**
@@ -23,14 +24,12 @@ export function GroupSummaryCells({
   layout,
   context,
   groupKey,
-  cellClass,
   borderClass,
 }: {
   readonly layout: GroupSummaryLayout
   readonly context: GroupSummaryContext
   /** The group's `groupPathKey` — how `byGroup` is keyed at every level. */
   readonly groupKey: string
-  readonly cellClass: string
   readonly borderClass: string
 }): ReactElement {
   const aggregations = context.byGroup[groupKey]
@@ -42,7 +41,7 @@ export function GroupSummaryCells({
       {layout.trailing.map((columnItems, offset) => (
         <td
           key={`group-summary-${groupKey}-${String(offset)}`}
-          className={`${cellClass} ${borderClass} text-foreground font-medium whitespace-nowrap`}
+          className={`${computeTableGroupSummaryCellClasses()} ${borderClass}`}
           {...(columnItems[0] ? { 'data-group-summary-field': columnItems[0].field } : {})}
         >
           {columnItems.map((item) => (
@@ -82,7 +81,7 @@ export function GroupSummaryLeadingCells({
         <span
           key={`${item.field}-${item.function}`}
           data-group-summary-field={item.field}
-          className="text-foreground-muted ml-4 font-normal"
+          className={`${computeTableGroupSummaryCellClasses()} ml-4`}
         >
           {summaryCellText(readSummaryValue(aggregations, item), item, context)}
         </span>

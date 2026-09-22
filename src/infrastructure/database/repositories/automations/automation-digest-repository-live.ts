@@ -11,7 +11,7 @@ import {
   AutomationDigestDatabaseError,
   AutomationDigestRepository,
 } from '@/application/ports/repositories/automations/automation-digest-repository'
-import { escapeSqlString } from '@/domain/utils/database/sql-formatting'
+import { escapeSqlString } from '@/domain/kernel/sql/sql-formatting'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {

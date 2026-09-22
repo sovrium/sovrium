@@ -7,7 +7,9 @@
 
 import { mkdir } from 'node:fs/promises'
 import { Data, Effect, Ref, pipe } from 'effect'
-import type { Theme } from '@/domain/models/app/theme'
+import { designCacheKey } from '@/infrastructure/css/cache/design-cache-keys'
+import { logWarning } from '@/infrastructure/logging/logger'
+import type { Design } from '@/domain/models/app/design'
 
 /**
  * Error class for pre-compiled CSS file operations
@@ -45,10 +47,28 @@ export const loadPrecompiledCSS: Effect.Effect<CompiledCSS | undefined, never> =
   function* () {
     const cssPath = getPrecompiledCSSPath()
     const file = Bun.file(cssPath)
+    // effect-promise: total -- `BunFile.exists()` answers a missing or unreadable path with `false`; it reports absence as its RESULT, which is the whole question being asked here.
     const exists = yield* Effect.promise(() => file.exists())
     if (!exists) return undefined
-    const css = yield* Effect.promise(() => file.text())
-    return { css, timestamp: Date.now(), precompiled: true }
+    // The READ can still fail — permissions, or the file being replaced between
+    // the check and the read. The declared `never` made that a defect on the
+    // CSS route, which then answered 500 rather than falling back to compiling
+    // the stylesheet, which is exactly what `undefined` here asks the caller to
+    // do.
+    return yield* Effect.tryPromise({
+      try: async () => ({ css: await file.text(), timestamp: Date.now(), precompiled: true }),
+      catch: (cause) => new PrecompiledCSSError({ message: `Could not read ${cssPath}`, cause }),
+    }).pipe(
+      Effect.tapCause((cause) =>
+        Effect.sync(() => {
+          logWarning(`[css] pre-compiled stylesheet unreadable, recompiling: ${String(cause)}`)
+        })
+      ),
+      // effect-swallow: see the tap above. `undefined` is this function's
+      // documented "there is no pre-compiled CSS" answer, and an unreadable
+      // file means exactly that as far as the caller is concerned.
+      Effect.orElseSucceed(() => undefined)
+    )
   }
 )
 
@@ -77,99 +97,55 @@ export const writePrecompiledCSS = (css: string): Effect.Effect<string, Precompi
 
 /**
  * In-memory cache for compiled CSS using Effect.Ref
- * Stores multiple themes keyed by normalized theme hash
+ * Stores multiple compiled stylesheets keyed by the design + candidate hash
  * Avoids recompiling on every request for better performance
  * Uses functional state management to avoid mutations
  */
 const cssCache = Ref.makeUnsafe<Map<string, CompiledCSS>>(new Map())
 
 /**
- * Recursively sort object keys for consistent JSON serialization
- * This ensures the same theme always produces the same cache key
- * regardless of property insertion order
- */
-const sortObjectKeys = (obj: unknown): unknown => {
-  if (obj === null || typeof obj !== 'object') {
-    return obj
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map(sortObjectKeys)
-  }
-
-  const record = obj as Record<string, unknown>
-  const sortedKeys = Object.keys(record).toSorted()
-
-  return Object.fromEntries(sortedKeys.map((key) => [key, sortObjectKeys(record[key])]))
-}
-
-/**
- * Normalize theme for consistent cache key generation
- * Sorts object keys recursively to ensure property order independence
+ * Create the FULL CSS cache key from the DESIGN and the app-derived candidate set.
  *
- * @param theme - Optional theme configuration
- * @returns Normalized theme (or undefined if no theme)
- */
-export const normalizeTheme = (theme?: Theme): Theme | undefined => {
-  if (!theme) return undefined
-  return sortObjectKeys(theme) as Theme
-}
-
-/**
- * Create theme cache key from app theme
- * Returns consistent hash for same theme content regardless of property order
- *
- * @param theme - Optional theme configuration
- * @returns Cache key string (JSON stringified normalized theme)
- *
- * @example
- * // These produce the same cache key:
- * getThemeCacheKey({ colors: { primary: '#ff5733' }, fonts: { sans: 'Inter' } })
- * getThemeCacheKey({ fonts: { sans: 'Inter' }, colors: { primary: '#ff5733' } })
- */
-export const getThemeCacheKey = (theme?: Theme): string => {
-  const normalized = normalizeTheme(theme)
-  return JSON.stringify(normalized ?? {})
-}
-
-/**
- * Create the FULL CSS cache key from the theme AND the app-derived candidate set.
- *
- * The compiled CSS output depends on two inputs, not one: the `theme` (which
+ * The compiled CSS output depends on two inputs, not one: the design (which
  * generates the token/component/utility layers) AND the set of Tailwind utility
  * classes authored across the app (`resolveNativeFreeCandidates(app)`), because
- * the engine only emits rules for classes it is told about. Keying on the theme
- * alone (the old `getThemeCacheKey`) serves stale CSS whenever the authored
- * classes change but the theme does not — e.g. adding `className: "text-7xl"`
- * to a page under `--watch`.
+ * the engine only emits rules for classes it is told about. Keying on the design
+ * alone serves stale CSS whenever the authored classes change but the tokens do
+ * not — e.g. adding `className: "text-7xl"` to a page under `--watch`.
+ *
+ * The design half goes through {@link designCacheKey}, which keys on every
+ * CSS-BEARING key and omits the rest. That distinction only became necessary
+ * with the flattening: while the tokens lived inside one container this hashed
+ * that container wholesale, so no key could be missed. Now each key stands on
+ * its own and an omitted one serves one app's stylesheet to another.
  *
  * Candidates are passed in (rather than derived here) to keep this module free
  * of a dependency on the native-free compiler and avoid an import cycle.
  *
- * @param theme - Optional theme configuration
+ * @param design - Optional design configuration
  * @param candidates - The full candidate class list for this app
- * @returns A cache key that changes whenever theme OR the candidate set changes
+ * @returns A cache key that changes whenever the design OR the candidate set changes
  *
  * @example
- * // Same theme, different authored classes → DIFFERENT keys:
- * getCSSCacheKey(theme, ['p-4']) !== getCSSCacheKey(theme, ['p-8'])
+ * // Same design, different authored classes → DIFFERENT keys:
+ * getCSSCacheKey(design, ['p-4']) !== getCSSCacheKey(design, ['p-8'])
  * // Same classes in a different order → SAME key:
- * getCSSCacheKey(theme, ['a', 'b']) === getCSSCacheKey(theme, ['b', 'a'])
+ * getCSSCacheKey(design, ['a', 'b']) === getCSSCacheKey(design, ['b', 'a'])
  */
-export const getCSSCacheKey = (theme?: Theme, candidates: readonly string[] = []): string => {
-  const themeKey = getThemeCacheKey(theme)
+export const getCSSCacheKey = (design?: Design, candidates: readonly string[] = []): string => {
+  const designKey = designCacheKey(design)
   // Sort the candidates so the key is order-independent (they arrive unsorted from
   // a Set spread + recursive object walk), then JSON.stringify for an unambiguous
   // serialization. The `::` separator joins the two independently-stringified parts
   // so they cannot bleed into one another.
   const candidateKey = JSON.stringify(candidates.toSorted())
-  return `${themeKey}::${candidateKey}`
+  return `${designKey}::${candidateKey}`
 }
 
 /**
  * Get cached CSS if available
  *
- * @param cacheKey - Cache key for the theme
+ * @param cacheKey - Cache key for the compiled stylesheet
  * @returns Effect that yields cached CSS or undefined
  */
 export const getCachedCSS = (cacheKey: string): Effect.Effect<CompiledCSS | undefined, never> =>
@@ -181,7 +157,7 @@ export const getCachedCSS = (cacheKey: string): Effect.Effect<CompiledCSS | unde
 /**
  * Store compiled CSS in cache
  *
- * @param cacheKey - Cache key for the theme
+ * @param cacheKey - Cache key for the compiled stylesheet
  * @param compiled - Compiled CSS result
  * @returns Effect that updates the cache
  */
@@ -204,7 +180,7 @@ export const clearCSSCache: Effect.Effect<void, never> = Effect.suspend(() =>
  * This is a convenience function that combines getCachedCSS and setCachedCSS
  * with a computation function for cleaner usage
  *
- * @param cacheKey - Cache key for the theme
+ * @param cacheKey - Cache key for the compiled stylesheet
  * @param compute - Effect that computes the CSS if not cached
  * @returns Effect that yields cached or newly computed CSS
  */

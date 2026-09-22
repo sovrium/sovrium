@@ -17,6 +17,8 @@
  */
 
 /** Named XML entities, plus numeric forms, as they appear in SpreadsheetML. */
+import { escapeRegExp } from '@/domain/kernel/sanitize/escape-regexp'
+
 const NAMED_ENTITIES: Readonly<Record<string, string>> = {
   amp: '&',
   lt: '<',
@@ -35,9 +37,16 @@ export const decodeXmlText = (raw: string): string =>
     return NAMED_ENTITIES[body] ?? whole
   })
 
-/** Read one attribute off a raw start-tag body (`r="A1" t="s"`). */
+/**
+ * Read one attribute off a raw start-tag body (`r="A1" t="s"`).
+ *
+ * `name` is escaped in full rather than by patching the one metacharacter an
+ * OOXML attribute happens to contain. The previous `name.replace(':', '\\:')`
+ * was doubly inert: non-global, so it fixed only the first colon, and `\\:` is an
+ * identity escape, so it changed nothing even then.
+ */
 export const attrOf = (tag: string, name: string): string | undefined =>
-  new RegExp(`(?:^|\\s)${name.replace(':', '\\:')}\\s*=\\s*"([^"]*)"`).exec(tag)?.[1]
+  new RegExp(`(?:^|\\s)${escapeRegExp(name)}\\s*=\\s*"([^"]*)"`).exec(tag)?.[1]
 
 /**
  * All matches of `pattern` (which must be global) as a plain array.

@@ -48,4 +48,4 @@ export const queryOverview = (
     ])
 
     return { summary, timeSeries }
-  })
+  }).pipe(Effect.withSpan('analytics.query-overview'))

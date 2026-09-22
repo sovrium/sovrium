@@ -20,7 +20,6 @@
  */
 
 import { Effect } from 'effect'
-import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
 import { logError } from '@/infrastructure/logging/logger'
 import { cryptoRandomId } from './types'
 import type { AutomationInvoker, RunAutomationResult, RunRequirements, StepContext } from './types'
@@ -138,9 +137,10 @@ const buildSubAutomationRun = (
 ): Effect.Effect<RunAutomationResult, never, RunRequirements> =>
   Effect.gen(function* () {
     const { ctx, target, inputData, newDepth } = input
-    const automationId = yield* runners
-      .resolveAutomationId(target.name, target)
-      .pipe(Effect.orElseSucceed(() => cryptoRandomId()))
+    const automationId = yield* runners.resolveAutomationId(target.name, target).pipe(
+      // effect-swallow: the id only LABELS this run in the activity log; a lookup that fails must not stop the automation it was about to run, and a random id keeps the run traceable within itself.
+      Effect.orElseSucceed(() => cryptoRandomId())
+    )
     return yield* runners.executeAutomationRun({
       name: target.name,
       automation: target,
@@ -180,7 +180,7 @@ export const buildAutomationInvoker =
         // Fire-and-forget. The caller already got `{ result: {} }`; surface a
         // log line if the background run rejects so operators can detect it.
         // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget background logging (promise result intentionally discarded)
-        Effect.runPromise(provideAutomationRuntime(subRun)).then(
+        ctx.runProgram(subRun).then(
           () => undefined,
           (err) => {
             logError('[automation] async automation:call run rejected', err)
@@ -188,7 +188,7 @@ export const buildAutomationInvoker =
         )
         return Promise.resolve({ result: {} })
       }
-      return Effect.runPromise(provideAutomationRuntime(subRun)).then((result) => {
+      return ctx.runProgram(subRun).then((result) => {
         if (result.status === 'failure') {
           // eslint-disable-next-line functional/no-throw-statements -- inside .then; throw-as-rejection is the unicorn-preferred form
           throw new Error(result.error ?? `called automation '${name}' failed`)

@@ -5,46 +5,46 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * Form name schema — kebab-case, URL-safe, matches FormNameSchema in the
  * domain layer. Used as the canonical reference for `formRef` and form trigger.
  */
-export const formNameSchema = z
-  .string()
-  .min(1)
-  .max(64)
-  .regex(/^[a-z][a-z0-9-]*$/, 'must be kebab-case starting with a letter')
-  .describe('Kebab-case unique form name')
+export const formNameSchema = Schema.String.annotate({
+  description: 'Kebab-case unique form name',
+}).pipe(
+  Schema.check(Schema.isMinLength(1), Schema.isMaxLength(64), Schema.isPattern(/^[a-z][a-z0-9-]*$/))
+)
 
 /**
  * Layout mode for form rendering.
  */
-export const formLayoutSchema = z
-  .enum(['single-page', 'multi-step', 'one-question'])
-  .describe('Form rendering layout')
+export const formLayoutSchema = Schema.Literals([
+  'single-page',
+  'multi-step',
+  'one-question',
+]).annotate({ description: 'Form rendering layout' })
 
 /**
  * Compact form summary used in list endpoints.
  */
-export const formSummarySchema = z
-  .object({
-    id: z.number().int().positive(),
-    name: formNameSchema,
-    title: z.string(),
-    path: z.string().optional(),
-    accessLevel: z.enum(['public', 'authenticated', 'role-restricted']),
-    isOpen: z.boolean(),
-  })
-  .openapi('FormSummary')
+export const formSummarySchema = Schema.Struct({
+  id: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
+  name: formNameSchema,
+  title: Schema.String,
+  path: optionalField(Schema.String),
+  accessLevel: Schema.Literals(['public', 'authenticated', 'role-restricted']),
+  isOpen: Schema.Boolean,
+}).annotate({ identifier: 'FormSummary' })
 
 /**
  * TypeScript types inferred from the schemas.
  * @public
  */
-export type FormName = z.infer<typeof formNameSchema>
+export type FormName = typeof formNameSchema.Type
 /** @public */
-export type FormLayout = z.infer<typeof formLayoutSchema>
+export type FormLayout = typeof formLayoutSchema.Type
 /** @public */
-export type FormSummary = z.infer<typeof formSummarySchema>
+export type FormSummary = typeof formSummarySchema.Type

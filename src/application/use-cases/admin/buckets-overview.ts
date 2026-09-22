@@ -36,9 +36,12 @@ import {
   type AdminBucketUploadRow,
   type AdminBucketFilesDatabaseError,
 } from '@/application/ports/repositories/buckets/admin-bucket-files-repository'
-import { buildWindowRelativeSeries, intervalStepMs } from '@/domain/utils/time-series-bucketing'
-import type { PeriodWindow } from '@/domain/models/api/admin/_shared/period-preset'
+import {
+  buildWindowRelativeSeries,
+  intervalStepMs,
+} from '@/domain/kernel/time/time-series-bucketing'
 import type { BucketsOverviewSeriesPoint } from '@/domain/models/api/admin/buckets/overview'
+import type { PeriodWindow } from '@/domain/models/api/admin/envelope/period-preset'
 
 /**
  * Fold catalog rows into the window's upload series. Pure — the rows are
@@ -80,4 +83,4 @@ export const BuildBucketUploadSeries = (
     const repo = yield* AdminBucketFilesRepository
     const rows = yield* repo.listUploadsSince(new Date(window.from))
     return buildBucketUploadSeries(window, rows)
-  })
+  }).pipe(Effect.withSpan('admin.build-bucket-upload-series'))

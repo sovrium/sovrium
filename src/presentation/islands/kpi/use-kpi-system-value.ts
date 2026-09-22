@@ -6,7 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { buildSystemQueryUrl } from '../shared/system-query-url'
+import { buildSystemQueryUrl } from '../runtime/system-query-url'
 import type { KpiSystemSource } from '@/domain/models/app/pages/components/component-types/data/kpi'
 
 /**

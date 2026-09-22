@@ -123,6 +123,37 @@ export function useSortRefusal(
 }
 
 /**
+ * Re-read a grid's query — including while its FIRST read is still in flight.
+ *
+ * `invalidateQueries` alone is not enough, and the hole is invisible until a
+ * fast mutation beats a slow first read. `Query.fetch` takes its
+ * cancel-and-refetch branch only when `state.data !== undefined`; before a
+ * query has ever resolved there is no data to keep on screen, so it takes the
+ * DEDUP branch instead and returns the in-flight promise. The query is left
+ * flagged invalidated, no request goes out, and the response that eventually
+ * lands was requested BEFORE the event that asked for the re-read — so the grid
+ * settles, permanently, on data older than the mutation it was just told about.
+ * Nothing re-triggers it afterwards: a system-source grid has no poll interval,
+ * does not remount, and the operator never leaves the tab.
+ *
+ * Measured on the upload → sibling-grid composition: the grid's first read went
+ * out 70 ms before the upload POST and was still open 86 ms after its 201, and
+ * the row never appeared — no second request was ever issued.
+ *
+ * `cancelQueries` carries no such guard, so cancelling first makes the
+ * following invalidate always reach the network. For a query that already holds
+ * data this changes nothing — `invalidateQueries` cancels it anyway, since
+ * `cancelRefetch` defaults to `true` — so only the first-read case moves.
+ */
+export async function refreshGridQuery(
+  queryClient: Readonly<QueryClient>,
+  queryKey: readonly unknown[]
+): Promise<void> {
+  await queryClient.cancelQueries({ queryKey })
+  await queryClient.invalidateQueries({ queryKey })
+}
+
+/**
  * The grid's manual "re-read now" action.
  *
  * Invalidating the query is the obvious half. The other half is that a refresh
@@ -139,6 +170,6 @@ export function useGridRefresh(
 ): () => void {
   return useCallback(() => {
     clearReadError()
-    void queryClient.invalidateQueries({ queryKey })
+    void refreshGridQuery(queryClient, queryKey)
   }, [queryClient, queryKey, clearReadError])
 }

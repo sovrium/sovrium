@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { db } from '@/infrastructure/database'
 import { authUserTableRef } from '@/infrastructure/database/sql/dialect-sql'
+import { withTransaction } from '@/infrastructure/database/transaction'
 import { traceDbQuery } from '@/infrastructure/telemetry/db-query-trace'
 import {
   buildAggregationSelects,
@@ -20,13 +21,15 @@ import {
   checkDeletedAtColumn as checkDeletedAtColumnHelper,
   checkAuthorshipColumns,
   type FilterNode,
+  type OrderByAppView,
+  type OrderByPrimaryKey,
 } from '../query-helpers/aggregation-helpers'
 import { buildTrashFilters, addTrashSorting } from '../query-helpers/trash-helpers'
-import { wrapDatabaseError } from '../shared/error-handling'
-import { typedExecute } from '../shared/typed-execute'
-import { validateTableName } from '../shared/validation'
+import { wrapDatabaseError } from '../statement/error-handling'
+import { typedExecute } from '../statement/typed-execute'
+import { validateTableName } from '../statement/validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
-import type { DatabaseError } from '@/infrastructure/database'
+import type { DatabaseError, DrizzleTransaction } from '@/infrastructure/database'
 
 /**
  * List all records from a table
@@ -55,24 +58,31 @@ export function listRecords(config: {
   readonly limit?: number
   readonly offset?: number
   readonly columns?: readonly string[]
-  readonly app?: {
-    readonly tables?: readonly { readonly name: string; readonly fields: readonly unknown[] }[]
-  }
+  readonly app?: OrderByAppView
+  /**
+   * The table's declared primary key. Consulted ONLY to pick the default sort
+   * key for a request that supplied no `sort` — a table keyed on a composite of
+   * its own columns has no `id` column to order by. See `buildOrderByClause`.
+   */
+  readonly primaryKey?: OrderByPrimaryKey
 }): Effect.Effect<readonly Record<string, unknown>[], DatabaseError> {
-  const { tableName, filter, includeDeleted, sort, limit, offset, columns, app } = config
+  const { tableName, filter, includeDeleted, sort, limit, offset, columns, app, primaryKey } =
+    config
+  const onFailure = wrapDatabaseError(`Failed to list records from ${tableName}`)
   return traceDbQuery(
     'select',
     tableName,
-    Effect.tryPromise({
-      try: () =>
-        db.transaction(async (tx) => {
+    withTransaction(
+      db,
+      (tx) =>
+        Effect.gen(function* () {
           validateTableName(tableName)
 
-          const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
+          const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
 
           // Build query clauses
           const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
-          const orderByClause = buildOrderByClause(sort, app, tableName)
+          const orderByClause = buildOrderByClause(sort, app, tableName, primaryKey)
           // Empty when the caller passes neither `limit` nor `offset`, which is
           // every pre-pagination call site — the statement below is unchanged
           // for them, down to the byte.
@@ -81,17 +91,80 @@ export function listRecords(config: {
           // against the FULL relation rather than the projected list: a plain
           // non-DISTINCT select may order by a column it does not return, on
           // both dialects, so a sort key never has to be force-projected.
-          const selectList = await Effect.runPromise(buildSelectListClause(tx, tableName, columns))
+          const selectList = yield* buildSelectListClause(tx, tableName, columns)
 
-          return await typedExecute(
-            tx,
-            sql`SELECT ${selectList} FROM ${sql.identifier(tableName)}${whereClause}${orderByClause}${pageClause}`
-          )
+          return yield* Effect.tryPromise({
+            try: () =>
+              typedExecute(
+                tx,
+                sql`SELECT ${selectList} FROM ${sql.identifier(tableName)}${whereClause}${orderByClause}${pageClause}`
+              ),
+            catch: onFailure,
+          })
         }),
-      catch: wrapDatabaseError(`Failed to list records from ${tableName}`),
-    })
+      onFailure
+    )
   )
 }
+
+/** The aggregate spec a caller asks for, named once so the query below can be extracted. */
+type AggregationSpec = {
+  readonly count?: boolean
+  readonly sum?: readonly string[]
+  readonly avg?: readonly string[]
+  readonly min?: readonly string[]
+  readonly max?: readonly string[]
+}
+
+/** What {@link computeAggregations} resolves to. */
+type AggregationResult = {
+  readonly count?: string
+  readonly sum?: Record<string, number>
+  readonly avg?: Record<string, number>
+  readonly min?: Record<string, number>
+  readonly max?: Record<string, number>
+}
+
+/**
+ * The aggregation SELECT, as it runs against the open transaction.
+ *
+ * Extracted from {@link computeAggregations} only so that function stays inside
+ * the size limit — its inline result type is most of its length. `onFailure` is
+ * the SAME mapper the surrounding `withTransaction` uses, so a rejection here
+ * and a rejection from the transaction itself produce the identical error.
+ */
+const runAggregationsInTx = (
+  tx: Readonly<DrizzleTransaction>,
+  params: {
+    readonly tableName: string
+    readonly filter?: { readonly and?: readonly FilterNode[] }
+    readonly includeDeleted?: boolean
+    readonly aggregate: AggregationSpec
+  },
+  // eslint-disable-next-line functional/prefer-immutable-types -- receives the shared `wrapDatabaseError` factory, which returns a mutable Error subclass; same rationale as the file-level disable in `shared/error-handling.ts`
+  onFailure: (error: unknown) => DatabaseError
+): Effect.Effect<AggregationResult, DatabaseError> =>
+  Effect.gen(function* () {
+    const { tableName, filter, includeDeleted, aggregate } = params
+    validateTableName(tableName)
+    const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
+    const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
+    const aggregationSelects = buildAggregationSelects(aggregate)
+    if (aggregationSelects.length === 0) return {}
+
+    const selectClause = sql.raw(aggregationSelects.join(', '))
+    const rows = yield* Effect.tryPromise({
+      try: () =>
+        typedExecute(
+          tx,
+          sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)}${whereClause}`
+        ),
+      catch: onFailure,
+    })
+    if (rows.length === 0) return {}
+
+    return parseAggregationResult(rows[0]!, aggregate)
+  })
 
 /**
  * Compute aggregations on records from a table
@@ -112,47 +185,18 @@ export function computeAggregations(config: {
     readonly and?: readonly FilterNode[]
   }
   readonly includeDeleted?: boolean
-  readonly aggregate: {
-    readonly count?: boolean
-    readonly sum?: readonly string[]
-    readonly avg?: readonly string[]
-    readonly min?: readonly string[]
-    readonly max?: readonly string[]
-  }
-}): Effect.Effect<
-  {
-    readonly count?: string
-    readonly sum?: Record<string, number>
-    readonly avg?: Record<string, number>
-    readonly min?: Record<string, number>
-    readonly max?: Record<string, number>
-  },
-  DatabaseError
-> {
+  readonly aggregate: AggregationSpec
+}): Effect.Effect<AggregationResult, DatabaseError> {
   const { tableName, filter, includeDeleted, aggregate } = config
+  const onFailure = wrapDatabaseError(`Failed to compute aggregations from ${tableName}`)
   return traceDbQuery(
     'select',
     tableName,
-    Effect.tryPromise({
-      try: () =>
-        db.transaction(async (tx) => {
-          validateTableName(tableName)
-          const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
-          const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
-          const aggregationSelects = buildAggregationSelects(aggregate)
-          if (aggregationSelects.length === 0) return {}
-
-          const selectClause = sql.raw(aggregationSelects.join(', '))
-          const rows = await typedExecute(
-            tx,
-            sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)}${whereClause}`
-          )
-          if (rows.length === 0) return {}
-
-          return parseAggregationResult(rows[0]!, aggregate)
-        }),
-      catch: wrapDatabaseError(`Failed to compute aggregations from ${tableName}`),
-    })
+    withTransaction(
+      db,
+      (tx) => runAggregationsInTx(tx, { tableName, filter, includeDeleted, aggregate }, onFailure),
+      onFailure
+    )
   )
 }
 
@@ -291,21 +335,23 @@ export function listTrash(config: {
   readonly sort?: string
 }): Effect.Effect<readonly Record<string, unknown>[], DatabaseError> {
   const { tableName, filter, sort } = config
+  const onFailure = wrapDatabaseError(`Failed to list trash from ${tableName}`)
   return traceDbQuery(
     'select',
     tableName,
-    Effect.tryPromise({
-      try: () =>
-        db.transaction(async (tx) => {
+    withTransaction(
+      db,
+      (tx) =>
+        Effect.gen(function* () {
           validateTableName(tableName)
 
-          const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
+          const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
 
           if (!hasDeletedAt) {
             return [] as readonly Record<string, unknown>[]
           }
 
-          const authorshipColumns = await Effect.runPromise(checkAuthorshipColumns(tx, tableName))
+          const authorshipColumns = yield* checkAuthorshipColumns(tx, tableName)
 
           const selectFields = buildAuthorshipSelectFields(authorshipColumns)
           const selectClause = sql.raw(selectFields.join(', '))
@@ -316,12 +362,15 @@ export function listTrash(config: {
           const queryWithFilters = buildTrashFilters(queryWithWhere, filter?.and)
           const query = addTrashSorting(queryWithFilters, sort)
 
-          const rows = await typedExecute(tx, query)
+          const rows = yield* Effect.tryPromise({
+            try: () => typedExecute(tx, query),
+            catch: onFailure,
+          })
 
           return rows.map(transformRowWithAuthorship)
         }),
-      catch: wrapDatabaseError(`Failed to list trash from ${tableName}`),
-    })
+      onFailure
+    )
   )
 }
 
@@ -343,15 +392,17 @@ export function getRecord(
   recordId: string,
   includeDeleted?: boolean
 ): Effect.Effect<Record<string, unknown> | null, DatabaseError> {
+  const onFailure = wrapDatabaseError(`Failed to get record ${recordId} from ${tableName}`)
   return traceDbQuery(
     'select',
     tableName,
-    Effect.tryPromise({
-      try: () =>
-        db.transaction(async (tx) => {
+    withTransaction(
+      db,
+      (tx) =>
+        Effect.gen(function* () {
           validateTableName(tableName)
 
-          const hasDeletedAt = await Effect.runPromise(checkDeletedAtColumnHelper(tx, tableName))
+          const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
 
           // Build WHERE clause with soft-delete filter if applicable
           const whereClause =
@@ -360,15 +411,19 @@ export function getRecord(
               : sql` WHERE id = ${recordId}`
 
           // Use parameterized query for recordId (automatic via template literal)
-          const rows = await typedExecute(
-            tx,
-            sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause} LIMIT 1`
-          )
+          const rows = yield* Effect.tryPromise({
+            try: () =>
+              typedExecute(
+                tx,
+                sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause} LIMIT 1`
+              ),
+            catch: onFailure,
+          })
 
           // eslint-disable-next-line unicorn/no-null -- Null is intentional for database records that don't exist
           return rows[0] ?? null
         }),
-      catch: wrapDatabaseError(`Failed to get record ${recordId} from ${tableName}`),
-    })
+      onFailure
+    )
   )
 }

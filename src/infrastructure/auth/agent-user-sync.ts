@@ -136,13 +136,11 @@ const softDeleteRemovedAgents = async (keepEmails: readonly string[]): Promise<v
 export const syncAgentUsers = async (
   agents: readonly AgentForSync[] | undefined
 ): Promise<void> => {
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort lazy DDL
   await ensureAgentColumns()
 
   const list = agents ?? []
   // eslint-disable-next-line functional/no-expression-statements -- best-effort agent-user upserts
   await Promise.all(list.map((agent) => upsertAgentUser(agent)))
-  // eslint-disable-next-line functional/no-expression-statements -- soft-delete the agents no longer declared
   await softDeleteRemovedAgents(list.map((agent) => agentEmail(agent.name)))
 }
 
@@ -174,7 +172,6 @@ export const runSyncAgentUsers = async (input: {
   // SQLite runtime: agent-user sync is a Postgres-only feature — skip cleanly
   // instead of warning on the missing `db.execute`. See the doc comment above.
   if (isSqliteRuntime()) return
-  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget background logging (promise result intentionally discarded)
   await syncAgentUsers(input.agents).catch((error: unknown) => {
     logError('[agents] agent-user sync failed', error)
   })

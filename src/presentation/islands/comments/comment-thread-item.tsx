@@ -8,10 +8,19 @@
 /* eslint-disable max-lines-per-function, react-perf/jsx-no-new-function-as-prop -- per-comment state machine renders 4 distinct modes (view/edit/confirming-delete/replying); per-handler arrow props are conventional React pattern. */
 
 import { useState, type ReactElement, type ReactNode } from 'react'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
+  computeCommentActionClasses,
+  computeCommentActionsClasses,
+  computeCommentAuthorClasses,
+  computeCommentAvatarClasses,
+  computeCommentBodyColumnClasses,
+  computeCommentComposerFieldClasses,
   computeCommentItemClasses,
   computeCommentMetaClasses,
-} from '../recipes/specialty-islands-default-classes'
+  computeCommentTextClasses,
+  computeCommentTimestampClasses,
+} from '@/presentation/design/comments-default-classes'
 import { CommentThreadForm } from './comment-thread-form'
 import { isEdited, resolveCommentAuthorName, type CommentRecord } from './comment-thread-types'
 
@@ -29,8 +38,13 @@ import { isEdited, resolveCommentAuthorName, type CommentRecord } from './commen
  * user — replies themselves never expose a Reply affordance (single-level
  * threading).
  *
- * `children` slot receives the rendered <li> list of nested replies (used by
- * the parent island when grouping comments by `parentCommentId`).
+ * A row is an avatar plus a body column, separated from its neighbours by the
+ * frame's own rule rather than by a border of its own — see
+ * `comments-default-classes.ts` for why a thread is ONE frame and not a stack
+ * of cards. Replies are emitted by the parent island as SIBLING rows carrying
+ * `depth: 1`, which is what `computeCommentItemClasses`' 34px inset measures
+ * from; nesting a reply inside its parent's row is what the flat frame
+ * replaces.
  */
 interface CommentThreadItemProps {
   readonly comment: CommentRecord
@@ -44,7 +58,53 @@ interface CommentThreadItemProps {
   readonly isDeleting: boolean
   readonly isReplying: boolean
   readonly replyCount?: number
-  readonly children?: ReactNode
+}
+
+// Computed once at module scope: a button recipe is pure, and re-deriving the
+// same three strings on every keystroke in an open edit box is pure waste.
+const PRIMARY_BUTTON = computeButtonDefaultClasses({ variant: 'default', size: 'sm' })
+const SECONDARY_BUTTON = computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })
+const DESTRUCTIVE_BUTTON = computeButtonDefaultClasses({ variant: 'destructive', size: 'sm' })
+
+/**
+ * The author's first initial, for the row's avatar circle. Derived from the
+ * name already carried in props — the avatar fetches nothing.
+ */
+function authorInitial(comment: CommentRecord): string {
+  return resolveCommentAuthorName(comment, 'Anonymous').trim().charAt(0).toUpperCase()
+}
+
+/**
+ * The shared row shell: the avatar, then the body column every mode fills.
+ * The circle is `aria-hidden` because its initial only repeats the author name
+ * the meta row states in full a few pixels away.
+ */
+function CommentRow({
+  comment,
+  testId,
+  className,
+  children,
+}: {
+  readonly comment: CommentRecord
+  readonly testId: string
+  readonly className: string
+  readonly children: ReactNode
+}): ReactElement {
+  return (
+    <li
+      data-testid={testId}
+      data-comment-id={comment.id}
+      className={className}
+    >
+      <span
+        aria-hidden="true"
+        className={computeCommentAvatarClasses()}
+      >
+        {authorInitial(comment)}
+      </span>
+      <div className={computeCommentBodyColumnClasses()}>{children}</div>
+    </li>
+  )
 }
 
 function CommentMeta({ comment }: { readonly comment: CommentRecord }): ReactElement {
@@ -56,8 +116,13 @@ function CommentMeta({ comment }: { readonly comment: CommentRecord }): ReactEle
   const created = new Date(comment.createdAt)
   return (
     <header className={computeCommentMetaClasses()}>
-      <span className="comments-author text-foreground font-medium">{authorName}</span>
-      <time dateTime={comment.createdAt}>{created.toLocaleString()}</time>
+      <span className={`comments-author ${computeCommentAuthorClasses()}`}>{authorName}</span>
+      <time
+        dateTime={comment.createdAt}
+        className={computeCommentTimestampClasses()}
+      >
+        {created.toLocaleString()}
+      </time>
     </header>
   )
 }
@@ -80,7 +145,7 @@ function EditForm({
         aria-label="Edit comment"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="border-input bg-background min-h-[80px] rounded border px-2 py-1 text-sm"
+        className={computeCommentComposerFieldClasses()}
         maxLength={10_000}
       />
       <div className="flex gap-2">
@@ -88,14 +153,14 @@ function EditForm({
           type="button"
           onClick={() => onSave(value)}
           disabled={isSaving || value.trim().length === 0}
-          className="bg-primary text-primary-foreground rounded px-3 py-1 text-sm disabled:opacity-50"
+          className={PRIMARY_BUTTON}
         >
           {isSaving ? 'Saving…' : 'Save'}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="border-input text-foreground rounded border px-3 py-1 text-sm"
+          className={SECONDARY_BUTTON}
         >
           Cancel
         </button>
@@ -119,7 +184,7 @@ function DeleteConfirm({
     <div
       role="alertdialog"
       aria-label="Delete comment"
-      className="border-input grid gap-2 rounded border p-2 text-sm"
+      className="bg-background-subtle grid gap-2 rounded-[var(--radius-base,4px)] p-2 text-sm"
     >
       <p>Are you sure you want to delete this comment by {authorName}?</p>
       <div className="flex gap-2">
@@ -127,14 +192,14 @@ function DeleteConfirm({
           type="button"
           onClick={onConfirm}
           disabled={isDeleting}
-          className="bg-error-solid text-error-solid-fg rounded px-3 py-1 disabled:opacity-50"
+          className={DESTRUCTIVE_BUTTON}
         >
           {isDeleting ? 'Deleting…' : 'Confirm'}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="border-input rounded border px-3 py-1"
+          className={SECONDARY_BUTTON}
         >
           Cancel
         </button>
@@ -163,12 +228,12 @@ function CommentActions({
 }): ReactElement | undefined {
   if (!canEdit && !canDelete && !canReply) return undefined
   return (
-    <div className="flex gap-2 text-xs">
+    <div className={computeCommentActionsClasses()}>
       {canEdit && (
         <button
           type="button"
           onClick={() => onSetMode('editing')}
-          className="text-foreground-muted hover:text-foreground underline"
+          className={computeCommentActionClasses()}
         >
           Edit
         </button>
@@ -177,7 +242,7 @@ function CommentActions({
         <button
           type="button"
           onClick={() => onSetMode('confirming-delete')}
-          className="text-foreground-muted hover:text-error-solid underline"
+          className={computeCommentActionClasses()}
         >
           Delete
         </button>
@@ -186,7 +251,7 @@ function CommentActions({
         <button
           type="button"
           onClick={() => onSetMode('replying')}
-          className="text-foreground-muted hover:text-foreground underline"
+          className={computeCommentActionClasses()}
         >
           Reply
         </button>
@@ -210,7 +275,7 @@ function ReplyCount({
   return (
     <p
       data-reply-count={String(replyCount)}
-      className="text-foreground-muted text-xs"
+      className={computeCommentTimestampClasses()}
     >
       {replyCount === 1 ? '1 reply' : `${replyCount} replies`}
     </p>
@@ -234,9 +299,9 @@ function EditModeItem({
   readonly onSetMode: (mode: ItemMode) => void
 }): ReactElement {
   return (
-    <li
-      data-testid={testId}
-      data-comment-id={comment.id}
+    <CommentRow
+      comment={comment}
+      testId={testId}
       className={liClassName}
     >
       <CommentMeta comment={comment} />
@@ -249,7 +314,7 @@ function EditModeItem({
         }}
         onCancel={() => onSetMode('view')}
       />
-    </li>
+    </CommentRow>
   )
 }
 
@@ -270,13 +335,13 @@ function DeleteModeItem({
   readonly onSetMode: (mode: ItemMode) => void
 }): ReactElement {
   return (
-    <li
-      data-testid={testId}
-      data-comment-id={comment.id}
+    <CommentRow
+      comment={comment}
+      testId={testId}
       className={liClassName}
     >
       <CommentMeta comment={comment} />
-      <p className="text-sm">{comment.content}</p>
+      <p className={computeCommentTextClasses()}>{comment.content}</p>
       <DeleteConfirm
         authorName={resolveCommentAuthorName(comment, 'this author')}
         isDeleting={isDeleting}
@@ -288,7 +353,7 @@ function DeleteModeItem({
         }}
         onCancel={() => onSetMode('view')}
       />
-    </li>
+    </CommentRow>
   )
 }
 
@@ -304,7 +369,6 @@ export function CommentThreadItem({
   isDeleting,
   isReplying,
   replyCount,
-  children,
 }: CommentThreadItemProps): ReactElement {
   const [mode, setMode] = useState<ItemMode>('view')
   const isReplyItem = comment.parentCommentId !== null
@@ -338,15 +402,17 @@ export function CommentThreadItem({
   }
 
   return (
-    <li
-      data-testid={testId}
-      data-comment-id={comment.id}
+    <CommentRow
+      comment={comment}
+      testId={testId}
       className={liClassName}
     >
       <CommentMeta comment={comment} />
-      <p className="text-sm">
+      <p className={computeCommentTextClasses()}>
         {comment.content}
-        {isEdited(comment) && <span className="text-foreground-subtle ml-2 text-xs">(edited)</span>}
+        {isEdited(comment) && (
+          <span className={`ml-2 ${computeCommentTimestampClasses()}`}>(edited)</span>
+        )}
       </p>
       <CommentActions
         canEdit={canEdit}
@@ -370,7 +436,6 @@ export function CommentThreadItem({
         isReplyItem={isReplyItem}
         replyCount={replyCount}
       />
-      {children && <ul className="grid gap-2">{children}</ul>}
-    </li>
+    </CommentRow>
   )
 }

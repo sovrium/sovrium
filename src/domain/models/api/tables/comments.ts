@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { describedRef } from '@/domain/models/api/combinators/described-ref'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 // ============================================================================
 // Comment Schemas
@@ -21,38 +23,38 @@ import { z } from '@hono/zod-openapi'
  * is still available server-side for the comment-posted automation trigger
  * via the shared `UserMetadata` port — it just never reaches the wire.
  */
-export const commentUserSchema = z
-  .object({
-    id: z.string().describe('User identifier'),
-    name: z.string().describe('User display name'),
-    image: z.string().nullable().optional().describe('User avatar URL'),
-  })
-  .openapi('CommentUser')
+export const commentUserSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'User identifier' }),
+  name: Schema.String.annotate({ description: 'User display name' }),
+  image: optionalField(Schema.NullOr(Schema.String.annotate({ description: 'User avatar URL' }))),
+}).annotate({ identifier: 'CommentUser' })
 
 /**
  * Comment response schema
  */
-export const commentSchema = z
-  .object({
-    id: z.string().describe('Comment identifier'),
-    content: z.string().describe('Comment content'),
-    userId: z.string().describe('Author user ID'),
-    recordId: z.union([z.string(), z.number()]).describe('Parent record ID'),
-    tableId: z.union([z.string(), z.number()]).describe('Parent table ID'),
-    createdAt: z.string().describe('ISO 8601 creation timestamp'),
-    updatedAt: z.string().describe('ISO 8601 last update timestamp'),
-    user: commentUserSchema.describe('Comment author details'),
-  })
-  .openapi('Comment')
+export const commentSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Comment identifier' }),
+  content: Schema.String.annotate({ description: 'Comment content' }),
+  userId: Schema.String.annotate({ description: 'Author user ID' }),
+  recordId: Schema.Union([Schema.String, Schema.Finite]).annotate({
+    description: 'Parent record ID',
+  }),
+  tableId: Schema.Union([Schema.String, Schema.Finite]).annotate({
+    description: 'Parent table ID',
+  }),
+  createdAt: Schema.String.annotate({ description: 'ISO 8601 creation timestamp' }),
+  updatedAt: Schema.String.annotate({ description: 'ISO 8601 last update timestamp' }),
+  user: commentUserSchema.annotate({ description: 'Comment author details' }),
+}).annotate({ identifier: 'Comment' })
 
 /**
  * Comment pagination schema
  */
-export const commentPaginationSchema = z.object({
-  total: z.number().int().describe('Total count of comments'),
-  limit: z.number().int().describe('Items returned'),
-  offset: z.number().int().describe('Items skipped'),
-  hasMore: z.boolean().describe('Whether more results exist'),
+export const commentPaginationSchema = Schema.Struct({
+  total: Schema.Int.annotate({ description: 'Total count of comments' }),
+  limit: Schema.Int.annotate({ description: 'Items returned' }),
+  offset: Schema.Int.annotate({ description: 'Items skipped' }),
+  hasMore: Schema.Boolean.annotate({ description: 'Whether more results exist' }),
 })
 
 /**
@@ -60,9 +62,9 @@ export const commentPaginationSchema = z.object({
  *
  * GET /api/tables/:tableId/records/:recordId/comments
  */
-export const listCommentsResponseSchema = z.object({
-  comments: z.array(commentSchema).describe('List of comments'),
-  pagination: commentPaginationSchema.describe('Pagination metadata'),
+export const listCommentsResponseSchema = Schema.Struct({
+  comments: Schema.Array(commentSchema).annotate({ description: 'List of comments' }),
+  pagination: commentPaginationSchema.annotate({ description: 'Pagination metadata' }),
 })
 
 /**
@@ -70,15 +72,15 @@ export const listCommentsResponseSchema = z.object({
  *
  * GET /api/tables/:tableId/records/:recordId/comments/:commentId
  */
-export const getCommentResponseSchema = commentSchema.describe('Single comment details')
+export const getCommentResponseSchema = describedRef(commentSchema, 'Single comment details')
 
 /**
  * Create comment response schema
  *
  * POST /api/tables/:tableId/records/:recordId/comments
  */
-export const createCommentResponseSchema = z.object({
-  comment: commentSchema.describe('Created comment'),
+export const createCommentResponseSchema = Schema.Struct({
+  comment: describedRef(commentSchema, 'Created comment'),
 })
 
 /**
@@ -86,7 +88,7 @@ export const createCommentResponseSchema = z.object({
  *
  * PATCH /api/tables/:tableId/records/:recordId/comments/:commentId
  */
-export const updateCommentResponseSchema = commentSchema.describe('Updated comment details')
+export const updateCommentResponseSchema = describedRef(commentSchema, 'Updated comment details')
 
 // ============================================================================
 // Record History Schemas
@@ -95,43 +97,46 @@ export const updateCommentResponseSchema = commentSchema.describe('Updated comme
 /**
  * Record history entry schema
  */
-export const recordHistoryEntrySchema = z
-  .object({
-    id: z.string().describe('Activity log identifier'),
-    userId: z.string().optional().describe('User who performed the action'),
-    action: z.enum(['create', 'update', 'delete', 'restore']).describe('Action type'),
-    tableName: z.string().describe('Name of the affected table'),
-    recordId: z.union([z.string(), z.number()]).describe('ID of the affected record'),
-    changes: z
-      .record(z.string(), z.unknown())
-      .nullable()
-      .describe('Field changes (null for delete/restore)'),
-    createdAt: z.string().describe('ISO 8601 timestamp'),
-    user: z
-      .object({
-        id: z.string().describe('User identifier'),
-        name: z.string().describe('User display name'),
-      })
-      .nullable()
-      .describe('User details (null for system activities)'),
-  })
-  .openapi('RecordHistoryEntry')
+export const recordHistoryEntrySchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Activity log identifier' }),
+  userId: optionalField(Schema.String.annotate({ description: 'User who performed the action' })),
+  action: Schema.Literals(['create', 'update', 'delete', 'restore']).annotate({
+    description: 'Action type',
+  }),
+  tableName: Schema.String.annotate({ description: 'Name of the affected table' }),
+  recordId: Schema.Union([Schema.String, Schema.Finite]).annotate({
+    description: 'ID of the affected record',
+  }),
+  changes: Schema.NullOr(
+    Schema.Record(Schema.String, Schema.Unknown).annotate({
+      description: 'Field changes (null for delete/restore)',
+    })
+  ),
+  createdAt: Schema.String.annotate({ description: 'ISO 8601 timestamp' }),
+  user: Schema.NullOr(
+    Schema.Struct({
+      id: Schema.String.annotate({ description: 'User identifier' }),
+      name: Schema.String.annotate({ description: 'User display name' }),
+    }).annotate({ description: 'User details (null for system activities)' })
+  ),
+}).annotate({ identifier: 'RecordHistoryEntry' })
 
 /**
  * Get record history response schema
  *
  * GET /api/tables/:tableId/records/:recordId/history
  */
-export const getRecordHistoryResponseSchema = z.object({
-  history: z.array(recordHistoryEntrySchema).describe('List of history entries'),
-  pagination: z
-    .object({
-      total: z.number().int().describe('Total activity count'),
-      limit: z.number().int().describe('Items returned'),
-      offset: z.number().int().describe('Items skipped'),
-    })
-    .optional()
-    .describe('Pagination metadata'),
+export const getRecordHistoryResponseSchema = Schema.Struct({
+  history: Schema.Array(recordHistoryEntrySchema).annotate({
+    description: 'List of history entries',
+  }),
+  pagination: optionalField(
+    Schema.Struct({
+      total: Schema.Int.annotate({ description: 'Total activity count' }),
+      limit: Schema.Int.annotate({ description: 'Items returned' }),
+      offset: Schema.Int.annotate({ description: 'Items skipped' }),
+    }).annotate({ description: 'Pagination metadata' })
+  ),
 })
 
 // ============================================================================
@@ -160,24 +165,28 @@ export const getRecordHistoryResponseSchema = z.object({
  * corresponding PG-02 specs are `.fixme()`-marked until the write path wires
  * the existing `guest_name`/`guest_email` columns.
  */
-export const createCommentRequestSchema = z
-  .object({
-    content: z.string().min(1, 'Comment content is required').optional(),
-    body: z.string().min(1, 'Comment body is required').optional(),
-    parentCommentId: z.string().min(1).optional(),
-    mentions: z.array(z.string().min(1)).optional(),
-    authorId: z.string().min(1).optional(),
-    /**
-     * PG-02 honeypot field. Hidden in the SSR comment form; bots that
-     * auto-fill every input give themselves away. The route silently
-     * discards submissions with a non-empty value (HTTP 200, no record
-     * created) before invoking the comment-create program.
-     */
-    honeypot: z.string().optional(),
-  })
-  .refine((value) => Boolean(value.content) || Boolean(value.body), {
-    message: 'Either content or body is required',
-  })
+export const createCommentRequestSchema = Schema.Struct({
+  content: optionalField(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))),
+  body: optionalField(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))),
+  parentCommentId: optionalField(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))),
+  mentions: optionalField(Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1))))),
+  authorId: optionalField(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))),
+  /**
+   * PG-02 honeypot field. Hidden in the SSR comment form; bots that
+   * auto-fill every input give themselves away. The route silently
+   * discards submissions with a non-empty value (HTTP 200, no record
+   * created) before invoking the comment-create program.
+   */
+  honeypot: optionalField(Schema.String),
+}).pipe(
+  Schema.check(
+    Schema.makeFilter((value) =>
+      ((value) => Boolean(value.content) || Boolean(value.body))(value)
+        ? undefined
+        : 'Either content or body is required'
+    )
+  )
+)
 
 /**
  * Update comment request schema
@@ -195,20 +204,24 @@ export const createCommentRequestSchema = z
  * content-only edits AND status-only moderation actions through the
  * same endpoint. At least one must be provided.
  */
-export const updateCommentRequestSchema = z
-  .object({
-    content: z.string().min(1, 'Comment content is required').optional(),
-    status: z.enum(['approved', 'rejected', 'pending']).optional(),
-  })
-  .refine((value) => value.content !== undefined || value.status !== undefined, {
-    message: 'Either content or status is required',
-  })
+export const updateCommentRequestSchema = Schema.Struct({
+  content: optionalField(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))),
+  status: optionalField(Schema.Literals(['approved', 'rejected', 'pending'])),
+}).pipe(
+  Schema.check(
+    Schema.makeFilter((value) =>
+      ((value) => value.content !== undefined || value.status !== undefined)(value)
+        ? undefined
+        : 'Either content or status is required'
+    )
+  )
+)
 
 // ============================================================================
 // TypeScript Types
 // ============================================================================
 
-export type Comment = z.infer<typeof commentSchema>
-export type RecordHistoryEntry = z.infer<typeof recordHistoryEntrySchema>
-export type CreateCommentRequest = z.infer<typeof createCommentRequestSchema>
-export type UpdateCommentRequest = z.infer<typeof updateCommentRequestSchema>
+export type Comment = typeof commentSchema.Type
+export type RecordHistoryEntry = typeof recordHistoryEntrySchema.Type
+export type CreateCommentRequest = typeof createCommentRequestSchema.Type
+export type UpdateCommentRequest = typeof updateCommentRequestSchema.Type

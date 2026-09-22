@@ -6,11 +6,11 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { jsonbLiteral, pgTextArrayLiteral } from '@/infrastructure/database/sql/sql-utils'
-import { validateColumnName, validateTableName } from '../shared/validation'
+import { validateColumnName, validateTableName } from '../statement/validation'
 
 /**
  * How a JS value becomes the SQL that stores it — the single answer shared by

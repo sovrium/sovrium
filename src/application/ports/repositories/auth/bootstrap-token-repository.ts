@@ -6,7 +6,7 @@
  */
 
 import { Context, Data, type Effect } from 'effect'
-import type { BootstrapToken, BootstrapTokenError } from '@/domain/models/system'
+import type { BootstrapToken, BootstrapTokenError } from '@/domain/models/process-env'
 
 /**
  * Database error for bootstrap-token operations.

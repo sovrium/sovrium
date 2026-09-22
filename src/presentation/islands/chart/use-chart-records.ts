@@ -7,7 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createRecordsClient } from '@/presentation/api/client'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 
 const apiClient = createRecordsClient(typeof window !== 'undefined' ? window.location.origin : '')

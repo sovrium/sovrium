@@ -8,10 +8,10 @@
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { ForbiddenError, NotFoundError } from '@/domain/errors'
-import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
-import { isGuestSession } from '@/domain/services/guest-session'
-import type { UserMetadataWithOptionalImage } from '@/application/ports/models/user-metadata'
-import type { UserSession } from '@/application/ports/models/user-session'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import type { UserMetadataWithOptionalImage } from '@/application/ports/contracts/user-metadata'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { DatabaseError } from '@/domain/errors'
 
 /**
@@ -250,7 +250,7 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
       comment: { ...formatted.comment, guestEmail: comment.guestEmail },
       author: commentWithUser?.user,
     }
-  })
+  }).pipe(Effect.withSpan('tables.create-comment-program'))
 }
 
 /**
@@ -315,7 +315,7 @@ export function deleteCommentProgram(
 
     // Delete comment (soft delete)
     yield* comments.remove({ session, commentId })
-  })
+  }).pipe(Effect.withSpan('tables.delete-comment-program'))
 }
 
 /**
@@ -375,7 +375,7 @@ export function getCommentProgram(config: GetCommentConfig): Effect.Effect<
     // reader-facing so we surface that shape directly. `guestEmail` is
     // reader-private.
     return formatCommentResponse(comment)
-  })
+  }).pipe(Effect.withSpan('tables.get-comment-program'))
 }
 
 /**
@@ -560,7 +560,7 @@ export function updateCommentProgram(config: UpdateCommentConfig): Effect.Effect
 
     // Format response
     return formatCommentResponse(updatedComment)
-  })
+  }).pipe(Effect.withSpan('tables.update-comment-program'))
 }
 
 /**
@@ -616,7 +616,7 @@ export function updateCommentStatusProgram(
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     }
-  })
+  }).pipe(Effect.withSpan('tables.update-comment-status-program'))
 }
 
 /**
@@ -686,5 +686,5 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
       ...(pagination && { pagination }),
       ...(unreadCount !== undefined && { unreadCount }),
     }
-  })
+  }).pipe(Effect.withSpan('tables.list-comments-program'))
 }

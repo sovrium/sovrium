@@ -8,15 +8,15 @@
 import {
   renderClosedFormPage,
   type ClosedReason,
-} from '@/presentation/rendering/forms/form-closed-renderer'
+} from '@/presentation/render/forms/form-closed-renderer'
 import {
   renderEmbedFormPage,
   renderFormPage,
   renderFormStepFragment,
-} from '@/presentation/rendering/forms/form-renderer'
+} from '@/presentation/render/forms/form-renderer'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
-import type { FormPrefillContext } from '@/presentation/rendering/forms/form-prefill-resolver'
+import type { FormPrefillContext } from '@/presentation/render/forms/form-prefill-resolver'
 
 /**
  * Bundle of form-rendering callbacks supplied to the presentation

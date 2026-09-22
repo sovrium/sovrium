@@ -51,7 +51,7 @@
  *
  *   - The consumer needs the CONTENT as a `string` (it writes the text into the
  *     author's directory), not a path to read.
- *   - The payload's source, `packages/types/dist/index.d.ts`, is GITIGNORED. A
+ *   - The payload's source, `tmp/config-types.d.ts`, is GITIGNORED. A
  *     `type: 'file'` / `type: 'text'` import of it is evaluated at module-import
  *     time, so on a fresh checkout that has not run `bun run build:types` the
  *     import THROWS — taking the whole CLI module graph down with it, not just
@@ -77,9 +77,10 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { printStderr } from '@/infrastructure/logging/cli-output'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
-const DECLARATION_SOURCE = join(PROJECT_ROOT, 'packages', 'types', 'dist', 'index.d.ts')
+const DECLARATION_SOURCE = join(PROJECT_ROOT, 'tmp', 'config-types.d.ts')
 const OUT_FILE = join(
   PROJECT_ROOT,
   'src',
@@ -129,18 +130,18 @@ const TSCONFIG_CONTENT = `{
  * would make every regeneration diff unreadable for zero semantic gain: TS does
  * not care about indentation inside a module block.
  *
- * `packages/types/dist/index.d.ts` is already self-contained and import-free
+ * `tmp/config-types.d.ts` is already self-contained and import-free
  * (its only `import` string sits inside a JSDoc example), so it wraps without
  * modification.
  */
 const wrapAsAmbientModule = (body: string): string =>
   [
-    "// AUTO-GENERATED — regenerate with `sovrium types` after upgrading the binary.",
+    '// AUTO-GENERATED — regenerate with `sovrium types` after upgrading the binary.',
     '// DO NOT EDIT: hand edits are lost on the next `sovrium types` run.',
     '//',
-    "// Ambient declaration for the bare `sovrium` specifier. Keep this file in the",
+    '// Ambient declaration for the bare `sovrium` specifier. Keep this file in the',
     '// TypeScript program (the generated tsconfig.json sets no `include`, so the',
-    "// default glob picks it up) and author your config with a TYPE-ONLY import:",
+    '// default glob picks it up) and author your config with a TYPE-ONLY import:',
     '//',
     "//   import type { AppConfig } from 'sovrium'",
     '//',
@@ -173,9 +174,9 @@ const assertTypesOnly = (declaration: string): void => {
     .map((pattern) => String(pattern))
 
   if (violations.length > 0) {
-    console.error('✗ Generated declaration declares a runtime VALUE — it must be types-only.')
-    console.error(`  Matched: ${violations.join(', ')}`)
-    console.error('  Fix the emitter (scripts/build/build-types.ts), not this file.')
+    printStderr('Generated declaration declares a runtime VALUE — it must be types-only.')
+    printStderr(`  Matched: ${violations.join(', ')}`)
+    printStderr('  Fix the emitter (scripts/build/build-types.ts), not this file.')
     process.exit(1)
   }
 }
@@ -186,8 +187,8 @@ const escapeForTemplateLiteral = (text: string): string =>
 
 const main = (): void => {
   if (!existsSync(DECLARATION_SOURCE)) {
-    console.error(`✗ Missing ${DECLARATION_SOURCE}`)
-    console.error('  Run `bun run scripts/build/build-types.ts` first.')
+    printStderr(`Missing ${DECLARATION_SOURCE}`)
+    printStderr('  Run `bun run scripts/build/build-types.ts` first.')
     process.exit(1)
   }
 
@@ -198,13 +199,13 @@ const main = (): void => {
   // vacuously — exactly the shape [internal ref]'s misspelled-property
   // half exists to reject.
   if (body.length < 20_000) {
-    console.error(`✗ ${DECLARATION_SOURCE} is suspiciously small (${body.length} chars).`)
-    console.error('  Type extraction likely failed — re-run build-types.ts and check its output.')
+    printStderr(`${DECLARATION_SOURCE} is suspiciously small (${body.length} chars).`)
+    printStderr('  Type extraction likely failed — re-run build-types.ts and check its output.')
     process.exit(1)
   }
   for (const required of ['AppConfig', 'CodeContext']) {
     if (!body.includes(required)) {
-      console.error(`✗ ${DECLARATION_SOURCE} is missing '${required}'.`)
+      printStderr(`${DECLARATION_SOURCE} is missing '${required}'.`)
       process.exit(1)
     }
   }
@@ -245,7 +246,7 @@ export const CONFIG_TSCONFIG: string = \`${escapeForTemplateLiteral(TSCONFIG_CON
   writeFileSync(OUT_FILE, contents)
 
   console.log(
-    `✓ embedded-config-types.generated.ts — declaration ${(declaration.length / 1024).toFixed(1)} KB, tsconfig ${TSCONFIG_CONTENT.length} B`
+    `embedded-config-types.generated.ts — declaration ${(declaration.length / 1024).toFixed(1)} KB, tsconfig ${TSCONFIG_CONTENT.length} B`
   )
 }
 

@@ -8,7 +8,7 @@
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { UnknownFilterFieldError } from '@/domain/errors'
-import { isResolvableColumnName } from '@/domain/models/shared/system-fields'
+import { isResolvableColumnName } from '@/domain/models/app/tables/system-fields'
 import { buildGuestSession } from '../build-guest-session'
 import type { ActionOutcome } from './shared'
 import type {
@@ -318,7 +318,7 @@ export const resolveIdsByFilter = (
       if (typeof id === 'number' && Number.isFinite(id)) return [String(id)]
       return []
     })
-  })
+  }).pipe(Effect.withSpan('automations.resolve-ids-by-filter'))
 
 /**
  * {@link resolveIdsByFilter} under the LENIENT policy every record action
@@ -358,7 +358,8 @@ export const resolveIdsByFilterLenient = (
   declaredFields: ReadonlySet<string> | undefined
 ): Effect.Effect<readonly string[], UnknownFilterFieldError, TableRepository> =>
   resolveIdsByFilter(tableName, filter, declaredFields).pipe(
-    Effect.catchTag('DatabaseError', () => Effect.succeed([] as const))
+    Effect.catchTag('DatabaseError', () => Effect.succeed([] as const)),
+    Effect.withSpan('automations.resolve-ids-by-filter-lenient')
   )
 
 /**
@@ -415,7 +416,7 @@ export const resolveActionTargetIds = (input: {
           },
         } as const)
       : ({ resolved: true, ids: lookup.success } as const)
-  })
+  }).pipe(Effect.withSpan('automations.resolve-action-target-ids'))
 
 /** An unknown throwable's message, without assuming it is an `Error`. */
 export const errorMessageOf = (value: unknown): string =>

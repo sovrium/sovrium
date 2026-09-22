@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
+import { Schema } from 'effect'
+import { looseIsoDateTime, uri } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 // ---------------------------------------------------------------------------
 // Realtime record payload
@@ -20,11 +22,13 @@ import { z } from 'zod'
  * filtered server-side before the event is broadcast — a subscriber only
  * ever receives the columns its role can read.
  */
-export const realtimeRecordPayloadSchema = z.object({
-  id: z.union([z.string(), z.number()]).describe('Identifier of the record'),
-  fields: z
-    .record(z.string(), z.unknown())
-    .describe('Field-permission-filtered record field values'),
+export const realtimeRecordPayloadSchema = Schema.Struct({
+  id: Schema.Union([Schema.String, Schema.Finite]).annotate({
+    description: 'Identifier of the record',
+  }),
+  fields: Schema.Record(Schema.String, Schema.Unknown).annotate({
+    description: 'Field-permission-filtered record field values',
+  }),
 })
 
 // ---------------------------------------------------------------------------
@@ -43,22 +47,31 @@ export const realtimeRecordPayloadSchema = z.object({
  * The `subscriptionId` echoes the client-supplied handshake id so a single
  * transport connection can multiplex several table subscriptions.
  */
-export const realtimeChangeEventSchema = z.object({
-  type: z.literal('change').describe('Event type identifier'),
-  event: z.enum(['insert', 'update', 'delete']).describe('Kind of record mutation'),
-  table: z.string().describe('Table where the change occurred'),
-  recordId: z.union([z.string(), z.number()]).describe('Identifier of the affected record'),
-  subscriptionId: z
-    .string()
-    .optional()
-    .describe('Client handshake id this event belongs to (multiplexing)'),
-  record: realtimeRecordPayloadSchema
-    .optional()
-    .describe('Full record payload (present for insert and update events)'),
-  oldRecord: realtimeRecordPayloadSchema
-    .optional()
-    .describe('Previous record payload (present for update events only)'),
-  timestamp: z.string().datetime().describe('ISO 8601 timestamp of the change'),
+export const realtimeChangeEventSchema = Schema.Struct({
+  type: Schema.Literal('change').annotate({ description: 'Event type identifier' }),
+  event: Schema.Literals(['insert', 'update', 'delete']).annotate({
+    description: 'Kind of record mutation',
+  }),
+  table: Schema.String.annotate({ description: 'Table where the change occurred' }),
+  recordId: Schema.Union([Schema.String, Schema.Finite]).annotate({
+    description: 'Identifier of the affected record',
+  }),
+  subscriptionId: optionalField(
+    Schema.String.annotate({
+      description: 'Client handshake id this event belongs to (multiplexing)',
+    })
+  ),
+  record: optionalField(
+    realtimeRecordPayloadSchema.annotate({
+      description: 'Full record payload (present for insert and update events)',
+    })
+  ),
+  oldRecord: optionalField(
+    realtimeRecordPayloadSchema.annotate({
+      description: 'Previous record payload (present for update events only)',
+    })
+  ),
+  timestamp: looseIsoDateTime({ description: 'ISO 8601 timestamp of the change' }),
 })
 
 // ---------------------------------------------------------------------------
@@ -74,24 +87,23 @@ export const realtimeChangeEventSchema = z.object({
  * user whose write won. The authoritative server values are carried so the
  * client can reconcile (server-wins) in the same payload.
  */
-export const realtimeConflictEventSchema = z.object({
-  type: z.literal('conflict').describe('Event type identifier'),
-  table: z.string().describe('Table where the conflict occurred'),
-  recordId: z.union([z.string(), z.number()]).describe('Identifier of the contested record'),
-  overwrittenFields: z
-    .array(z.string())
-    .min(1)
-    .describe('Field name(s) whose pending optimistic value was overwritten'),
-  overwrittenBy: z
-    .object({
-      id: z.string().describe('User id of the writer whose change won'),
-      name: z.string().describe('Display name of the writer whose change won'),
-    })
-    .describe('The user whose concurrent write overwrote the pending change'),
-  authoritativeRecord: realtimeRecordPayloadSchema.describe(
-    'Server-authoritative record state the client must reconcile to'
-  ),
-  timestamp: z.string().datetime().describe('ISO 8601 timestamp of the conflict'),
+export const realtimeConflictEventSchema = Schema.Struct({
+  type: Schema.Literal('conflict').annotate({ description: 'Event type identifier' }),
+  table: Schema.String.annotate({ description: 'Table where the conflict occurred' }),
+  recordId: Schema.Union([Schema.String, Schema.Finite]).annotate({
+    description: 'Identifier of the contested record',
+  }),
+  overwrittenFields: Schema.Array(Schema.String)
+    .annotate({ description: 'Field name(s) whose pending optimistic value was overwritten' })
+    .pipe(Schema.check(Schema.isMinLength(1))),
+  overwrittenBy: Schema.Struct({
+    id: Schema.String.annotate({ description: 'User id of the writer whose change won' }),
+    name: Schema.String.annotate({ description: 'Display name of the writer whose change won' }),
+  }).annotate({ description: 'The user whose concurrent write overwrote the pending change' }),
+  authoritativeRecord: realtimeRecordPayloadSchema.annotate({
+    description: 'Server-authoritative record state the client must reconcile to',
+  }),
+  timestamp: looseIsoDateTime({ description: 'ISO 8601 timestamp of the conflict' }),
 })
 
 // ---------------------------------------------------------------------------
@@ -106,9 +118,9 @@ export const realtimeConflictEventSchema = z.object({
  * idle connections are not reaped by intermediary proxies and the client
  * can detect a silently-dropped connection.
  */
-export const realtimeHeartbeatSchema = z.object({
-  type: z.literal('heartbeat').describe('Event type identifier'),
-  timestamp: z.string().datetime().describe('ISO 8601 timestamp of the heartbeat'),
+export const realtimeHeartbeatSchema = Schema.Struct({
+  type: Schema.Literal('heartbeat').annotate({ description: 'Event type identifier' }),
+  timestamp: looseIsoDateTime({ description: 'ISO 8601 timestamp of the heartbeat' }),
 })
 
 // ---------------------------------------------------------------------------
@@ -122,27 +134,33 @@ export const realtimeHeartbeatSchema = z.object({
  * `subscriptionId` and the resolved `filter`/`fields` scoping so the client
  * can confirm the server honoured its handshake parameters.
  */
-export const realtimeSubscribedSchema = z.object({
-  type: z.literal('subscribed').describe('Event type identifier'),
-  table: z.string().describe('Table that was subscribed to'),
-  subscriptionId: z.string().optional().describe('Client handshake id for this subscription'),
-  filter: z
-    .string()
-    .optional()
-    .describe('Resolved filter expression applied server-side to change events'),
-  fields: z
-    .array(z.string())
-    .optional()
-    .describe('Resolved field whitelist applied server-side to change events'),
+export const realtimeSubscribedSchema = Schema.Struct({
+  type: Schema.Literal('subscribed').annotate({ description: 'Event type identifier' }),
+  table: Schema.String.annotate({ description: 'Table that was subscribed to' }),
+  subscriptionId: optionalField(
+    Schema.String.annotate({ description: 'Client handshake id for this subscription' })
+  ),
+  filter: optionalField(
+    Schema.String.annotate({
+      description: 'Resolved filter expression applied server-side to change events',
+    })
+  ),
+  fields: optionalField(
+    Schema.Array(Schema.String).annotate({
+      description: 'Resolved field whitelist applied server-side to change events',
+    })
+  ),
 })
 
 /**
  * Schema for unsubscription confirmation messages.
  */
-export const realtimeUnsubscribedSchema = z.object({
-  type: z.literal('unsubscribed').describe('Event type identifier'),
-  table: z.string().describe('Table that was unsubscribed from'),
-  subscriptionId: z.string().optional().describe('Client handshake id for this subscription'),
+export const realtimeUnsubscribedSchema = Schema.Struct({
+  type: Schema.Literal('unsubscribed').annotate({ description: 'Event type identifier' }),
+  table: Schema.String.annotate({ description: 'Table that was unsubscribed from' }),
+  subscriptionId: optionalField(
+    Schema.String.annotate({ description: 'Client handshake id for this subscription' })
+  ),
 })
 
 // ---------------------------------------------------------------------------
@@ -156,12 +174,12 @@ export const realtimeUnsubscribedSchema = z.object({
  * `/tasks` is independent from presence on `/projects`. `joinedAt` is the
  * server-set timestamp the user's connection joined the presence channel.
  */
-export const realtimePresenceEntrySchema = z.object({
-  id: z.string().describe('User identifier'),
-  name: z.string().describe('User display name'),
-  avatarUrl: z.string().url().optional().describe('User avatar URL'),
-  pagePath: z.string().describe('Page path the presence entry is scoped to'),
-  joinedAt: z.string().datetime().describe('ISO 8601 timestamp the user joined the page'),
+export const realtimePresenceEntrySchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'User identifier' }),
+  name: Schema.String.annotate({ description: 'User display name' }),
+  avatarUrl: optionalField(uri({ description: 'User avatar URL' })),
+  pagePath: Schema.String.annotate({ description: 'Page path the presence entry is scoped to' }),
+  joinedAt: looseIsoDateTime({ description: 'ISO 8601 timestamp the user joined the page' }),
 })
 
 /**
@@ -170,8 +188,8 @@ export const realtimePresenceEntrySchema = z.object({
  * Broadcast to other connected users on the same page path when a user
  * opens a page that has `presence: true` configured.
  */
-export const realtimePresenceJoinSchema = z.object({
-  type: z.literal('join').describe('Event type identifier'),
+export const realtimePresenceJoinSchema = Schema.Struct({
+  type: Schema.Literal('join').annotate({ description: 'Event type identifier' }),
   user: realtimePresenceEntrySchema,
 })
 
@@ -181,10 +199,10 @@ export const realtimePresenceJoinSchema = z.object({
  * Broadcast when a user navigates away, disconnects, or their presence
  * entry is reaped after the stale-cleanup window (60s without heartbeat).
  */
-export const realtimePresenceLeaveSchema = z.object({
-  type: z.literal('leave').describe('Event type identifier'),
-  userId: z.string().describe('Identifier of the user who left'),
-  pagePath: z.string().describe('Page path the user left'),
+export const realtimePresenceLeaveSchema = Schema.Struct({
+  type: Schema.Literal('leave').annotate({ description: 'Event type identifier' }),
+  userId: Schema.String.annotate({ description: 'Identifier of the user who left' }),
+  pagePath: Schema.String.annotate({ description: 'Page path the user left' }),
 })
 
 /**
@@ -194,10 +212,14 @@ export const realtimePresenceLeaveSchema = z.object({
  * list of other users already viewing the same page path, rather than
  * waiting for incremental join events.
  */
-export const realtimePresenceSyncSchema = z.object({
-  type: z.literal('presence-sync').describe('Event type identifier'),
-  pagePath: z.string().describe('Page path this presence snapshot is scoped to'),
-  users: z.array(realtimePresenceEntrySchema).describe('All users currently viewing the page'),
+export const realtimePresenceSyncSchema = Schema.Struct({
+  type: Schema.Literal('presence-sync').annotate({ description: 'Event type identifier' }),
+  pagePath: Schema.String.annotate({
+    description: 'Page path this presence snapshot is scoped to',
+  }),
+  users: Schema.Array(realtimePresenceEntrySchema).annotate({
+    description: 'All users currently viewing the page',
+  }),
 })
 
 // ---------------------------------------------------------------------------
@@ -212,14 +234,14 @@ export const realtimePresenceSyncSchema = z.object({
  * transport-agnostic — it reflects logical connectivity regardless of
  * whether the active transport is WebSocket, SSE, or poll fallback.
  */
-export const realtimeConnectionStatusSchema = z.object({
-  type: z.literal('connection-status').describe('Event type identifier'),
-  status: z
-    .enum(['connected', 'reconnecting', 'disconnected'])
-    .describe('Logical connectivity state of the realtime transport'),
-  transport: z
-    .enum(['websocket', 'sse', 'poll'])
-    .describe('Active transport in the WebSocket -> SSE -> poll fallback chain'),
+export const realtimeConnectionStatusSchema = Schema.Struct({
+  type: Schema.Literal('connection-status').annotate({ description: 'Event type identifier' }),
+  status: Schema.Literals(['connected', 'reconnecting', 'disconnected']).annotate({
+    description: 'Logical connectivity state of the realtime transport',
+  }),
+  transport: Schema.Literals(['websocket', 'sse', 'poll']).annotate({
+    description: 'Active transport in the WebSocket -> SSE -> poll fallback chain',
+  }),
 })
 
 // ---------------------------------------------------------------------------
@@ -230,7 +252,7 @@ export const realtimeConnectionStatusSchema = z.object({
  * Union of all possible realtime message types delivered over a transport
  * connection (WebSocket frames or SSE `data:` events — identical format).
  */
-export const realtimeMessageSchema = z.discriminatedUnion('type', [
+export const realtimeMessageSchema = Schema.Union([
   realtimeChangeEventSchema,
   realtimeConflictEventSchema,
   realtimeHeartbeatSchema,
@@ -256,22 +278,25 @@ export const realtimeMessageSchema = z.discriminatedUnion('type', [
  * events. Both are optional — an unscoped subscription receives every
  * change for the table with every readable field.
  */
-export const subscriptionHandshakeSchema = z.object({
-  table: z.string().min(1).describe('Table slug to subscribe to'),
-  subscriptionId: z
-    .string()
-    .min(1)
-    .optional()
-    .describe('Client-generated id used to multiplex events on one connection'),
-  filter: z
-    .string()
-    .optional()
-    .describe('Server-side filter expression applied to change events (field:operator:value)'),
-  fields: z
-    .array(z.string().min(1))
-    .min(1)
-    .optional()
-    .describe('Whitelist of field names to include in change event payloads'),
+export const subscriptionHandshakeSchema = Schema.Struct({
+  table: Schema.String.annotate({ description: 'Table slug to subscribe to' }).pipe(
+    Schema.check(Schema.isMinLength(1))
+  ),
+  subscriptionId: optionalField(
+    Schema.String.annotate({
+      description: 'Client-generated id used to multiplex events on one connection',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  filter: optionalField(
+    Schema.String.annotate({
+      description: 'Server-side filter expression applied to change events (field:operator:value)',
+    })
+  ),
+  fields: optionalField(
+    Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1))))
+      .annotate({ description: 'Whitelist of field names to include in change event payloads' })
+      .pipe(Schema.check(Schema.isMinLength(1)))
+  ),
 })
 
 // ---------------------------------------------------------------------------
@@ -299,40 +324,28 @@ export const subscriptionHandshakeSchema = z.object({
  * - `maxPresenceEntriesPerPage`: presence entry cap per page path
  *.
  */
-export const webSocketTransportConfigSchema = z.object({
-  reconnectBackoffMs: z
-    .array(z.number().int().positive())
-    .describe('Exponential reconnect backoff delay sequence in milliseconds'),
-  maxReconnectDelayMs: z
-    .number()
-    .int()
-    .positive()
-    .describe('Maximum reconnect delay after the backoff sequence is exhausted'),
-  heartbeatIntervalMs: z
-    .number()
-    .int()
-    .positive()
-    .describe('Interval between server heartbeat messages'),
-  maxConnectionsPerUser: z
-    .number()
-    .int()
-    .positive()
-    .describe('Maximum concurrent transport connections per authenticated user'),
-  idleConnectionTimeoutMs: z
-    .number()
-    .int()
-    .positive()
-    .describe('Window after which an idle connection with no subscriptions is closed'),
-  presenceStaleTimeoutMs: z
-    .number()
-    .int()
-    .positive()
-    .describe('Window after which a presence entry with no heartbeat is reaped'),
-  maxPresenceEntriesPerPage: z
-    .number()
-    .int()
-    .positive()
-    .describe('Maximum concurrent presence entries per page path'),
+export const webSocketTransportConfigSchema = Schema.Struct({
+  reconnectBackoffMs: Schema.Array(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))).annotate(
+    { description: 'Exponential reconnect backoff delay sequence in milliseconds' }
+  ),
+  maxReconnectDelayMs: Schema.Int.annotate({
+    description: 'Maximum reconnect delay after the backoff sequence is exhausted',
+  }).pipe(Schema.check(Schema.isGreaterThan(0))),
+  heartbeatIntervalMs: Schema.Int.annotate({
+    description: 'Interval between server heartbeat messages',
+  }).pipe(Schema.check(Schema.isGreaterThan(0))),
+  maxConnectionsPerUser: Schema.Int.annotate({
+    description: 'Maximum concurrent transport connections per authenticated user',
+  }).pipe(Schema.check(Schema.isGreaterThan(0))),
+  idleConnectionTimeoutMs: Schema.Int.annotate({
+    description: 'Window after which an idle connection with no subscriptions is closed',
+  }).pipe(Schema.check(Schema.isGreaterThan(0))),
+  presenceStaleTimeoutMs: Schema.Int.annotate({
+    description: 'Window after which a presence entry with no heartbeat is reaped',
+  }).pipe(Schema.check(Schema.isGreaterThan(0))),
+  maxPresenceEntriesPerPage: Schema.Int.annotate({
+    description: 'Maximum concurrent presence entries per page path',
+  }).pipe(Schema.check(Schema.isGreaterThan(0))),
 })
 
 /**
@@ -364,17 +377,17 @@ export const REALTIME_TRANSPORT_CONFIG = Object.freeze({
 // Type exports
 // ---------------------------------------------------------------------------
 
-export type RealtimeRecordPayload = z.infer<typeof realtimeRecordPayloadSchema>
-export type RealtimeChangeEvent = z.infer<typeof realtimeChangeEventSchema>
-export type RealtimeConflictEvent = z.infer<typeof realtimeConflictEventSchema>
-export type RealtimeHeartbeat = z.infer<typeof realtimeHeartbeatSchema>
-export type RealtimeSubscribed = z.infer<typeof realtimeSubscribedSchema>
-export type RealtimeUnsubscribed = z.infer<typeof realtimeUnsubscribedSchema>
-export type RealtimePresenceEntry = z.infer<typeof realtimePresenceEntrySchema>
-export type RealtimePresenceJoin = z.infer<typeof realtimePresenceJoinSchema>
-export type RealtimePresenceLeave = z.infer<typeof realtimePresenceLeaveSchema>
-export type RealtimePresenceSync = z.infer<typeof realtimePresenceSyncSchema>
-export type RealtimeConnectionStatus = z.infer<typeof realtimeConnectionStatusSchema>
-export type RealtimeMessage = z.infer<typeof realtimeMessageSchema>
-export type SubscriptionHandshake = z.infer<typeof subscriptionHandshakeSchema>
-export type WebSocketTransportConfig = z.infer<typeof webSocketTransportConfigSchema>
+export type RealtimeRecordPayload = typeof realtimeRecordPayloadSchema.Type
+export type RealtimeChangeEvent = typeof realtimeChangeEventSchema.Type
+export type RealtimeConflictEvent = typeof realtimeConflictEventSchema.Type
+export type RealtimeHeartbeat = typeof realtimeHeartbeatSchema.Type
+export type RealtimeSubscribed = typeof realtimeSubscribedSchema.Type
+export type RealtimeUnsubscribed = typeof realtimeUnsubscribedSchema.Type
+export type RealtimePresenceEntry = typeof realtimePresenceEntrySchema.Type
+export type RealtimePresenceJoin = typeof realtimePresenceJoinSchema.Type
+export type RealtimePresenceLeave = typeof realtimePresenceLeaveSchema.Type
+export type RealtimePresenceSync = typeof realtimePresenceSyncSchema.Type
+export type RealtimeConnectionStatus = typeof realtimeConnectionStatusSchema.Type
+export type RealtimeMessage = typeof realtimeMessageSchema.Type
+export type SubscriptionHandshake = typeof subscriptionHandshakeSchema.Type
+export type WebSocketTransportConfig = typeof webSocketTransportConfigSchema.Type

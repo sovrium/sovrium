@@ -17,12 +17,12 @@ components:
       - type: text
         element: h1
         props:
-          className: text-2xl font-bold mb-1
+          className: text-3xl font-bold mb-1
         content: Review
       - type: text
         element: p
         props:
-          className: text-sm mb-6
+          className: text-md mb-6
         content: The whole team's expenses — admins bypass the row-level scoping. Approve or reject from the pending approval emails.
 
       - type: container
@@ -78,7 +78,7 @@ components:
           - type: text
             element: h2
             props:
-              className: text-base font-semibold mb-4
+              className: text-lg font-semibold mb-4
             content: Spend by category
           - type: chart
             chartType: bar
@@ -91,7 +91,7 @@ components:
               groupBy: category
             emptyMessage: No expenses yet.
 
-      - type: data-table
+      - type: table
         dataSource:
           table: expenses
           sort:

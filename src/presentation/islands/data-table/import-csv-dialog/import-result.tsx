@@ -31,7 +31,7 @@ function CreatedLine({ result }: ImportResultProps) {
 
 export function ImportResultView({ result }: ImportResultProps) {
   return (
-    <div className="mt-4 space-y-2">
+    <div className="space-y-2">
       <CreatedLine result={result} />
       {result.updated > 0 && (
         <p className="text-info-fg text-sm">{result.updated} records updated</p>

@@ -23,7 +23,7 @@
  * state selectors (`data-[active]`, `data-[open]`, `data-[disabled]`) stay
  * as raw Tailwind utilities — they encode behavior, not color — while every
  * color / border / radius / shadow class goes through {@link withVarFallback}
- * so `app.theme.*` overrides still win at the CSS cascade layer
+ * so `app.design.*` overrides still win at the CSS cascade layer
  * (`var(--sv-X)` resolves the override first, falling back to the inline
  * OKLCH literal).
  *
@@ -76,8 +76,8 @@
  * `date-default-classes.ts`, and `overlay-default-classes.ts`.
  */
 
-import { FOCUS_VISIBLE_RING } from '@/presentation/islands/recipes/shared-tokens-default-classes'
-import { TOKENS as T, withVarFallback as v } from '@/presentation/utils/design/css-var'
+import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
+import { FOCUS_VISIBLE_RING } from '@/presentation/design/shared-tokens-default-classes'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared building blocks
@@ -87,7 +87,13 @@ type TabsOrientation = 'horizontal' | 'vertical'
 type TabState = 'default' | 'active' | 'disabled'
 type TriggerState = 'default' | 'open' | 'disabled'
 
-const RADIUS_LG = `rounded-[${v('sv-radius-lg', T.radiusLg)}]`
+// `radius-md` (6px) is the shared surface radius every other shell settled on
+// in R-D — the list, table, gallery, chart and kpi shells all spend it, and the
+// canvas draws the accordion frame at 6px in all three of its variant drawings.
+// The accordion kept `radius-lg` (8px) only because it converged in a different
+// wave; at V it was the last shell out of step. `gallery-default-classes.ts`
+// records the same drop for the same reason.
+const RADIUS_MD = `rounded-[${v('radius-md', T.radiusMd)}]`
 
 const DISABLED_INLINE = 'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50'
 
@@ -194,7 +200,30 @@ export const computeTabsListClasses = ({
 // TAB (single trigger button inside the list)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const TAB_LAYOUT = 'px-4 py-2 text-sm font-medium transition-colors'
+const TAB_LAYOUT = 'px-4 py-2 text-base font-medium transition-colors'
+
+// The leading caption of a horizontal strip gives up its left padding, and
+// nothing else does.
+//
+// The strip's BOX has always started at the container edge — the list carries
+// no padding — so the inset a reader sees is inside the first trigger: its own
+// `px-4` pushed the caption 16px in while the heading above it and the panel
+// below it both began at 0, and three edges that should be one column read as
+// three. Measured on the spec fixture before this landed: strip box flush,
+// caption 16px in.
+//
+// `first:pl-0` rather than dropping `px-4` from the recipe, because the padding
+// is doing a second job between the triggers: without it the captions abut and
+// the strip reads as one run-on word. Only the leading edge is given up.
+//
+// `<Tabs.Indicator>` renders AFTER the triggers inside `<Tabs.List>`, so the
+// first `<Tabs.Tab>` really is `:first-child`. Moving the indicator ahead of
+// them would silently un-flush the strip.
+//
+// Horizontal only. In a vertical rail `:first-child` is the TOP trigger, and
+// taking its left padding away would step it out of line with every trigger
+// beneath it — a ragged column, for a complaint that was never about one.
+const TAB_LAYOUT_FLUSH_HORIZONTAL = 'first:pl-0'
 
 // A column of triggers reads left-aligned; centring a two-line caption inside a
 // fixed-width rail leaves both lines floating.
@@ -260,7 +289,7 @@ export const computeTabClasses = ({
 } = {}): string =>
   [
     TAB_LAYOUT,
-    ...(orientation === 'vertical' ? [TAB_LAYOUT_VERTICAL] : []),
+    orientation === 'vertical' ? TAB_LAYOUT_VERTICAL : TAB_LAYOUT_FLUSH_HORIZONTAL,
     TAB_DEFAULT_SURFACE,
     orientation === 'vertical' ? TAB_ACCENT_RESERVED_VERTICAL : TAB_ACCENT_RESERVED_HORIZONTAL,
     orientation === 'vertical' ? TAB_ACTIVE_SURFACE_VERTICAL : TAB_ACTIVE_SURFACE_HORIZONTAL,
@@ -274,7 +303,7 @@ export const computeTabClasses = ({
 
 const TAB_LABEL_LAYOUT = 'block'
 
-const TAB_DESCRIPTION_LAYOUT = 'mt-0.5 block text-xs font-normal'
+const TAB_DESCRIPTION_LAYOUT = 'mt-0.5 block text-sm font-normal'
 
 const TAB_DESCRIPTION_SURFACE = `text-[${v('sv-fg-muted', T.fgMuted)}]`
 
@@ -321,7 +350,23 @@ export const computeTabIndicatorClasses = (): string =>
 // TAB PANEL (content region below the strip)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const TAB_PANEL_LAYOUT = 'p-4 text-sm'
+// `py-4`, NOT `p-4` — the panel reserves no horizontal gutter of its own
+//.
+//
+// A panel is a block an author fills, and a 16px inset it cannot see in the
+// config is 16px its content does not get: the panel body then starts to the
+// right of the heading above the tab set and to the right of the first caption,
+// so one column reads as three. An author who wants the inset back writes it —
+// `design.components.tabs.parts.panel`, or a `container` around the body — and
+// that is one line in a place that says so.
+//
+// The VERTICAL padding stays, and dropping it would be a different change than
+// the one asked for: the complaint is horizontal ("a block taking the whole
+// space, left to right"), and a panel whose first line sits hard against the
+// strip's bottom border is a new defect, not the absence of an old one. In a
+// vertical tab set the rail is separated from the panel by the root grid's
+// `gap-6` instead, so the panel needs no left padding there either.
+const TAB_PANEL_LAYOUT = 'py-4 text-md'
 
 // The panel's width is the SECOND grid track on the root, so it needs no
 // `flex-1` of its own. `min-w-0` stays and is not optional: a grid item
@@ -336,9 +381,10 @@ const TAB_PANEL_SURFACE = `text-[${v('sv-fg', T.fg)}]`
  * Compute the default className for the `<Tabs.Panel>` content region that
  * Base UI shows when its associated tab is selected. Uses the strong
  * foreground tone (full `sv-fg`, not muted) since this is the focal content
- * after the user picks a tab; `p-4` matches the trigger strip's px-4 so the
- * vertical rhythm reads as one column. In a vertical tab set the panel fills
- * the second grid track beside the trigger rail.
+ * after the user picks a tab; `py-4` holds the panel off the strip without
+ * reserving a horizontal gutter, so the body starts at the same edge as the
+ * first caption above it. In a vertical tab set the panel fills the second grid
+ * track beside the trigger rail.
  */
 export const computeTabPanelClasses = ({
   orientation = 'horizontal',
@@ -368,20 +414,24 @@ const ACCORDION_ROOT_SURFACE = [
 
 /**
  * Compute the default className for the outer `<Accordion.Root>` shell.
- * Rounded-lg corners + bordered surface so the accordion reads as one
+ * `radius-md` corners + bordered surface so the accordion reads as one
  * cohesive card; the `divide-y` rule adds 1px dividers between items so
  * each header/panel pair feels grouped without the heaviness of an outer
  * border per item.
  */
 export const computeAccordionRootClasses = (): string =>
-  [ACCORDION_ROOT_LAYOUT, RADIUS_LG, ACCORDION_ROOT_SURFACE].join(' ')
+  [ACCORDION_ROOT_LAYOUT, RADIUS_MD, ACCORDION_ROOT_SURFACE].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // ACCORDION TRIGGER (header row that toggles the panel)
 // ──────────────────────────────────────────────────────────────────────────────
 
+// `group` is load-bearing rather than decorative: it is what lets the chevron
+// below read the trigger's open state. Base UI stamps `data-panel-open` on the
+// TRIGGER and `data-open` on the HEADER, so the icon — which is given neither —
+// can only see the state through an ancestor marker.
 const ACCORDION_TRIGGER_LAYOUT =
-  'flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium transition-colors'
+  'group flex w-full items-center justify-between px-4 py-3 text-left text-base font-medium transition-colors'
 
 const ACCORDION_TRIGGER_SURFACE = [
   `text-[${v('sv-fg', T.fg)}]`,
@@ -410,17 +460,26 @@ export const computeAccordionTriggerClasses = ({
 // ACCORDION ICON (chevron rotating on open)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const ACCORDION_ICON_LAYOUT = 'shrink-0 transition-transform duration-200 data-[open]:rotate-180'
+const ACCORDION_ICON_LAYOUT =
+  'shrink-0 transition-transform duration-200 group-data-[panel-open]:rotate-180'
 
 const ACCORDION_ICON_SURFACE = `text-[${v('sv-fg-muted', T.fgMuted)}]`
 
 /**
  * Compute the default className for the chevron `<svg>` inside an
- * accordion trigger. The chevron rotates 180deg via the `data-[open]`
- * variant when its parent trigger toggles open — Tailwind handles the
- * transform animation with `transition-transform duration-200`. Muted
- * foreground tone (`sv-fg-muted`) so the icon reads as an affordance hint
- * rather than as a focal element competing with the header text.
+ * accordion trigger. The chevron rotates 180deg when its section opens, read
+ * off the enclosing `group` trigger's `data-panel-open`; Tailwind handles the
+ * animation with `transition-transform duration-200`. Muted foreground tone
+ * (`sv-fg-muted`) so the icon reads as an affordance hint rather than as a
+ * focal element competing with the header text.
+ *
+ * The variant has to reach through the trigger because Base UI gives the
+ * `<svg>` no state of its own: `data-open` lands on `<Accordion.Header>` and
+ * `data-panel-open` on `<Accordion.Trigger>`. A bare `data-[open]:rotate-180`
+ * on the icon therefore matched nothing and the chevron never turned
+ *. This is the spelling the nav-menu chevron already
+ * uses for the same reason — see `group-data-[popup-open]` in
+ * `nav-menu-parts.tsx`.
  */
 export const computeAccordionIconClasses = (): string =>
   [ACCORDION_ICON_LAYOUT, ACCORDION_ICON_SURFACE].join(' ')
@@ -429,7 +488,7 @@ export const computeAccordionIconClasses = (): string =>
 // ACCORDION PANEL (collapsible content region)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const ACCORDION_PANEL_LAYOUT = 'overflow-hidden px-4 pb-3 text-sm'
+const ACCORDION_PANEL_LAYOUT = 'overflow-hidden px-4 pb-3 text-md'
 
 const ACCORDION_PANEL_SURFACE = `text-[${v('sv-fg-muted', T.fgMuted)}]`
 

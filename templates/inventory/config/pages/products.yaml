@@ -16,17 +16,17 @@ components:
       - type: text
         element: h1
         props:
-          className: text-2xl font-bold mb-1
+          className: text-3xl font-bold mb-1
         content: Products
       - type: text
         element: p
         props:
-          className: text-sm mb-6
+          className: text-md mb-6
         content: >-
           Every product you sell. Group, sort, filter, and edit it like a
           spreadsheet — the data lives in your own database.
 
-      - type: data-table
+      - type: table
         dataSource:
           table: products
           sort:
@@ -184,7 +184,7 @@ components:
       # The drawer renders exactly the fields listed here — it does NOT derive
       # them from the table. Omit `recordFields` and it opens as an empty shell
       # with a save button.
-      - type: record-drawer
+      - type: drawer
         id: product-detail
         dataSource:
           table: products

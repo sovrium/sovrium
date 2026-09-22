@@ -15,5 +15,5 @@
  * used by `parseStorageEnvConfig` consumers.
  */
 
-export { parseAiEnvConfig } from '@/domain/models/env/ai/ai'
-export type { AiEnvConfig } from '@/domain/models/env/ai/ai'
+export { parseAiEnvConfig } from '@/domain/models/process-env/ai/ai'
+export type { AiEnvConfig } from '@/domain/models/process-env/ai/ai'

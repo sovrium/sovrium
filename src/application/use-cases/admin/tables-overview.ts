@@ -35,7 +35,7 @@ import {
   type TableAggregateRow,
   type TablesOverviewError,
 } from '@/application/ports/repositories/tables/tables-overview-repository'
-import type { PeriodPreset, SeriesInterval } from '@/domain/models/api/admin/_shared/period-preset'
+import type { PeriodPreset, SeriesInterval } from '@/domain/models/api/admin/envelope/period-preset'
 import type {
   TablesOverviewResponse,
   TableOverviewBreakdownItem,
@@ -193,4 +193,4 @@ export const buildTablesOverview = (
     }
     // Gated process-wide: the repository's bounded per-table fan-out is a
     // PER-REQUEST budget, and only the semaphore makes it a process-wide bound.
-  }).pipe(tablesOverviewSemaphore.withPermits(1))
+  }).pipe(tablesOverviewSemaphore.withPermits(1), Effect.withSpan('admin.build-tables-overview'))

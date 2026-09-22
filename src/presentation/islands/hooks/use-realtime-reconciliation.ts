@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 
 /**
  * Server-wins reconciliation + conflict detection for a realtime data table.

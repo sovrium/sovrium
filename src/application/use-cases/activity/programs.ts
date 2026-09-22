@@ -41,7 +41,7 @@ export const GetActivityById = (activityId: string) =>
     const activity = yield* getActivityById(activityId)
 
     return activity
-  })
+  }).pipe(Effect.withSpan('activity.get-activity-by-id', { attributes: { activityId } }))
 
 /**
  * Export all error types for external use

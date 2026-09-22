@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 // ============================================================================
 // OpenAPI Path Parameter Schemas
@@ -14,8 +15,8 @@ import { z } from 'zod'
 /**
  * Activity ID path parameter
  */
-export const activityIdParamSchema = z.object({
-  activityId: z.string().describe('Activity log identifier'),
+export const activityIdParamSchema = Schema.Struct({
+  activityId: Schema.String.annotate({ description: 'Activity log identifier' }),
 })
 
 // ============================================================================
@@ -25,9 +26,13 @@ export const activityIdParamSchema = z.object({
 /**
  * Activity log query parameters
  */
-export const activityQuerySchema = z.object({
-  page: z.string().optional().describe('Page number'),
-  pageSize: z.string().optional().describe('Items per page'),
-  tableId: z.string().optional().describe('Filter by table ID'),
-  action: z.enum(['create', 'update', 'delete', 'restore']).optional().describe('Filter by action'),
+export const activityQuerySchema = Schema.Struct({
+  page: optionalField(Schema.String.annotate({ description: 'Page number' })),
+  pageSize: optionalField(Schema.String.annotate({ description: 'Items per page' })),
+  tableId: optionalField(Schema.String.annotate({ description: 'Filter by table ID' })),
+  action: optionalField(
+    Schema.Literals(['create', 'update', 'delete', 'restore']).annotate({
+      description: 'Filter by action',
+    })
+  ),
 })

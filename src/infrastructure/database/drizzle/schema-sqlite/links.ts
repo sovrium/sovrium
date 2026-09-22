@@ -59,6 +59,3 @@ export const links = systemTable(
     index('links_deleted_at_idx').on(table.deletedAt),
   ]
 )
-
-export type Link = typeof links.$inferSelect
-export type NewLink = typeof links.$inferInsert

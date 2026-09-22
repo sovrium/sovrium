@@ -16,7 +16,11 @@
    its handlers close over the upload state. */
 
 import { useRef, useState } from 'react'
-import { readsAsList } from '../../shared/cell-value-semantics'
+import {
+  computeTableAddRowInputClasses,
+  computeTableEditorLabelClasses,
+} from '@/presentation/design/table-default-classes'
+import { readsAsList } from '../../runtime/cell-value-semantics'
 import { uploadToBucket, type BucketUpload } from './bucket-upload'
 import { editMetaOf, type CellEditorProps } from './editor-contract'
 import { EditorPopover } from './editor-popover'
@@ -106,11 +110,11 @@ export function AttachmentEditor(
             accept: allowedFileTypes.join(','),
           })}
         onChange={(e) => void handleFiles(e.target.files)}
-        className="border-primary w-full rounded border px-1 py-0.5 text-sm"
+        className={computeTableAddRowInputClasses()}
       />
       {status !== 'idle' && (
         <p
-          className="text-foreground-muted text-xs"
+          className={computeTableEditorLabelClasses()}
           {...(status === 'failed' && { role: 'alert' })}
         >
           {status === 'uploading' ? 'Uploading…' : 'Upload failed'}

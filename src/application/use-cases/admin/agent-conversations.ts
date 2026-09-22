@@ -26,7 +26,7 @@
  * after a successful read.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   AdminAgentConversationsRepository,
   type AdminAgentConversationRow,
@@ -41,7 +41,7 @@ import {
   type AgentConversationMessage,
   type AgentConversationHeader,
 } from '@/domain/models/api/admin/agents/conversations'
-import { AdminAgentConversationsRepositoryLive } from '@/infrastructure/database/repositories/agents/admin-agent-conversations-repository-live'
+import { decodeSafe } from '@/domain/models/api/combinators/decode'
 
 /* eslint-disable unicorn/no-null -- API envelope canonically uses `null` for an absent `nextCursor` and for nullable transcript fields (model/tokenCount/toolCalls/title/sessionId), matching the Zod response contract */
 
@@ -57,10 +57,7 @@ function toIso(raw: Readonly<Date> | string): string {
  * supplied by the caller (sourced via the repository). Omits `userId`,
  * `agentId`, and `metadata` by construction (the row never carried them — S4).
  */
-function buildConversationItem(
-  row: AdminAgentConversationRow
-  // eslint-disable-next-line functional/prefer-immutable-types -- Zod-inferred response shape (upstream-mutable); the route serializes it straight to JSON without mutating
-): AgentConversationListItem {
+function buildConversationItem(row: AdminAgentConversationRow): AgentConversationListItem {
   return {
     id: row.id,
     title: row.title,
@@ -75,10 +72,7 @@ function buildConversationItem(
  * Build the conversation header echoed in the detail response — a subset of the
  * list item (no `messageCount`).
  */
-function buildConversationHeader(
-  row: AdminAgentConversationRow
-  // eslint-disable-next-line functional/prefer-immutable-types -- Zod-inferred response shape (upstream-mutable)
-): AgentConversationHeader {
+function buildConversationHeader(row: AdminAgentConversationRow): AgentConversationHeader {
   return {
     id: row.id,
     title: row.title,
@@ -94,10 +88,7 @@ function buildConversationHeader(
  * `model` / `tokenCount` / `toolCalls` are nullable. Omits `conversationId` by
  * construction (it is the request path segment — never a response field).
  */
-function buildMessage(
-  row: AdminAgentMessageRow
-  // eslint-disable-next-line functional/prefer-immutable-types -- Zod-inferred response shape (upstream-mutable)
-): AgentConversationMessage {
+function buildMessage(row: AdminAgentMessageRow): AgentConversationMessage {
   return {
     id: row.id,
     role: row.role as AgentConversationMessage['role'],
@@ -233,7 +224,7 @@ export const BuildAgentConversations = (
         : null
 
     const body = { items, nextCursor, appliedQuery: input.q ?? null }
-    const parsed = agentConversationsListResponseSchema.safeParse(body)
+    const parsed = decodeSafe(agentConversationsListResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
@@ -246,8 +237,8 @@ export const BuildAgentConversations = (
         // reader knows the narrowing already happened and must not repeat it.
         appliedQuery: parsed.data.appliedQuery ?? null,
       },
-    }
-  })
+    } as const
+  }).pipe(Effect.withSpan('admin.build-agent-conversations'))
 
 // ─── Detail use case ──────────────────────────────────────────────────────────
 
@@ -296,19 +287,14 @@ export const BuildAgentConversationDetail = (
       messages: messageRows.map((row) => buildMessage(row)),
     }
 
-    const parsed = agentConversationDetailResponseSchema.safeParse(body)
+    const parsed = decodeSafe(agentConversationDetailResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
     return {
       _tag: 'Ok',
       body: { conversation: parsed.data.conversation, messages: parsed.data.messages },
-    }
-  })
+    } as const
+  }).pipe(Effect.withSpan('admin.build-agent-conversation-detail'))
 
 /* eslint-enable unicorn/no-null */
-
-/**
- * Application layer for the admin agent-conversations use cases.
- */
-export const AdminAgentConversationsLayer = Layer.mergeAll(AdminAgentConversationsRepositoryLive)

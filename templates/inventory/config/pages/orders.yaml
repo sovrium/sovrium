@@ -16,17 +16,17 @@ components:
       - type: text
         element: h1
         props:
-          className: text-2xl font-bold mb-1
+          className: text-3xl font-bold mb-1
         content: Orders
       - type: text
         element: p
         props:
-          className: text-sm mb-6
+          className: text-md mb-6
         content: >-
           What customers asked for. Totals roll up from the line items below, so
           they cannot drift.
 
-      - type: data-table
+      - type: table
         dataSource:
           table: orders
           sort:
@@ -116,14 +116,14 @@ components:
       - type: text
         element: h2
         props:
-          className: text-lg font-semibold mt-10 mb-1
+          className: text-xl font-semibold mt-10 mb-1
         content: Order lines
       - type: text
         element: p
         props:
-          className: text-sm mb-4
+          className: text-md mb-4
         content: One row per product on an order. Line totals are computed in the database.
-      - type: data-table
+      - type: table
         dataSource:
           table: order_lines
         rowHeight: short

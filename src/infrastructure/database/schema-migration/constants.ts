@@ -39,6 +39,10 @@ export const PROTECTED_SYSTEM_TABLES = new Set([
   // PostgreSQL it lives in the `drizzle` schema (outside
   // `getExistingTableNames`' `public` scope), so this entry is defensive
   // there. Unqualified to match the bare name SQLite's `sqlite_master` reports.
+  // Under drizzle v1 the stakes are the same but the mechanism is different:
+  // the table carries a `name` column that IS the apply decision, so dropping
+  // it loses every recorded name and the next boot re-runs the whole set from
+  // `0000` — the identical collision, reached by a different route.
   '__drizzle_migrations',
   // Activity and comment tables (in system schema)
   'system.activity_logs',

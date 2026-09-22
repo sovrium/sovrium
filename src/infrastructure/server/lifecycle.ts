@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { logError, logInfo, logWarning } from '@/infrastructure/logging'
-import type { ServerInstance } from '@/application/models/server'
+import type { ServerInstance } from '@/application/ports/services/server-instance'
 
 /**
  * Hard ceiling on a graceful stop.

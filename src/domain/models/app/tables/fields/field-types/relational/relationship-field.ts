@@ -6,7 +6,7 @@
  */
 
 import { Effect, Schema } from 'effect'
-import { createDatabaseIdentifierSchema } from '@/domain/validators/database-identifier'
+import { createDatabaseIdentifierSchema } from '@/domain/kernel/sql/database-identifier'
 import { BaseFieldSchema } from '../base-field'
 
 /**
@@ -29,6 +29,23 @@ import { BaseFieldSchema } from '../base-field'
  */
 const columnReference = (description: string) =>
   createDatabaseIdentifierSchema('column', description)
+
+/**
+ * `allowCreate` and `maxLinked` are properties of the FIELD, not of any page
+ * component, for the same reason `allowMultiple` already is: a `relationship`
+ * column IS a record picker wherever it is bound, exactly as a `single-select`
+ * column is already a dropdown wherever IT is bound. Neither needs a
+ * `type: record-picker` component for an author to declare, and minting one
+ * would create a second way to say what the column already says.
+ *
+ * `maxLinked` is an `Int` above zero rather than a plain number: a cap of zero
+ * would express "this field may link to nothing", which is what omitting the
+ * field says, and a fractional cap has no meaning against a count of records.
+ * It is only meaningful alongside `allowMultiple`, and that pairing is left to
+ * the author rather than refused here, because a cap declared ahead of the
+ * `allowMultiple` it anticipates is harmless while a cross-property refusal on
+ * a field union is not expressible without a validator pass.
+ */
 
 export const RelationshipFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
@@ -92,6 +109,23 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
         Schema.annotate({
           description:
             'Name of the field in the related table to reference (defaults to id). The referenced field must have a primary key or unique constraint.',
+        })
+      )
+    ),
+    allowCreate: Schema.optional(
+      Schema.Boolean.pipe(
+        Schema.annotate({
+          description:
+            "Whether the picker may create a missing related record inline, by posting the typed text as the related table's displayField (default: false)",
+        })
+      )
+    ),
+    maxLinked: Schema.optional(
+      Schema.Int.pipe(
+        Schema.check(Schema.isGreaterThan(0)),
+        Schema.annotate({
+          description:
+            'Maximum number of records this field may link to. Only meaningful alongside allowMultiple (default: unbounded)',
         })
       )
     ),

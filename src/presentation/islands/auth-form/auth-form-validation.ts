@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isValidEmail } from '@/domain/utils/email-validation'
-import { type AuthFormField } from '@/presentation/utils/auth-form-types'
+import { isValidEmail } from '@/domain/kernel/sanitize/email-validation'
+import { type AuthFormField } from '@/presentation/design/auth-form-types'
 
 // Re-exported so existing importers of `auth-form-validation` keep working
 // without reaching across to `@/presentation/utils`.

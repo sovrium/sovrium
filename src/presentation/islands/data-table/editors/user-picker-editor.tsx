@@ -8,7 +8,7 @@
 import { useCallback } from 'react'
 import { editMetaOf, type CellEditorProps } from './editor-contract'
 import { FetchingPicker } from './fetching-picker'
-import type { ListboxCandidate } from './option-listbox'
+import type { CandidatePage } from '../../parts/use-candidate-search'
 import type { ReactElement } from 'react'
 
 /**
@@ -36,8 +36,11 @@ interface DirectoryEntry {
 export function UserPickerEditor(props: CellEditorProps): ReactElement {
   const { allowMultiple } = editMetaOf(props.fieldMeta)
 
+  // The directory endpoint has no `page`/`offset` parameter and reports no
+  // pagination metadata (see the route module), so this picker cannot page —
+  // `hasMore` is always `false` and the second argument goes unused.
   const fetchCandidates = useCallback(
-    async (term: string, signal: AbortSignal): Promise<readonly ListboxCandidate[]> => {
+    async (term: string, _page: number, signal: AbortSignal): Promise<CandidatePage> => {
       const params = new URLSearchParams({ limit: String(CANDIDATE_LIMIT) })
       if (term.trim() !== '') params.set('q', term.trim())
       const res = await fetch(`/api/users/directory?${params.toString()}`, {
@@ -51,10 +54,13 @@ export function UserPickerEditor(props: CellEditorProps): ReactElement {
       const body = (await res.json()) as { users?: readonly DirectoryEntry[] }
       // An account with a blank name still has to be pickable, and its id is
       // the only thing left that identifies it.
-      return (body.users ?? []).map((entry) => ({
-        value: String(entry.id),
-        label: entry.name.trim() === '' ? String(entry.id) : entry.name,
-      }))
+      return {
+        candidates: (body.users ?? []).map((entry) => ({
+          value: String(entry.id),
+          label: entry.name.trim() === '' ? String(entry.id) : entry.name,
+        })),
+        hasMore: false,
+      }
     },
     []
   )

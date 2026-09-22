@@ -5,8 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useDeferredComponent } from '../../components/deferred-component'
+import {
+  TABLE_EDITOR_PROSE_WIDTH,
+  computeTablePanelCaptionClasses,
+  computeTableEditorPopoverClasses,
+} from '@/presentation/design/table-default-classes'
 import { loadRichTextCellEditor } from '../../island-registry'
+import { useDeferredComponent } from '../../parts/deferred-component'
 import type { CellEditorProps } from './editor-contract'
 import type { ReactElement } from 'react'
 
@@ -23,7 +28,7 @@ const RICH_TEXT_LOADING = (
   <div
     role="status"
     aria-busy="true"
-    className="border-border bg-background text-muted-foreground absolute top-0 left-0 z-20 w-80 rounded border p-2 text-sm shadow-md"
+    className={`${computeTableEditorPopoverClasses()} ${TABLE_EDITOR_PROSE_WIDTH} ${computeTablePanelCaptionClasses()} top-0 left-0`}
   >
     Loading editor…
   </div>

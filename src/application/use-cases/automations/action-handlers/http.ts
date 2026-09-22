@@ -6,11 +6,11 @@
  */
 
 import { Effect } from 'effect'
-import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/utils/timeouts'
-import { validateOutboundUrl } from '@/infrastructure/utils/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/utils/with-fetch-timeout'
+import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
+import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
+import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import { resolveConnectionHeaders } from './auth-headers'
-import { numberProp, serializeActionBody, stringProp } from './shared'
+import { actionAttributes, numberProp, serializeActionBody, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, BodySerializationError } from './shared'
 
 /**
@@ -115,6 +115,7 @@ export const handleHttpRequest: ActionHandler = (action, app, automation) =>
       return { status: 'failure', error: bodyResult.failure.message } as const
     }
     const { body, headers } = bodyResult.success
+    // effect-promise: total -- `performHttpWithResponseOutput` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
     return yield* Effect.promise(() =>
       performHttpWithResponseOutput({
         url,
@@ -124,7 +125,9 @@ export const handleHttpRequest: ActionHandler = (action, app, automation) =>
         timeoutMs: timeoutMsOf(props),
       })
     )
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-http-request', { attributes: actionAttributes(action) })
+  )
 
 /** The hard cap on a captured response body, in UTF-16 code units. */
 const RESPONSE_BODY_CAP = 65_536
@@ -296,6 +299,7 @@ export const handleHttpGet: ActionHandler = (action, app, automation) =>
     if (merged.error !== undefined) {
       return { status: 'failure', error: merged.error } as const
     }
+    // effect-promise: total -- `performHttpWithResponseOutput` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
     return yield* Effect.promise(() =>
       performHttpWithResponseOutput({
         url,
@@ -304,7 +308,7 @@ export const handleHttpGet: ActionHandler = (action, app, automation) =>
         timeoutMs: timeoutMsOf(props),
       })
     )
-  })
+  }).pipe(Effect.withSpan('automations.handle-http-get', { attributes: actionAttributes(action) }))
 
 /**
  * Returns true when `headers` already declares a `Content-Type` value (any
@@ -471,6 +475,7 @@ const makeHttpBodyVerbHandler =
         return { status: 'failure', error: bodyResult.failure.message } as const
       }
       const { body, headers } = bodyResult.success
+      // effect-promise: total -- `performHttpWithResponseOutput` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
       return yield* Effect.promise(() =>
         performHttpWithResponseOutput({
           url,
@@ -523,6 +528,7 @@ export const handleHttpDelete: ActionHandler = (action, app, automation) =>
     if (bodyResult._tag === 'Failure') {
       return { status: 'failure', error: bodyResult.failure.message } as const
     }
+    // effect-promise: total -- `performHttpWithResponseOutput` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
     return yield* Effect.promise(() =>
       performHttpWithResponseOutput({
         url,
@@ -532,4 +538,6 @@ export const handleHttpDelete: ActionHandler = (action, app, automation) =>
         timeoutMs: timeoutMsOf(props),
       })
     )
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-http-delete', { attributes: actionAttributes(action) })
+  )

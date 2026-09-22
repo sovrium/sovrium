@@ -11,12 +11,13 @@
  *
  * Why these live outside `overview.ts`
  * ------------------------------------
- * Each domain block in `overview.ts` calls `Effect.provide(<Repository>Live)`
- * INLINE, welding its infrastructure layer in place. That makes the reduce that
- * sums the per-form aggregates unreachable from a unit test AND unreachable
- * from an HTTP caller (no request can make a healthy database return an
- * unusable count), so the `NaN`-poisoning defect behind the 2026-07-25
- * production 500 had no testable tier at all.
+ * The reduce that sums the per-form aggregates is unreachable from an HTTP
+ * caller — no request can make a healthy database return an unusable count —
+ * so the `NaN`-poisoning defect behind the 2026-07-25 production 500 had no
+ * testable tier at all while it lived inside a block. (The blocks used to weld
+ * their layer in place with an inline `Effect.provide` too, which closed the
+ * unit tier as well; they declare their port now, but the extraction is what
+ * gives this reduce a test either way.)
  *
  * Extracting the reduce into a dependency-free projection gives it one — the
  * same seam `withBlockTimeout` (`overview-block-timeout.ts`) already carved out
@@ -24,7 +25,7 @@
  * its tests run without a database.
  */
 
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import type { AdminFormAggregateRow } from '@/application/ports/repositories/forms/admin-forms-repository'
 
 /**

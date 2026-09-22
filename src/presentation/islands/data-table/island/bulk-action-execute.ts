@@ -6,10 +6,9 @@
  */
 
 import { renderToast } from './toast'
-import type { TableRecord } from '../../shared/types'
-import type { DataTableBulkAction } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+import type { DataTableInstance } from './table-features'
+import type { DataTableBulkAction } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { QueryClient } from '@tanstack/react-query'
-import type { useReactTable } from '@tanstack/react-table'
 
 interface BulkActionContext {
   readonly queryClient: QueryClient
@@ -84,7 +83,7 @@ function renderBulkToast(crudAction: BulkCrudAction, outcome: 'success' | 'error
  * response rather than from whether the request threw.
  */
 export async function executeBulkAction(
-  table: ReturnType<typeof useReactTable<TableRecord>>,
+  table: DataTableInstance,
   action: DataTableBulkAction,
   { queryClient, queryKey }: BulkActionContext
 ): Promise<void> {

@@ -35,10 +35,10 @@
  *
  * ## Both machines, in one order
  *
- * `runMigrations` (the baked Drizzle journal) then `initializeSchema` (the
- * dynamic `app.tables[]` DDL) — never the reverse. A `type: 'user'` field emits
- * a real `FOREIGN KEY … REFERENCES auth.user(id)`, so the dynamic DDL cannot
- * precede the journal that builds `auth.user`.
+ * `runMigrations` (the baked Drizzle migration set) then `initializeSchema`
+ * (the dynamic `app.tables[]` DDL) — never the reverse. A `type: 'user'` field
+ * emits a real `FOREIGN KEY … REFERENCES auth.user(id)`, so the dynamic DDL
+ * cannot precede the migrations that build `auth.user`.
  *
  * ## The invariant every import here protects
  *
@@ -62,8 +62,8 @@ import {
   dryRunBlocks,
 } from './migrate-report'
 import type { App } from '@/domain/models/app'
-import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
-import type { MigrationJournalState } from '@/infrastructure/database/drizzle/migrate'
+import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import type { MigrationFolderState } from '@/infrastructure/database/drizzle/migrate'
 
 /** Everything `sovrium migrate` reads from the command line. */
 export interface MigrateCommandOptions {
@@ -75,15 +75,15 @@ export interface MigrateCommandOptions {
 /** Resolve the dialect through the lazy boundary every database import crosses. */
 const dialectConfig = async (): Promise<DatabaseDialectConfig> => {
   const { parseDatabaseDialectConfig } =
-    await import('@/domain/models/env/database/database-dialect')
+    await import('@/domain/models/process-env/database/database-dialect')
   return parseDatabaseDialectConfig()
 }
 
-/** Where the journal stands, read without applying anything. */
-const readJournalState = async (): Promise<MigrationJournalState> => {
-  const { readMigrationJournalState } = await import('@/infrastructure/database/drizzle/migrate')
+/** Where the migration set stands, read without applying anything. */
+const readFolderState = async (): Promise<MigrationFolderState> => {
+  const { readMigrationFolderState } = await import('@/infrastructure/database/drizzle/migrate')
   const { Effect } = await import('effect')
-  return Effect.runPromise(readMigrationJournalState(await dialectConfig()))
+  return Effect.runPromise(readMigrationFolderState(await dialectConfig()))
 }
 
 /**
@@ -136,7 +136,7 @@ const runCheck = async (app: App): Promise<void> => {
   const { Effect } = await import('effect')
 
   const config = await dialectConfig()
-  const state = await readJournalState()
+  const state = await readFolderState()
   const findings = await Effect.runPromise(readMigrationPreflight(config))
   // Read-only: `planConfigTableChanges` introspects and, for a changing column,
   // SELECTs its rows. It emits no DDL, which is what keeps `--check`'s
@@ -166,7 +166,7 @@ const runDryRun = async (app: App): Promise<void> => {
   const { Effect } = await import('effect')
 
   const config = await dialectConfig()
-  const state = await readJournalState()
+  const state = await readFolderState()
   const changes = await Effect.runPromise(planConfigTableChanges(app, config))
 
   printDocument(dryRunBlocks(state, changes))
@@ -193,7 +193,7 @@ const runDryRun = async (app: App): Promise<void> => {
 const runApply = async (app: App): Promise<void> => {
   printProgress('Migrating')
 
-  const before = await readJournalState()
+  const before = await readFolderState()
   const failure = await applyDatabaseMigrations(app).then(
     () => undefined,
     (error: unknown) => describeFailure(error)
@@ -206,7 +206,7 @@ const runApply = async (app: App): Promise<void> => {
     )
   }
 
-  const after = await readJournalState()
+  const after = await readFolderState()
   printDocument([
     contextBlock(after),
     appliedBlock(before, after),

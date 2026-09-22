@@ -6,7 +6,7 @@
  */
 
 // eslint-disable-next-line no-restricted-syntax -- Activity logs are a cross-cutting concern, not phase-specific
-import { Data, Effect, Layer } from 'effect'
+import { Data, Effect } from 'effect'
 import {
   ActivityLogRepository,
   type ActivityLog,
@@ -16,9 +16,7 @@ import {
   AuthRepository,
   type AuthDatabaseError,
 } from '@/application/ports/repositories/auth/auth-repository'
-import { ActivityLogRepositoryLive } from '@/infrastructure/database/repositories/analytics/activity-log-repository-live'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
-import type { UserMetadata } from '@/application/ports/models/user-metadata'
+import type { UserMetadata } from '@/application/ports/contracts/user-metadata'
 
 /**
  * Forbidden error when user lacks permission to access activity logs
@@ -113,11 +111,4 @@ export const ListActivityLogs = (
 
     // Map to presentation-friendly format
     return logs.map(mapActivityLog)
-  })
-
-/**
- * Application Layer for Activity Logs
- *
- * Combines all services needed for activity log use cases.
- */
-export const ListActivityLogsLayer = Layer.mergeAll(ActivityLogRepositoryLive, AuthRepositoryLive)
+  }).pipe(Effect.withSpan('list-activity-logs.list-activity-logs'))

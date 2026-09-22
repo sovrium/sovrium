@@ -9,10 +9,11 @@ import { Combobox } from '@base-ui/react/combobox'
 import { Select } from '@base-ui/react/select'
 import {
   computeComboboxEmptyClasses,
+  computeComboboxListClasses,
   computeSelectItemClasses,
   computeSelectItemIndicatorClasses,
   computeSelectPopupClasses,
-} from './select-default-classes'
+} from '../../design/select-default-classes'
 import { CheckMark } from './select-icons'
 import type { OptionItem } from './select-island-types'
 import type { ReactElement } from 'react'
@@ -57,10 +58,25 @@ export function ComboboxItemRenderer(item: OptionItem): ReactElement {
 export function ComboboxPopupContent(): ReactElement {
   return (
     <Combobox.Portal>
-      <Combobox.Positioner sideOffset={4}>
+      {/*
+       * `align` defaults to `'center'`, which opens a list narrower than its
+       * control in the middle of it. The searchable half is the same control
+       * as the plain one and opens on the same edge. (`Combobox.Positioner`
+       * has no `alignItemWithTrigger` — it never overlapped its anchor — so
+       * the edge is the only thing to correct here.) `positionMethod` is the
+       * plain half's reason too: an absolutely-positioned popup opening below
+       * the fold grows the document it was portalled into.
+       */}
+      <Combobox.Positioner
+        sideOffset={4}
+        positionMethod="fixed"
+        align="start"
+      >
         <Combobox.Popup className={computeSelectPopupClasses()}>
           <Combobox.Empty className={computeComboboxEmptyClasses()}>No results</Combobox.Empty>
-          <Combobox.List>{ComboboxItemRenderer}</Combobox.List>
+          <Combobox.List className={computeComboboxListClasses()}>
+            {ComboboxItemRenderer}
+          </Combobox.List>
         </Combobox.Popup>
       </Combobox.Positioner>
     </Combobox.Portal>

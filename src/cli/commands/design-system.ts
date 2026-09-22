@@ -43,7 +43,11 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { Effect, Console } from 'effect'
-import { formatConfigCandidatesLine, formatDiscoveredConfigNotice } from '@/domain/utils'
+import {
+  formatConfigCandidatesLine,
+  formatDiscoveredConfigNotice,
+} from '@/domain/kernel/config-parsing/default-config-files'
+import { printStderr } from '@/infrastructure/logging/cli-output'
 import { lazyImportSchema } from './utils'
 import { loadConfigForValidationWithSources } from './validate'
 
@@ -71,19 +75,17 @@ const discoverDesignSystemConfig = async (): Promise<string> => {
   const discovered = await discoverDefaultConfigFile(process.cwd())
 
   if (!discovered) {
-    Effect.runSync(
-      Console.error(
-        `Error: No config file provided.\n\n` +
-          `${formatConfigCandidatesLine(process.cwd())}\n\n` +
-          `Usage:\n  sovrium design-system <config.json|config.yaml|config.ts>\n\n` +
-          `Run 'sovrium init' to scaffold a new project.`
-      )
+    printStderr(
+      `Error: No config file provided.\n\n` +
+        `${formatConfigCandidatesLine(process.cwd())}\n\n` +
+        `Usage:\n  sovrium design-system <config.json|config.yaml|config.ts>\n\n` +
+        `Run 'sovrium init' to scaffold a new project.`
     )
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
-  Effect.runSync(Console.error(formatDiscoveredConfigNotice(discovered)))
+  printStderr(formatDiscoveredConfigNotice(discovered))
   return discovered
 }
 
@@ -99,12 +101,10 @@ const resolveFormat = (raw: string | undefined): 'md' | 'json' => {
   if (MARKDOWN_FORMATS.has(normalized)) return 'md'
   if (normalized === JSON_FORMAT) return JSON_FORMAT
 
-  Effect.runSync(
-    Console.error(
-      `Error: Unsupported --format "${raw}".\n\n` +
-        `  Accepted values: md (or markdown), json.\n\n` +
-        `  Omitting --format prints the markdown brief, which is what an agent reads.`
-    )
+  printStderr(
+    `Error: Unsupported --format "${raw}".\n\n` +
+      `  Accepted values: md (or markdown), json.\n\n` +
+      `  Omitting --format prints the markdown brief, which is what an agent reads.`
   )
   // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
@@ -118,12 +118,12 @@ const resolveFormat = (raw: string | undefined): 'md' | 'json' => {
  */
 const decodeForExport = async (configPath: string) => {
   const { parsed, refSources } = await loadConfigForValidationWithSources(configPath)
-  const { decodeAppConfigObject } = await import('@/application/use-cases/schema/decode-app-config')
+  const { decodeAppConfigObject } = await import('@/application/use-cases/config/decode-app-config')
   const decoded = decodeAppConfigObject(parsed, { refSources })
 
   if (!decoded.valid) {
     const errorLines = decoded.errors.map((error) => `  ${error}`).join('\n')
-    Effect.runSync(Console.error(`Error: Validation failed.\n\n${errorLines}`))
+    printStderr(`Error: Validation failed.\n\n${errorLines}`)
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
@@ -132,7 +132,7 @@ const decodeForExport = async (configPath: string) => {
   // a human still learns their config uses a deprecated key.
   if (decoded.notices.length > 0) {
     const noticeLines = decoded.notices.map((notice) => `  ${notice}`).join('\n')
-    Effect.runSync(Console.error(`Notice:\n\n${noticeLines}\n`))
+    printStderr(`Notice:\n\n${noticeLines}\n`)
   }
 
   return decoded.app
@@ -154,7 +154,6 @@ const emit = async (content: string, outputPath: string | undefined): Promise<vo
   }
   // eslint-disable-next-line functional/no-expression-statements
   await mkdir(dirname(outputPath), { recursive: true })
-  // eslint-disable-next-line functional/no-expression-statements
   await writeFile(outputPath, content)
   Effect.runSync(Console.log(`Design system written to ${outputPath}.`))
 }
@@ -177,13 +176,12 @@ export const handleDesignSystemCommand = async (
   const document = buildDesignSystem(app)
 
   if (format === JSON_FORMAT) {
-    // eslint-disable-next-line functional/no-expression-statements, unicorn/no-null -- CLI output is the side-effect; JSON.stringify requires null as replacer
+    // eslint-disable-next-line unicorn/no-null -- CLI output is the side-effect; JSON.stringify requires null as replacer
     await emit(JSON.stringify(document, null, 2) + '\n', options.outputPath)
     return
   }
 
   const { renderDesignSystemMarkdown } =
     await import('@/application/use-cases/admin/design-system-markdown')
-  // eslint-disable-next-line functional/no-expression-statements -- CLI output is the side-effect
   await emit(renderDesignSystemMarkdown(document, app.name), options.outputPath)
 }

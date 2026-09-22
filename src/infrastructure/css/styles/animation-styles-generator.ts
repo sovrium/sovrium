@@ -6,8 +6,8 @@
  */
 
 import { resolveTokenReference } from '@/infrastructure/css/theme/theme-token-resolver'
-import type { Theme } from '@/domain/models/app/theme'
-import type { AnimationConfigObject, AnimationsConfig } from '@/domain/models/app/theme/animations'
+import type { Design } from '@/domain/models/app/design'
+import type { AnimationConfigObject, DesignMotion } from '@/domain/models/app/design/motion'
 
 /**
  * Generate @keyframes CSS for a single animation
@@ -15,7 +15,7 @@ import type { AnimationConfigObject, AnimationsConfig } from '@/domain/models/ap
  *
  * @param name - Animation name
  * @param keyframes - Keyframe steps definition
- * @param theme - Optional theme for token resolution
+ * @param design - Optional design for token resolution
  * @returns CSS @keyframes rule as string
  *
  * @example
@@ -25,7 +25,7 @@ import type { AnimationConfigObject, AnimationsConfig } from '@/domain/models/ap
 export function generateKeyframes(
   name: string,
   keyframes: Readonly<Record<string, unknown>>,
-  theme?: Theme
+  design?: Design
 ): string {
   const keyframeSteps = Object.entries(keyframes)
     .map(([step, props]) => {
@@ -33,7 +33,7 @@ export function generateKeyframes(
         typeof props === 'object' && props !== undefined
           ? Object.entries(props as Record<string, unknown>)
               .map(([prop, val]) => {
-                const resolvedValue = resolveTokenReference(val, theme)
+                const resolvedValue = resolveTokenReference(val, design)
                 return `${prop}: ${resolvedValue};`
               })
               .join(' ')
@@ -71,32 +71,22 @@ export function generateAnimationClass(
 }
 
 /**
- * Check if animation name is a reserved design token property
- *
- * @param name - Property name to check
- * @returns True if reserved, false otherwise
- */
-export function isReservedAnimationProperty(name: string): boolean {
-  return name === 'duration' || name === 'easing' || name === 'keyframes'
-}
-
-/**
  * Process animation config object
  * Returns array of CSS strings (keyframes + optional animation class)
  *
  * @param name - Animation name
  * @param animConfig - Animation configuration object
- * @param theme - Optional theme for token resolution
+ * @param design - Optional design for token resolution
  * @returns Array of CSS rules (keyframes and optional animation class)
  */
 export function processAnimationConfigObject(
   name: string,
   animConfig: AnimationConfigObject,
-  theme?: Theme
+  design?: Design
 ): readonly string[] {
   if (!animConfig.keyframes) return []
 
-  const keyframesCSS = generateKeyframes(name, animConfig.keyframes, theme)
+  const keyframesCSS = generateKeyframes(name, animConfig.keyframes, design)
 
   if (animConfig.enabled === false) {
     return [keyframesCSS]
@@ -113,32 +103,28 @@ export function processAnimationConfigObject(
 }
 
 /**
- * Process a single flat animation entry.
+ * Process a single entry of `design.motion.animations`.
  *
- * The flat form declares each animation as a top-level key of
- * `theme.animations` — `animations.<name> = true | 'fade-in 1s ease' | {…}`
- * — as opposed to the nested design-token form, which nests named keyframe
- * sets under `animations.keyframes.<name>`. Both forms are supported and
- * both are generated on every compile; the reserved key guard above
- * is what keeps them from colliding, by skipping the nested form's
- * sibling keys (`keyframes`, `duration`, `easing`) when walking the flat
- * one.
+ * An entry is `true | 'fade-in 1s ease' | {…}`. It used to share a record with
+ * three RESERVED names — `duration`, `easing`, `keyframes` — which a guard here
+ * had to skip while walking it. `motion` gives each of those its own member, so
+ * the guard is gone and an animation may legitimately be CALLED `duration`;
+ * keeping the skip would have silently dropped it.
  *
  * @param name - Animation name
  * @param config - Animation configuration (can be boolean, string, or object)
- * @param theme - Optional theme for token resolution
+ * @param design - Optional design for token resolution
  * @returns Array of CSS rules (keyframes + optional animation class)
  */
-export function processFlatAnimationEntry(
+export function processAnimationEntry(
   name: string,
   config: unknown,
-  theme?: Theme
+  design?: Design
 ): readonly string[] {
-  if (isReservedAnimationProperty(name)) return []
   if (typeof config === 'boolean' && !config) return []
   if (typeof config === 'boolean' && config) {
     const defaultKeyframes = { '0%': { opacity: '0' }, '100%': { opacity: '1' } }
-    const keyframesCSS = generateKeyframes(name, defaultKeyframes, theme)
+    const keyframesCSS = generateKeyframes(name, defaultKeyframes, design)
     const animationClass = generateAnimationClass(name)
     return [keyframesCSS, animationClass]
   }
@@ -146,48 +132,33 @@ export function processFlatAnimationEntry(
     return [`.animate-${name} { animation: ${config}; }`]
   }
   if (typeof config === 'object' && config !== undefined) {
-    return processAnimationConfigObject(name, config as AnimationConfigObject, theme)
+    return processAnimationConfigObject(name, config as AnimationConfigObject, design)
   }
   return []
 }
 
 /**
- * Generate @keyframes and animation CSS from domain animations config
- * Supports both the nested design-token form and the flat form
+ * Generate `@keyframes` and animation CSS from `design.motion`.
  *
- * @param animations - Animations configuration from theme
- * @param theme - Optional theme for token resolution
+ * Two members reach this: `keyframes`, the named reusable blocks, and
+ * `animations`, the compositions that spend a duration and a curve. They used
+ * to be one record discriminated by value shape — see `processAnimationEntry`
+ * for why that mattered.
+ *
+ * @param motion - The `design.motion` block
+ * @param design - Optional design for token resolution
  * @returns Complete animation CSS as string
- *
- * @example
- * generateAnimationStyles(theme.animations, theme)
- * // => '@keyframes fade-in { ... }\n.animate-fade-in { ... }'
  */
-export function generateAnimationStyles(animations?: AnimationsConfig, theme?: Theme): string {
-  if (!animations || Object.keys(animations).length === 0) return ''
+export function generateMotionStyles(motion?: DesignMotion, design?: Design): string {
+  if (!motion) return ''
 
-  // Extract nested design tokens if present
-  const keyframesTokens = animations.keyframes as
-    Record<string, Record<string, unknown>> | undefined
-
-  // Generate keyframes from nested design tokens (immutable)
-  const nestedKeyframesCSS =
-    keyframesTokens && typeof keyframesTokens === 'object'
-      ? Object.entries(keyframesTokens).flatMap(([name, keyframes]) =>
-          keyframes && typeof keyframes === 'object'
-            ? [generateKeyframes(name, keyframes, theme)]
-            : []
-        )
-      : []
-
-  // Process flat animations — top-level `animations.<name>` entries
-  // (immutable)
-  const flatAnimationsCSS = Object.entries(animations).flatMap(([name, config]) =>
-    processFlatAnimationEntry(name, config, theme)
+  const namedKeyframesCSS = Object.entries(motion.keyframes ?? {}).flatMap(([name, keyframes]) =>
+    keyframes && typeof keyframes === 'object' ? [generateKeyframes(name, keyframes, design)] : []
   )
 
-  // Combine all CSS (immutable)
-  const animationCSS: readonly string[] = [...nestedKeyframesCSS, ...flatAnimationsCSS]
+  const animationsCSS = Object.entries(motion.animations ?? {}).flatMap(([name, config]) =>
+    processAnimationEntry(name, config, design)
+  )
 
-  return animationCSS.join('\n')
+  return [...namedKeyframesCSS, ...animationsCSS].join('\n')
 }

@@ -10,16 +10,17 @@ import { Effect, type Context } from 'effect'
 import { shouldUseView } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import { logDebug } from '@/infrastructure/logging/logger'
+import { BetterAuthUsersTableRequired } from '../auth/auth-validation'
 import {
   openSqliteDdlDatabase,
   runSqliteSchemaTransaction,
   sqliteTransactionLike,
 } from '../sql/dialect-ddl'
 import { logRollbackOperation } from './migration-audit-trail'
-import type { TransactionLike } from '../sql/sql-execution'
+import type { SQLExecutionError, TransactionLike } from '../sql/sql-execution'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables'
-import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Dialect-aware transaction plumbing for the schema-initializer.
@@ -37,12 +38,44 @@ import type { DatabaseDialectConfig } from '@/domain/models/env/database/databas
  * cyclic import.
  */
 
-/** The unit of migration work run inside a transaction, supplied by the caller. */
+/**
+ * The unit of migration work run inside a transaction, supplied by the caller.
+ *
+ * The failure is named rather than erased. This used to be a UNION of an
+ * infallible and an `unknown`-failing effect, which no call site could infer
+ * through, so both call sites below re-asserted it as `Effect<void, never,
+ * never>` — claiming migration steps cannot fail, when failing is exactly what
+ * they do when a statement is rejected. `runPromiseWith` accepts any error
+ * channel, so the assertion bought nothing and hid the one fact worth stating.
+ */
 export type RunMigrationSteps = (
   tx: TransactionLike,
   tables: readonly Table[],
   app: App
-) => Effect.Effect<void, never, never> | Effect.Effect<void, unknown, never>
+) => Effect.Effect<void, SQLExecutionError | BetterAuthUsersTableRequired, never>
+
+/**
+ * Turn a rejected transaction into the error the operator should see.
+ *
+ * `runMigrationSteps` runs through `Effect.runPromiseWith` so that a failure
+ * rejects the driver callback and the transaction rolls back. Effect 4 rejects
+ * with the ERROR VALUE ITSELF rather than a `FiberFailure` wrapper (measured on
+ * `4.0.0-rc.108` for a typed fail, a thrown defect, and a failure nested in
+ * `Effect.gen` alike), so the designed error is recoverable here by identity.
+ *
+ * That matters because {@link BetterAuthUsersTableRequired} is a CONFIGURATION
+ * error — "configure Better Auth before using user fields" — and flattening it
+ * into `Schema initialization failed: …` told the operator a migration broke
+ * when nothing had. It is the one failure worth keeping apart; everything else
+ * genuinely is a schema initialization failure.
+ */
+const asSchemaInitFailure = (error: unknown) =>
+  error instanceof BetterAuthUsersTableRequired
+    ? error
+    : new SchemaInitializationError({
+        message: `Schema initialization failed: ${String(error)}`,
+        cause: error,
+      })
 
 /** Everything one `executeSchemaInit` invocation needs, bundled to keep arity low. */
 interface SchemaInitJob {
@@ -85,21 +118,23 @@ export const logRollbackError = (
       yield* Effect.tryPromise({
         try: () => runSqliteSchemaTransaction(logDb, runLogged),
         catch: () => undefined, // Non-fatal
+        // effect-swallow: the rollback AUDIT ROW is best-effort by design — this runs only because schema init already failed, and the real error is on its way to the operator. Failing here would replace a diagnosable migration error with a bookkeeping one.
       }).pipe(Effect.ensuring(Effect.sync(() => logDb.close())), Effect.ignore)
       return
     }
 
     const logDb = new SQL(config.databaseUrl)
+    // effect-promise: total -- `SQL.close()` resolves once the pool is drained and has no rejection path; it also runs under `Effect.ensuring`, where a failure would mask the audit-write outcome it is cleaning up after.
+    const closeLogDb = Effect.promise(() => logDb.close())
+    // effect-swallow: as in the SQLite arm above — the rollback audit row is best-effort, and the schema-init error it describes is already propagating.
     yield* Effect.tryPromise({
       try: async () => {
-        /* eslint-disable-next-line functional/no-expression-statements */
         await logDb.begin(async (logTx) => {
-          /* eslint-disable-next-line functional/no-expression-statements */
           await runLogged(logTx)
         })
       },
       catch: () => undefined, // Non-fatal
-    }).pipe(Effect.ensuring(Effect.promise(() => logDb.close())), Effect.ignore)
+    }).pipe(Effect.ensuring(closeLogDb), Effect.ignore)
   })
 
 /** Run the migration steps inside a SQLite explicit-transaction boundary. */
@@ -107,7 +142,7 @@ const executeSchemaInitSqlite = (
   job: Readonly<SchemaInitJob> & {
     readonly config: Extract<DatabaseDialectConfig, { dialect: 'sqlite' }>
   }
-): Effect.Effect<void, SchemaInitializationError, never> =>
+): Effect.Effect<void, SchemaInitializationError | BetterAuthUsersTableRequired, never> =>
   Effect.gen(function* () {
     const { config, tables, app, runMigrationSteps, runtime } = job
     const db = openSqliteDdlDatabase(config.path)
@@ -115,16 +150,9 @@ const executeSchemaInitSqlite = (
       yield* Effect.tryPromise({
         try: () =>
           runSqliteSchemaTransaction(db, async (tx) => {
-            /* eslint-disable-next-line functional/no-expression-statements */
-            await Effect.runPromiseWith(runtime)(
-              runMigrationSteps(tx, tables, app) as Effect.Effect<void, never, never>
-            )
+            await Effect.runPromiseWith(runtime)(runMigrationSteps(tx, tables, app))
           }),
-        catch: (error) =>
-          new SchemaInitializationError({
-            message: `Schema initialization failed: ${String(error)}`,
-            cause: error,
-          }),
+        catch: asSchemaInitFailure,
       }).pipe(
         Effect.catch((error) =>
           Effect.gen(function* () {
@@ -143,26 +171,18 @@ const executeSchemaInitPostgres = (
   job: Readonly<SchemaInitJob> & {
     readonly config: Extract<DatabaseDialectConfig, { dialect: 'postgres' }>
   }
-): Effect.Effect<void, SchemaInitializationError, never> =>
+): Effect.Effect<void, SchemaInitializationError | BetterAuthUsersTableRequired, never> =>
   Effect.gen(function* () {
     const { config, tables, app, runMigrationSteps, runtime } = job
     const db = new SQL({ url: config.databaseUrl, max: 1 })
     try {
       yield* Effect.tryPromise({
         try: async () => {
-          /* eslint-disable-next-line functional/no-expression-statements */
           await db.begin(async (tx) => {
-            /* eslint-disable-next-line functional/no-expression-statements */
-            await Effect.runPromiseWith(runtime)(
-              runMigrationSteps(tx, tables, app) as Effect.Effect<void, never, never>
-            )
+            await Effect.runPromiseWith(runtime)(runMigrationSteps(tx, tables, app))
           })
         },
-        catch: (error) =>
-          new SchemaInitializationError({
-            message: `Schema initialization failed: ${String(error)}`,
-            cause: error,
-          }),
+        catch: asSchemaInitFailure,
       }).pipe(
         Effect.catch((error) =>
           Effect.gen(function* () {
@@ -172,6 +192,7 @@ const executeSchemaInitPostgres = (
         )
       )
     } finally {
+      // effect-promise: total -- `SQL.close()` resolves once the pool is drained and has no rejection path; this is the `finally` arm, where a teardown failure would displace the schema-init error the caller needs to see.
       yield* Effect.promise(() => db.close())
     }
   })
@@ -193,7 +214,7 @@ export const executeSchemaInit = (
   tables: readonly Table[],
   app: App,
   runMigrationSteps: RunMigrationSteps
-): Effect.Effect<void, SchemaInitializationError, never> =>
+): Effect.Effect<void, SchemaInitializationError | BetterAuthUsersTableRequired, never> =>
   Effect.gen(function* () {
     const runtime = yield* Effect.context<never>()
     yield* config.dialect === 'sqlite'
@@ -394,4 +415,5 @@ export const checkShouldSkipMigration = (
         message: 'Failed to check schema checksum',
         cause: undefined,
       }),
+    // effect-swallow: an unreadable checksum must mean "cannot prove the schema is unchanged", so the fast path is declined and the FULL migration runs. That is the safe direction — the migration steps are idempotent — and the `catch` arm above has already written the reason at debug level.
   }).pipe(Effect.orElseSucceed(() => false))

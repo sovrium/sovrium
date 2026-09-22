@@ -5,15 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { FlowStopActionSchema } from './stop'
-import type { Schema } from 'effect'
-
-/**
- * Flow Action — currently only the 'stop' operator
- */
-export const FlowActionSchema = FlowStopActionSchema
-
-/** @public */
-export type FlowAction = Schema.Schema.Type<typeof FlowActionSchema>
+export * from './flow-action'
 
 export * from './stop'

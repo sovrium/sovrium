@@ -44,7 +44,7 @@ import { Effect } from 'effect'
  *
  * Why a ceiling at all — every branch of a fan-out through the `db` facade takes
  * a slot from ONE pool. `DEFAULT_DATABASE_POOL_MAX` is 10
- * (`domain/models/env/database/database-dialect.ts`), so a fan-out of 10 is
+ * (`domain/models/process-env/database/database-dialect.ts`), so a fan-out of 10 is
  * total starvation: the incident's request held every connection and three
  * unrelated endpoints — including ones that only needed a session lookup —
  * timed out together.

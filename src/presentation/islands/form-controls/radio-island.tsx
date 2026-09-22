@@ -7,7 +7,7 @@
 
 import { Radio } from '@base-ui/react/radio'
 import { RadioGroup } from '@base-ui/react/radio-group'
-import { cn } from '@/presentation/utils/design/class-merge'
+import { cn } from '@/presentation/design/class-merge'
 import type { ReactElement } from 'react'
 
 interface OptionItem {
@@ -51,7 +51,7 @@ export default function RadioIsland({
       id={id}
       data-testid={testId}
     >
-      {label && <legend className="text-foreground mb-2 text-sm font-medium">{label}</legend>}
+      {label && <legend className="text-foreground text-md mb-2 font-medium">{label}</legend>}
       <RadioGroup
         defaultValue={defaultValue}
         disabled={disabled}
@@ -61,7 +61,7 @@ export default function RadioIsland({
         {options.map((option) => (
           <label
             key={option.value}
-            className={`inline-flex items-center gap-2 text-sm ${
+            className={`text-md inline-flex items-center gap-2 ${
               option.disabled || disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
             }`}
           >

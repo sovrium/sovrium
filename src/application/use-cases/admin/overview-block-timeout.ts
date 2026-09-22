@@ -43,11 +43,11 @@ import { Duration, Effect } from 'effect'
  * slow path is to substitute `zero`. Failure handling is out of scope (the
  * caller's `catchAll` owns that path).
  */
-export const withBlockTimeout = <A>(
-  effect: Effect.Effect<A>,
+export const withBlockTimeout = <A, R>(
+  effect: Effect.Effect<A, never, R>,
   zero: A,
   ms: number
-): Effect.Effect<A> =>
+): Effect.Effect<A, never, R> =>
   // EFFECT 4: `timeoutTo({duration, onSuccess, onTimeout})` -> `timeoutOrElse`,
   // whose fallback is an EFFECT rather than a plain value
   // (migration/v3-to-v4.md:9837). `onSuccess` was the identity here, so no
@@ -55,4 +55,4 @@ export const withBlockTimeout = <A>(
   Effect.timeoutOrElse(effect, {
     duration: Duration.millis(ms),
     orElse: (): Effect.Effect<A> => Effect.succeed(zero),
-  })
+  }).pipe(Effect.withSpan('admin.with-block-timeout'))

@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { DEFAULT_AGENT_NAME, isDefaultAgentName } from '@/domain/utils/agent-identity'
+import { DEFAULT_AGENT_NAME, isDefaultAgentName } from '@/domain/models/app/agents/agent-identity'
 import { AgentApprovalSchema } from './approval'
 import { AgentDefinitionSchema } from './definition'
 import { AgentKnowledgeSchema } from './knowledge'
@@ -77,7 +77,7 @@ export const AgentsSchema = Schema.Array(AgentSchema).pipe(
     // view — not with any other declaration. A declared `default` would carry
     // rows stamped `agent_name = 'default'` while that virtual view carries
     // NULL rows: two different row sets behind one name and one URL. See
-    // `src/domain/utils/agent-identity.ts`.
+    // `src/domain/models/app/agents/agent-identity.ts`.
     //
     // ORDER IS LOAD-BEARING: it precedes `isMinLength`. The trailing
     // `Schema.annotate` below lands on the LAST check, and a `makeFilter` has

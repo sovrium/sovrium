@@ -55,7 +55,6 @@ export const generateMultiLanguageFiles = (
     const supportedLanguages = validatedApp.languages!.supported
 
     // Generate files for each language using Effect.forEach
-    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- build-time static generation: filesystem/SSG work on a dedicated process, no shared database pool connection is held.
     const langFiles = yield* Effect.forEach(
       supportedLanguages,
       (lang) =>
@@ -70,28 +69,33 @@ export const generateMultiLanguageFiles = (
             Effect.mapError((error) => new AppValidationError(error))
           )
 
-          // Create server instance for this language
-          const serverInstance = yield* serverFactory.create({
+          // An app to render THIS language through, and no listener. The pass
+          // drives `toSSG` over `app.fetch`, so a socket would be bound,
+          // never connected to, and closed again ([internal ref],
+          // [internal ref]).
+          const renderApp = yield* serverFactory.buildRenderApp({
             app: validatedLangApp,
-            port: 0,
-            hostname: 'localhost',
-            silent: true,
             renderPage: pageRenderer.renderPage,
             renderNotFoundPage: pageRenderer.renderNotFound,
             renderErrorPage: pageRenderer.renderError,
           })
-
-          yield* serverInstance.stop
 
           // Generate static files in language subdirectory
           const langOutputDir = `${outputDir}/${lang.code}`
           // Filter to publicly-emittable pages — see getPublicPagePaths and
           // [internal ref] for the access-leak regression.
           const pagePaths = getPublicPagePaths(validatedLangApp.pages)
-          const ssgResult = yield* staticSiteGenerator.generate(serverInstance.app, {
-            outputDir: langOutputDir,
-            pagePaths,
-          })
+          // Disposed AFTER the HTML exists, and on every exit path. The old
+          // order was the reverse — the server was stopped BEFORE its `app`
+          // reached the generator — which worked only because rendering never
+          // needed the listener. It did need the domain runtime behind the app,
+          // so releasing that first would not have been survivable.
+          const ssgResult = yield* staticSiteGenerator
+            .generate(renderApp.app, {
+              outputDir: langOutputDir,
+              pagePaths,
+            })
+            .pipe(Effect.ensuring(renderApp.dispose))
 
           // Return files with language prefix (normalize paths to be relative)
           return ssgResult.files.map((f) => {
@@ -100,7 +104,24 @@ export const generateMultiLanguageFiles = (
             return `${lang.code}/${f}`
           })
         }),
-      { concurrency: 'unbounded' }
+      // ONE RENDER APP AT A TIME, and the width is still the whole point.
+      //
+      // The original reason is gone and the width is not. Each iteration used
+      // to boot a real server that ran the full `runDatabaseStartup` chain —
+      // `initializeSchema`'s CREATE TABLEs, both reconcilers' ALTERs, the
+      // seeder upserts, the JWKS rekey — against the operator's real database,
+      // with no advisory lock anywhere in `src/infrastructure/database/`.
+      // `'unbounded'` was N of those racing on a fresh database, which is a
+      // corrupt schema rather than a failed assertion. The chain is hoisted out
+      // of the pass now and runs once, before it.
+      //
+      // What each iteration still does is build a domain runtime: database
+      // clients, the storage backend, whatever else the layer opens, held for
+      // as long as that language takes to render. Widening this would multiply
+      // those by the language count, on a pass that is boot-blocking anyway —
+      // `startServer` runs it before the listener binds — so a single-language
+      // app already pays exactly this shape, one render after another.
+      { concurrency: 1 }
     )
 
     // Generate root index.html with default language
@@ -111,27 +132,24 @@ export const generateMultiLanguageFiles = (
       Effect.mapError((error) => new AppValidationError(error))
     )
 
-    const defaultServer = yield* serverFactory.create({
+    const defaultRenderApp = yield* serverFactory.buildRenderApp({
       app: validatedDefaultApp,
-      port: 0,
-      hostname: 'localhost',
-      silent: true,
       renderPage: pageRenderer.renderPage,
       renderNotFoundPage: pageRenderer.renderNotFound,
       renderErrorPage: pageRenderer.renderError,
     })
 
-    yield* defaultServer.stop
-
     // Generate only root index.html
-    const rootSSGResult = yield* staticSiteGenerator.generate(defaultServer.app, {
-      outputDir,
-      pagePaths: ['/'],
-    })
+    const rootSSGResult = yield* staticSiteGenerator
+      .generate(defaultRenderApp.app, {
+        outputDir,
+        pagePaths: ['/'],
+      })
+      .pipe(Effect.ensuring(defaultRenderApp.dispose))
 
     // Combine all files immutably
     return [...langFiles.flat(), ...rootSSGResult.files]
-  })
+  }).pipe(Effect.withSpan('server.generate-multi-language-files'))
 
 /**
  * Generate static files for single-language configuration
@@ -156,25 +174,22 @@ export const generateSingleLanguageFiles = (
   Effect.gen(function* () {
     // No multi-language - generate normally
     logDebug('Creating application instance...')
-    const serverInstance = yield* serverFactory.create({
+    const renderApp = yield* serverFactory.buildRenderApp({
       app: validatedApp,
-      port: 0,
-      hostname: 'localhost',
-      silent: true,
       renderPage: pageRenderer.renderPage,
       renderNotFoundPage: pageRenderer.renderNotFound,
       renderErrorPage: pageRenderer.renderError,
     })
 
-    yield* serverInstance.stop
-
     // Filter to publicly-emittable pages — see getPublicPagePaths and
     // [internal ref] for the access-leak regression.
     const pagePaths = getPublicPagePaths(validatedApp.pages)
     logDebug(`[ssg] generating static HTML files for ${pagePaths.length} pages...`)
-    const ssgResult = yield* staticSiteGenerator.generate(serverInstance.app, {
-      outputDir,
-      pagePaths,
-    })
+    const ssgResult = yield* staticSiteGenerator
+      .generate(renderApp.app, {
+        outputDir,
+        pagePaths,
+      })
+      .pipe(Effect.ensuring(renderApp.dispose))
     return ssgResult.files
-  })
+  }).pipe(Effect.withSpan('server.generate-single-language-files'))

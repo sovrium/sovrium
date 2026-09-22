@@ -35,7 +35,7 @@
  */
 
 import { DateTime, Effect } from 'effect'
-import { formatWithTokens, parseWithTokens } from '@/domain/services/date-tokens'
+import { formatWithTokens, parseWithTokens } from '@/domain/kernel/format/date-tokens'
 import {
   CALENDAR_DIFF_UNITS,
   diffInUnits,
@@ -102,7 +102,7 @@ export const handleDateFormat: ActionHandler = (action, _app, _automation) =>
     return rendered.ok
       ? success({ formatted: rendered.value })
       : failure(`date.format: ${rendered.error.message}`)
-  })
+  }).pipe(Effect.withSpan('automations.handle-date-format'))
 
 /**
  * `date/parse` — read a string back into an instant.
@@ -133,7 +133,7 @@ export const handleDateParse: ActionHandler = (action, _app, _automation) =>
     // could not tell "no instant" from "this operator does not report one".
     // eslint-disable-next-line unicorn/no-null -- explicit null is the wire contract
     return success({ instant: null, valid: false })
-  })
+  }).pipe(Effect.withSpan('automations.handle-date-parse'))
 
 /**
  * Shared body of `add` and `subtract` — the same zoned calendar shift with the
@@ -203,7 +203,7 @@ export const handleDateDiff: ActionHandler = (action, _app, _automation) =>
         unit,
       }),
     })
-  })
+  }).pipe(Effect.withSpan('automations.handle-date-diff'))
 
 /**
  * Shared body of `startOf` and `endOf`. `endOf` is INCLUSIVE and lands on
@@ -264,4 +264,4 @@ export const handleDateNow: ActionHandler = (action, _app, _automation) =>
     return rendered.ok
       ? success({ instant: instant.toISOString(), formatted: rendered.value })
       : failure(`date.now: ${rendered.error.message}`)
-  })
+  }).pipe(Effect.withSpan('automations.handle-date-now'))

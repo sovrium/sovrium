@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeTableActionButtonClasses,
+  computeTableToastClasses,
+} from '@/presentation/design/table-default-classes'
+
 interface PasteToastProps {
   /** Number of records created by the completed paste. */
   readonly created: number
@@ -26,15 +31,20 @@ export function PasteToast({ created, isUndoing, onUndo }: PasteToastProps) {
     <div
       role="status"
       aria-live="polite"
-      className="bg-foreground text-background fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg px-4 py-3 text-sm shadow-lg"
+      // Position stays here; the surface is the grid's shared toast. It used to
+      // be an INVERTED slab — the foreground colour used as a fill — which is
+      // the one treatment the design reserves for a tooltip, and which forced
+      // its own button to invent a translucent white overlay, because no token
+      // exists for a control sitting on inverted ground. Those two overlays were
+      // the last raw palette colours anywhere in the grid.
+      className={`${computeTableToastClasses()} fixed bottom-4 left-1/2 z-50 -translate-x-1/2`}
     >
       <span>{created} records created</span>
       <button
         type="button"
         onClick={onUndo}
         disabled={isUndoing}
-        // eslint-disable-next-line no-restricted-syntax -- bg-white/10 + hover:bg-white/20 are translucent overlays on the dark inverse toast surface (bg-foreground text-background parent); no canonical translucent role token exists for this case
-        className="rounded bg-white/10 px-2 py-1 text-xs font-medium hover:bg-white/20 disabled:opacity-50"
+        className={computeTableActionButtonClasses({ disabled: isUndoing })}
       >
         {isUndoing ? 'Undoing…' : 'Undo'}
       </button>

@@ -73,7 +73,7 @@ export const ensureSlugWellFormed = (slug: string): Effect.Effect<void, LinkValu
           slug,
           reason: `link slug '${slug}' must be lowercase alphanumeric with single '-' or '_' separators — it must not contain '/', '.', uppercase letters or whitespace`,
         })
-      )
+      ).pipe(Effect.withSpan('links.ensure-slug-well-formed'))
 }
 
 /**
@@ -97,5 +97,5 @@ export const ensureDestinationWellFormed = (
           slug,
           reason: `link destination '${destination}' must be a root-relative path (e.g. '/pricing') or an absolute http(s) URL — a scheme like 'javascript:' or 'data:' is refused, and a protocol-relative '//host' silently leaves the origin`,
         })
-      )
+      ).pipe(Effect.withSpan('links.ensure-destination-well-formed'))
 }

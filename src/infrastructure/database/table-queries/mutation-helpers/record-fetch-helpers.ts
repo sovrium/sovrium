@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { DatabaseError } from '@/domain/errors'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { logError } from '@/infrastructure/logging/logger'
 import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
 
 /**
@@ -52,8 +53,24 @@ export function fetchRecordByIdEffect(
       )
       return result[0]
     },
-    catch: () => undefined,
-  }).pipe(Effect.orElseSucceed(() => undefined))
+    catch: (cause) => new DatabaseError(`Failed to read a record from ${tableName}`, cause),
+  }).pipe(
+    // A SELECT that fails and a row that does not exist both arrived here as
+    // `undefined`, through two swallows in a row — so a driver failure inside a
+    // write transaction read as "record not found", and the write path then
+    // reported a 404 for a database that was down. The value is unchanged
+    // (callers treat `undefined` as absent, and a probe must not fail the
+    // transaction), but the two cases are now distinguishable in the log.
+    Effect.tapCause((cause) =>
+      Effect.sync(() => {
+        logError('[records] could not read a record during a write', cause, {
+          'sovrium.table': tableName,
+          'sovrium.record.id': recordId,
+        })
+      })
+    ),
+    Effect.orElseSucceed(() => undefined)
+  )
 }
 
 /**

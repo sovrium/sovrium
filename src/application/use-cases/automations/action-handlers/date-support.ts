@@ -28,7 +28,7 @@
 
 import { DateTime, Duration, Option } from 'effect'
 import { isValidTimezone } from '@/domain/models/app/automations/actions/date/props'
-import type { DateTokenErrorCode } from '@/domain/services/date-tokens'
+import type { DateTokenErrorCode } from '@/domain/kernel/format/date-tokens'
 
 /**
  * `Either`-shaped carrier, matching `DateTokenResult` in

@@ -7,28 +7,26 @@
 
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 
 /**
- * Resolve a user's email address by user id. Returns `undefined` when the
- * user is not found or the lookup fails (the form prefill path treats
- * missing email as "drop the prefill entry" — never leak the literal
- * `$user.email` token).
+ * Resolve a user's email address by user id.
  *
- * Promise-based wrapper around the Effect-native
- * `AuthRepository.findUserEmailById` so the form route can call it from
- * the existing async `buildPrefillContext` without rewriting the entire
- * prefill code path in Effect.gen.
+ * Yields `undefined` when the user is not found or the lookup fails — the form
+ * prefill path treats a missing email as "drop the prefill entry" and must
+ * never leak the literal `$user.email` token, so the failure is folded into the
+ * value here and the effect cannot fail.
+ *
+ * `AuthRepository` is declared rather than provided (standing rule E1). The form
+ * route runs it on the request's services with `runDomainPromise`.
  */
-export async function findUserEmailById(userId: string): Promise<string | undefined> {
-  const program = Effect.gen(function* () {
+export const findUserEmailById = (
+  userId: string
+): Effect.Effect<string | undefined, never, AuthRepository> =>
+  Effect.gen(function* () {
     const repo = yield* AuthRepository
     return yield* repo.findUserEmailById(userId)
-  }).pipe(Effect.provide(AuthRepositoryLive))
-
-  try {
-    return await Effect.runPromise(program)
-  } catch {
-    return undefined
-  }
-}
+  }).pipe(
+    // effect-swallow: the form prefill drops the entry on `undefined`; the alternative is rendering the literal `$user.email` token to the visitor (S1), so a failed lookup must read as "no email" rather than propagate.
+    Effect.orElseSucceed(() => undefined),
+    Effect.withSpan('auth.find-user-email-by-id')
+  )

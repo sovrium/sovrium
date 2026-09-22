@@ -17,6 +17,12 @@ import { useEffect, useRef } from 'react'
  * - **Shift+click** on another row extends the selection into a row range.
  *   `Ctrl/Cmd+C` copies the selected rows as TSV (tab-separated values) with a
  *   header row of field names — the format spreadsheets (Excel, Sheets) expect.
+ * - On a **navigable grid** (`data-navigable`, one whose author declared an
+ *   editable column), Shift+click and Shift+Arrow build a CELL RECTANGLE
+ *   instead, owned by the cell cursor (`use-grid-cursor.ts`) and rendered as
+ *   `td[aria-selected]`. `Ctrl/Cmd+C` there copies the rectangle as TSV, one
+ *   line per row and only the columns inside it. The row range stays for
+ *   every other table, where there is no cursor to extend.
  *
  * This is DOM-driven: it reads `data-field` (on `<td>`) and `data-row-id`
  * (on `<tr>`) attributes the table body already renders, so it does not need
@@ -25,12 +31,39 @@ import { useEffect, useRef } from 'react'
 
 const CELL_SELECTED_ATTR = 'data-cell-selected'
 const ROW_SELECTED_ATTR = 'data-row-selected'
+const RANGE_CELL_SELECTOR = 'tbody > tr[data-row-id] > td[aria-selected="true"]'
 
-/** Selection state: either nothing, a single cell, or a contiguous row range. */
+/** Selection state: nothing, a single cell, a contiguous row range, or the cursor's rectangle. */
 type SelectionState =
   | { readonly kind: 'none' }
   | { readonly kind: 'cell'; readonly cell: HTMLTableCellElement }
   | { readonly kind: 'rows'; readonly rows: readonly HTMLTableRowElement[] }
+  | { readonly kind: 'range' }
+
+/** Whether the cell belongs to a grid whose cursor owns Shift-selection. */
+const inNavigableGrid = (cell: HTMLTableCellElement): boolean =>
+  cell.closest('table')?.getAttribute('data-navigable') === 'true'
+
+/**
+ * The cursor's rectangle as TSV: the field names of its columns, then one line
+ * per row. Empty when the rectangle is a single cell, which copies as text.
+ */
+function buildRangeTsv(container: HTMLElement): string {
+  const cells = [...container.querySelectorAll<HTMLTableCellElement>(RANGE_CELL_SELECTOR)]
+  if (cells.length < 2) return ''
+  const rows = [...new Set(cells.map((cell) => cell.closest<HTMLTableRowElement>('tr')!))]
+  const lines = rows.map((row) =>
+    cells
+      .filter((cell) => cell.closest('tr') === row)
+      .map((cell) => (cell.textContent ?? '').trim())
+      .join('\t')
+  )
+  const header = cells
+    .filter((cell) => cell.closest('tr') === rows[0])
+    .map((cell) => cell.getAttribute('data-field') ?? '')
+    .join('\t')
+  return [header, ...lines].join('\n')
+}
 
 /** Returns the ordered field names of a row from its `<td data-field>` cells. */
 function fieldNamesOfRow(row: HTMLTableRowElement): readonly string[] {
@@ -90,6 +123,60 @@ function selectRowRange(
 }
 
 /**
+ * What `Ctrl/Cmd+C` puts on the clipboard for the current selection.
+ *
+ * A Shift-Arrow extends the cursor's rectangle without any click, so the
+ * rectangle is read from the DOM at copy time rather than tracked here; it
+ * wins over the single-cell selection whenever it spans more than one cell.
+ */
+function selectionText(selection: SelectionState, container: HTMLElement): string {
+  if (selection.kind === 'none') return ''
+  if (selection.kind === 'rows') return buildRowsTsv(selection.rows)
+  const rangeText = buildRangeTsv(container)
+  if (rangeText !== '') return rangeText
+  return selection.kind === 'cell' ? (selection.cell.textContent ?? '').trim() : ''
+}
+
+/** What a click leaves selected, and which row anchors the next Shift-click. */
+interface ClickOutcome {
+  readonly selection: SelectionState
+  readonly anchorRow: HTMLTableRowElement | null
+}
+
+/**
+ * Resolve a click: a plain click selects one cell and anchors a Shift-click
+ * range; a Shift-click extends it — into rows, or on a navigable grid into
+ * the cell rectangle the cursor owns. `undefined` when the click landed on
+ * nothing the selection can hold.
+ */
+function resolveClick(
+  container: HTMLElement,
+  event: MouseEvent,
+  anchorRow: HTMLTableRowElement | null
+): ClickOutcome | undefined {
+  const target = event.target as HTMLElement | null
+  const cell = target?.closest<HTMLTableCellElement>('td[data-field]')
+  if (!cell) return undefined
+  const row = cell.closest<HTMLTableRowElement>('tr[data-row-id]')
+  if (!row) return undefined
+
+  if (event.shiftKey && inNavigableGrid(cell)) {
+    // The cursor built a cell rectangle; nothing to mark here.
+    clearMarkers(container)
+    return { selection: { kind: 'range' }, anchorRow }
+  }
+  if (event.shiftKey && anchorRow) {
+    const range = selectRowRange(container, anchorRow, row)
+    return { selection: { kind: 'rows', rows: range }, anchorRow }
+  }
+
+  // Plain click: select this single cell and set it as the range anchor.
+  clearMarkers(container)
+  cell.setAttribute(CELL_SELECTED_ATTR, 'true')
+  return { selection: { kind: 'cell', cell }, anchorRow: row }
+}
+
+/**
  * Wires clipboard copy interaction into the data-table.
  *
  * Returns a ref to attach to the table's container element. All listeners are
@@ -107,38 +194,18 @@ export function useClipboardCopy() {
     if (!container) return undefined
 
     const handleClick = (event: MouseEvent): void => {
-      const target = event.target as HTMLElement | null
-      const cell = target?.closest<HTMLTableCellElement>('td[data-field]')
-      if (!cell) return
-      const row = cell.closest<HTMLTableRowElement>('tr[data-row-id]')
-      if (!row) return
-
-      if (event.shiftKey && anchorRowRef.current) {
-        const range = selectRowRange(container, anchorRowRef.current, row)
-        // eslint-disable-next-line functional/immutable-data -- Ref tracks the active selection
-        selectionRef.current = { kind: 'rows', rows: range }
-        return
-      }
-
-      // Plain click: select this single cell and set it as the range anchor.
-      clearMarkers(container)
-      cell.setAttribute(CELL_SELECTED_ATTR, 'true')
-      // eslint-disable-next-line functional/immutable-data -- Ref anchors the Shift+click range
-      anchorRowRef.current = row
-      // eslint-disable-next-line functional/immutable-data -- Ref tracks the active selection
-      selectionRef.current = { kind: 'cell', cell }
+      const outcome = resolveClick(container, event, anchorRowRef.current)
+      if (!outcome) return
+      /* eslint-disable functional/immutable-data -- Refs track the active selection and its anchor */
+      selectionRef.current = outcome.selection
+      anchorRowRef.current = outcome.anchorRow
+      /* eslint-enable functional/immutable-data */
     }
 
     const handleKeyDown = (event: KeyboardEvent): void => {
       const isCopy = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c'
       if (!isCopy) return
-      const selection = selectionRef.current
-      if (selection.kind === 'none') return
-
-      const text =
-        selection.kind === 'cell'
-          ? (selection.cell.textContent ?? '').trim()
-          : buildRowsTsv(selection.rows)
+      const text = selectionText(selectionRef.current, container)
       if (text === '') return
 
       event.preventDefault()

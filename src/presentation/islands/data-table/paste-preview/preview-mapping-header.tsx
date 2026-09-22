@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeTableEditorLabelClasses,
+  computeTablePanelControlClasses,
+  computeTablePreviewGridCellClasses,
+} from '@/presentation/design/table-default-classes'
 import { SKIP_VALUE } from './skip-value'
 
 interface PreviewMappingHeaderProps {
@@ -32,18 +37,18 @@ export function PreviewMappingHeader({
   onMappingChange,
 }: PreviewMappingHeaderProps) {
   return (
-    <thead className="bg-background-subtle">
+    <thead>
       <tr>
         {headers.map((header, columnIndex) => {
           const mapping = mappings[columnIndex] ?? SKIP_VALUE
           return (
             <th
               key={`${header}-${columnIndex}`}
-              className="text-foreground px-3 py-2 text-left font-medium"
+              className={computeTablePreviewGridCellClasses({ kind: 'header' })}
             >
               <div className="flex flex-col gap-1">
-                <span className="text-foreground-muted text-xs">{header}</span>
-                <span className="text-foreground text-xs font-semibold">
+                <span className={computeTableEditorLabelClasses()}>{header}</span>
+                <span className="text-sm font-semibold">
                   {mapping === SKIP_VALUE ? 'Skip this column' : mapping}
                 </span>
                 <select
@@ -51,7 +56,7 @@ export function PreviewMappingHeader({
                   value={mapping}
                   // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- per-column change handler closes over columnIndex; React Compiler will memoize once enabled in Bun.
                   onChange={(event) => onMappingChange(columnIndex, event.currentTarget.value)}
-                  className="border-border rounded border px-2 py-1 text-sm"
+                  className={computeTablePanelControlClasses()}
                 >
                   <option value={SKIP_VALUE}>Skip this column</option>
                   {tableFields.map((field) => (

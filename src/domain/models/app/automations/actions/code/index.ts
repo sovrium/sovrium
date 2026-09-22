@@ -5,10 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { CodeRunTypescriptActionSchema } from './run-typescript'
-
-export const CodeActionSchema = CodeRunTypescriptActionSchema
-/** @public */
-export type CodeAction = typeof CodeActionSchema.Type
+export * from './code-action'
 
 export * from './run-typescript'

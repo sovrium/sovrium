@@ -68,9 +68,7 @@ export const DesignSystemShareRepositoryLive = Layer.succeed(DesignSystemShareRe
         .from(designSystemShares)
         .where(and(eq(designSystemShares.appName, appName), isNull(designSystemShares.revokedAt)))
         .orderBy(desc(designSystemShares.createdAt))
-    ).pipe(
-      Effect.map((rows) => rows.map((row) => decodeRow(row as Record<string, unknown>)))
-    ),
+    ).pipe(Effect.map((rows) => rows.map((row) => decodeRow(row as Record<string, unknown>)))),
 
   findActiveByTokenHash: (appName: string, tokenHash: string) =>
     wrap(() =>

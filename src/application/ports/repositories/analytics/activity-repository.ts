@@ -6,8 +6,8 @@
  */
 
 import { Context } from 'effect'
-import type { UserMetadataWithImage } from '@/application/ports/models/user-metadata'
-import type { UserSession } from '@/application/ports/models/user-session'
+import type { UserMetadataWithImage } from '@/application/ports/contracts/user-metadata'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { DatabaseError } from '@/domain/errors'
 import type { Effect } from 'effect'
 

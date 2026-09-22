@@ -48,7 +48,9 @@ export interface RetryAutomationRunOptions {
  * mutates the original run's row.
  *
  * Fails with `AutomationRunNotFound` when the run id is unknown — the route
- * maps that to a 404 (anti-enumeration, S1).
+ * maps that to a 404 (anti-enumeration, S1) — and with the repository's own
+ * `AutomationRunDatabaseError` when the store could not be read, which the route
+ * must NOT answer as a 404: nothing was learned about whether the run exists.
  */
 export const retryAutomationRun = (
   options: RetryAutomationRunOptions
@@ -61,9 +63,9 @@ export const retryAutomationRun = (
     const { runId, app, processEnv, userId } = options
 
     const repo = yield* AutomationRunRepository
-    const run = yield* repo
-      .findById(runId)
-      .pipe(Effect.mapError(() => ({ _tag: 'AutomationRunNotFound' as const, runId })))
+    // No `mapError`: a read that FAILED is not a read that found nothing. Only
+    // the `undefined` row below is an unknown runId, and only it earns the 404.
+    const run = yield* repo.findById(runId)
     if (run === undefined) {
       return yield* Effect.fail({ _tag: 'AutomationRunNotFound' as const, runId })
     }
@@ -75,4 +77,4 @@ export const retryAutomationRun = (
       processEnv,
       ...(userId !== undefined ? { userId } : {}),
     })
-  })
+  }).pipe(Effect.withSpan('automations.retry-automation-run'))

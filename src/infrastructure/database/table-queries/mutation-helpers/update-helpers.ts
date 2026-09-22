@@ -8,7 +8,7 @@
 import { sql } from 'drizzle-orm'
 import { DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { validateColumnName } from '../shared/validation'
+import { validateColumnName } from '../statement/validation'
 import { encodeColumnValue } from './column-value-encoding'
 
 /**

@@ -5,20 +5,26 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 import { columnWidthsSchema, rowDensitySchema } from './user-preferences'
 
 /**
  * View type a saved view was captured in.
  *
  * Mirrors `DataTableViewTypeSchema` (`src/domain/models/app/pages/components/
- * component-types/data/data-table/view-types.ts`) across the Effect→Zod
- * boundary, exactly as `rowDensitySchema` mirrors the island's row-density
+ * component-types/data/table/view-types.ts`) on the wire side of the
+ * contract, exactly as `rowDensitySchema` mirrors the island's row-density
  * union. A view persisted WITHOUT this key restores as `grid` — the switcher's
  * initial state — never as "the first entry in `views`", which would silently
  * repoint every legacy saved view the day an author reorders the tabs.
+ *
+ * Exported because `normalizeSavedViewPresentation`
+ * (`domain/models/app/tables/saved-view-presentation.ts`) tests stored blobs
+ * against THIS schema rather than a parallel literal list — the two cannot
+ * drift, which is what keeps the tightened response fields below safe.
  */
-const savedViewTypeSchema = z.enum(['grid', 'kanban', 'calendar', 'gallery'])
+export const savedViewTypeSchema = Schema.Literals(['grid', 'kanban', 'calendar', 'gallery'])
 
 /**
  * Personal Saved Views PATCH API schemas (Phase 7 Cycle 3 — body validation).
@@ -49,8 +55,8 @@ const savedViewTypeSchema = z.enum(['grid', 'kanban', 'calendar', 'gallery'])
  *   - `name`       : `string` (when present, non-empty)
  *   - `isDefault`  : `boolean`
  *
- * Every key is optional — PATCH semantics are merge-with-existing. `.strict()`
- * rejects unknown keys outright so malformed clients fail loud.
+ * Every key is optional — PATCH semantics are merge-with-existing.
+ * `strictKeys` rejects unknown keys outright so malformed clients fail loud.
  */
 
 /**
@@ -60,12 +66,12 @@ const savedViewTypeSchema = z.enum(['grid', 'kanban', 'calendar', 'gallery'])
  * `'todo'` (string), `42` (number, e.g. priority filter), and arrays for
  * multi-value operators all appear in the test fleet.
  */
-const filterValueSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.null(),
-  z.array(z.union([z.string(), z.number(), z.boolean()])),
+const filterValueSchema = Schema.Union([
+  Schema.String,
+  Schema.Finite,
+  Schema.Boolean,
+  Schema.Null,
+  Schema.Array(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])),
 ])
 
 /**
@@ -74,30 +80,26 @@ const filterValueSchema = z.union([
  * stray keys so authoring mistakes surface as 400 instead of silently
  * persisting noise into JSONB.
  */
-const savedViewFilterSchema = z
-  .object({
-    field: z.string().min(1),
-    operator: z.string().min(1),
-    value: filterValueSchema,
-  })
-  .strict()
+const savedViewFilterSchema = Schema.Struct({
+  field: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  operator: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  value: filterValueSchema,
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys' })
 
 /**
  * Saved-view sort shape. Direction is a closed enum — the predicate evaluator
  * only knows `'asc'` and `'desc'`, so anything else is a 400 instead of a
  * silently dropped predicate.
  */
-const savedViewSortSchema = z
-  .object({
-    field: z.string().min(1),
-    direction: z.enum(['asc', 'desc']),
-  })
-  .strict()
+const savedViewSortSchema = Schema.Struct({
+  field: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  direction: Schema.Literals(['asc', 'desc']),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys' })
 
 /**
  * PATCH body for `/api/tables/:tableId/user-views/:viewId`.
  *
- * `.strict()` enforces the closed-world: unknown top-level keys produce 400.
+ * `strictKeys` enforces the closed-world: unknown top-level keys produce 400.
  * Adding a new persisted view-config dimension requires updating this schema
  * AND the route's `mergeConfigKeys` builder in lockstep — that is the design.
  *
@@ -107,34 +109,27 @@ const savedViewSortSchema = z
  * path to `string | number`, and saved views authored against legacy schemas
  * may PATCH the same shape.
  */
-export const userViewPatchSchema = z
-  .object({
-    name: z.string().min(1).optional(),
-    isDefault: z.boolean().optional(),
-    filters: z.array(savedViewFilterSchema).optional(),
-    sorts: z.array(savedViewSortSchema).optional(),
-    fields: z.array(z.string()).optional(),
-    groupBy: z.union([z.string(), z.null()]).optional(),
-    baseViewId: z.union([z.string(), z.number(), z.null()]).optional(),
-    // ---- Presentation state --------------------------------------
-    // A saved view must restore what the user actually SAW, not just which
-    // records they saw. All three follow the existing all-optional convention:
-    // absent means "this view expresses no opinion", and the per-(user, table)
-    // `user-preferences` value is the fallback. A view that never set a density
-    // must not clobber the user's table-wide default when it is applied.
-    viewType: savedViewTypeSchema.optional(),
-    rowDensity: rowDensitySchema.optional(),
-    columnWidths: columnWidthsSchema.optional(),
-  })
-  .strict()
+export const userViewPatchSchema = Schema.Struct({
+  name: optionalField(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))),
+  isDefault: optionalField(Schema.Boolean),
+  filters: optionalField(Schema.Array(savedViewFilterSchema)),
+  sorts: optionalField(Schema.Array(savedViewSortSchema)),
+  fields: optionalField(Schema.Array(Schema.String)),
+  groupBy: optionalField(Schema.Union([Schema.String, Schema.Null])),
+  baseViewId: optionalField(Schema.Union([Schema.String, Schema.Finite, Schema.Null])),
+  viewType: optionalField(savedViewTypeSchema),
+  rowDensity: optionalField(rowDensitySchema),
+  columnWidths: optionalField(columnWidthsSchema),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys' })
 
 /**
  * @public Wire-contract companion type to `userViewPatchSchema`. Exported per
- * the Zod single-source-of-truth convention
- *; saved-view consumers
+ * the wire-contract single-source-of-truth convention
+ * (`[internal ref]`, which records the Zod
+ * removal); saved-view consumers
  * currently use the structurally-identical port interface.
  */
-export type UserViewPatch = z.infer<typeof userViewPatchSchema>
+export type UserViewPatch = typeof userViewPatchSchema.Type
 
 /**
  * Response schema — Phase 8 Cycle 2.
@@ -144,61 +139,71 @@ export type UserViewPatch = z.infer<typeof userViewPatchSchema>
  * `c.json(...)` payload through this schema so the OpenAPI contract holds
  * at runtime and the pre-launch security checklist S4 invariant ("never
  * return raw DB rows from an API route — shape responses via
- * src/domain/models/api/ Zod schemas") is enforced.
+ * src/domain/models/api/ schemas") is enforced.
  *
  * Mirror of the pre-Cycle-2 `toResponseRow` helper that lived inline in
  * the route file. Optional keys reflect "absent from the JSONB `config`
  * blob" — clients distinguish "never set" from "explicitly cleared" by
- * presence vs explicit `null`. `.passthrough()` would be unsafe here:
- * `.strict()` is also unsafe because the inferred type then refuses
- * legitimate-but-optional keys. The middle ground (default `.strip()`)
- * matches the runtime helper.
+ * presence vs explicit `null`. Admitting unknown keys wholesale would be
+ * unsafe here, and `strictKeys` is also unsafe because the inferred type then
+ * refuses legitimate-but-optional keys. Effect's default — drop what the
+ * struct does not declare — is the middle ground, and matches the runtime
+ * helper.
+ *
+ * `viewType`, `rowDensity` and `columnWidths` carry the same unions the PATCH
+ * body enforces, so the wire contract now says what a client may actually
+ * receive instead of `unknown`.
+ *
+ * That tightening is only safe BECAUSE the route normalises first. The CREATE
+ * path still copies those three keys out of the request body with no schema
+ * between it and the JSONB `config` blob, so a value these unions reject is
+ * writable today — and without normalisation one such blob would fail this
+ * decode and turn the whole LIST into a 500, taking every OTHER view the user
+ * owns down with it. `normalizeSavedViewPresentation`
+ * (`domain/models/app/tables/saved-view-presentation.ts`) runs on every response
+ * built here, and tests each value against the very schemas named below so the
+ * two can never disagree. Removing that call re-opens the 500
+ *.
+ *
+ * The suite is NOT the evidence this is safe: measured 2026-09-11, the whole
+ * `[internal ref]` directory stays GREEN with
+ * these fields tightened and no normaliser at all. Only
+ * [internal ref] fails in that state.
  */
-export const userViewResponseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  tableName: z.string(),
-  isDefault: z.boolean(),
-  // Content fields are widened to `unknown` for backward-compatibility:
-  // saved views authored before Phase 7 Cycle 3 (the PATCH-body validation
-  // landing) may have persisted shapes that don't satisfy
-  // `savedViewFilterSchema` / `savedViewSortSchema`. Parsing a legitimate
-  // historical row through the strict input shape would 500 in production —
-  // input validation is the right gate for shape; the response schema's job
-  // is the envelope contract.
-  filters: z.unknown().optional(),
-  sorts: z.unknown().optional(),
-  fields: z.unknown().optional(),
-  groupBy: z.unknown().optional(),
-  baseViewId: z.union([z.string(), z.number(), z.null()]).optional(),
-  // Presentation state. Widened to `unknown` for the same reason as
-  // the content fields above: rows persisted before these keys existed, and
-  // rows written by a future client, must not 500 the GET path. Input
-  // validation is the gate for shape; the response schema's job is the envelope.
-  viewType: z.unknown().optional(),
-  rowDensity: z.unknown().optional(),
-  columnWidths: z.unknown().optional(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+export const userViewResponseSchema = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  tableName: Schema.String,
+  isDefault: Schema.Boolean,
+  filters: optionalField(Schema.Unknown),
+  sorts: optionalField(Schema.Unknown),
+  fields: optionalField(Schema.Unknown),
+  groupBy: optionalField(Schema.Unknown),
+  baseViewId: optionalField(Schema.Union([Schema.String, Schema.Finite, Schema.Null])),
+  viewType: optionalField(savedViewTypeSchema),
+  rowDensity: optionalField(rowDensitySchema),
+  columnWidths: optionalField(columnWidthsSchema),
+  createdAt: Schema.String,
+  updatedAt: Schema.String,
 })
 
 /**
  * @public Wire-contract companion type to `userViewResponseSchema` (the live
- * response envelope validator). Exported per the Zod single-source-of-truth
+ * response envelope validator). Exported per the wire-contract single-source-of-truth
  * convention; saved-view consumers currently use the structurally-identical
  * port interface of the same name.
  */
-export type UserViewResponse = z.infer<typeof userViewResponseSchema>
+export type UserViewResponse = typeof userViewResponseSchema.Type
 
 /**
  * List response — `GET /api/tables/:tableId/user-views`. Returns an array
  * of saved views ordered by creation time (oldest first). No pagination
  * cursor in v1; the per-(user,table) cardinality is small by design.
  */
-export const userViewsListResponseSchema = z.array(userViewResponseSchema)
+export const userViewsListResponseSchema = Schema.Array(userViewResponseSchema)
 /**
  * @public Wire-contract companion type to `userViewsListResponseSchema`.
- * Exported per the Zod single-source-of-truth convention; the list route
+ * Exported per the wire-contract single-source-of-truth convention; the list route
  * currently returns the inferred array shape via the schema directly.
  */
-export type UserViewsListResponse = z.infer<typeof userViewsListResponseSchema>
+export type UserViewsListResponse = typeof userViewsListResponseSchema.Type

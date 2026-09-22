@@ -15,6 +15,10 @@
  * server's authoritative state (server-wins — [internal ref]).
  */
 
+import {
+  computeTableActionButtonClasses,
+  computeTableToastClasses,
+} from '@/presentation/design/table-default-classes'
 import type { DetectedConflict } from '../../hooks/use-realtime-reconciliation'
 import type { ReactElement } from 'react'
 
@@ -43,7 +47,13 @@ export function ConflictToast({ conflict, onDismiss }: ConflictToastProps): Reac
     <div
       role="alert"
       data-conflict-toast="true"
-      className="border-warning-border bg-warning-bg text-warning-fg border-b px-4 py-2 text-sm"
+      // A TOAST, not a band. The three strips beside it report a standing
+      // condition of the grid — a stalled connection, an unsaved edit — and
+      // stay full-width bands for that reason; this one reports a single event
+      // that has already happened to one record, and is dismissed. The tone
+      // moves with the shape: the soft error pair, because a write the reader
+      // made did not survive, where `warning` says something might go wrong.
+      className={`${computeTableToastClasses({ tone: 'error' })} m-2`}
     >
       <span>
         Your pending change to {fieldNoun} <strong>{fieldList}</strong> was overwritten by{' '}
@@ -53,7 +63,7 @@ export function ConflictToast({ conflict, onDismiss }: ConflictToastProps): Reac
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss conflict notification"
-        className="text-warning-fg ml-3 rounded px-1 hover:opacity-80"
+        className={computeTableActionButtonClasses()}
       >
         Dismiss
       </button>

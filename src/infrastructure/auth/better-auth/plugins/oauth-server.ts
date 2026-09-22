@@ -7,8 +7,8 @@
 
 import { mcp } from '@better-auth/mcp'
 import { jwt } from 'better-auth/plugins'
-import { isAnonymousClientRegistrationEnabled } from '@/domain/models/env/oauth'
-import { mcpResourceIdentifier } from '../mcp-resource-server'
+import { isAnonymousClientRegistrationEnabled } from '@/domain/models/process-env/oauth'
+import { mcpResourceIdentifier } from '../mcp-resource-identity'
 import type { Auth } from '@/domain/models/app/auth'
 
 /**

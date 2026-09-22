@@ -5,24 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
-import { coreFields } from '../../modules/core'
-import { dataBoundFields } from '../../modules/data-bound'
-import { i18nFields } from '../../modules/i18n'
-import { responsiveFields } from '../../modules/responsive'
-import { visibilityFields } from '../../modules/visibility'
-import { ListDisplaySchema } from './list-display'
+export * from './fields'
 
-export const ListTypeLiteral = Schema.Literal('list')
-
-export const listFields = {
-  ...coreFields,
-  ...responsiveFields,
-  ...visibilityFields,
-  ...i18nFields,
-  ...dataBoundFields,
-  listDisplay: Schema.optional(ListDisplaySchema),
-} as const
-
-// Re-export all sub-schemas
 export * from './list-display'

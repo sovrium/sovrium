@@ -7,42 +7,19 @@
 
 import { Menu } from '@base-ui/react/menu'
 import { useCallback, type ReactElement, type ReactNode } from 'react'
-import { authClient } from '@/presentation/islands/shared/auth-client'
-import { cn } from '@/presentation/utils/design/class-merge'
-import { resolveLucideIcon } from '@/presentation/utils/lucide-resolver'
-import { NavChevronDown } from '@/presentation/utils/recipes/nav-menu-parts'
+import { MENU_TRIGGER_LAYOUT_CLASSES } from '@/presentation/design/nav-menu-parts'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { authClient } from '@/presentation/islands/runtime/auth-client'
+import { MenuItemBody } from './menu-popup-body'
+import { ToggleMenuItem } from './menu-toggle-item'
+import { TriggerContent } from './menu-trigger-content'
 import {
   computeMenuItemClasses,
   computeMenuPopupClasses,
   computeMenuSeparatorClasses,
 } from './overlay-default-classes'
-
-/** Popup tone axis (`popupVariant` schema field) — mirrors `MenuSurface`. */
-type MenuSurface = 'default' | 'inverted'
-
-/**
- * A menu item's config `action` (a subset of the shared `ActionSchema`). The
- * dropdown-menu wires the two operate-affordances an operator menu needs:
- * `navigate` (a link item) and `auth` `method: logout` (sign out). Other action
- * types parse but are inert here (the item still renders).
- */
-interface MenuItemAction {
-  readonly type?: string
-  readonly method?: string
-  readonly path?: string
-  readonly onSuccess?: { readonly navigate?: string }
-}
-
-interface MenuItem {
-  readonly label?: string
-  readonly icon?: string
-  readonly shortcut?: string
-  readonly disabled?: boolean
-  readonly separator?: boolean
-  readonly variant?: 'default' | 'destructive'
-  /** Action triggered when the item is activated (navigate / auth logout). */
-  readonly action?: MenuItemAction
-}
+import { useSessionBoundTrigger } from './use-session-bound-trigger'
+import type { MenuItem, MenuSurface } from './menu-item-types'
 
 interface MenuIslandProps {
   readonly menuItems?: readonly MenuItem[]
@@ -50,6 +27,23 @@ interface MenuIslandProps {
   readonly floatingAlign?: 'start' | 'center' | 'end'
   readonly triggerHtml?: string
   readonly triggerLabel?: string
+  /**
+   * The trigger's COMPOSED content, serialized from the author's `children`.
+   *
+   * Distinct from {@link MenuIslandProps.triggerHtml}, which the shared
+   * `context-menu` / rich-trigger paths use and which deliberately carries no
+   * chevron: a composed `dropdown-menu` trigger is still a dropdown, so it
+   * keeps the affordance that says so.
+   */
+  readonly triggerChildrenHtml?: string
+  /**
+   * The `$session.<field>` template a bound `triggerLabel` carries.
+   *
+   * The label itself ships EMPTY. Resolution is CLIENT-side, from the caller's
+   * own session, so the served bytes name nobody and a cached page cannot leak
+   * one caller to the next.
+   */
+  readonly triggerLabelTemplate?: string
   /**
    * Composed-trigger content (React node). When provided, it replaces
    * `triggerLabel` / `triggerHtml` as the trigger button's content — used when a
@@ -96,36 +90,6 @@ async function performLogout(redirectTo: string): Promise<void> {
 /** True when a navigate path leaves the app (an absolute http(s) URL). */
 function isExternalPath(path: string): boolean {
   return /^https?:\/\//i.test(path)
-}
-
-/** Render a Lucide icon for a menu item, or nothing if no icon is configured. */
-function MenuItemIcon({ icon }: { readonly icon?: string }): ReactElement | null {
-  const Icon = resolveLucideIcon(icon)
-  if (!Icon) {
-    // eslint-disable-next-line unicorn/no-null -- React conditional needs null, not undefined
-    return null
-  }
-  return (
-    <Icon
-      size={16}
-      aria-hidden="true"
-      className="mr-2 shrink-0"
-      data-testid={`menu-item-icon-${icon}`}
-    />
-  )
-}
-
-/** The label + optional shortcut body shared by every item variant. */
-function MenuItemBody({ item }: { readonly item: MenuItem }): ReactElement {
-  return (
-    <>
-      <MenuItemIcon icon={item.icon} />
-      <span className="flex-1">{item.label}</span>
-      {item.shortcut && (
-        <span className="text-foreground-subtle ml-4 text-xs">{item.shortcut}</span>
-      )}
-    </>
-  )
 }
 
 /** A plain (or inert-action) menu item — label/icon/shortcut, no behaviour. */
@@ -202,13 +166,28 @@ function NavigateMenuItem({
   )
 }
 
-/** Render a single menu entry, dispatching on separator / action / plain item. */
+/** Render a single menu entry, dispatching on separator / toggle / action / plain item. */
 function renderMenuEntry(item: MenuItem, index: number, surface: MenuSurface): ReactElement {
   if (item.separator) {
     return (
       <Menu.Separator
         key={`sep-${index}`}
         className={computeMenuSeparatorClasses()}
+      />
+    )
+  }
+  // BEFORE the action branches, deliberately: a row that declares `toggle` is a
+  // toggle whatever else it carries. The two action branches below both change
+  // what the row IS — `navigate` renders it as an anchor — and a checkbox item
+  // that walks away from the page on every flip is not a toggle. An `action`
+  // alongside `toggle` is therefore inert, which is the same precedence
+  // `separator` already has over `label`, `icon` and `action`.
+  if (item.toggle !== undefined) {
+    return (
+      <ToggleMenuItem
+        key={`item-${index}`}
+        item={item}
+        surface={surface}
       />
     )
   }
@@ -240,33 +219,40 @@ function renderMenuEntry(item: MenuItem, index: number, surface: MenuSurface): R
   )
 }
 
-/**
- * The trigger button content: composed node, raw HTML, or plain label.
- *
- * The label path adds a down-chevron affordance,
- * scoped to `triggerLabel !== undefined` — a `dropdown-menu` always carries a
- * `triggerLabel`, while the shared `context-menu` / rich-trigger
- * (`triggerContent` / `triggerHtml`) paths do NOT, so they keep no chevron.
- */
-function TriggerContent({
-  triggerContent,
-  triggerHtml,
-  triggerLabel,
+/** An empty item list, hoisted so a menu with no items re-renders nothing. */
+const NO_MENU_ITEMS: readonly MenuItem[] = []
+
+/** The floating panel: the items, plus whatever quiet line sits under them. */
+function MenuPanel({
+  menuItems,
+  floatingSide,
+  floatingAlign,
+  popupVariant,
+  footerContent,
 }: {
-  readonly triggerContent?: ReactNode
-  readonly triggerHtml?: string
-  readonly triggerLabel?: string
-}): ReactNode {
-  if (triggerContent !== undefined) return triggerContent
-  if (triggerHtml) {
-    // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- preserves SSR trigger HTML on initial paint
-    return <span dangerouslySetInnerHTML={{ __html: triggerHtml }} />
-  }
+  readonly menuItems: readonly MenuItem[]
+  readonly floatingSide: 'top' | 'right' | 'bottom' | 'left'
+  readonly floatingAlign: 'start' | 'center' | 'end'
+  readonly popupVariant: MenuSurface
+  readonly footerContent?: ReactNode
+}): ReactElement {
   return (
-    <>
-      <span>{triggerLabel ?? 'Menu'}</span>
-      {triggerLabel !== undefined && <NavChevronDown />}
-    </>
+    <Menu.Portal>
+      <Menu.Positioner
+        side={floatingSide}
+        align={floatingAlign}
+        sideOffset={4}
+        // Lift the Positioner above a `sticky z-40` header (z-50 > z-40): its
+        // Floating-UI `transform` forms a stacking context that would otherwise
+        // trap the popup's own `z-50` below the header.
+        className="z-50"
+      >
+        <Menu.Popup className={computeMenuPopupClasses({ variant: popupVariant })}>
+          {menuItems.map((item, index) => renderMenuEntry(item, index, popupVariant))}
+          {footerContent}
+        </Menu.Popup>
+      </Menu.Positioner>
+    </Menu.Portal>
   )
 }
 
@@ -282,11 +268,13 @@ function TriggerContent({
  * `dropdown-menu` and `context-menu`.
  */
 export default function MenuIsland({
-  menuItems = [],
+  menuItems = NO_MENU_ITEMS,
   floatingSide = 'bottom',
   floatingAlign = 'start',
   triggerHtml,
   triggerLabel,
+  triggerLabelTemplate,
+  triggerChildrenHtml,
   triggerContent,
   footerContent,
   triggerClassName,
@@ -302,11 +290,15 @@ export default function MenuIsland({
   // pointer travels from the trigger into the panel (Base UI's default 0 snaps
   // it shut). The `group` marker drives the chevron's rotate-on-open (009).
   const hoverEnabled = triggerLabel !== undefined && openOnHover === true
+  useSessionBoundTrigger()
   return (
     <div data-component-type="dropdown-menu">
       <Menu.Root>
         <Menu.Trigger
-          className={cn('group', triggerClassName ?? className)}
+          className={resolveClasses(
+            `group ${MENU_TRIGGER_LAYOUT_CLASSES}`,
+            triggerClassName ?? className
+          )}
           aria-label={triggerAriaLabel}
           id={id}
           data-testid={testId}
@@ -316,26 +308,18 @@ export default function MenuIsland({
           <TriggerContent
             triggerContent={triggerContent}
             triggerHtml={triggerHtml}
+            triggerChildrenHtml={triggerChildrenHtml}
             triggerLabel={triggerLabel}
+            triggerLabelTemplate={triggerLabelTemplate}
           />
         </Menu.Trigger>
-        <Menu.Portal>
-          <Menu.Positioner
-            side={floatingSide}
-            align={floatingAlign}
-            sideOffset={4}
-            // Lift the Positioner above a `sticky z-40` header (z-50 > z-40): its
-            // Floating-UI `transform` forms a stacking context that would
-            // otherwise trap the popup's own `z-50` below the header
-            //.
-            className="z-50"
-          >
-            <Menu.Popup className={computeMenuPopupClasses({ variant: popupVariant })}>
-              {menuItems.map((item, index) => renderMenuEntry(item, index, popupVariant))}
-              {footerContent}
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
+        <MenuPanel
+          menuItems={menuItems}
+          floatingSide={floatingSide}
+          floatingAlign={floatingAlign}
+          popupVariant={popupVariant}
+          footerContent={footerContent}
+        />
       </Menu.Root>
     </div>
   )

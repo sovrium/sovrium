@@ -7,13 +7,14 @@
 
 import { Combobox } from '@base-ui/react/combobox'
 import { useMemo, type KeyboardEventHandler, type ReactElement } from 'react'
-import { cn } from '@/presentation/utils/design/class-merge'
+import { cn } from '@/presentation/design/class-merge'
 import {
   computeComboboxInputClasses,
   computeComboboxInputGroupClasses,
   computeSelectIconClasses,
   computeSelectLabelClasses,
-} from './select-default-classes'
+} from '../../design/select-default-classes'
+import { useSharedFilterPublisher } from '../hooks/use-shared-filter-publisher'
 import { ChevronDown } from './select-icons'
 import { ComboboxPopupContent } from './select-option-renderers'
 import { useComboboxCustomValue } from './use-combobox-custom-value'
@@ -80,7 +81,12 @@ export function SearchableSelect({
   disabled,
   label,
   className,
+  publishes,
 }: SelectIslandProps): ReactElement {
+  // Same publisher wiring as `PlainSelect`: a searchable filter is an ordinary
+  // authoring choice, and leaving `publishes` inert on this half would be a
+  // declaration that validates and silently does nothing.
+  const publish = useSharedFilterPublisher(publishes)
   const items: readonly OptionItem[] = options ?? []
   const defaultItem =
     defaultValue !== undefined ? items.find((o) => o.value === defaultValue) : undefined
@@ -108,6 +114,7 @@ export function SearchableSelect({
         items={items}
         defaultValue={defaultItem}
         disabled={disabled}
+        onValueChange={publish}
         inputValue={controlledInputValue}
         onInputValueChange={controlledOnInputValueChange}
       >

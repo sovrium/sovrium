@@ -64,7 +64,7 @@ export const handleCryptoHash: ActionHandler = (action, _app, _automation) =>
       status: 'success',
       output: { hash },
     } as const satisfies ActionOutcome
-  })
+  }).pipe(Effect.withSpan('automations.handle-crypto-hash'))
 
 /**
  * `crypto/hmac` — produce a keyed HMAC signature of `props.input` using
@@ -88,4 +88,4 @@ export const handleCryptoHmac: ActionHandler = (action, _app, _automation) =>
       status: 'success',
       output: { signature },
     } as const satisfies ActionOutcome
-  })
+  }).pipe(Effect.withSpan('automations.handle-crypto-hmac'))

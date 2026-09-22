@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { SQLITE_ISO_NOW } from '@/infrastructure/database/sql/dialect-ddl'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import type { Table } from '@/domain/models/app/tables'
 
 /**

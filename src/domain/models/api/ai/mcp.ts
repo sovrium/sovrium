@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * Model Context Protocol (MCP) status API contract schemas.
@@ -15,47 +16,53 @@ import { z } from '@hono/zod-openapi'
  */
 
 /** MCP server enablement and transport configuration. */
-export const mcpServerStatusSchema = z.object({
-  enabled: z.literal(true),
-  transport: z.string(),
-  mountPath: z.string(),
+export const mcpServerStatusSchema = Schema.Struct({
+  enabled: Schema.Literal(true),
+  transport: Schema.String,
+  mountPath: Schema.String,
 })
 
 /** A single configured external MCP server (token omitted). */
-export const mcpClientServerSchema = z.object({
-  url: z.string(),
-  authType: z.enum(['bearer', 'header', 'none']),
-  headerName: z.string().optional(),
-  status: z.literal('connecting'),
+export const mcpClientServerSchema = Schema.Struct({
+  url: Schema.String,
+  authType: Schema.Literals(['bearer', 'header', 'none']),
+  headerName: optionalField(Schema.String),
+  status: Schema.Literal('connecting'),
 })
 
 /** MCP client enablement and the configured external servers. */
-export const mcpClientStatusSchema = z.object({
-  enabled: z.literal(true),
-  servers: z.array(mcpClientServerSchema),
+export const mcpClientStatusSchema = Schema.Struct({
+  enabled: Schema.Literal(true),
+  servers: Schema.Array(mcpClientServerSchema),
 })
 
 /** A discovered MCP tool. */
-export const mcpClientToolSchema = z.object({ name: z.string(), description: z.string() })
+export const mcpClientToolSchema = Schema.Struct({
+  name: Schema.String,
+  description: Schema.String,
+})
 
 /** MCP client enablement and the discovered tool catalog. */
-export const mcpClientToolsSchema = z.object({
-  enabled: z.literal(true),
-  tools: z.array(mcpClientToolSchema),
+export const mcpClientToolsSchema = Schema.Struct({
+  enabled: Schema.Literal(true),
+  tools: Schema.Array(mcpClientToolSchema),
 })
 
 /** Envelope returned (with status 404) when an MCP mode is disabled. */
-export const mcpDisabledSchema = z.object({ enabled: z.literal(false), error: z.string() })
+export const mcpDisabledSchema = Schema.Struct({
+  enabled: Schema.Literal(false),
+  error: Schema.String,
+})
 
 /** @public */
-export type McpServerStatus = z.infer<typeof mcpServerStatusSchema>
+export type McpServerStatus = typeof mcpServerStatusSchema.Type
 /** @public */
-export type McpClientServer = z.infer<typeof mcpClientServerSchema>
+export type McpClientServer = typeof mcpClientServerSchema.Type
 /** @public */
-export type McpClientStatus = z.infer<typeof mcpClientStatusSchema>
+export type McpClientStatus = typeof mcpClientStatusSchema.Type
 /** @public */
-export type McpClientTool = z.infer<typeof mcpClientToolSchema>
+export type McpClientTool = typeof mcpClientToolSchema.Type
 /** @public */
-export type McpClientTools = z.infer<typeof mcpClientToolsSchema>
+export type McpClientTools = typeof mcpClientToolsSchema.Type
 /** @public */
-export type McpDisabled = z.infer<typeof mcpDisabledSchema>
+export type McpDisabled = typeof mcpDisabledSchema.Type

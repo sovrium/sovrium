@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { DatabaseDialect } from '@/domain/models/env/database/database-dialect'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /**
  * Constraint classes that Sovrium maps to a DISTINCT HTTP status.

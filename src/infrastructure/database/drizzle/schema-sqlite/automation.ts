@@ -151,6 +151,10 @@ export const automationRunSteps = systemTable(
  * Automation Scheduled Jobs Table
  *
  * Tracks cron-scheduled automation next-run times.
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 export const automationScheduledJobs = systemTable(
   'automation_scheduled_jobs',
@@ -174,6 +178,10 @@ export const automationScheduledJobs = systemTable(
  * Automation Delayed Steps Table
  *
  * Tracks paused delay actions awaiting resume time.
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 export const automationDelayedSteps = systemTable(
   'automation_delayed_steps',
@@ -242,11 +250,3 @@ export const automationApprovalRequests = systemTable(
 )
 
 // Type inference
-export type AutomationDefinition = typeof automationDefinitions.$inferSelect
-export type NewAutomationDefinition = typeof automationDefinitions.$inferInsert
-export type AutomationRun = typeof automationRuns.$inferSelect
-export type NewAutomationRun = typeof automationRuns.$inferInsert
-export type AutomationRunStep = typeof automationRunSteps.$inferSelect
-export type AutomationScheduledJob = typeof automationScheduledJobs.$inferSelect
-export type AutomationDelayedStep = typeof automationDelayedSteps.$inferSelect
-export type AutomationApprovalRequest = typeof automationApprovalRequests.$inferSelect

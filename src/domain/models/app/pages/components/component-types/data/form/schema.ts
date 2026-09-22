@@ -13,13 +13,14 @@ import {
   VisibleWhenSchema,
   type VisibleWhenCondition,
   VisibleWhenConditionSchema,
-} from '../../../../../../shared/visible-when'
+} from '../../../../../forms/visible-when'
+import { SelectOptionSourceBindingSchema } from '../../form-controls/select-option-source'
 
 // ---------------------------------------------------------------------------
 // Condition operators / visible-when condition (re-exported from shared/)
 // ---------------------------------------------------------------------------
 //
-// These primitives are defined in `src/domain/models/shared/visible-when.ts`
+// These primitives are defined in `src/domain/models/app/forms/visible-when.ts`
 // because both the top-level forms feature and this legacy in-page form
 // component need them, and the helper crosses the `forms` ↔ `pages` boundary.
 // Re-exported here for backward compatibility with existing imports of this file.
@@ -113,6 +114,49 @@ export const FormFieldConfigSchema = Schema.Struct({
       })
     )
   ),
+  /**
+   * Resolve a `control: select` field's options from a table or a system read
+   * endpoint instead of spelling them out.
+   *
+   * ─── WHY A LITERAL LIST IS NOT ALWAYS EXPRESSIBLE ──────────────────────────
+   *
+   * The same argument `editSelect.optionsSource` records one component over.
+   * The values a form most often has to offer are facts about the app rather
+   * than rows of a table: the roles a caller may assign are
+   * `assignableRoleNames(app)` — the built-ins, the admin tier names, and every
+   * name the operator declared in `auth.roles[]` — computed from the auth
+   * config and stored in no table at all. A literal list cannot reach them, and
+   * narrowing one to the built-ins was measured on a partner-shaped app to
+   * share ZERO members with the roles that app declares. That is not a
+   * degradation; it is a picker offering nothing the operator can pick.
+   *
+   * ─── SAME BINDING, SAME RESOLUTION, SAME RULE ──────────────────────────────
+   *
+   * {@link SelectOptionSourceBindingSchema} verbatim, resolved server-side by
+   * the same pass that resolves a `select`'s and an `editSelect`'s, and REPLACED
+   * with a concrete `options` array — so the endpoint, the table name and any
+   * filter never reach the client bundle (security rule S4).
+   *
+   * Exactly one of `options` / `optionsSource` may be declared, enforced by
+   * `collectPageBindingViolations` for the reason that file records for every
+   * rule it holds: a `Schema.check` here would WRAP this struct and re-key the
+   * published property universe. Both is two answers to one question with no
+   * defensible precedence.
+   *
+   * @example
+   * ```yaml
+   * - field: role
+   *   control: select
+   *   label: Role
+   *   optionsSource:
+   *     system:
+   *       endpoint: /api/admin/roles
+   *       rowsKey: roles
+   *     valueKey: name
+   *     labelKey: name
+   * ```
+   */
+  optionsSource: Schema.optional(SelectOptionSourceBindingSchema),
   /** Custom label (overrides field name) */
   label: Schema.optional(
     Schema.String.annotate({

@@ -36,4 +36,4 @@ export const getUserTablePreferences = (
   Effect.gen(function* () {
     const repo = yield* UserTablePreferencesRepository
     return yield* repo.get(input)
-  })
+  }).pipe(Effect.withSpan('tables.get-user-table-preferences'))

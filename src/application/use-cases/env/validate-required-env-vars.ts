@@ -51,5 +51,9 @@ export const validateRequiredEnvVars = (
       ? `Required environment variable is not set: ${missing[0]}`
       : `Required environment variables are not set: ${missing.join(', ')}`
 
-  return Effect.fail(new MissingRequiredEnvVarError(message))
+  // Only the REFUSAL opens a span: the satisfied case did no work, the refusal
+  // is a boot that stopped.
+  return Effect.fail(new MissingRequiredEnvVarError(message)).pipe(
+    Effect.withSpan('env.validate-required-env-vars')
+  )
 }

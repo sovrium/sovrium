@@ -6,49 +6,27 @@
  */
 
 /**
- * `record-drawer` overlay component-type
- *.
+ * The record-binding shapes a `drawer` uses, and the `table` row-expand
+ * that reuses them.
  *
- * A record-detail/edit drawer SPECIALIZATION built on the same slide-in panel
- * concept as `drawer`, but bound to a record: it opens on a `data-table` row
- * click (the existing `onRowClick: { action: 'openDrawer', component }`
- * dispatch), FETCHES the clicked record (`GET /api/tables/:t/records/:id`),
- * auto-generates an editable form from the table's field schema (one control
- * per field), and saves the whole record via `PATCH /api/tables/:t/records/:id`.
+ * ─── WHY THIS FILE OUTLIVED ITS COMPONENT TYPE ─────────────────────────────
  *
- * One component serves EVERY table because the form is DERIVED from the field
- * schema at render time. The F6 tier read/edit split is honoured: an
- * `admin-viewer` sees a read-only record (`canEdit: false`, fields disabled,
- * no save affordance); an `admin-editor` can edit and save.
+ * `record-drawer` was retired into `drawer` with a `dataSource`: it was a
+ * drawer bound to one record, and every key it added is now a key on `drawer`.
+ * The TYPE went; these SHAPES did not, because they were never only its own —
+ * `table`'s `row-expand` renders the same field list through the same
+ * schema, and `resolve-record-drawer-fields.ts` derives it for both.
  *
- * Three additive, backward-compatible capabilities
- * generalise the drawer so any app config can express a record-detail surface
- * with footer actions, a configurable accessible name/role, and structured
- * (nested) field rendering:
- *
- *  - `actions`  — a footer slot of button-shaped actions that fire against the
- *    drawer's LOADED record (`$record.*` is resolved at click time). Reuses the
- *    standalone-button `action` + `confirm` capability — it does NOT reinvent
- *    dispatch.
- *  - `role`     — selects the surface's accessible role (`dialog` default |
- *    `region`) and `props.title` sets its accessible NAME — so a detail drawer
- *    can present as `region "Détail de l'exécution"` instead of the hardcoded
- *    `dialog "Détail de l'enregistrement"`.
- *  - `recordFields[].renderAs` — a per-field structured renderer so a nested
- *    object / array-of-objects renders readably (`json` / `list` / `key-value` /
- *    `code`) instead of mangling to `[object Object]` under `String(value)`.
+ * The names keep the `RecordDrawer` prefix on purpose. Renaming them would
+ * touch every one of their importers to say the same thing, and "the fields a
+ * record drawer shows" is still exactly what they describe — the drawer is now
+ * spelled `drawer` with a binding rather than as its own type.
  */
 
 import { Schema } from 'effect'
 import { ActionSchema } from '../../action'
 import { ConfirmGateSchema } from '../../confirm-gate'
 import { ButtonVariantSchema } from '../../shared-schemas'
-import { SystemDetailSourceSchema } from '../../system-detail-source'
-import { coreFields } from '../modules/core'
-import { i18nFields } from '../modules/i18n'
-import { visibilityFields } from '../modules/visibility'
-
-export const RecordDrawerTypeLiteral = Schema.Literal('record-drawer')
 
 /**
  * Per-field structured-display selector ([internal ref] CAP-3).
@@ -232,73 +210,3 @@ export const RecordDrawerRoleSchema = Schema.Literals(['dialog', 'region']).anno
   description:
     'Accessible role of the drawer surface: dialog (default) or region. Its accessible name comes from props.title.',
 })
-
-export const recordDrawerFields = {
-  ...coreFields,
-  ...visibilityFields,
-  ...i18nFields,
-  /**
-   * Drawer identifier referenced by `onRowClick: { action: 'openDrawer',
-   * component: <id> }` (the existing dispatch the grid emits).
-   */
-  id: Schema.optional(
-    Schema.String.annotate({
-      description:
-        "Record-drawer identifier referenced by `onRowClick: { action: 'openDrawer', component }`.",
-    })
-  ),
-  /**
-   * The single-record source the drawer fetches (and, for a DB table, patches).
-   *
-   * Discriminated:
-   *  - `{ table }` — the original DB-table binding: fetch `GET …/records/:id`,
-   *    save `PATCH …/records/:id` (UNCHANGED — every existing config keeps working).
-   *  - `{ system }` — a system DETAIL-endpoint binding (`SystemDetailSourceSchema`):
-   *    the drill-down opened from a system-source `data-table` fetches the clicked
-   *    row's detail from a read endpoint (e.g. an automation run detail at
-   *    `/api/admin/automations/runs/:runId`) instead of `/api/tables/:t/records/:id`.
-   *    A system-detail drawer is READ-ONLY (no records table to PATCH).
-   */
-  dataSource: Schema.optional(
-    Schema.Union([
-      Schema.Struct({ table: Schema.String }).pipe(
-        Schema.annotate({ identifier: 'RecordDrawerDataSource' })
-      ),
-      Schema.Struct({
-        /** System detail-endpoint binding (mutually exclusive with the DB-table form) */
-        system: SystemDetailSourceSchema,
-      }).annotate({
-        title: 'Record Drawer System Detail Source',
-        description: 'System detail-endpoint binding for the record-detail drawer',
-      }),
-    ]).annotate({
-      identifier: 'RecordDrawerDataSourceBinding',
-      title: 'Record Drawer Data Source',
-      description: 'DB-table single-record binding OR a system detail-endpoint binding',
-    })
-  ),
-  /** Schema-derived field list (one control per field), authored at render time. */
-  recordFields: Schema.optional(Schema.Array(RecordDrawerFieldSchema)),
-  /** F6 tier read/edit split: `false` renders a read-only record (no save). */
-  canEdit: Schema.optional(Schema.Boolean),
-  /**
-   * Footer action slot (CAP-1). One or more button-shaped actions rendered
-   * below the record body. Each fires against the drawer's LOADED record
-   * (`$record.*` resolved at click time) and reuses the standalone-button
-   * `action` + `confirm` dispatch. Additive — a drawer without `actions` renders
-   * exactly as before.
-   */
-  actions: Schema.optional(
-    Schema.Array(RecordDrawerActionSchema).annotate({
-      title: 'Record Drawer Actions',
-      description:
-        "Footer action buttons rendered below the record body. Each fires against the drawer's loaded record ($record.* resolved at click time) and reuses the button action + confirm dispatch.",
-    })
-  ),
-  /**
-   * Accessible role of the drawer surface (CAP-2). `dialog` (default) | `region`.
-   * The accessible NAME is read from `props.title`. Additive — omit it (and/or
-   * `props.title`) to keep the default `dialog "Détail de l'enregistrement"`.
-   */
-  role: Schema.optional(RecordDrawerRoleSchema),
-} as const

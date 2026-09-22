@@ -54,7 +54,7 @@ export const ComponentSearchSchema = Schema.Struct({
   identifier: 'ComponentSearch',
   title: 'Component Search',
   description:
-    'Shared search bar configuration for data-bound components (data-table, kanban, calendar)',
+    'Shared search bar configuration for data-bound components (table, kanban, calendar)',
 })
 
 /** @public */

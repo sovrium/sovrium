@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { computeTableEditorFooterClasses } from '@/presentation/design/table-default-classes'
+
 interface PasteDialogFooterProps {
   /** Whether the batch create is in flight. */
   readonly isPasting: boolean
@@ -17,11 +20,11 @@ interface PasteDialogFooterProps {
 /** Cancel / Paste action row for the paste-preview dialog. */
 export function PasteDialogFooter({ isPasting, onPaste, onCancel }: PasteDialogFooterProps) {
   return (
-    <div className="mt-4 flex justify-end gap-2">
+    <div className={computeTableEditorFooterClasses()}>
       <button
         type="button"
         onClick={onCancel}
-        className="border-border text-foreground hover:bg-background-subtle rounded border px-4 py-2 text-sm"
+        className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
       >
         Cancel
       </button>
@@ -29,7 +32,7 @@ export function PasteDialogFooter({ isPasting, onPaste, onCancel }: PasteDialogF
         type="button"
         onClick={onPaste}
         disabled={isPasting}
-        className="bg-primary text-primary-fg hover:bg-primary-hover rounded px-4 py-2 text-sm disabled:opacity-50"
+        className={computeButtonDefaultClasses({ variant: 'default', size: 'sm' })}
       >
         {isPasting ? 'Pasting…' : 'Paste'}
       </button>

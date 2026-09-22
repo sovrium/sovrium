@@ -34,7 +34,6 @@ interface CommentCountIslandProps {
   readonly format: string
   readonly emptyText: string
   readonly emptyTextWasCustomized: boolean
-  readonly id?: string
   readonly 'data-testid'?: string
 }
 
@@ -65,7 +64,6 @@ export default function CommentCountIsland({
   format,
   emptyText,
   emptyTextWasCustomized,
-  id,
   'data-testid': testId,
 }: CommentCountIslandProps): ReactElement {
   const enabled = Boolean(tableName && recordId)
@@ -92,16 +90,24 @@ export default function CommentCountIsland({
   const label = resolveCountLabel(count, format, emptyText, emptyTextWasCustomized)
 
   return (
+    // UNNAMED on purpose: `createRoot(host)` renders this INSIDE the SSR
+    // `<span>` that already carries the author's `props.id`, so stamping it
+    // here too would put the same id on two nested elements from the moment the
+    // island mounts — making a `#count` assertion pass before hydration and
+    // fail after it.
+    //
+    // The same holds for the accessible NAME, which stayed here by oversight
+    // when the id moved: a lookup by that name found one element before
+    // hydration and two nested ones after it. The host is the element that
+    // exists whether or not this subtree ever mounts, so it keeps both.
     <span
-      id={id}
       data-component="comment-count"
       data-component-type="comment-count"
       data-comment-count-format={format}
       data-comment-count-table={tableName}
       data-comment-count-record-id={recordId}
       data-testid={testId}
-      aria-label="Comment count"
-      className="comment-count text-muted-foreground text-sm"
+      className="comment-count text-foreground-muted text-xs"
     >
       {label}
     </span>

@@ -6,7 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
-import type { UserMetadata } from '@/application/ports/models/user-metadata'
+import type { UserMetadata } from '@/application/ports/contracts/user-metadata'
 import type { Effect } from 'effect'
 
 /**

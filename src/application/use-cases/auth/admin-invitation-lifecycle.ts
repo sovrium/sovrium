@@ -165,7 +165,6 @@ export const resendInvitation = async (params: {
 
   const acceptUrl = buildAcceptInvitationUrl(params.baseURL, invitation.token)
   // Awaited so a fixture observing the mailbox cannot race the response.
-  // eslint-disable-next-line functional/no-expression-statements -- email send is a side effect
   await params.emailHandlers.invitation({
     email: listed.email,
     name: listed.email,

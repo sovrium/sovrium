@@ -6,12 +6,13 @@
  */
 
 import { Data, Effect } from 'effect'
-import { evaluateGroup } from '@/domain/services/automations/condition-eval'
+import { evaluateGroup } from '@/domain/models/app/automations/condition-eval'
 import {
   buildRunContextView,
   rawActionProps,
   resolveRunContextValue,
 } from './run-context-resolution'
+import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
 /**
@@ -185,7 +186,7 @@ const runSelectedBranches = (input: {
   )
 }
 
-export const handlePathBranch: ActionHandler = (_action, _app, _automation, runContext) =>
+export const handlePathBranch: ActionHandler = (action, _app, _automation, runContext) =>
   Effect.gen(function* () {
     if (runContext === undefined || runContext.invokeNativeAction === undefined) {
       return fail('path.branch requires a run context to dispatch its branch actions')
@@ -213,4 +214,6 @@ export const handlePathBranch: ActionHandler = (_action, _app, _automation, runC
         onFailure: (error) => fail(error.message),
       })
     )
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-path-branch', { attributes: actionAttributes(action) })
+  )

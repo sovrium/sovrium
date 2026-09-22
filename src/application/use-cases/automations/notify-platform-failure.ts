@@ -30,7 +30,6 @@
 
 import { Data, Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import { sendEmail } from '@/infrastructure/email/email-service'
 import { logError } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
@@ -82,20 +81,20 @@ const renderFailureEmail = (
 /**
  * Load every admin user's email via `AuthRepository.findAdminEmails`.
  *
- * `AuthRepositoryLive` is provided here rather than declared in this use case's
- * `R` channel because `notifyPlatformFailure` publishes an `R = never` contract
- * to its callers (the run loop's failure path must be dispatchable without the
- * caller assembling an auth layer). This is a composition seam, not a data reach.
+ * `AuthRepository` is DECLARED rather than bound (standing rule E1). The only
+ * caller is the run loop's failure path, which already runs under the
+ * automation runtime — and that runtime has carried `AuthRepositoryLive` all
+ * along, so the layer this used to build per notification was a second copy of
+ * one the fiber was already holding.
  *
  * A lookup failure degrades to "no admins" — a broken admin-email path MUST NOT
  * re-fail the already-failed run and mask the real automation error.
  */
-const loadAdminEmails = (): Effect.Effect<readonly string[], never> =>
+const loadAdminEmails = (): Effect.Effect<readonly string[], never, AuthRepository> =>
   Effect.gen(function* () {
     const repo = yield* AuthRepository
     return yield* repo.findAdminEmails('admin')
   }).pipe(
-    Effect.provide(AuthRepositoryLive),
     Effect.catch((error) => {
       // Unwrap to the raw driver error, matching the payload this line logged
       // before the lookup moved behind the port.
@@ -143,7 +142,7 @@ const NOTIFICATION_SEND_CONCURRENCY = 2
  */
 export const notifyPlatformFailure = (
   input: NotifyPlatformFailureInput
-): Effect.Effect<void, never> =>
+): Effect.Effect<void, never, AuthRepository> =>
   Effect.gen(function* () {
     if (!input.app.auth) return
     const adminEmails = yield* loadAdminEmails()
@@ -153,4 +152,4 @@ export const notifyPlatformFailure = (
       concurrency: NOTIFICATION_SEND_CONCURRENCY,
       discard: true,
     })
-  })
+  }).pipe(Effect.withSpan('automations.notify-platform-failure'))

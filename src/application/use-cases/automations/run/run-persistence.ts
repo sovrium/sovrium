@@ -14,7 +14,7 @@
 
 import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
-import { resolveActorUserId } from '@/domain/services/guest-session'
+import { resolveActorUserId } from '@/domain/models/app/auth/guest-session'
 import { logError } from '@/infrastructure/logging/logger'
 import { toApiStatus, toApiStepStatus } from './run-status'
 import type { ExecutedStep } from './types'
@@ -77,7 +77,7 @@ export const persistQueuedRun = (input: {
       return undefined
     }
     return result.success.id
-  })
+  }).pipe(Effect.withSpan('automations.persist-queued-run'))
 
 /**
  * Promote a persisted `'queued'` row to `'running'`. Best-effort: a missing
@@ -93,7 +93,7 @@ export const markRunRunning = (
     if (result._tag === 'Failure') {
       logError('[automation] failed to mark run as running', result.failure)
     }
-  })
+  }).pipe(Effect.withSpan('automations.mark-run-running'))
 
 /**
  * Finalise an in-flight run: write the terminal status, the
@@ -212,4 +212,4 @@ export const finaliseRun = (
       return yield* finaliseRunFallback(input)
     }
     return input.runId
-  })
+  }).pipe(Effect.withSpan('automations.finalise-run'))

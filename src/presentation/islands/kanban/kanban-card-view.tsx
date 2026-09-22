@@ -9,6 +9,13 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useMemo } from 'react'
 import {
+  KANBAN_CARD_BODY_CLASSES,
+  KANBAN_DRAG_GHOST_TRANSFORM,
+  computeKanbanCardClasses,
+  computeKanbanCardStripeClasses,
+  computeKanbanDragGhostClasses,
+} from '@/presentation/design/kanban-default-classes'
+import {
   navigateTo,
   resolveCardColors,
   resolveCoverImage,
@@ -16,11 +23,18 @@ import {
   resolveNavigatePath,
 } from './card-resolvers'
 import { KanbanCardBody, KanbanCardDefault } from './kanban-card-body'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
+import type { OptionChipColors } from '@/domain/kernel/color/option-chip-color'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
-import type { OptionChipColors } from '@/domain/utils/option-chip-color'
 import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core'
-import type { CSSProperties, DragEvent, KeyboardEvent, ReactElement, ReactNode } from 'react'
+import type {
+  CSSProperties,
+  DragEvent,
+  KeyboardEvent,
+  KeyboardEventHandler,
+  ReactElement,
+  ReactNode,
+} from 'react'
 
 interface NavigateHandlers {
   readonly onClick: (() => void) | undefined
@@ -81,11 +95,54 @@ function resolveCardData(
   }
 }
 
-/** Compose the wrapper div className based on clickable/draggable state. */
-function buildCardClassName(navigatePath: string | undefined, draggableEnabled: boolean): string {
+/**
+ * Compose the wrapper div className from the shared card recipe plus the
+ * affordances this particular card's config earned.
+ *
+ * The resting card is FLAT now — `shadow-sm` came off. That is what gives the
+ * drag its own vocabulary: a card at rest and a card in flight were both
+ * `shadow-sm`, so the lift the canvas draws for the ghost had nothing to lift
+ * from.
+ */
+function buildCardClassName(
+  navigatePath: string | undefined,
+  draggableEnabled: boolean,
+  isDragging: boolean
+): string {
   const navClass = navigatePath ? 'cursor-pointer hover:border-primary' : ''
   const dragClass = draggableEnabled ? 'cursor-grab active:cursor-grabbing' : ''
-  return `overflow-hidden rounded-md border border-border bg-background-raised shadow-sm ${navClass} ${dragClass}`
+  const ghostClass = isDragging ? computeKanbanDragGhostClasses() : ''
+  return `${computeKanbanCardClasses()} ${navClass} ${dragClass} ${ghostClass}`
+}
+
+/**
+ * The card's leading colour stripe — 3px of the author's declared hue running
+ * the card's full height.
+ *
+ * Takes the resolved trio's `border` rather than its `fill`: `fill` is the
+ * author's hex verbatim and is ALSO what the card's own background is painted
+ * with ([internal ref] A7 ruling 3), so a stripe in `fill` would be invisible against
+ * the card it marks. `border` is `fill` mixed toward its own contrasting
+ * foreground and is guaranteed to read against it.
+ *
+ * Returns `undefined` when no colour resolved — the recipe never invents a hue
+ * for a board that declared none.
+ */
+function CardStripe({
+  colors,
+}: {
+  readonly colors: OptionChipColors | undefined
+}): ReactElement | undefined {
+  if (!colors) return undefined
+  return (
+    <span
+      data-role="kanban-card-stripe"
+      className={computeKanbanCardStripeClasses()}
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- the stripe hue is per-record config data; React Compiler not yet enabled in Bun
+      style={{ backgroundColor: colors.border }}
+      aria-hidden="true"
+    />
+  )
 }
 
 /** Render the card inner content (templated body or default title). */
@@ -96,7 +153,7 @@ function renderCardContent(
 ): ReactElement {
   if (!card) {
     return (
-      <div className="p-3">
+      <div className={KANBAN_CARD_BODY_CLASSES}>
         <KanbanCardDefault record={record} />
       </div>
     )
@@ -117,6 +174,8 @@ interface CardWrapperProps {
   readonly draggableEnabled: boolean
   readonly navigatePath: string | undefined
   readonly dataColor: string | undefined
+  readonly cardColors: OptionChipColors | undefined
+  readonly isDragging: boolean
   readonly style: CSSProperties
   readonly onClick: (() => void) | undefined
   readonly onKeyDown: ((e: KeyboardEvent<HTMLDivElement>) => void) | undefined
@@ -143,6 +202,8 @@ function CardWrapper({
   draggableEnabled,
   navigatePath,
   dataColor,
+  cardColors,
+  isDragging,
   style,
   onClick,
   onKeyDown,
@@ -150,6 +211,16 @@ function CardWrapper({
 }: CardWrapperProps): ReactElement {
   const navigateProps = navigatePath ? { role: 'button', tabIndex: 0 } : {}
   const onDragStart = draggableEnabled ? (e: DragEvent) => e.preventDefault() : undefined
+  // The KEYBOARD alternative to the drag lives in dnd-kit's `listeners.onKeyDown`
+  // (that is where `KeyboardSensor` binds), and `onKeyDown={onKeyDown}` below is
+  // written AFTER the spread — so an `undefined` navigate handler used to
+  // OVERWRITE it with nothing, and a card on a board with no `onClick` action
+  // could not be picked up from the keyboard at all. Nothing showed it: the
+  // pointer drag worked, the attribute set was intact, and WCAG 2.2 SC 2.5.7's
+  // alternative was simply absent. Falling back keeps the navigate handler
+  // winning where it exists and restores the sensor where it does not.
+  const keyDownHandler =
+    onKeyDown ?? (dragListeners?.['onKeyDown'] as KeyboardEventHandler<HTMLDivElement> | undefined)
   return (
     <div
       {...dragAttributes}
@@ -162,13 +233,27 @@ function CardWrapper({
       onDragStart={onDragStart}
       style={style}
       onClick={onClick}
-      onKeyDown={onKeyDown}
+      onKeyDown={keyDownHandler}
       {...navigateProps}
-      className={buildCardClassName(navigatePath, draggableEnabled)}
+      className={buildCardClassName(navigatePath, draggableEnabled, isDragging)}
     >
+      <CardStripe colors={cardColors} />
       {children}
     </div>
   )
+}
+
+/**
+ * Append the drag ghost's tilt to dnd-kit's translate, or return the translate
+ * unchanged when the card is at rest.
+ *
+ * `CSS.Translate.toString` returns `undefined` when there is no offset, which
+ * is the resting case and must stay `undefined` — emitting a bare
+ * `rotate(-1.5deg)` there would tilt every card on the board.
+ */
+function joinTransform(translate: string | undefined, isDragging: boolean): string | undefined {
+  if (!isDragging) return translate
+  return translate ? `${translate} ${KANBAN_DRAG_GHOST_TRANSFORM}` : KANBAN_DRAG_GHOST_TRANSFORM
 }
 
 /**
@@ -193,7 +278,16 @@ function useCardStyle({
 }): CSSProperties {
   return useMemo<CSSProperties>(
     () => ({
-      transform: CSS.Translate.toString(transform),
+      // The drag tilt is composed into THIS transform rather than applied as a
+      // Tailwind `rotate-*` class, for two reasons: an inline `transform`
+      // outranks any class outright, so the class would be dead; and a second
+      // `transform` declaration REPLACES the first rather than adding to it, so
+      // the two can only travel together. Order is load-bearing —
+      // `translate(...) rotate(...)` spins the card about its own centre at the
+      // pointer, while `rotate(...) translate(...)` would rotate the
+      // translation VECTOR too and walk the card off the cursor by a distance
+      // that grows with the drag.
+      transform: joinTransform(CSS.Translate.toString(transform), isDragging),
       transition,
       opacity: isDragging ? 0.6 : 1,
       ...(cardColors
@@ -250,6 +344,8 @@ export function KanbanCardView({
       draggableEnabled={draggableEnabled}
       navigatePath={navigatePath}
       dataColor={dataColor}
+      cardColors={cardColors}
+      isDragging={isDragging}
       style={style}
       onClick={onClick}
       onKeyDown={onKeyDown}

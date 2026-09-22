@@ -9,7 +9,8 @@ import { Data, Effect } from 'effect'
 import {
   findMultiSelectSelectionOverflows,
   findUndeclaredMultiSelectValues,
-} from '@/domain/validators/multi-select-values'
+} from '@/domain/models/app/tables/multi-select-values-validation'
+import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
@@ -225,6 +226,20 @@ export interface ActionRunContext {
  * Required services come from the handler's repository / port dependencies
  * — handlers do not provide their own layers.
  */
+
+/**
+ * The span attribute every action handler carries: WHICH step ran.
+ *
+ * One helper rather than the same `String(action['type'] ?? …)` at fifty-seven
+ * call sites — and short enough that the span stays on one line, which is what
+ * keeps the biggest handler files inside the file-length limit.
+ */
+export const actionAttributes = (
+  action: Readonly<Record<string, unknown>>
+): Readonly<Record<string, string>> => ({
+  'automation.action': String(action['type'] ?? 'unknown'),
+})
+
 export type ActionHandler = (
   action: Readonly<Record<string, unknown>>,
   app: App,
@@ -241,6 +256,7 @@ export type ActionHandler = (
   | ConnectionRepository
   | ConnectionTokenRepository
   | AiService
+  | AiEmbeddingRepository
   | StorageService
   | ImageTransformService
   | AnalyticsRepository
@@ -423,5 +439,5 @@ export const serializeActionBody = (
         message: `failed to serialise body: ${cause instanceof Error ? cause.message : String(cause)}`,
         cause,
       }),
-  })
+  }).pipe(Effect.withSpan('automations.serialize-action-body'))
 }

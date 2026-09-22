@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * Admin storage status response schema
@@ -20,18 +21,26 @@ import { z } from 'zod'
  * - `bytea`: (no extra fields)
  * - `disabled`: returned when no storage provider is configured
  */
-export const storageStatusResponseSchema = z.object({
-  provider: z
-    .enum(['s3', 'local', 'bytea', 'disabled'])
-    .describe('Active storage provider, or "disabled" if none is configured'),
-  region: z.string().optional().describe('AWS region (S3 only; defaults to us-east-1)'),
-  bucket: z.string().optional().describe('S3 bucket name (S3 only)'),
-  endpoint: z.string().optional().describe('S3-compatible endpoint URL (S3 only)'),
-  forcePathStyle: z.boolean().optional().describe('Whether path-style URLs are enabled (S3 only)'),
-  directory: z.string().optional().describe('Local filesystem storage directory (local only)'),
+export const storageStatusResponseSchema = Schema.Struct({
+  provider: Schema.Literals(['s3', 'local', 'bytea', 'disabled']).annotate({
+    description: 'Active storage provider, or "disabled" if none is configured',
+  }),
+  region: optionalField(
+    Schema.String.annotate({ description: 'AWS region (S3 only; defaults to us-east-1)' })
+  ),
+  bucket: optionalField(Schema.String.annotate({ description: 'S3 bucket name (S3 only)' })),
+  endpoint: optionalField(
+    Schema.String.annotate({ description: 'S3-compatible endpoint URL (S3 only)' })
+  ),
+  forcePathStyle: optionalField(
+    Schema.Boolean.annotate({ description: 'Whether path-style URLs are enabled (S3 only)' })
+  ),
+  directory: optionalField(
+    Schema.String.annotate({ description: 'Local filesystem storage directory (local only)' })
+  ),
 })
 
 /**
  * TypeScript type inferred from Zod schema.
  */
-export type StorageStatusResponse = z.infer<typeof storageStatusResponseSchema>
+export type StorageStatusResponse = typeof storageStatusResponseSchema.Type

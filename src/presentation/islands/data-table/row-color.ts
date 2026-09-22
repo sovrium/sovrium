@@ -22,9 +22,9 @@
  */
 
 import { useCallback, useMemo, useState } from 'react'
-import { resolveRecordColor } from '@/domain/utils/record-color'
-import type { TableRecord } from '../shared/types'
-import type { OptionChipColors } from '@/domain/utils/option-chip-color'
+import { resolveRecordColor } from '@/domain/kernel/color/record-color'
+import type { TableRecord } from '../runtime/types'
+import type { OptionChipColors } from '@/domain/kernel/color/option-chip-color'
 import type { CSSProperties } from 'react'
 
 /**

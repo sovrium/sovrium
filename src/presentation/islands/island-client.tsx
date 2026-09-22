@@ -9,8 +9,83 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { Suspense, useEffect, useState, type ReactElement } from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
-import { ISLANDS } from './island-registry'
-import { createIslandQueryClient } from './shared/query-client'
+import { ISLANDS, PRIORITY_ISLAND_LOADERS } from './island-registry'
+import { createIslandQueryClient } from './runtime/query-client'
+
+/**
+ * Priority islands whose loader has already resolved, keyed by island type.
+ *
+ * {@link mountIslandsWithin} prefers this over {@link ISLANDS}: a component
+ * found here renders on the FIRST commit, inside the same `flushSync` that
+ * creates the root, so it owns its events before the user's (or the spec's)
+ * first gesture. A component reached through `ISLANDS` renders one Suspense
+ * boundary later, with the SSR skeleton visible in between.
+ *
+ * That difference is the entire reason fourteen islands used to be static
+ * imports of the entry module — and why twelve of them no longer need to be.
+ * The two that still are, and why preloading is not enough for them, are named
+ * in `island-registry.ts` along with the measurements.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Island props vary by type
+const resolvedPriorityIslands = new Map<string, React.ComponentType<any>>()
+
+/**
+ * In-flight priority loads, keyed by island type.
+ *
+ * Two concurrent scans of overlapping subtrees (the first-load pass and a tabs
+ * panel committing during it) must not start the same `import()` twice, and
+ * must not race to a half-populated {@link resolvedPriorityIslands}. Holding the
+ * promise makes the second caller await the first caller's load.
+ */
+const inFlightPriorityLoads = new Map<string, Promise<void>>()
+
+/**
+ * Resolve every PRIORITY island whose marker is present in `root`, so the mount
+ * pass that follows can commit those components synchronously.
+ *
+ * Scoped to the markers actually in the DOM — that scoping is the whole point.
+ * The alternative shape, "resolve every priority island", would reproduce the
+ * defect this replaced (223 KB and 32 requests of islands the page does not
+ * mount, measured 2026-09-01) with an extra round trip on top.
+ *
+ * Never rejects: a chunk that fails to load leaves its type absent from
+ * {@link resolvedPriorityIslands}, and {@link mountIslandsWithin} falls back to
+ * the `ISLANDS` Suspense path — degraded (the SSR skeleton stays up longer)
+ * rather than a bootstrap that throws and mounts NOTHING on the page.
+ *
+ * @param root - the subtree to scan (defaults to `document.body`)
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- island bootstrap entry, not a fast-refresh component module
+export async function preloadIslandsWithin(root: ParentNode = document.body): Promise<void> {
+  const present = new Set(
+    Array.from(root.querySelectorAll<HTMLElement>('[data-island]'))
+      .map((el) => el.dataset.island)
+      .filter((type): type is string => type !== undefined)
+  )
+
+  const pending = Array.from(present)
+    .filter((type) => !resolvedPriorityIslands.has(type))
+    .map((type) => {
+      const started = inFlightPriorityLoads.get(type)
+      if (started) return started
+      const loader = PRIORITY_ISLAND_LOADERS[type]
+      if (!loader) return undefined
+      const load = loader()
+        .then((module) => {
+          // eslint-disable-next-line functional/immutable-data -- the resolved-component cache IS the memo this function exists to fill
+          resolvedPriorityIslands.set(type, module.default)
+        })
+        .catch(() => {
+          // Swallowed deliberately — see the "never rejects" note above.
+        })
+      // eslint-disable-next-line functional/immutable-data -- in-flight registry; recorded before the await so a concurrent scan joins this load instead of starting a second one
+      inFlightPriorityLoads.set(type, load)
+      return load
+    })
+    .filter((load): load is Promise<void> => load !== undefined)
+
+  await Promise.all(pending)
+}
 
 /**
  * The live React root for each mounted island host, keyed by its host element.
@@ -33,7 +108,7 @@ const islandRoots = new WeakMap<HTMLElement, Root>()
  * React roots for each, and renders the corresponding island component.
  *
  * Architecture:
- * - Server renders `<div data-island="data-table" data-island-props='{...}'>` with a loading skeleton
+ * - Server renders `<div data-island="table" data-island-props='{...}'>` with a loading skeleton
  * - This script discovers those markers and mounts React into each
  * - Uses createRoot() (not hydrateRoot) — no hydration mismatch risk
  * - Each island gets its own QueryClient for cache isolation
@@ -100,6 +175,19 @@ export function IslandWrapper({
 }
 
 /**
+ * The component to render for a marker type.
+ *
+ * A priority island already resolved by {@link preloadIslandsWithin} renders on
+ * the FIRST commit — inside the mounter's `flushSync`, so it owns its events
+ * immediately. Everything else falls back to the type's `React.lazy`, which
+ * renders one Suspense boundary later with the SSR skeleton visible in between.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Island props vary by type
+function componentFor(type: string): React.ComponentType<any> | undefined {
+  return resolvedPriorityIslands.get(type) ?? ISLANDS[type]
+}
+
+/**
  * Extracts current form input values from the SSR skeleton.
  * Preserves values entered by the user before the island mounts.
  */
@@ -119,6 +207,125 @@ function extractFormValues(el: HTMLElement): Record<string, string> {
 }
 
 /**
+ * A file the user picked against the SSR skeleton, before the island mounted.
+ *
+ * The twin of {@link extractFormValues} for the one input type that hook
+ * cannot carry: a file `<input>`'s `.value` is opaque, but its `.files`
+ * `FileList` is readable and holds the whole selection.
+ */
+interface PendingFileSelection {
+  readonly name: string
+  readonly files: FileList
+}
+
+/**
+ * Collects file selections made against the SSR skeleton before mount.
+ *
+ * `createRoot` (not `hydrateRoot`) DISCARDS the server-rendered subtree, so a
+ * file picked between SSR delivery and React mount dies with the node that
+ * held it: no change handler ever ran, no upload fired, and the input React
+ * renders in its place is empty. On a slow connection — or when the island
+ * chunk is built at request time — that window is seconds wide, and the user
+ * watches their chosen file silently vanish.
+ */
+function extractPendingFiles(el: HTMLElement): readonly PendingFileSelection[] {
+  const inputs = el.querySelectorAll<HTMLInputElement>('input[type="file"][name]')
+  return Array.from(inputs)
+    .filter((input) => (input.files?.length ?? 0) > 0)
+    .map((input) => ({ name: input.name, files: input.files as FileList }))
+}
+
+/** How long to wait for a lazy island's real component before abandoning the replay. */
+const PENDING_FILE_REPLAY_TIMEOUT_MS = 30_000
+
+/**
+ * Re-applies a pre-mount file selection to the input React just rendered, then
+ * dispatches the `change` the skeleton's input could not deliver — so the
+ * island's own validate → upload → preview path runs exactly as if the file
+ * had been picked a moment later.
+ *
+ * Replayed exactly ONCE per host, gated on `data-island-ready` — the signal
+ * {@link IslandReadySignal} sets when the REAL component has mounted. Gating on
+ * anything earlier would apply the files to the Suspense fallback, which is
+ * inert server-rendered HTML carrying no React listener, and the selection
+ * would be lost a second time when the real component replaced it. Firing once
+ * is also what stops a double upload: the file field remounts its input under
+ * a fresh `key` after a successful upload, and a re-arming observer would read
+ * that deliberately empty input as a second chance to replay.
+ */
+function replayPendingFiles(el: HTMLElement, pending: readonly PendingFileSelection[]): void {
+  const apply = () => {
+    pending.forEach(({ name, files }) => {
+      const input = el.querySelector<HTMLInputElement>(
+        `input[type="file"][name="${CSS.escape(name)}"]`
+      )
+      // A selection already present is the user's own, made after mount —
+      // never overwrite it with the stale skeleton pick.
+      if (!input || (input.files?.length ?? 0) > 0) return
+      // eslint-disable-next-line functional/immutable-data -- `HTMLInputElement.files` is settable by spec; assigning it is the only way to restore a selection onto the node React just created
+      input.files = files
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+  }
+
+  if (el.dataset.islandReady === 'true') {
+    apply()
+    return
+  }
+
+  const observer = new MutationObserver(() => {
+    if (el.dataset.islandReady !== 'true') return
+    observer.disconnect()
+    apply()
+  })
+  observer.observe(el, { attributes: true, attributeFilter: ['data-island-ready'] })
+  setTimeout(() => observer.disconnect(), PENDING_FILE_REPLAY_TIMEOUT_MS)
+}
+
+/**
+ * Everything the user put into the SSR skeleton that must survive the mount.
+ *
+ * `createRoot` discards the server-rendered subtree, so anything typed or
+ * picked between SSR delivery and React mount is lost unless it is read out
+ * first. Text/select values ride across as the `initialValues` prop; a file
+ * selection cannot (a `FileList` is not JSON) and is replayed onto the mounted
+ * input instead.
+ *
+ * In create mode `initialValues` preserves typing into the empty skeleton; in
+ * update mode the skeleton is pre-filled with the record's current values, so
+ * extracting is a no-op for untouched fields and correctly carries over any
+ * value the user typed between SSR delivery and React mount (otherwise that
+ * keystroke is lost when React re-renders from `record`, and a downstream
+ * auto-save sees no diff against the original).
+ *
+ * The third thing an island can ask to keep is the SERVER-RENDERED MARKUP
+ * itself, by declaring `data-island-ssr="true"` on its host. An island that
+ * does so is telling the mounter that the document — not its serialised props —
+ * is where some of its content lives, so shipping that content twice can stop.
+ * The tabs island is the first: the panel a URL addresses is real markup in the
+ * page, and serialising it again into `data-island-props` cost the response a
+ * whole second escaped copy of its largest panel. The
+ * read has to happen HERE because `createRoot` discards the server-rendered
+ * subtree on its first commit, and no code inside the island runs before that.
+ * Nothing is captured for a host that does not opt in.
+ */
+function capturePreMountInput(
+  el: HTMLElement,
+  props: Record<string, unknown>
+): {
+  readonly mergedProps: Record<string, unknown>
+  readonly pendingFiles: readonly PendingFileSelection[]
+} {
+  const initialValues = extractFormValues(el)
+  const withValues = Object.keys(initialValues).length > 0 ? { ...props, initialValues } : props
+  return {
+    mergedProps:
+      el.dataset.islandSsr === 'true' ? { ...withValues, ssrHtml: el.innerHTML } : withValues,
+    pendingFiles: extractPendingFiles(el),
+  }
+}
+
+/**
  * Mounts every island marker found within `root` (inclusive of `root`'s own
  * subtree). Idempotent: a marker already mounted (flagged with
  * `data-island-mounted`) is skipped, so this is safe to call repeatedly — e.g.
@@ -131,18 +338,38 @@ function extractFormValues(el: HTMLElement): Record<string, string> {
  * Captures any form values entered in the SSR skeleton before replacement to
  * preserve user input across the hydration boundary.
  *
+ * ─── A MARKER THIS SCAN ITSELF DETACHED IS SKIPPED ─────────────────────────
+ *
+ * `querySelectorAll` hands back a STATIC list, so an island whose host sits
+ * inside another island's server-rendered subtree is still in it after that
+ * outer island's `createRoot` discarded the subtree. Mounting it there would
+ * build a live React root — and fire its data reads — against a node nobody can
+ * see. The tabs island is the case this exists for: the panel a URL addresses is
+ * server-rendered in full now, nested island markers included
+ *, and the tabs island re-injects that markup and mounts
+ * the marker inside its own panel a moment later. Skipping it here is what makes
+ * that ONE mount instead of two — the collision that used to be avoided by not
+ * rendering such a panel at all.
+ *
+ * The test is conditioned on `scanIsLive` because a marker going missing only
+ * MEANS anything when the scan started from live DOM. A caller that deliberately
+ * mounts into an off-document subtree — building a surface before inserting it —
+ * has every marker disconnected from the first one, and must not be read as
+ * having lost them.
+ *
  * @param root - the subtree to scan (defaults to `document.body`)
  */
 // eslint-disable-next-line react-refresh/only-export-components -- island bootstrap entry, not a fast-refresh component module; this is the shared island mounter
 export function mountIslandsWithin(root: ParentNode = document.body): void {
   const markers = root.querySelectorAll<HTMLElement>('[data-island]')
+  const scanIsLive = root.isConnected
 
   markers.forEach((el) => {
     if (el.dataset.islandMounted === 'true') return
+    if (scanIsLive && !el.isConnected) return
     const type = el.dataset.island
     if (!type || !(type in ISLANDS)) return
-
-    const Component = ISLANDS[type]
+    const Component = componentFor(type)
     if (!Component) return
     // eslint-disable-next-line functional/immutable-data, no-param-reassign -- idempotency flag prevents a double-mount on a re-scan
     el.dataset.islandMounted = 'true'
@@ -151,15 +378,7 @@ export function mountIslandsWithin(root: ParentNode = document.body): void {
     const props = parseIslandProps(el.dataset.islandProps)
     if (!props) return
 
-    // Capture form values entered before island hydration. In create mode this
-    // preserves typing into the empty SSR skeleton; in update mode the SSR
-    // skeleton is pre-filled with the record's current values, so extracting
-    // is a no-op for untouched fields and correctly carries over any value the
-    // user typed against the skeleton between SSR delivery and React mount
-    // (otherwise that keystroke is lost when React re-renders from `record`,
-    // and a downstream auto-save sees no diff against the original).
-    const initialValues = extractFormValues(el)
-    const mergedProps = Object.keys(initialValues).length > 0 ? { ...props, initialValues } : props
+    const { mergedProps, pendingFiles } = capturePreMountInput(el, props)
 
     // Preserve the SSR skeleton as Suspense fallback
     // SECURITY: Safe use of dangerouslySetInnerHTML — fallbackHtml is server-rendered SSR content,
@@ -192,6 +411,10 @@ export function mountIslandsWithin(root: ParentNode = document.body): void {
     // has mounted. Setting it synchronously here would fire while the SSR
     // skeleton is still rendering (lazy-import case), breaking tests that gate
     // computed-style reads on the signal.
+
+    // …which is also the signal the file replay waits for, so it must be armed
+    // after the render that can set it.
+    if (pendingFiles.length > 0) replayPendingFiles(el, pendingFiles)
   })
 }
 
@@ -223,9 +446,39 @@ export function unmountIslandsWithin(root: ParentNode = document.body): void {
   })
 }
 
-// Mount when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => mountIslandsWithin())
-} else {
+/**
+ * Resolve this page's priority islands, then mount everything.
+ *
+ * The order is what preserves the guarantee the removed static imports used to
+ * buy: by the time `mountIslandsWithin` runs, every priority island the page
+ * declares is a real component, so `flushSync` commits it before the SSR
+ * skeleton can field an event.
+ */
+const bootstrap = async (): Promise<void> => {
+  await preloadIslandsWithin()
   mountIslandsWithin()
+}
+
+// This module is served as `<script type="module">`, which is deferred, so
+// `readyState` is past `loading` by the time it evaluates and the top-level
+// `await` below is the live path. It is deliberate: it sequences the preload
+// ahead of the mount without pushing either into a later task.
+//
+// Measured, so nobody re-derives it: this does NOT hold back `load`. When the
+// preload has nothing to fetch it settles in a microtask and the mount lands
+// before `load`; when it awaits a real chunk, `load` fires first and the island
+// mounts just after. That is why `crud-form` and `auth-form` are still static
+// imports in `island-registry.ts` — `page.goto()` returns on `load`, and their
+// SSR skeletons swallow the next gesture.
+//
+// The `loading` branch must NOT await: a deferred script runs BEFORE
+// `DOMContentLoaded`, so awaiting that event from inside one would deadlock the
+// module against an event it is itself blocking. It stays a callback.
+//
+// A module reached from a priority loader must not STATICALLY import this file
+// — see the hazard note in `island-registry.ts`.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => void bootstrap())
+} else {
+  await bootstrap()
 }

@@ -133,7 +133,8 @@
  *   `value` readers the JSON envelope touches.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
 
 // ─── Derived Status ──────────────────────────────────────────────────────────
 
@@ -155,14 +156,13 @@ import { z } from '@hono/zod-openapi'
  * absent rather than differently-flagged — its account now shows up in the user
  * directory, which is where an accepted invitee belongs.
  */
-export const pendingInvitationStatusSchema = z
-  .enum(['pending', 'expired'])
-  .describe(
-    'Derived lifecycle state: `pending` (still acceptable) or `expired` (TTL lapsed, link dead). Computed from `expiresAt` at read time, not stored. Accepted invitations are absent entirely — acceptance consumes the row.'
-  )
+export const pendingInvitationStatusSchema = Schema.Literals(['pending', 'expired']).annotate({
+  description:
+    'Derived lifecycle state: `pending` (still acceptable) or `expired` (TTL lapsed, link dead). Computed from `expiresAt` at read time, not stored. Accepted invitations are absent entirely — acceptance consumes the row.',
+})
 
 /** @public */
-export type PendingInvitationStatus = z.infer<typeof pendingInvitationStatusSchema>
+export type PendingInvitationStatus = typeof pendingInvitationStatusSchema.Type
 
 // ─── Pending Invitation Row ──────────────────────────────────────────────────
 
@@ -186,49 +186,35 @@ export type PendingInvitationStatus = z.infer<typeof pendingInvitationStatusSche
  *     resend is warranted before the invitee ever asks;
  *   - `createdAt` — how long this has been outstanding.
  */
-export const pendingInvitationSchema = z
-  .object({
-    id: z
-      .string()
-      .min(1)
-      .describe(
-        'Opaque invitation identifier (`verification.id`, a uuid). The path segment the resend and revoke routes resolve by. NOT the invitation token: holding this id confers nothing outside the admin gate, and it can never be exchanged for an accepted account.'
-      ),
-    email: z
-      .string()
-      .min(1)
-      .describe(
-        'E-mail address the invitation was issued to (`auth.user.email`, joined on the invitee user id). The list’s primary column.'
-      ),
-    role: z
-      .string()
-      .min(1)
-      .describe(
-        'Role the invited account currently holds (`auth.user.role`), and therefore the role it will carry on acceptance. Read live from the user row rather than copied onto the invitation, so an operator who changes the role before acceptance sees the change reflected here. Always a member of this app’s assignable role vocabulary — `invite-user` refuses anything else before minting a token.'
-      ),
-    invitedBy: z
-      .string()
-      .min(1)
-      .nullable()
-      .describe(
-        'Current e-mail of the operator who issued the invitation, resolved from the stored inviter user id by joining `auth.user`. `null` when the inviter was not recorded — the case for invitations issued before inviter capture existed, whose `verification.value` holds a bare user id rather than the JSON envelope. `null` means "not recorded", never "invited by nobody".'
-      ),
-    status: pendingInvitationStatusSchema,
-    expiresAt: z
-      .string()
-      .datetime()
-      .describe(
-        'ISO 8601 UTC timestamp at which the invitation link stops working (`verification.expires_at`). Governed by `auth.invitationTokenExpiry` (default 72h). A timestamp in the past is exactly the condition that makes `status` `expired`.'
-      ),
-    createdAt: z
-      .string()
-      .datetime()
-      .describe(
-        'ISO 8601 UTC timestamp the invitation was issued (`verification.created_at`). Lets the operator see how long an invitation has been outstanding.'
-      ),
-  })
-  .strict()
-  .openapi('PendingInvitation')
+export const pendingInvitationSchema = Schema.Struct({
+  id: Schema.String.annotate({
+    description:
+      'Opaque invitation identifier (`verification.id`, a uuid). The path segment the resend and revoke routes resolve by. NOT the invitation token: holding this id confers nothing outside the admin gate, and it can never be exchanged for an accepted account.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  email: Schema.String.annotate({
+    description:
+      'E-mail address the invitation was issued to (`auth.user.email`, joined on the invitee user id). The list’s primary column.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  role: Schema.String.annotate({
+    description:
+      'Role the invited account currently holds (`auth.user.role`), and therefore the role it will carry on acceptance. Read live from the user row rather than copied onto the invitation, so an operator who changes the role before acceptance sees the change reflected here. Always a member of this app’s assignable role vocabulary — `invite-user` refuses anything else before minting a token.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  invitedBy: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'Current e-mail of the operator who issued the invitation, resolved from the stored inviter user id by joining `auth.user`. `null` when the inviter was not recorded — the case for invitations issued before inviter capture existed, whose `verification.value` holds a bare user id rather than the JSON envelope. `null` means "not recorded", never "invited by nobody".',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  status: pendingInvitationStatusSchema,
+  expiresAt: looseIsoDateTime({
+    description:
+      'ISO 8601 UTC timestamp at which the invitation link stops working (`verification.expires_at`). Governed by `auth.invitationTokenExpiry` (default 72h). A timestamp in the past is exactly the condition that makes `status` `expired`.',
+  }),
+  createdAt: looseIsoDateTime({
+    description:
+      'ISO 8601 UTC timestamp the invitation was issued (`verification.created_at`). Lets the operator see how long an invitation has been outstanding.',
+  }),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'PendingInvitation' })
 
 // ─── List Response ───────────────────────────────────────────────────────────
 
@@ -254,16 +240,16 @@ export const pendingInvitationSchema = z
  * An app with nothing outstanding returns `items: []` — the console's calm empty
  * state, and a meaningfully different answer from a 404.
  */
-export const adminInvitationsListResponseSchema = z
-  .object({
-    items: z
-      .array(pendingInvitationSchema)
-      .describe(
-        'Every OUTSTANDING invitation — both `pending` and `expired`. Accepted and revoked invitations are absent, their rows having been consumed or deleted.'
-      ),
-  })
-  .strict()
-  .openapi('AdminInvitationsListResponse')
+export const adminInvitationsListResponseSchema = Schema.Struct({
+  items: Schema.Array(pendingInvitationSchema).annotate({
+    description:
+      'Every OUTSTANDING invitation — both `pending` and `expired`. Accepted and revoked invitations are absent, their rows having been consumed or deleted.',
+  }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'AdminInvitationsListResponse',
+})
 
 // ─── Resend Response ─────────────────────────────────────────────────────────
 
@@ -295,14 +281,16 @@ export const adminInvitationsListResponseSchema = z
  * that seam. Either way the invariant the operator depends on holds: exactly one
  * live invitation per address, and the link most recently e-mailed works.
  */
-export const adminInvitationResendResponseSchema = z
-  .object({
-    invitation: pendingInvitationSchema.describe(
-      'The invitation in its post-resend state — same `id`, refreshed `expiresAt`, `status` back to `pending`. Carries no token, by the same rule that keeps it out of the list.'
-    ),
-  })
-  .strict()
-  .openapi('AdminInvitationResendResponse')
+export const adminInvitationResendResponseSchema = Schema.Struct({
+  invitation: pendingInvitationSchema.annotate({
+    description:
+      'The invitation in its post-resend state — same `id`, refreshed `expiresAt`, `status` back to `pending`. Carries no token, by the same rule that keeps it out of the list.',
+  }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'AdminInvitationResendResponse',
+})
 
 // ─── Revoke Response ─────────────────────────────────────────────────────────
 
@@ -324,28 +312,27 @@ export const adminInvitationResendResponseSchema = z
  * an HTTP failure (404 for an id that does not exist or that this caller may not
  * see), never a 200 carrying `revoked: false`.
  */
-export const adminInvitationRevokeResponseSchema = z
-  .object({
-    id: z
-      .string()
-      .min(1)
-      .describe('The invitation id that was revoked — echoes the `:id` path segment.'),
-    revoked: z
-      .literal(true)
-      .describe(
-        'Always `true`. Revocation failure is signalled by HTTP status (404 — never 403, per S1 anti-enumeration), never by a `false` here.'
-      ),
-  })
-  .strict()
-  .openapi('AdminInvitationRevokeResponse')
+export const adminInvitationRevokeResponseSchema = Schema.Struct({
+  id: Schema.String.annotate({
+    description: 'The invitation id that was revoked — echoes the `:id` path segment.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  revoked: Schema.Literal(true).annotate({
+    description:
+      'Always `true`. Revocation failure is signalled by HTTP status (404 — never 403, per S1 anti-enumeration), never by a `false` here.',
+  }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'AdminInvitationRevokeResponse',
+})
 
 // ─── Inferred types ──────────────────────────────────────────────────────────
 
 /** @public */
-export type PendingInvitation = z.infer<typeof pendingInvitationSchema>
+export type PendingInvitation = typeof pendingInvitationSchema.Type
 /** @public */
-export type AdminInvitationsListResponse = z.infer<typeof adminInvitationsListResponseSchema>
+export type AdminInvitationsListResponse = typeof adminInvitationsListResponseSchema.Type
 /** @public */
-export type AdminInvitationResendResponse = z.infer<typeof adminInvitationResendResponseSchema>
+export type AdminInvitationResendResponse = typeof adminInvitationResendResponseSchema.Type
 /** @public */
-export type AdminInvitationRevokeResponse = z.infer<typeof adminInvitationRevokeResponseSchema>
+export type AdminInvitationRevokeResponse = typeof adminInvitationRevokeResponseSchema.Type

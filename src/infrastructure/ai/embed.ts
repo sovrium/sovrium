@@ -9,6 +9,8 @@
 
 import { Effect } from 'effect'
 import { AiProviderError } from '@/application/ports/services/ai-service'
+import { egressRetrySchedule, isRetryableHttpStatus } from '@/infrastructure/egress/egress-retry'
+import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import type { AiError, EmbedInput, EmbedReply } from '@/application/ports/services/ai-service'
 
 /**
@@ -56,44 +58,82 @@ const mapEmbedError = (cause: unknown): AiError => {
 }
 
 /**
+ * Deadline for one embedding request (standing rule E6).
+ *
+ * Embedding is the cheapest LLM call there is — one forward pass, no token
+ * generation — so a healthy provider answers in well under a second and a
+ * CPU-only Ollama on a busy box in a few. 30 s is far above either and still
+ * far below "never", which is what an unbounded `fetch` against a peer that
+ * accepts the connection and stops talking actually means.
+ *
+ * `withFetchTimeout` ABORTS the request rather than merely abandoning the
+ * fiber, and its timer is cleared once the response headers arrive — so this
+ * bounds time-to-first-byte, not the body read. For an embedding response
+ * (a few KB of JSON, sent in one go) the two are the same thing.
+ */
+const EMBED_REQUEST_TIMEOUT_MS = 30_000
+
+/**
+ * Retry policy for embeddings.
+ *
+ * Safe because an embedding is idempotent in the strict sense: the request
+ * carries no identifier, creates nothing on the provider, and the same input
+ * yields the same vector. The `while` predicate keeps a malformed request
+ * (400 — wrong model name, oversized input) from being sent three times; only
+ * a transient condition earns a second attempt.
+ */
+const retryTransientEmbed = <A>(effect: Effect.Effect<A, AiError>): Effect.Effect<A, AiError> =>
+  Effect.retry(effect, {
+    schedule: egressRetrySchedule(),
+    while: (error: AiError) =>
+      error._tag === 'AiProviderError' && isRetryableHttpStatus(error.statusCode),
+  })
+
+/**
  * Generate an embedding via an OpenAI-compatible `/embeddings` endpoint.
  */
 export const embedOpenAi = (
   conn: EmbedConn,
   input: EmbedInput
 ): Effect.Effect<EmbedReply, AiError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const model = input.model ?? conn.model
-      const response = await fetch(`${conn.baseUrl.replace(/\/+$/, '')}/embeddings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(conn.apiKey !== undefined ? { Authorization: `Bearer ${conn.apiKey}` } : {}),
-        },
-        body: JSON.stringify({ model, input: input.text }),
-      })
-      if (!response.ok) {
-        const body = await response.text().catch(() => '')
-        // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
-        throw new AiProviderError({
-          statusCode: response.status,
-          message: `AI provider returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
-        })
-      }
-      const payload = (await response.json()) as OpenAiEmbeddingPayload
-      const embedding = payload.data?.[0]?.embedding
-      if (embedding === undefined) {
-        // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
-        throw new AiProviderError({
-          statusCode: 502,
-          message: 'AI provider returned a malformed embedding response',
-        })
-      }
-      return { embedding, model: payload.model ?? model } satisfies EmbedReply
-    },
-    catch: mapEmbedError,
-  })
+  retryTransientEmbed(
+    Effect.tryPromise({
+      try: async () => {
+        const model = input.model ?? conn.model
+        const response = await withFetchTimeout(
+          `${conn.baseUrl.replace(/\/+$/, '')}/embeddings`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(conn.apiKey !== undefined ? { Authorization: `Bearer ${conn.apiKey}` } : {}),
+            },
+            body: JSON.stringify({ model, input: input.text }),
+          },
+          EMBED_REQUEST_TIMEOUT_MS
+        )
+        if (!response.ok) {
+          const body = await response.text().catch(() => '')
+          // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
+          throw new AiProviderError({
+            statusCode: response.status,
+            message: `AI provider returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
+          })
+        }
+        const payload = (await response.json()) as OpenAiEmbeddingPayload
+        const embedding = payload.data?.[0]?.embedding
+        if (embedding === undefined) {
+          // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
+          throw new AiProviderError({
+            statusCode: 502,
+            message: 'AI provider returned a malformed embedding response',
+          })
+        }
+        return { embedding, model: payload.model ?? model } satisfies EmbedReply
+      },
+      catch: mapEmbedError,
+    })
+  )
 
 /**
  * Generate an embedding via Ollama's native `/api/embeddings` endpoint.
@@ -102,34 +142,40 @@ export const embedOllama = (
   conn: EmbedConn,
   input: EmbedInput
 ): Effect.Effect<EmbedReply, AiError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const model = input.model ?? conn.model
-      const response = await fetch(`${conn.baseUrl.replace(/\/+$/, '')}/api/embeddings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(conn.apiKey !== undefined ? { Authorization: `Bearer ${conn.apiKey}` } : {}),
-        },
-        body: JSON.stringify({ model, prompt: input.text }),
-      })
-      if (!response.ok) {
-        const body = await response.text().catch(() => '')
-        // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
-        throw new AiProviderError({
-          statusCode: response.status,
-          message: `AI provider returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
-        })
-      }
-      const payload = (await response.json()) as OllamaEmbeddingPayload
-      if (payload.embedding === undefined) {
-        // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
-        throw new AiProviderError({
-          statusCode: 502,
-          message: 'AI provider returned a malformed embedding response',
-        })
-      }
-      return { embedding: payload.embedding, model } satisfies EmbedReply
-    },
-    catch: mapEmbedError,
-  })
+  retryTransientEmbed(
+    Effect.tryPromise({
+      try: async () => {
+        const model = input.model ?? conn.model
+        const response = await withFetchTimeout(
+          `${conn.baseUrl.replace(/\/+$/, '')}/api/embeddings`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(conn.apiKey !== undefined ? { Authorization: `Bearer ${conn.apiKey}` } : {}),
+            },
+            body: JSON.stringify({ model, prompt: input.text }),
+          },
+          EMBED_REQUEST_TIMEOUT_MS
+        )
+        if (!response.ok) {
+          const body = await response.text().catch(() => '')
+          // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
+          throw new AiProviderError({
+            statusCode: response.status,
+            message: `AI provider returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
+          })
+        }
+        const payload = (await response.json()) as OllamaEmbeddingPayload
+        if (payload.embedding === undefined) {
+          // eslint-disable-next-line functional/no-throw-statements -- Effect.tryPromise.catch maps thrown values to tagged errors
+          throw new AiProviderError({
+            statusCode: 502,
+            message: 'AI provider returned a malformed embedding response',
+          })
+        }
+        return { embedding: payload.embedding, model } satisfies EmbedReply
+      },
+      catch: mapEmbedError,
+    })
+  )

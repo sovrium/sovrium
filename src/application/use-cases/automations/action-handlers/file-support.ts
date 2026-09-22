@@ -9,11 +9,13 @@ import { parse } from 'csv-parse/sync'
 import { Data, Effect } from 'effect'
 import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { sweepAgedTempFiles } from '@/application/use-cases/storage/sweep-temp-storage'
+import { FILE_SOURCE_FETCH_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
 import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
 import {
   validateOutboundUrl,
   type OutboundUrlReason,
-} from '@/infrastructure/utils/validate-outbound-url'
+} from '@/infrastructure/egress/validate-outbound-url'
+import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 
 /**
  * Shared helpers for the `file:*` action handlers — MIME inference,
@@ -84,7 +86,7 @@ export const uploadArtifact = (
       yield* sweepAgedTempFiles(storage, { preserve: key })
     }
     return true
-  })
+  }).pipe(Effect.withSpan('automations.upload-artifact'))
 
 // ---------------------------------------------------------------------------
 // Source resolution: data: URI | http(s) URL | storage key
@@ -126,10 +128,18 @@ const parseDataUri = (source: string): ResolvedSource | undefined => {
  * surfaces a generic `error` outcome), so the promise never rejects. SSRF
  * blocks are NOT handled here — they short-circuit in `fetchSource` with a
  * tagged `OutboundUrlBlockedError` so they can never degrade to empty bytes.
+ *
+ * The call is bounded by `FILE_SOURCE_FETCH_TIMEOUT_MS`. It was a bare
+ * `fetch`, which is unbounded: a permitted-but-unresponsive host could hold
+ * this automation run's fiber open forever, and the SSRF guard cannot help
+ * because the target is legitimate. The abort surfaces as a rejection, which
+ * the existing `catch` already maps onto the same empty result as any other
+ * network failure — so the timeout changes how long a stuck run waits, not
+ * what a failed one returns.
  */
 const fetchRemote = async (source: string): Promise<ResolvedSource> => {
   try {
-    const response = await fetch(source)
+    const response = await withFetchTimeout(source, {}, FILE_SOURCE_FETCH_TIMEOUT_MS)
     if (!response.ok) return { bytes: new Uint8Array(0) }
     const buf = await response.arrayBuffer()
     const headerMime = response.headers.get('content-type')?.split(';')[0]?.trim()
@@ -156,6 +166,7 @@ const fetchSource = (
   if (!validation.ok) {
     return Effect.fail(new OutboundUrlBlockedError({ reason: validation.issue.reason }))
   }
+  // effect-promise: total -- `fetchRemote` wraps its `fetch` in a try/catch returning zero bytes, and a non-2xx returns zero bytes too. The SSRF refusal above IS the typed failure this function reports; a network miss is deliberately not one.
   return Effect.promise(() => fetchRemote(source))
 }
 
@@ -175,14 +186,18 @@ export const resolveSource = (
 ): Effect.Effect<ResolvedSource, OutboundUrlBlockedError, StorageService> => {
   const dataUri = parseDataUri(source)
   if (dataUri) return Effect.succeed(dataUri)
-  if (/^https?:\/\//.test(source)) return fetchSource(source)
+  // The inline data URI is parsed above and opens no span — there is no
+  // resource to wait on. The two that fetch bytes do.
+  if (/^https?:\/\//.test(source)) {
+    return fetchSource(source).pipe(Effect.withSpan('automations.resolve-source'))
+  }
   return Effect.gen(function* () {
     const storage = yield* StorageService
     const downloaded = yield* Effect.result(storage.download(source, UNATTRIBUTED_BUCKET))
     return downloaded._tag === 'Failure'
       ? { bytes: new Uint8Array(0) }
       : { bytes: downloaded.success }
-  })
+  }).pipe(Effect.withSpan('automations.resolve-source'))
 }
 
 // ---------------------------------------------------------------------------

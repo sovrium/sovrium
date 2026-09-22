@@ -20,6 +20,7 @@
 import { Effect, Layer } from 'effect'
 import { AiService } from '@/application/ports/services/ai-service'
 import { AiEmbeddingRepositoryActive } from '@/infrastructure/layers/ai-embedding-repository-layer'
+import { logError } from '@/infrastructure/logging/logger'
 import { AiLive } from './layer'
 import type {
   AiEmbeddingRepository,
@@ -35,6 +36,31 @@ export const RagSyncLayer: Layer.Layer<AiService | AiEmbeddingRepository> = Laye
   AiLive,
   AiEmbeddingRepositoryActive
 )
+
+/**
+ * Discard the failure of a best-effort embedding write, after logging its cause.
+ *
+ * Every `AiEmbeddingRepository` write in the two sync runners is non-fatal by
+ * design — RAG indexing must never block a server boot or a record write. What
+ * was never intended is that it be *invisible*: six `.pipe(Effect.ignore)`
+ * sites meant a dead database and an empty knowledge base produced the same
+ * output, and the same exit code, as a successful sync.
+ *
+ * The tap sits INSIDE this helper's own pipe, ahead of the `ignore`, which is
+ * both the correct order (a tap after the swallow observes nothing) and the one
+ * `sovrium/no-effect-swallow-without-log` can verify.
+ */
+export const swallowLogged =
+  (label: string, attributes: Readonly<Record<string, string>> = {}) =>
+  <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effect<void, never, R> =>
+    program.pipe(
+      Effect.tapCause((cause) =>
+        Effect.sync(() => {
+          logError(`[ai-rag] ${label}`, cause, attributes)
+        })
+      ),
+      Effect.ignore
+    )
 
 /** A pending chunk carries the text to embed under a `content` field. */
 export interface TextChunk {
@@ -58,6 +84,16 @@ export const embedChunksToRows = <Chunk extends TextChunk>(
     const maybeRows = yield* Effect.forEach(chunks, (chunk) =>
       ai.embed({ text: chunk.content }).pipe(
         Effect.map((reply): NewEmbedding | undefined => toRow(chunk, reply.embedding)),
+        // Dropping the chunk is right; dropping it silently is not. An
+        // unreachable provider fails EVERY chunk, and without this the sync
+        // reports "0 chunks" as though the source were empty.
+        Effect.tapCause((cause) =>
+          Effect.sync(() => {
+            logError('[ai-rag] chunk not embedded', cause, {
+              chars: String(chunk.content.length),
+            })
+          })
+        ),
         // A per-chunk provider failure is skipped (never fatal): recover with
         // the `void`/`undefined` outcome so the failed chunk drops out of the
         // `filter` below — one bad chunk never aborts a whole sync.

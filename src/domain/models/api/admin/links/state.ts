@@ -31,7 +31,7 @@
  * Source story: [internal ref]
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
 
 /**
  * Response for a successful enable or disable.
@@ -40,24 +40,27 @@ import { z } from '@hono/zod-openapi'
  * repaint from the response instead of guessing what it should now be. Guessing
  * is how a UI ends up showing "Disabled" for a link the resolver still serves.
  */
-export const linkStateChangeResponseSchema = z
-  .object({
-    slug: z.string().describe('The link whose state changed.'),
-    state: z
-      .enum(['active', 'disabled', 'scheduled', 'expired', 'exhausted', 'archived'])
-      .describe(
-        'The state AFTER the change, computed by the resolver — not an echo of what was requested. A link enabled while still outside its window reports `scheduled`, not `active`.'
-      ),
-    changed: z
-      .boolean()
-      .describe(
-        'False when the call was a no-op because the link was already in that state. Lets the console skip a redundant toast without treating idempotency as failure.'
-      ),
-  })
-  .openapi('LinkStateChangeResponse')
+export const linkStateChangeResponseSchema = Schema.Struct({
+  slug: Schema.String.annotate({ description: 'The link whose state changed.' }),
+  state: Schema.Literals([
+    'active',
+    'disabled',
+    'scheduled',
+    'expired',
+    'exhausted',
+    'archived',
+  ]).annotate({
+    description:
+      'The state AFTER the change, computed by the resolver — not an echo of what was requested. A link enabled while still outside its window reports `scheduled`, not `active`.',
+  }),
+  changed: Schema.Boolean.annotate({
+    description:
+      'False when the call was a no-op because the link was already in that state. Lets the console skip a redundant toast without treating idempotency as failure.',
+  }),
+}).annotate({ identifier: 'LinkStateChangeResponse' })
 
 /**
  * TypeScript type for a state-change response
  * @public
  */
-export type LinkStateChangeResponse = z.infer<typeof linkStateChangeResponseSchema>
+export type LinkStateChangeResponse = typeof linkStateChangeResponseSchema.Type

@@ -5,4 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+export * from './component-types'
 export * from './design-system'
+export * from './facets'
+export * from './field-types'

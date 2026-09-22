@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { cn } from '@/presentation/utils/design/class-merge'
+import { cn } from '@/presentation/design/class-merge'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { computeTableSaveIndicatorClasses } from '@/presentation/design/table-default-classes'
 import type { SaveStatus } from '../hooks/use-inline-editing'
 import type { ReactElement } from 'react'
 
@@ -22,20 +24,6 @@ function statusLabel(status: SaveStatus): string {
       return 'Saved'
     case 'error':
       return 'Error saving'
-    case 'idle':
-      return ''
-  }
-}
-
-/** Tailwind text-color class for each non-idle save status. */
-function statusColorClass(status: SaveStatus): string {
-  switch (status) {
-    case 'saving':
-      return 'text-foreground-muted'
-    case 'saved':
-      return 'text-success-fg'
-    case 'error':
-      return 'text-error-fg'
     case 'idle':
       return ''
   }
@@ -66,11 +54,11 @@ export function SaveStatusIndicator({
       role="status"
       data-save-indicator
       data-save-status={status}
-      className={cn(
-        'inline-flex items-center text-xs font-medium',
-        statusColorClass(status),
-        className
-      )}
+      // Quiet grey on every outcome but a FAILURE. `saved` used to arrive in
+      // the success tone, which put a green word on the toolbar for the most
+      // routine event in the grid — someone editing a cell — and spent the one
+      // signal that should mean "look at this" on the one that does not.
+      className={resolveClasses(cn(computeTableSaveIndicatorClasses({ status })), className)}
     >
       {statusLabel(status)}
     </span>

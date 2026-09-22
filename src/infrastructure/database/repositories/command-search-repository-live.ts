@@ -12,7 +12,7 @@ import {
   CommandSearchDatabaseError,
   type TableSearchMatch,
 } from '@/application/ports/repositories/command-search-repository'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { userFavorites as userFavoritesPg } from '@/infrastructure/database/drizzle/schema/favorites'
@@ -215,5 +215,8 @@ export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository
         }))
       },
       catch: (error) => new CommandSearchDatabaseError({ cause: error }),
-    }).pipe(Effect.orElseSucceed((): readonly TableSearchMatch[] => [])),
+    }).pipe(
+      // effect-swallow: one table out of many, in a command palette that merges every source it can read. No matches from an unreadable table is the same answer a reader with no access to it gets, and it must not blank the whole palette.
+      Effect.orElseSucceed((): readonly TableSearchMatch[] => [])
+    ),
 })

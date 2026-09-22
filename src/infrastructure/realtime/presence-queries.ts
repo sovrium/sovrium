@@ -14,7 +14,7 @@
  */
 
 import { eq } from 'drizzle-orm'
-import { isIssuedAvatarUrl } from '@/domain/utils/avatar-url'
+import { isIssuedAvatarUrl } from '@/domain/models/app/auth/avatar-url'
 import { db } from '@/infrastructure/database/drizzle'
 import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
 

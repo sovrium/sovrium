@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { DEFAULT_SUMMARY_CAP } from '@/domain/services/ai-compute/baseline'
-import { sanitizeTableName } from '../table-queries/shared/field-utils'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import { DEFAULT_SUMMARY_CAP } from '@/domain/models/app/tables/ai-compute-baseline'
 import {
   buildAiComputeTriggerStatements,
   buildSourceChangedExpr,

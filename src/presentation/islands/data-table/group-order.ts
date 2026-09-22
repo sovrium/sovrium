@@ -5,9 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { optionValue, type SelectOptionLike } from '@/domain/utils/select-option'
-import type { TableRecord } from '../shared/types'
-import type { Row } from '@tanstack/react-table'
+import { optionValue, type SelectOptionLike } from '@/domain/models/app/tables/select-option'
+import type { DataTableRow } from './island/table-features'
 
 /** One grouping level, resolved: the field it partitions on and how it reads. */
 export interface GroupLevel {
@@ -38,7 +37,7 @@ export interface GroupNode {
   /** 1 for the primary level, 2 and 3 for the nested ones. */
   readonly level: number
   readonly children: readonly GroupNode[]
-  readonly dataRows: readonly Row<TableRecord>[]
+  readonly dataRows: readonly DataTableRow[]
   /** Rows of the LOADED PAGE in this group, at any depth beneath it. */
   readonly pageRowCount: number
 }
@@ -56,7 +55,7 @@ export function groupPathKey(path: readonly string[]): string {
 }
 
 /** The value one row carries at one grouping level, stringified as the server does. */
-function rowValueAt(row: Row<TableRecord>, field: string): string {
+function rowValueAt(row: DataTableRow, field: string): string {
   const raw = (row.original as Record<string, unknown>)[field]
   return raw === null || raw === undefined ? '' : String(raw)
 }
@@ -124,7 +123,7 @@ function orderGroupValues(
 }
 
 /** Distinct values at one level, in the order the rows first present them. */
-function distinctValues(rows: readonly Row<TableRecord>[], field: string): readonly string[] {
+function distinctValues(rows: readonly DataTableRow[], field: string): readonly string[] {
   return rows.reduce<readonly string[]>((acc, row) => {
     const value = rowValueAt(row, field)
     return acc.includes(value) ? acc : [...acc, value]
@@ -146,7 +145,7 @@ function distinctValues(rows: readonly Row<TableRecord>[], field: string): reado
  * come from the server's whole-view partition, so they stay put across paging.
  */
 export function buildGroupTree(
-  rows: readonly Row<TableRecord>[],
+  rows: readonly DataTableRow[],
   levels: readonly GroupLevel[],
   parentPath: readonly string[] = []
 ): readonly GroupNode[] {

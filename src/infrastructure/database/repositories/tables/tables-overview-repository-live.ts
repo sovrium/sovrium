@@ -60,7 +60,7 @@ import {
   TablesOverviewRepository,
   type TableAggregateRow,
 } from '@/application/ports/repositories/tables/tables-overview-repository'
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
 

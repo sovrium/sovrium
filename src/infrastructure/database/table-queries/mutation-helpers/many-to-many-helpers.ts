@@ -13,8 +13,8 @@ import {
   generateJunctionTableName,
   toSingular,
 } from '@/infrastructure/database/sql/sql-junction-tables'
-import { wrapDatabaseError } from '../shared/error-handling'
-import { validateTableName } from '../shared/validation'
+import { wrapDatabaseError } from '../statement/error-handling'
+import { validateTableName } from '../statement/validation'
 
 /**
  * [internal ref]: writing and reading a native `many-to-many` relationship field.
@@ -34,7 +34,7 @@ import { validateTableName } from '../shared/validation'
  * Unlike the batch helpers (whose fan-outs ride a transaction's single reserved
  * connection), this one runs on the SHARED connection pool — `readFieldRows`
  * executes against the `db` facade, not a `tx`. And it sits on the record-LIST
- * hot path (`application/use-cases/tables/programs.ts` →
+ * hot path (`application/use-cases/tables/record-link-enrichment.ts` →
  * `enrichRecordsWithManyToMany`), so several requests fan out at once.
  *
  * The width is config-bounded (one query per many-to-many FIELD on the table;

@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { FontWeightSchema } from '../theme/fonts'
+import { FontsConfigSchema, FontWeightSchema } from './fonts'
 
 /**
  * The app's type scale — the ordered ladder of named text roles, and the ONE
@@ -16,28 +16,21 @@ import { FontWeightSchema } from '../theme/fonts'
  *
  * A brand charter's type section is a ladder: display, then the heading levels,
  * then body, then the small print — each step a bound triple of size, leading
- * and weight. Sovrium had no way to say that. `theme.fonts` is keyed by FACE
- * (`body`, `title`, `mono`) and carries at most ONE size per face, so the
- * question a charter answers — "how big is an h2, and what leading does it
- * take?" — was not expressible at all.
+ * and weight. `families` is keyed by FACE (`body`, `title`, `mono`) and carries
+ * at most ONE size per face, so the question a charter answers — "how big is an
+ * h2, and what leading does it take?" — is not expressible there at all.
  *
- * Worse, the three fields that LOOKED like they answered it are inert
- *, and this key is their replacement:
+ * Worse, the three face fields that LOOK like they answer it are inert
+ *, and `steps` is their replacement:
  *
- * - **`theme.fonts.*.size`** reaches only the legacy `hero` section renderer as
- *   an inline `fontSize`. It becomes no CSS variable.
- * - **`theme.fonts.*.lineHeight`** reaches nothing whatsoever.
- * - **`theme.fonts.*.weights`** is read as `weights[0]` by that same legacy
- *   renderer and loads no `@font-face`, so the extra entries render as
- *   synthetic bolding or not at all.
+ * - **a face's `size`** becomes no CSS variable.
+ * - **a face's `lineHeight`** reaches nothing whatsoever.
+ * - **a face's `weights`** loads no `@font-face`, so the extra entries render
+ *   as synthetic bolding or not at all.
  *
- * `design.typeScale` emits real CSS custom properties for every declared step
- * (see `generateThemeTypeScale`), which is what makes it a supersession rather
- * than a fourth spelling of the same silence. The three inert fields keep
- * decoding — they are shipped public contract and refusing them would break
- * booting apps in exchange for zero rendering change — but the author is now
- * told, at the decode boundary, that this key is where the value takes effect.
- * See `collectDesignDeprecationNotices`.
+ * `steps` emits real CSS custom properties for every declared rung (see
+ * `generateThemeTypeScale`), which is what makes it a supersession rather than
+ * a fourth spelling of the same silence.
  *
  * ## Why a Struct with named steps, and NOT a Record
  *
@@ -55,7 +48,7 @@ import { FontWeightSchema } from '../theme/fonts'
  *
  * ## Why the step set is closed
  *
- * An open record is what `theme.colors` is, and `design.colorRoles` exists
+ * An open record is what `design.colors` is, and `design.colorRoles` exists
  * precisely because an open record carries no semantics. Two things a closed
  * set buys that an open one cannot:
  *
@@ -71,10 +64,10 @@ import { FontWeightSchema } from '../theme/fonts'
  * Each constraint below tracks the W3C DTCG type it serialises to, because the
  * design-system export publishes these as a `typography` composite token and a
  * value the export cannot carry faithfully is a value the charter cannot
- * publish. That is a deliberate tightening relative to `theme.spacing`, whose
- * unrestricted CSS strings are the reason an `unmappable` bucket had to exist
- * at all. Repeating that in a new field, on purpose, with the chance to close
- * it, would be the wrong trade.
+ * publish. That is a deliberate tightening relative to a free CSS string, whose
+ * unrestricted values are the reason an `unmappable` bucket had to exist at
+ * all. Repeating that in a new field, on purpose, with the chance to close it,
+ * would be the wrong trade.
  *
  * @see https://www.designtokens.org/tr/drafts/format/ (§ Typography composite type)
  */
@@ -137,7 +130,7 @@ export const TypeScaleStepSchema = Schema.Struct({
    * the better practice independently: a ratio survives a size change, whereas
    * a fixed `48px` leading silently becomes wrong the moment the step is
    * retuned. This is the one member whose type differs from its inert
-   * predecessor `theme.fonts.*.lineHeight`, which was a free string.
+   * predecessor on the FACE, which was a free string.
    */
   lineHeight: Schema.optional(
     Schema.Finite.pipe(
@@ -153,7 +146,7 @@ export const TypeScaleStepSchema = Schema.Struct({
   ),
 
   /**
-   * Weight, reusing the theme's own 100–900 ladder rather than restating it.
+   * Weight, reusing the faces' own 100–900 ladder rather than restating it.
    *
    * A hand-copied duplicate of that literal set would be a second definition to
    * keep in sync, which is the exact drift the whole `design` key exists to
@@ -193,7 +186,7 @@ export const TypeScaleStepSchema = Schema.Struct({
 
   /**
    * Which declared font FACE this step is set in — a key of
-   * `design.theme.fonts`, not a family name.
+   * `design.typeScale.families`, not a family name.
    *
    * A NAME rather than a value, for the same reason `colorRoles.pairsWith` is:
    * the binding is what carries the intent. A step reading `font: 'title'`
@@ -212,7 +205,7 @@ export const TypeScaleStepSchema = Schema.Struct({
       ),
       Schema.annotate({
         title: 'Font Category',
-        description: 'Name of a face declared in `design.theme.fonts`',
+        description: 'Name of a face declared in `design.typeScale.families`',
         examples: ['title', 'body'],
       })
     )
@@ -229,18 +222,8 @@ export const TypeScaleStepSchema = Schema.Struct({
   })
 )
 
-/**
- * The type scale: an ordered ladder of named text roles.
- *
- * Every step is optional — an app declaring only `h1` and `body` has a real,
- * if short, scale, and requiring the full ladder would make the key unusable
- * for the incremental adoption it is meant to invite.
- *
- * The declaration ORDER below is the canonical rendering order, largest to
- * smallest. It is the reason this is a Struct and not a Record: a surface
- * rendering the ladder reads it from here rather than inventing a sort.
- */
-export const TypeScaleSchema = Schema.Struct({
+/** The twelve named rungs, in canonical order. Extracted so both shapes share one definition. */
+const TYPE_SCALE_STEP_FIELDS = {
   /** The one-off page-opening size, above `h1`. */
   display: Schema.optional(TypeScaleStepSchema),
   /** Page title. One per page. */
@@ -265,17 +248,96 @@ export const TypeScaleSchema = Schema.Struct({
   caption: Schema.optional(TypeScaleStepSchema),
   /** The small tracked-out eyebrow above a heading. */
   overline: Schema.optional(TypeScaleStepSchema),
+} as const
+
+/**
+ * The type ladder: an ordered set of named text roles.
+ *
+ * Every step is optional — an app declaring only `h1` and `body` has a real,
+ * if short, scale, and requiring the full ladder would make the key unusable
+ * for the incremental adoption it is meant to invite.
+ *
+ * The declaration ORDER above is the canonical rendering order, largest to
+ * smallest. It is the reason this is a Struct and not a Record: a surface
+ * rendering the ladder reads it from here rather than inventing a sort.
+ */
+export const TypeScaleStepsSchema = Schema.Struct(TYPE_SCALE_STEP_FIELDS).pipe(
+  Schema.annotate({
+    identifier: 'TypeScaleSteps',
+    title: 'Type Scale Steps',
+    description:
+      "The app's ordered type ladder. Each declared step emits CSS custom properties (`--text-{step}` and its `--line-height` / `--font-weight` / `--letter-spacing` modifiers).",
+    examples: [
+      {
+        h1: { size: '3rem', lineHeight: 1.1, weight: 700, letterSpacing: '-0.02em' },
+        body: { size: '1rem', lineHeight: 1.6 },
+      },
+    ],
+  })
+)
+
+/**
+ * The TYPE foundation: the faces the app is set in, and the ladder of steps.
+ *
+ * ## Why the key grew two members
+ *
+ * Typography used to be declared in three places: one key held the FACES,
+ * another held the STEPS, and a third held four loose ladders — `fontSizes`,
+ * `fontWeights`, `lineHeights`, `letterSpacings` — of the same four quantities
+ * a step already binds together. Choosing an h2 meant touching two keys and
+ * hoping a third did not disagree.
+ *
+ * `typeScale` is now the one key for type: `families` names the faces,
+ * `steps` binds size, leading, weight, tracking and face into each rung. A
+ * charter's type section is exactly those two things and nothing else.
+ *
+ * ## There is exactly ONE position for a step
+ *
+ * A rung is declared at `typeScale.steps.<name>` and nowhere else. The flat
+ * form the key once shipped — `typeScale: { h1: … }` — is gone; a config
+ * still using it is refused by name, pointing at `steps`. A second position for
+ * the same value has no way to stay in agreement with the first, and the whole
+ * purpose of this key is that a type decision has one home.
+ *
+ * ## Why `families` re-mounts the faces record unchanged
+ *
+ * It inherits `size`, `lineHeight` and `weights` on each FACE, which [internal ref]
+ * records as superseded: none of them reaches the CSS variable layer, and the
+ * step is where those three quantities take effect. They are kept on the face
+ * because a face legitimately carries its own metrics for a renderer that has
+ * not been written yet, and deleting them in the same change-set that moves the
+ * key would make one migration two.
+ */
+export const TypeScaleSchema = Schema.Struct({
+  /**
+   * The faces the app is set in, keyed by category (`title`, `body`, `mono`).
+   *
+   * A step's `font` member names a key of this record.
+   */
+  families: Schema.optional(FontsConfigSchema),
+
+  /** The ordered ladder — the one position a rung is declared at. */
+  steps: Schema.optional(TypeScaleStepsSchema),
 }).pipe(
   Schema.annotate({
     identifier: 'TypeScale',
     title: 'Type Scale',
     description:
-      "The app's ordered type ladder. Each declared step emits CSS custom properties (`--text-{step}` and its `--line-height` / `--font-weight` / `--letter-spacing` modifiers), which is what makes this the working replacement for the inert `theme.fonts.*.size`, `.lineHeight` and `.weights`.",
+      "The app's type foundation: `families` (the faces) and `steps` (the ordered ladder).",
     examples: [
       {
-        h1: { size: '3rem', lineHeight: 1.1, weight: 700, letterSpacing: '-0.02em' },
-        body: { size: '1rem', lineHeight: 1.6 },
-        caption: { size: '0.8125rem', lineHeight: 1.4 },
+        families: { title: { family: 'Inter' }, body: { family: 'Inter' } },
+        steps: {
+          h1: {
+            size: '3rem',
+            lineHeight: 1.1,
+            weight: 700,
+            letterSpacing: '-0.02em',
+            font: 'title',
+          },
+          body: { size: '1rem', lineHeight: 1.6 },
+          caption: { size: '0.8125rem', lineHeight: 1.4 },
+        },
       },
     ],
   })
@@ -287,13 +349,19 @@ export const TypeScaleSchema = Schema.Struct({
  * Exported because three consumers need to iterate the scale in the same order
  * — the CSS generator, the DTCG projection and the markdown projection — and
  * three hand-written orderings would be three things to keep in sync. Derived
- * from the schema's own field order so it cannot drift from the Struct above.
+ * from the step Struct's own field order so it cannot drift from it, and
+ * deliberately NOT from `TypeScaleSchema.fields`, which holds `families` and
+ * `steps` rather than the rungs.
  */
-export const TYPE_SCALE_STEPS = Object.keys(TypeScaleSchema.fields) as readonly TypeScaleStepName[]
+export const TYPE_SCALE_STEPS = Object.keys(
+  TypeScaleStepsSchema.fields
+) as readonly TypeScaleStepName[]
 
 /** @public */
 export type TypeScaleStep = Schema.Schema.Type<typeof TypeScaleStepSchema>
 /** @public */
+export type TypeScaleSteps = Schema.Schema.Type<typeof TypeScaleStepsSchema>
+/** @public */
 export type TypeScale = Schema.Schema.Type<typeof TypeScaleSchema>
 /** @public */
-export type TypeScaleStepName = keyof TypeScale
+export type TypeScaleStepName = keyof TypeScaleSteps

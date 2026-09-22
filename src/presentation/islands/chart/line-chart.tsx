@@ -9,12 +9,24 @@ import { Group } from '@visx/group'
 import { ParentSize } from '@visx/responsive'
 import { scalePoint, scaleLinear } from '@visx/scale'
 import { LinePath } from '@visx/shape'
+import {
+  CHART_AXIS_STROKE,
+  CHART_LINE_STROKE_WIDTH,
+  CHART_POINT_FILL,
+  CHART_POINT_RADIUS,
+  CHART_POINT_STROKE_WIDTH,
+  CHART_TICK_FILL,
+  CHART_TICK_FONT_SIZE,
+  CHART_X_TICK_BASELINE_OFFSET,
+  computeChartBodyClasses,
+  computeChartShellClasses,
+} from '@/presentation/design/chart-default-classes'
 import { PRIMARY_SERIES_PAINT } from './chart-series-shared'
-import type { BarDatum } from './bar-chart'
+import type { CategoryDatum } from './chart-series-shared'
 import type { ReactElement } from 'react'
 
 interface LineChartProps {
-  readonly data: readonly BarDatum[]
+  readonly data: readonly CategoryDatum[]
   /** Operator-set `<svg role="img">` name; falls back to the "Line chart" default. */
   readonly accessibleName?: string
 }
@@ -53,22 +65,22 @@ function LineAxes({
         x2={0}
         y1={0}
         y2={innerHeight}
-        stroke="var(--color-border)"
+        stroke={CHART_AXIS_STROKE}
       />
       <line
         x1={0}
         x2={innerWidth}
         y1={innerHeight}
         y2={innerHeight}
-        stroke="var(--color-border)"
+        stroke={CHART_AXIS_STROKE}
       />
       {points.map((p) => (
         <text
           key={`x-label-${p.key}`}
           x={p.x}
-          y={innerHeight + 18}
-          fontSize={11}
-          fill="var(--color-foreground-muted)"
+          y={innerHeight + CHART_X_TICK_BASELINE_OFFSET}
+          fontSize={CHART_TICK_FONT_SIZE}
+          fill={CHART_TICK_FILL}
           textAnchor="middle"
         >
           {p.key}
@@ -85,7 +97,7 @@ function LineAxes({
  */
 /** Projects the aggregated series onto scaled SVG coordinates. */
 function plotPoints(
-  data: readonly BarDatum[],
+  data: readonly CategoryDatum[],
   innerWidth: number,
   innerHeight: number
 ): PlottedPoint[] {
@@ -129,7 +141,7 @@ function LineChartSvg({ width, height, data, accessibleName }: LineChartSvgProps
           x={accessX}
           y={accessY}
           stroke={PRIMARY_SERIES_PAINT}
-          strokeWidth={2}
+          strokeWidth={CHART_LINE_STROKE_WIDTH}
           fill="none"
         />
         {points.map((p) => (
@@ -137,8 +149,10 @@ function LineChartSvg({ width, height, data, accessibleName }: LineChartSvgProps
             key={`point-${p.key}`}
             cx={p.x}
             cy={p.y}
-            r={3}
-            fill={PRIMARY_SERIES_PAINT}
+            r={CHART_POINT_RADIUS}
+            fill={CHART_POINT_FILL}
+            stroke={PRIMARY_SERIES_PAINT}
+            strokeWidth={CHART_POINT_STROKE_WIDTH}
             data-point-key={p.key}
           />
         ))}
@@ -147,27 +161,33 @@ function LineChartSvg({ width, height, data, accessibleName }: LineChartSvgProps
   )
 }
 
-const CHART_CONTAINER_CLASSES = 'w-full h-80'
+// The chart card and its measured interior, from the one recipe — see the note
+// in `bar-chart.tsx` for why the height moved off the card and onto the body.
+// The card constant was also once a local one shadowing the shared recipe.
+const CHART_CANVAS_CLASSES = computeChartShellClasses()
+const CHART_CANVAS_BODY_CLASSES = computeChartBodyClasses()
 
 export function LineChartCanvas({ data, accessibleName }: LineChartProps): ReactElement {
   return (
     <div
       data-component="chart"
-      className={CHART_CONTAINER_CLASSES}
+      className={CHART_CANVAS_CLASSES}
     >
-      <ParentSize>
-        {({ width, height }) => {
-          if (width <= 0 || height <= 0) return undefined
-          return (
-            <LineChartSvg
-              width={width}
-              height={height}
-              data={data}
-              accessibleName={accessibleName}
-            />
-          )
-        }}
-      </ParentSize>
+      <div className={CHART_CANVAS_BODY_CLASSES}>
+        <ParentSize>
+          {({ width, height }) => {
+            if (width <= 0 || height <= 0) return undefined
+            return (
+              <LineChartSvg
+                width={width}
+                height={height}
+                data={data}
+                accessibleName={accessibleName}
+              />
+            )
+          }}
+        </ParentSize>
+      </div>
     </div>
   )
 }

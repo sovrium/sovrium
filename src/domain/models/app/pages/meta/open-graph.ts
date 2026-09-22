@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { HttpUrlOrRecordTemplateSchema } from '@/domain/types/url'
+import { HttpUrlOrRecordTemplateSchema } from '@/domain/kernel/url/url'
 
 // ============================================================================
 // Open Graph

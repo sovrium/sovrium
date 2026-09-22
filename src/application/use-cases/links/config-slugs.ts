@@ -43,7 +43,7 @@ export const ensureSlugNotConfigDeclared = (
 ): Effect.Effect<void, LinkMutationConflictError> =>
   configSlugs(app).has(slug)
     ? Effect.fail(new LinkMutationConflictError({ code: 'LINK_IS_CONFIG_DECLARED', slug }))
-    : Effect.void
+    : Effect.void.pipe(Effect.withSpan('links.ensure-slug-not-config-declared'))
 
 /**
  * Refuse a slug that may not be MINTED — reserved first, then config-declared.
@@ -59,4 +59,4 @@ export const ensureSlugMintable = (
 ): Effect.Effect<void, LinkMutationConflictError> =>
   RESERVED_LINK_SLUGS.has(slug)
     ? Effect.fail(new LinkMutationConflictError({ code: 'LINK_RESERVED_SLUG', slug }))
-    : ensureSlugNotConfigDeclared(app, slug)
+    : ensureSlugNotConfigDeclared(app, slug).pipe(Effect.withSpan('links.ensure-slug-mintable'))

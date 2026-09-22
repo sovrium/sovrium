@@ -7,8 +7,9 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { subscribe as subscribeIslandEvent } from '@/presentation/islands/_shared/event-bus'
-import { cn } from '@/presentation/utils/design/class-merge'
+import { cn } from '@/presentation/design/class-merge'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { subscribe as subscribeIslandEvent } from '@/presentation/islands/runtime/event-bus'
 import {
   computeDrawerHeaderClasses,
   computeDrawerPopupClasses,
@@ -187,10 +188,10 @@ function DrawerHeader({
   return (
     <div className={computeDrawerHeaderClasses()}>
       {title && (
-        <Dialog.Title className="text-foreground text-lg font-semibold">{title}</Dialog.Title>
+        <Dialog.Title className="text-foreground text-xl font-semibold">{title}</Dialog.Title>
       )}
       {description && (
-        <Dialog.Description className="text-foreground-muted mt-1 text-sm">
+        <Dialog.Description className="text-foreground-muted text-md mt-1">
           {description}
         </Dialog.Description>
       )}
@@ -336,10 +337,12 @@ export default function DrawerIsland({
       <Dialog.Portal>
         <Dialog.Backdrop className={computeOverlayBackdropClasses()} />
         <Dialog.Popup
-          className={cn(
-            computeDrawerPopupClasses({ side: drawerSide }),
-            SIDE_CLASSES[drawerSide],
-            sizeClass,
+          className={resolveClasses(
+            cn(
+              computeDrawerPopupClasses({ side: drawerSide }),
+              SIDE_CLASSES[drawerSide],
+              sizeClass
+            ),
             className
           )}
           style={sizeInlineStyle}

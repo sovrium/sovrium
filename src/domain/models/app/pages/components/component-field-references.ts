@@ -30,7 +30,7 @@
  *
  * One deliberate non-goal: it does NOT adjudicate the system namespace (`id`,
  * the timestamps, the authorship columns). Those exist without appearing in
- * `fields[]`; see `domain/models/shared/system-fields.ts`.
+ * `fields[]`; see `domain/models/app/tables/system-fields.ts`.
  *
  * IT DOES RUN AT DECODE TIME. This comment used to say the opposite — "a
  * pre-flight `sovrium validate` check, not a new way for a running app to refuse
@@ -43,8 +43,8 @@
  * options rather than the safe one.
  */
 
-import { findMatchingFieldName } from '@/domain/models/shared/field-name-matching'
-import { isSystemFieldName } from '@/domain/models/shared/system-fields'
+import { findMatchingFieldName } from '@/domain/models/app/tables/field-name-matching'
+import { isSystemFieldName } from '@/domain/models/app/tables/system-fields'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
@@ -72,17 +72,6 @@ export function collectComponentsOfType(
 ): readonly Record<string, unknown>[] {
   return collectComponents(config).filter((component) => component['type'] === type)
 }
-
-/**
- * The two type literals that share the byte-identical `formFields` definition.
- *
- * `data-form` is not an alias the decoder resolves away — it is a second
- * registered literal built from the same `formFields` object, and it is the one
- * the record-detail view emits. A registry keyed on `form` alone would exempt
- * every `data-form` in the codebase, reopening this exact gap on the surface
- * most likely to carry it, so both keys below point at this one list.
- */
-const FORM_FIELD_REFERENCE_PATHS = ['fields[].field', 'fieldGroups[].fields[]'] as const
 
 /**
  * The registry paths whose RENDERER resolves a field name leniently, and which
@@ -116,7 +105,7 @@ const LENIENTLY_RESOLVED_PATHS: ReadonlySet<string> = new Set(['fields[].field']
  * `[]` names an array of bare field-name strings (`fieldGroups[].fields[]`)
  * rather than of objects (`fields[].field`) — the same grammar covers both.
  *
- * `data-table` is deliberately ABSENT: its own richer validator
+ * `table` is deliberately ABSENT: its own richer validator
  * (`validateDataTableColumns`) already covers `columns[]`, `groupBy`, `summary`,
  * `dataSource.sort` and `dataSource.filter`, and duplicating it here would
  * report every data-table error twice. It is not exempt, though — see
@@ -127,6 +116,14 @@ const LENIENTLY_RESOLVED_PATHS: ReadonlySet<string> = new Set(['fields[].field']
  * component root — it is the one component type whose props builder does that
  * (`type-specific-props-builder.ts`), so its paths are `props.`-prefixed. Every
  * other type here binds at the root.
+ *
+ * `form` is ONE key covering both of the type's modes. It was two — `form` and
+ * `data-form` pointing at one shared array — because a registry keyed on `form`
+ * alone silently exempted every `data-form`, and `data-form` was the spelling
+ * the record-detail view emitted, so the gap sat on the surface most likely to
+ * carry it. C3 merged the two literals, which closes that by construction: a
+ * table-bound form and a static one are now the same `type` string, so there is
+ * no second key that could fall out of step with this one.
  *
  * Two categories are deliberately absent, each for a reason that is NOT "we
  * ran out of time":
@@ -141,23 +138,30 @@ const LENIENTLY_RESOLVED_PATHS: ReadonlySet<string> = new Set(['fields[].field']
  *    Registering it would validate a shape no author can write.
  *
  * A third category — paths on surfaces this component walk cannot see, such as
- * `tables[].fields[].sourceFields[]` and `pages[].dataSource` — is tracked in
- * the user story rather than here, because no line in this registry could reach
- * them: a page carries no `type`, so {@link collectComponents} never yields one.
+ * `tables[].fields[].sourceFields[]` — is tracked in the user story rather than
+ * here, because no line in this registry could reach them: a page carries no
+ * `type`, so {@link collectComponents} never yields one. `pages[].dataSource`
+ * was in that category until `table-name-references.ts`, which walks with a
+ * config PATH and so can name a surface that has no type.
  */
 export const COMPONENT_FIELD_REFERENCE_PATHS: Readonly<Record<string, readonly string[]>> = {
-  kanban: ['kanbanGroupBy.field', 'colorField', 'card.colorField', 'card.footer[].field'],
+  kanban: [
+    'kanbanGroupBy.field',
+    'swimlanes.field',
+    'colorField',
+    'card.colorField',
+    'card.footer[].field',
+  ],
   calendar: ['dateField', 'endDateField', 'labelField', 'colorField'],
-  'data-timeline': [
+  timeline: [
     'props.startField',
     'props.endField',
     'props.labelField',
     'props.groupBy',
     'props.colorField',
   ],
-  form: FORM_FIELD_REFERENCE_PATHS,
-  'data-form': FORM_FIELD_REFERENCE_PATHS,
-  'record-drawer': ['recordFields[].name'],
+  form: ['fields[].field', 'fieldGroups[].fields[]'],
+  drawer: ['recordFields[].name'],
   chart: ['series[].field', 'chartAggregate.field', 'chartAggregate.groupBy'],
   kpi: ['kpiAggregate.field'],
 }
@@ -170,7 +174,7 @@ export const COMPONENT_FIELD_REFERENCE_PATHS: Readonly<Record<string, readonly s
  * because they are not a property of any component type: eleven types spread the
  * same `dataSource`, so enumerating them per type is the drift bug this module
  * exists to end. Before this, the identical three-line `dataSource.filter` was
- * cross-checked under a `data-table` and accepted in silence under a `kpi` — the
+ * cross-checked under a `table` and accepted in silence under a `kpi` — the
  * rule stopped at the component boundary rather than at the data it describes.
  * Keying on "does a `dataSource.table` resolve?" makes a new data-bound
  * component covered the day it is added, with no line to remember here.
@@ -236,7 +240,7 @@ const resolveFieldReferences = (
 /** Every field-naming path that applies to one component, by its `type`. */
 const pathsForComponent = (type: unknown): readonly string[] => {
   const shared =
-    type === 'data-table'
+    type === 'table'
       ? DATA_SOURCE_FIELD_REFERENCE_PATHS.filter(
           (path) => !DATA_SOURCE_PATHS_OWNED_BY_DATA_TABLE.has(path)
         )
@@ -294,6 +298,15 @@ const resolvesToDeclaredField = (
  *  - a component with no resolvable `dataSource.table` (a system-source binding,
  *    or a table name that does not exist — the latter is the table rule's error);
  *  - a non-string value (malformed raw config — the structural decode owns it).
+ *
+ * The first of those used to be a deferral to nowhere. The "table rule" was
+ * `validateDbTableColumns`, whose walker filters on `type === 'table'`, so a
+ * `kpi` naming an undeclared table lost BOTH checks at once: the table went
+ * unreported, and its `dataSource.filter[].field` references were skipped along
+ * with it. `validateTableNameReferences` now answers for every surface
+ * ([internal ref]..038), which is what makes the deferral honest — there is
+ * no field list to check against once the table does not resolve, so skipping
+ * is the right posture rather than a silent gap.
  */
 export function validateComponentFieldReferences(config: unknown): readonly string[] {
   const tableFields = collectTableFieldNames(config)

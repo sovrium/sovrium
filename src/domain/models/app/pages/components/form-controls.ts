@@ -62,9 +62,16 @@ export const InputTypeSchema = Schema.Literals([
   'tel',
   'url',
   'search',
+  // Maps to `autocomplete="one-time-code"` and a numeric inputmode, which is
+  // what lets a phone offer the code from the SMS or mail it just received.
+  // The server half has shipped since the emailOTP plugin landed; this is the
+  // control that was missing, and it is an input TYPE rather than a component
+  // type because that is all it is.
+  'one-time-code',
 ]).annotate({
   title: 'Input Type',
-  description: 'HTML input type attribute for the input component',
+  description:
+    'HTML input type attribute for the input component. `one-time-code` renders a verification-code entry that a device can autofill.',
 })
 
 // ---------------------------------------------------------------------------

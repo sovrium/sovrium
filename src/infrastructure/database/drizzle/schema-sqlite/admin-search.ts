@@ -47,6 +47,10 @@ import { systemTable } from './table-helpers'
  * table on PG, a content table + an FTS5 vtab on SQLite) is the SAME shape as
  * the lookup-view generators' per-dialect divergence and is invisible above
  * the repository — the use case + API see one logical `admin search` source.
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 
 export const adminSearchIndex = systemTable(
@@ -79,5 +83,3 @@ export const adminSearchIndex = systemTable(
 )
 
 // Type inference
-export type AdminSearchIndexRow = typeof adminSearchIndex.$inferSelect
-export type NewAdminSearchIndexRow = typeof adminSearchIndex.$inferInsert

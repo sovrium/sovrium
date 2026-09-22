@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { type AggregateFunction, reduceAggregate } from '../shared/aggregate-functions'
-import type { TableRecord } from '../shared/types'
+import { formatByteCount } from '@/domain/kernel/format/byte-format'
+import { type AggregateFunction, reduceAggregate } from '../runtime/aggregate-functions'
+import type { TableRecord } from '../runtime/types'
 
 /**
  * Client-side aggregation + formatting for the KPI component.
@@ -57,9 +58,10 @@ export function aggregateKpi(records: readonly TableRecord[], config: KpiAggrega
  *   `options.scale` multiplier scales the raw value before formatting — pass
  *   `scale: '100'` to render a 0–1 fraction as a percent (e.g. `0.95` -> `95 %`).
  * - `compact` uses compact notation (e.g. `12000` -> `12K`).
- * - `bytes` renders a byte count as a compact human-readable string (French
- *   units `B/KB/MB/GB`) — e.g.
- *   `0` -> `0 B`, `1536` -> `2 KB`.
+ * - `bytes` renders a byte count as a compact human-readable string
+ *   (binary `B/KB/MB/GB`) — e.g. `0` -> `0 B`, `1536` -> `2 KB`. THE SAME
+ *   `formatByteCount` a column / `record-field` `format: 'bytes'` spends, so a
+ *   tile and a row on one page cannot print one number two ways.
  * - `number` (default) inserts thousands separators.
  */
 export function formatKpiValue(value: number, format: KpiFormatConfig | undefined): string {
@@ -77,7 +79,7 @@ export function formatKpiValue(value: number, format: KpiFormatConfig | undefine
   }
 
   if (format.type === 'bytes') {
-    return formatBytes(value)
+    return formatByteCount(value)
   }
 
   // compact
@@ -100,25 +102,11 @@ function formatPercentage(value: number, scaleOption: string | undefined): strin
 }
 
 /**
- * Formats a byte count into a compact human-readable string using French units
- * (`B/KB/MB/GB`), matching the admin Overview tile convention so a converted
- * tile renders byte-identically. Below 1024 bytes the raw count is suffixed with
- * `B`; larger values are rounded into the next unit.
- */
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes)) return '0 B'
-  if (bytes < 1024) return `${String(bytes)} B`
-  if (bytes < 1024 * 1024) return `${String(Math.round(bytes / 1024))} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${String(Math.round(bytes / (1024 * 1024)))} MB`
-  return `${String(Math.round(bytes / (1024 * 1024 * 1024)))} GB`
-}
-
-/**
  * Conditional color threshold for the KPI metric value.
  *
  * Thresholds form ascending boundaries — the metric resolves to the color of
- * the highest threshold whose `value` it meets or exceeds. If the metric is
- * below every threshold, the lowest threshold's color applies.
+ * the highest threshold whose `value` it meets or exceeds. A metric below
+ * every boundary has met none of them and takes no threshold color at all.
  */
 export interface KpiThresholdConfig {
   readonly value: number
@@ -128,7 +116,15 @@ export interface KpiThresholdConfig {
 /**
  * Resolves the threshold color for a metric value.
  *
- * Returns `undefined` when no thresholds are configured.
+ * Returns `undefined` when no thresholds are configured, and when the metric
+ * sits below every boundary.
+ *
+ * That second case used to fall back to the lowest threshold's color, which
+ * inverted the option's own meaning: a threshold is described as applying
+ * *when the metric meets or exceeds the boundary*, so the band underneath the
+ * first boundary is by definition uncolored. Painting it the first band's
+ * color made "just under the alert line" and "just over it" look identical —
+ * the one comparison the whole option exists to make visible.
  */
 export function resolveKpiThresholdColor(
   value: number,
@@ -136,12 +132,9 @@ export function resolveKpiThresholdColor(
 ): string | undefined {
   if (!thresholds || thresholds.length === 0) return undefined
 
-  const sorted = thresholds.toSorted((a, b) => a.value - b.value)
-  const met = sorted.filter((t) => value >= t.value)
+  const met = thresholds.filter((t) => value >= t.value).toSorted((a, b) => a.value - b.value)
 
-  if (met.length > 0) return met[met.length - 1]?.color
-  // Below every boundary — apply the lowest threshold's color.
-  return sorted[0]?.color
+  return met[met.length - 1]?.color
 }
 
 /**

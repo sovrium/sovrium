@@ -1,3 +1,399 @@
+## [0.25.0](https://github.com/sovrium/sovrium/compare/v0.24.0...v0.25.0) (2026-09-22)
+
+### BREAKING CHANGES
+
+- **pages**: refuse a KPI threshold colour the card cannot draw
+- **admin-api**: list design-system share links in the standard { items, total } envelope
+- **telemetry**: arm metric export only from its own endpoint variable
+- **types**: resolve the bare sovrium specifier to src/index.ts; delete packages/
+
+### Features
+
+- **pages**: a form submit can name its visual weight
+- **pages**: a form submit can name its weight, and a success can reload the page
+- **auth**: remember a person's interface language on their account
+- **pages**: an endpoint form can arrive prefilled
+- **admin**: name both ends of an access relationship, count what a principal reaches, and narrow the graph to one subject
+- **admin**: serve Sovrium's brand mark from the engine
+- **admin**: record every boot that changed the configuration, and serve the ledger
+- **pages**: draw a toggle menu item with its switch on the right
+- **pages**: let a menu item be a toggle
+- **design-system**: render a component at a chosen viewport width inside its own frame
+- **assets**: serve the embedded design-system sample media
+- **admin**: add the organisation access-graph read
+- **admin**: resolve every team membership in a single query
+- **pages**: a drawer child can render once per element of a record's array
+- **admin**: an app can declare the decisions behind its configuration
+- **sidebar**: a navigation group can carry no category label
+- **pages**: render a component only where a declared capability can actually run
+- **ai-chat**: prompt suggestions under the composer
+- **admin**: serve the attention aggregate for the console's landing page
+- **pages**: let a sidebar parent entry be a toggle rather than a link
+- **pages**: expose the running engine version to page templates
+- **design**: let a code block declare a dark theme beside its light one
+- **tables**: let a row action declare its button variant
+- **pages**: let a tab set fill its container so a grid inside it owns the scroll
+- **pages**: let a sidebar collapse to an icon rail below a breakpoint
+- **tables**: let a data grid fill its container and scroll inside it
+- **pages**: a kanban board groups its cards into swimlanes
+- **design-system**: let a specimen document its open state
+- **pages**: let a kanban board group its cards into swimlanes
+- **design-system**: draw breadcrumb, command palette, form and AI chat in the UI kit
+- **design-system**: give each component type its own state strip
+- **design-system**: describe component states per type, and say what each applies to
+- **pages**: show a value from an action's own response in its status message
+- **admin-api**: say what is in each design layer, not only how much
+- **admin-api**: publish a sample value and a read-only flag per field type
+- **admin**: count the two design-system catalogues in the navigation
+- **pages**: rule a timeline's time axis at its declared zoom
+- **admin**: document the console's own reusable templates
+- **tables**: publish a sample value and a read-only flag per field type
+- **pages**: honour the item cap declared on a data-bound list
+- **admin-api**: give the design catalogue's fixture rows real types and an empty state
+- **admin-api**: let a component-type read cap how many routes it returns
+- **pages**: search another table and link the row you find
+- **pages**: let an app chrome name the caller it is serving
+- **admin-api**: let a caller cap a component type's route list and learn the remainder
+- **pages**: lay a gallery on one walkable track
+- **pages**: declare a step rail over content that is not a form
+- **pages**: add a verification-code input type
+- **admin-api**: publish a component type's purpose on its detail record too
+- **admin-api**: publish the per-category component-type counts keyed by category
+- **admin-api**: say what each design-system layer holds, not only how much
+- **admin-api**: say what each design layer holds, and count restyled types
+- **pages**: add a record picker, a step rail, a carousel and a one-time-code input
+- **cli**: open the startup banner with the app's name, version and description
+- **pages**: page a data-bound list and offer a Load More control
+- **timeline**: draw the today marker and the dependency connectors
+- **tables**: searchable record picker on forms, with inline create and a link cap
+- **pages**: add filter-bar, rich-text-editor, code-editor and date-range-picker
+- **pages**: add avatar, description-list, kbd, input-group and preview component types
+- **design-system**: say what each component type is for, and group its options
+- **pages**: a third sidebar level, shown only inside its own section
+- **tables**: add records from a trailing row at the bottom of the grid
+- **tables**: fill a span of cells from the cursor, and announce an editable grid as one
+- **tables**: move a cell cursor around the data grid with the keyboard
+- **tables**: page through a record picker's candidates
+- **design**: let component styling reach a select's inner parts, and keep its focus ring
+- **design-system**: serve a type's full option surface, category counts and a coverage tri-state
+- **design-system**: read every option a component type accepts, at any depth
+- **email**: write undeliverable messages to the development journal
+- **cli**: print the admin console address and warn only about features the config uses
+- **admin**: per-mount label overrides for the embedded admin console
+- **admin**: publish which matrix row exhibits a component type's states
+- **admin**: publish a component type's variant matrix as flat cells
+- **pages**: resolve a field specimen's subject from the row it sits in
+- **admin**: narrow the declared guidance to one subject
+- **pages**: resolve $app.basePath to the base a page is served at
+- **admin**: lift a type-scale step's size and leading onto the token row
+- **pages**: expand a system row template nested inside another
+- **pages**: draw an app's own components[] template as a specimen
+- **pages**: paint a token swatch from the live custom property
+- **pages**: tell an unusable query value apart from an omitted one
+- **admin**: document a catalogued type the catalogue will not draw
+- **pages**: page.params, a route segment constrained to a supplied set
+- **pages**: visibility.query, the URL-state gate
+- **admin**: publish the four reads the Developers console pages compose from
+- **pages**: compose a code block from a system endpoint's rows
+- **pages**: draw a specimen in the axis its row names
+- **pages**: resolve a page-level system record on the render path
+- **pages**: a tracked sidebar keeps telling the reader where they are
+- **pages**: sidebar rows carry attributes display copy cannot move
+- **pages**: a sidebar entry expands into authored or fetched sub-entries
+- **pages**: render the browser's own control for select.native
+- **pages**: sidebar groups subdivide one landmark into headed sections
+- **admin**: report whether a declared env default is withheld or released
+- **pages**: a $record reference reaches every string leaf, and resolves per row
+- **pages**: resolve a form field's select options from a source
+- **pages**: let a mounted page gate on the caller's powers
+- **pages**: let a config select publish on a shared-filter channel
+- **pages**: clone an arbitrary row template over a system read endpoint
+- **pages**: mark which item of a set is the current one
+- **pages**: alternate a page body on what the host app declares
+- **pages**: reserve a data-table action column to a caller capability
+- **pages**: resolve a choice control's options from a system endpoint
+- **pages**: bind a grid to the table the URL names, and derive its columns
+- **pages**: substitute a route segment wherever a page names one
+- **pages**: gate a component on the caller's powers, excluding it when unmet
+- **pages**: resolve a page's relative window into its five references
+- **components**: render easing curves and catalogue-subject specimens
+- **admin-console**: read the running design system over five admin endpoints
+- **pages**: withhold a page whose host lacks the capability it requires
+- **pages**: name, mark and badge a sidebar's navigation groups
+- **pages**: give a derived breadcrumb a root crumb and a mount base
+- **pages**: let a page print the facts of the app serving it
+- **pages**: let a page author its own command palette
+- **components**: render design-scope, token-swatch, contrast-badge and specimen
+- **pages**: let a page require capabilities of the app serving it
+- **pages**: mark the current sidebar entry and badge it
+- **pages**: give a derived breadcrumb a root crumb
+- **pages**: let a page author place the command palette
+- **admin-console**: component-type, provenance and flat-token endpoints
+- **admin-console**: component-type, provenance and flat-token use-cases
+- **pages**: declarative navigation groups inside a sidebar
+- **pages**: answer a bare collection path with its first object
+- **components**: design-scope, token-swatch, contrast-badge and specimen
+- **pages**: open URL query parameters as declared page inputs
+- **pages**: derive a breadcrumb trail from the request path
+- **admin-console**: component-type and provenance API schemas
+- **pages**: bind a route segment into a component's data source
+- **pages**: route-param binding, sidebar groups, first-object redirect, query props and derived breadcrumbs
+- **design**: resolve design.components through parts, variants and states
+- **design**: apply the non-overridable floor after operator classes
+- **design**: accept oklch() colour values
+- **design**: design.components styles engine types
+- **design**: emit density tokens from design.density
+- **design**: density schema
+- **design**: validate className lists at decode time
+- **api**: hoist named Effect schemas into the OpenAPI components map
+- **database**: record applied migrations by name instead of timestamp
+- **telemetry**: name transactions by their route template
+- **telemetry**: report per-request spans and an honest status with each transaction
+- **telemetry**: warn at startup when a telemetry endpoint is not accepting data
+
+### Bug Fixes
+
+- **pages**: stop a kanban board discarding a keyboard move confirmed quickly
+- **database**: wait for a briefly-locked SQLite database at startup
+- **tables**: stop a slow cell write from closing the next cell's editor
+- **pages**: send a reader with a remembered language to its own address
+- **tables**: open the code editor in a grid's new-row line
+- **pages**: give charts an aspect ratio instead of a fixed height
+- **pages**: translate the captions a graph or matrix draws
+- **i18n**: recompose the page when a language is chosen without a URL prefix
+- **pages**: read an authored per-language title map in either spelling
+- **i18n**: declare one spelling of the page language on every path
+- **tables**: honour every code-field editor setting in the grid, not just the language
+- **pages**: a file-upload trigger speaks the page's language
+- **pages**: a successful action can ask the server to recompose the page
+- **pages**: a dropdown no longer goes blank when its prefill finds nothing
+- **pages**: let an element that hides itself when empty stay hidden
+- **pages**: draw every chart's plot area at one height
+- **tables**: open a code editor when a code cell is edited in the grid
+- **api**: keep the session envelope's language key optional
+- **cli**: stop a static build from crawling and emitting the HTTP API
+- **pages**: a form lays out as the column it declares
+- **pages**: give inline-runtime toasts the dismissal policy every other toast has
+- **account**: a profile picture works on an app that declares no storage
+- **pages**: show platform chrome in the page's language for regional locales
+- **admin**: keep the operator named and the tab titled across console navigation
+- **pages**: let a page region wait while a confirmation is open
+- **pages**: keep a destructive confirmation open when the list refreshes
+- **pages**: let a toast that never expires be closed, and announce a failure urgently
+- **pages**: let a chosen language reach the server, so the next page is composed in it
+- **pages**: dismiss a toast that declares no duration instead of leaving it on screen
+- **pages**: band a matrix column axis by the field it declares
+- **pages**: draw an empty-state's declared title and description
+- **comments**: name a comment thread and its counter once, on the element the page rendered
+- **tables**: draw a grid column at the width its configuration declares
+- **pages**: stop a capped list offering Load more once it has drawn its cap
+- **tables**: total a grid summary over the whole read endpoint, not one page
+- **theme**: paint the focus ring's offset in the page colour
+- **server**: a server that pre-renders its pages runs its database startup once, not once per render pass
+- **comments**: stop the mounted thread repeating the id of the element it fills
+- **comments**: bind a thread to the record a detail page resolves
+- **design-system**: keep the excluded-type reason in the exported catalogue
+- **admin**: keep the console where it is when you click the entry you are on
+- **server**: a server that pre-renders its pages boots its render passes one at a time, and stopping one no longer switches off telemetry
+- **admin-dashboard**: stop the search palette input from painting a clipped focus ring
+- **overlays**: lay a dropdown menu trigger out as a single row
+- **forms**: show field validation errors in the error tone at caption size
+- **pages**: keep a tab caption's translation token until the tab id is derived
+- **pages**: render the addressed tab panel server-side, and ship it once
+- **pages**: resolve translation tokens in component fields no lift reaches
+- **admin**: the boot ledger no longer records the internal servers a search-indexed app renders on
+- **pages**: resolve translation tokens in typed component fields
+- **tables**: let a sortable column be sorted from the keyboard
+- **tables**: place the pager where pagination.position asks
+- **tables**: keep a filling grid readable when its column runs out of room
+- **design-system**: name the component on its own detail page
+- **design-system**: stop three drawings claiming what they do not draw
+- **design-system**: rule every drawing frame to the console's own type step
+- **design-system**: paint the brand page's warnings in the error tone
+- **admin**: speak one run-status vocabulary in the grid and the drawer it opens
+- **pages**: let a record field carry its class and rule its values
+- **design-system**: print a specimen's configuration at the code step
+- **forms**: rule a number input's label at the field's step
+- **pages**: resolve a record token in a repeated row's data attribute
+- **ai-chat**: keep the composer inside the chat's declared height
+- **tables**: keep the sort control out of the accessibility tree
+- **tables**: give the sort control its own glyph instead of wrapping the column label
+- **design-system**: draw each components viewport at its real width
+- **tables**: name a column header from its own label, not from what is inside it
+- **tables**: keep a sorted column header named after its column
+- **pages**: drag a reorderable item with the pointer as well as the keyboard
+- **tables**: sort a grid column from its header when the rows are in the browser
+- **kanban**: let a card be dragged on a board that cannot save its order
+- **design-system**: name each drawing by what it shows, not by its own heading
+- **design-system**: give the accordion panels the example text they never rendered
+- **design-system**: drop the States strip where no state can be drawn, and hold a specimen at one width
+- **pages**: fetch older comments as the reader scrolls instead of behind a button
+- **design-system**: show a real picture, clip and sound on the console's media pages
+- **design-system**: publish how many states a type can actually draw
+- **pages**: centre a comment's first line on its avatar
+- **ai**: print a failed reply as plain text above the composer
+- **pages**: give a KPI sparkline its full box and an even stroke
+- **pages**: keep the gallery's carousel controls off the cards
+- **design-system**: let a status badge lay out as a row with a gap
+- **design-system**: draw the spinner's mark and announce it as a status
+- **pages**: refuse a select that declares both multiple and searchable
+- **rich-text**: insert the block a reader picks out of the slash menu
+- **rich-text**: print the editor's placeholder in the editing area, not over its toolbar
+- **design-system**: draw the mark leading an input at the size an icon is drawn
+- **forms**: dismiss a date control by clicking away, and let it fill its column
+- **forms**: hold a checkbox still while it is ticked
+- **pages**: let a multiple select keep every choice it is given
+- **pages**: open a select's menu below its field, at the width of the field
+- **design-system**: answer a hover on a link with colour rather than a rule
+- **design-system**: lay a colour swatch out as a row with a gap
+- **design-system**: stop an empty element overruling the display its own type draws
+- **pages**: let a tab set run flush to its container edges
+- **tables**: export the selected rows of a grid that has no table behind it
+- **pages**: turn the accordion chevron when a panel opens
+- **pages**: render the children an author places inside a record drawer
+- **pages**: style an endpoint form's submit like every other button
+- **tables**: let a row action run when the row itself is clickable
+- **admin**: keep the operator menu's account link inside the embedded console
+- **design-system**: link only the app's own components from the admin console's Components page
+- **pages**: a numbered gallery pager reaches every record
+- **pages**: reject a bound table name that no app.tables[] entry declares
+- **charts**: honour the value axis on charts bound through series[]
+- **charts**: show the hover tooltip on charts bound without an explicit series
+- **pages**: draw the line-number gutter a code block asks for
+- **tables**: keep one unreadable saved view from breaking the whole list
+- **automations**: bound the remote-file download in file actions
+- **api**: tell a broken upstream apart from an unavailable one
+- **api**: name the real refusal in two error codes
+- **schema**: report a missing Better Auth users table as a configuration error
+- **automations**: stop reporting a database outage as a missing run
+- **admin**: tell the operator when a dashboard tile is a fallback, not a count
+- **tables**: refuse an attachment write that storage could not verify
+- **automations**: run record-triggered automations with the same services as scheduled ones
+- **pages**: keep controls working after a list refreshes itself
+- **pages**: re-read a server-rendered list when an action refetches it
+- **admin**: disclose what publishing a design system exposes, before it is published
+- **tables**: stop a blank or non-numeric cell totalling as a zero in a read-endpoint summary
+- **admin-api**: name the zones a zone map declares when it sets no accent budget
+- **pages**: leave a KPI metric uncoloured until it meets a threshold
+- **charts**: draw a line chart as a line when it is bound to a pair of axes
+- **tables**: total a grid's summary footer when its rows come from a read endpoint
+- **pages**: signal the rich text character limit, and stop the duplicate extension warning
+- **pages**: draw an existing tab at the code editor's declared indent width
+- **pages**: honour a sidebar entry's own query when it fetches its children
+- **pages**: refuse a KPI trend line that its data binding cannot draw
+- **pages**: name a toggle, checkbox or switch by its label
+- **pages**: stop the calendar week and day views throwing on an undeclared slot interval
+- **pages**: draw pie, donut and scatter charts as the shapes they declare
+- **pages**: apply the query declared on a sidebar group's data source
+- **pages**: keep a sidebar badge on entries nested inside a disclosure
+- **admin**: give the record picker a way into the design system
+- **tables**: refuse single-record verbs on a table with no id column
+- **tables**: list records of a table whose primary key is composite
+- **tables**: tone the empty points of an editable rating column
+- **tables**: stop drawing an empty toolbar band above a grid
+- **tables**: stop indenting a top-level group header
+- **auth**: make social sign-in actually sign the user in
+- **pages**: draw a data-bound list placed inside a specimen
+- **pages**: render no row when a record's whole template is hidden
+- **auth**: make the OAuth sign-in control one element, and paint it
+- **pages**: mount a data-bound list nested inside a container
+- **design-system**: render relationship fields in the component kit
+- **pages**: keep a paged list working when its page size exceeds the server limit
+- **pages**: require whole numbers for counts on the new component options
+- **pages**: refuse a preview option that would replace the drawn component
+- **tables**: enforce a relationship field's maxLinked cap on batch writes
+- **charts**: honour every value of a chart legend's position
+- **pages**: refuse a preview option the component type does not publish
+- **pages**: publish a filter bar's opening conditions in the served page
+- **pages**: keep a description list's row action inside its own markup
+- **pages**: fit the date-range panel on a phone
+- **pages**: keep rich-text emphasis on the same ink as the prose it emphasises
+- **pages**: paint the code editor from the colour scheme
+- **pages**: keep the two editors legible when the colour scheme flips
+- **pages**: preview the badge option that actually paints it
+- **tables**: keep a saved filter working after the view is reloaded
+- **tables**: order an unsorted record list by id instead of by storage order
+- **pages**: agree on a repeated query parameter, server and client
+- **pages**: refuse a sidebar showWhen.section that carries a query
+- **pages**: key the page cache on the query a visitor sent, not the one it resolved to
+- **pages**: mark only the sidebar entry whose query the request carries
+- **tables**: keep a navigable grid's cells reporting their native roles
+- **design**: make a declared corner radius and elevation reach the components
+- **forms**: restore the painted submit button on auth, CRUD and wizard forms
+- **admin**: show the type-scale disclosure to the app that needs it most
+- **realtime**: stop dropping live updates and show a stalled connection
+- **design-system**: a layer the platform supplies no longer reports itself undeclared
+- **design-system**: describe a multi-form option with the field's own sentence
+- **design-system**: publish a nested option's own row beside its children
+- **design-system**: stop labelling a multi-type option with one type's prose
+- **pages**: keep the colour-scheme preference under the key it was stored at
+- **forms**: keep submitter IP hashes stable across restarts without an extra variable
+- **server**: stop cutting server-sent event streams after ten seconds
+- **rendering**: keep internal data-source markers out of the rendered HTML
+- **rendering**: key the sidebar navigation groups so React stops warning
+- **pages**: a route parameter binds $record in an automation button's inputData
+- **admin**: merge the operator's templates on the CONFIG branch of the mount
+- **admin-console**: print the mount a type page is served at
+- **admin**: restore the type-ladder guard pair so the endpoint answers an admin
+- **pages**: resolve a record reference in a nested prop, and guard the style it lands in
+- **pages**: omit a detail page section its record does not satisfy
+- **admin**: an IPv6 loopback origin reports the native application type
+- **pages**: a null record field renders as empty text, not the literal "null"
+- **pages**: a code block's contentFrom template binds its own $record refs
+- **pages**: an explicitly disabled analytics block no longer satisfies its gate
+- **pages**: render no rows when a system row template gets an empty list
+- **admin**: project a mounted table to the fields its reader may see
+- **design-system**: print a colour or dimension token as CSS spells it
+- **pages**: scope the route-param binding rule to rows sources
+- **cli**: write stderr journal lines without terminal colour escapes
+- **cli**: split multi-line --watch failures into stamped journal entries
+- **cli**: render one flush-left journal for --watch and development logs
+- **components**: inject the specimen's component field instead of importing it
+- **design**: keep the card surface flat with a valid suppression
+- **design**: restore the keyboard focus ring on buttons and cards
+- **cli**: swap most watch-mode reloads into the live server
+- **server**: stop leaking signal listeners on every watch reload
+- **cli**: make --watch reloads instant, single and quiet
+- **islands**: refresh a grid whose first read is still loading
+- **build**: generate static HTML from pinned formatting options
+- **islands**: keep a file chosen before the page finishes loading
+- **database**: keep Postgres int8 aggregates arriving as strings
+- **api**: carry the required message field on storage error responses
+- **api**: answer 400 instead of 500 when a request body is not JSON
+- **api**: accept an explicit undefined on optional and defaulted API fields
+- **cli**: make --watch follow every file a split config is made of
+- **rendering**: key the timeline body so the rail and its events render without a React list warning
+- **rendering**: key the structured-data script when it joins a component's children
+- **storage**: make clearing the transform cache from the admin API actually empty it
+- **islands**: stop the sidebar's operator and version reads rejecting on their absent value
+- **cli**: print a startup failure as a readable sentence, not escaped JSON
+- **telemetry**: stop the boot probe filing a junk envelope and polluting collectors
+- **admin-dashboard**: honour the requested colour scheme in design-system previews
+- **records-api**: probe the deleted_at column once per request, not per transaction
+- **records-api**: answer 400 for an out-of-range pagination window
+- **automations**: close CodeContext.actions so the documented call compiles
+- **telemetry**: stop reporting 4xx responses raised at the HTTP boundary as server errors
+- **types**: ship AgentConfig and ActionTemplate in the sovrium declaration
+- **api**: stop three listing paths from taking the whole connection pool
+- **tables**: bound the record-purge reference sweep
+- **cli**: register the inventory template so --template inventory scaffolds
+
+### Performance Improvements
+
+- **pages**: never re-ask the server for a tab panel the page already carries
+- **pages**: fetch a tabbed page's unopened panels when the reader opens them
+- **ai**: probe Ollama on first use instead of while building the AI service
+- **email**: bound the whole SMTP send, and the remote-schema fetch at boot
+- **storage**: bound every S3 request and retry the idempotent ones
+- **ai**: bound every AI provider request and retry the transient ones
+- **ai**: stop paying a 2-second Ollama probe on every AI request
+- **storage**: stop re-checking the S3 bucket on every signed-URL request
+- **types**: name ComponentStyle in the emitted declaration
+- **islands**: keep tailwind-merge out of the kpi mount closure
+- **islands**: stop shipping the whole icon set to pages with a KPI or a menu
+- **islands**: load the form islands on demand and preload their chunks
+- **islands**: stop every page that mounts one island from downloading twelve
+
 ## [0.24.0](https://github.com/sovrium/sovrium/compare/v0.23.0...v0.24.0) (2026-09-01)
 
 ### BREAKING CHANGES
@@ -39,7 +435,7 @@
 - **forms**: let a dropdown express "no answer" instead of preselecting one
 - **automations**: honour an app's top custom role in the comment read gate
 - **cli**: report a database as unreachable by driver code, not by message text
-- **config**: refuse a config carrying a __proto__ key instead of dropping it
+- **config**: refuse a config carrying a `__proto__` key instead of dropping it
 - **auth**: end existing sessions when an admin sets a user's password
 - **admin**: show a declared default the config author marked as non-secret
 - **records-api**: honor the timezone parameter when reading a single record

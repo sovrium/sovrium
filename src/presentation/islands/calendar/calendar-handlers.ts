@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 import type { Action } from '@/domain/models/app/pages/components/action'
 
 /**

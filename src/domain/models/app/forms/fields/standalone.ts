@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { commonFieldProps } from '../../../shared/form-field-props'
+import { commonFieldProps } from '../form-field-props'
 
 /**
  * Standalone field input types — used when a form is NOT bound to a table.

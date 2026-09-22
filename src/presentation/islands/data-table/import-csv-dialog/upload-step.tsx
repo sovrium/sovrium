@@ -5,6 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  computeTableDialogBodyClasses,
+  computeTableDropZoneClasses,
+  computeTableToastClasses,
+} from '@/presentation/design/table-default-classes'
+
 interface UploadStepProps {
   readonly noDataError: boolean
   readonly onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
@@ -12,15 +19,11 @@ interface UploadStepProps {
 
 export function UploadStep({ noDataError, onFileChange }: UploadStepProps) {
   if (noDataError) {
-    return (
-      <div className="border-error-border bg-error-bg text-error-fg rounded border p-4 text-sm">
-        No data rows found
-      </div>
-    )
+    return <div className={computeTableToastClasses({ tone: 'error' })}>No data rows found</div>
   }
   return (
-    <div className="border-border rounded-lg border-2 border-dashed p-8 text-center">
-      <p className="text-foreground-muted mb-4 text-sm">Drag and drop a CSV file here</p>
+    <div className={computeTableDropZoneClasses()}>
+      <p className={computeTableDialogBodyClasses()}>Drag and drop a CSV file here</p>
       <label className="cursor-pointer">
         <input
           type="file"
@@ -28,7 +31,7 @@ export function UploadStep({ noDataError, onFileChange }: UploadStepProps) {
           className="sr-only"
           onChange={onFileChange}
         />
-        <span className="bg-primary text-primary-fg hover:bg-primary-hover rounded px-4 py-2 text-sm">
+        <span className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}>
           Browse file
         </span>
       </label>

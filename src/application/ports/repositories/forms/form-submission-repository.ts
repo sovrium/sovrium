@@ -69,8 +69,9 @@ export class FormSubmissionRepository extends Context.Service<
       readonly linkedRecordTable?: string
       readonly linkedRecordId?: string
       /**
-       * SHA-256(`FORM_IP_HASH_SALT` + submitter IP) as 64 hex chars. The
-       * top-level forms write path NEVER receives a raw IP — [internal ref]
+       * SHA-256(salt + submitter IP) as 64 hex chars, over a salt derived from
+       * the install's root secret and stable across restarts. The top-level
+       * forms write path NEVER receives a raw IP — [internal ref]
        * + S5 GDPR-erasure require hash-on-write at the submission boundary.
        */
       readonly submitterIpHash?: string

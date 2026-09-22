@@ -5,10 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { FilterContinueActionSchema } from './continue'
-
-export const FilterActionSchema = FilterContinueActionSchema
-/** @public */
-export type FilterAction = typeof FilterActionSchema.Type
+export * from './filter-action'
 
 export * from './continue'

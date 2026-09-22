@@ -15,7 +15,7 @@
  * (`MarkdownHeading`, `MarkdownDirective`, `MarkdownCodeBlock`,
  * `RenderedMarkdown`) plus pure helpers (`splitFrontmatter`, `scanDirectives`,
  * `filterTocHeadings`, `slugify`, `escapeHtml`, `parseDirectiveHeader`) stay
- * in `src/domain/services/markdown/markdown-renderer.ts` — those are pure string
+ * in `src/domain/kernel/markdown/markdown-renderer.ts` — those are pure string
  * transforms with no library dependency.
  *
  * Renderer configuration:
@@ -47,8 +47,8 @@ import {
   splitFrontmatter,
   type MarkdownHeading,
   type RenderedMarkdown,
-} from '@/domain/services/markdown/markdown-renderer'
-import { parseFenceInfo } from '@/domain/utils/code-frame-defaults'
+} from '@/domain/kernel/markdown/markdown-renderer'
+import { parseFenceInfo } from '@/domain/models/app/pages/code-frame-defaults'
 
 /**
  * Minimal structural shape of a markdown-it token used by `extractHeadings`.
@@ -359,4 +359,4 @@ export type {
   MarkdownDirective,
   MarkdownCodeBlock,
   RenderedMarkdown,
-} from '@/domain/services/markdown/markdown-renderer'
+} from '@/domain/kernel/markdown/markdown-renderer'

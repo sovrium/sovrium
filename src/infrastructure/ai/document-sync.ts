@@ -33,10 +33,10 @@ import {
   chunkText,
   resolveChunkSettings,
   type ChunkSettings,
-} from '@/domain/services/rag/rag-chunking'
+} from '@/domain/models/app/agents/rag-chunking'
 import { logError, logWarning } from '@/infrastructure/logging/logger'
 import { isSupportedDocument, parseDocument } from './document-parser'
-import { countRowsBy, embedChunksToRows, RagSyncLayer } from './embed-pipeline'
+import { countRowsBy, embedChunksToRows, RagSyncLayer, swallowLogged } from './embed-pipeline'
 import type { NewEmbedding } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
 
@@ -144,6 +144,7 @@ const syncDocuments = (input: {
     const repo = yield* AiEmbeddingRepository
 
     const pendingGroups = yield* Effect.forEach(input.documents, (doc) =>
+      // effect-promise: total -- `documentToChunks` wraps its whole read-and-parse in a try/catch and returns an empty chunk list on failure, so one unreadable document can never reject and abort the sync.
       Effect.promise(() =>
         documentToChunks({
           dir: input.dir,
@@ -152,8 +153,12 @@ const syncDocuments = (input: {
         })
       ).pipe(
         // Re-embed is idempotent: drop the document's prior chunks first.
+        // A failed pre-clear is not fatal — the re-embed below still runs — but
+        // it silently turns an idempotent re-sync into a duplicating one.
         Effect.tap(() =>
-          repo.deleteBySourceIdPrefix(documentSourceId(doc.path)).pipe(Effect.ignore)
+          repo
+            .deleteBySourceIdPrefix(documentSourceId(doc.path))
+            .pipe(swallowLogged('document embeddings not pre-cleared', { path: doc.path }))
         )
       )
     )
@@ -171,7 +176,11 @@ const syncDocuments = (input: {
       embedding,
       metadata: { path: chunk.path },
     }))
-    yield* repo.insertMany(rows).pipe(Effect.ignore)
+    // The sync still reports the chunk counts it computed, so a failed insert
+    // reads to the operator as a successful sync over an empty index.
+    yield* repo
+      .insertMany(rows)
+      .pipe(swallowLogged('document embeddings not persisted', { rows: String(rows.length) }))
 
     const documents = countRowsBy(rows, (row) => String((row.metadata ?? {})['path'] ?? ''))
     return { documents, totalChunks: rows.length } satisfies SyncDocumentStats

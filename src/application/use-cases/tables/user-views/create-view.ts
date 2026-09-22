@@ -34,4 +34,4 @@ export const createUserView = (
   Effect.gen(function* () {
     const repo = yield* UserViewRepository
     return yield* repo.create(input)
-  })
+  }).pipe(Effect.withSpan('tables.create-user-view'))

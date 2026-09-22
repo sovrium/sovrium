@@ -449,6 +449,16 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
       'the metadata row makes them unreferenced but not unlinked; reclaiming them ' +
       'needs an out-of-transaction object-store sweep, tracked separately.',
   },
+  'system.boot_ledger': {
+    verdict: 'exempt',
+    columns: ['booted_by'],
+    reason:
+      'NOT a person: `resolveBootedBy` writes a CLOSED shape — `sovrium <verb>` for a CLI ' +
+      'boot or the literal `embedded` — so there is nobody to erase, and the `_by` suffix is ' +
+      'the only reason the scan flags it. RESIDUAL, named: `snapshot` holds the redacted ' +
+      'config that booted, so an address an operator hardcoded into it survives there — ' +
+      'authored config rather than a subject record, bounded by retention, not by erasure.',
+  },
   'system.record_comments.moderated_by': {
     verdict: 'shed',
     columns: ['moderated_by'],

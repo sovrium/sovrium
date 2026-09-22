@@ -26,18 +26,22 @@
  * baseline already shipped). Gated: tables with no AI-compute fields do nothing.
  */
 
-import { Effect } from 'effect'
+import { Cause, Effect } from 'effect'
 import {
   applyBaselineGuard,
   isExplicitUserValue,
   type AiComputeKind,
-} from '@/domain/services/ai-compute/baseline'
-import { fieldToRequestConfig } from '@/domain/services/ai-compute/build-request'
-import { AiLive } from '@/infrastructure/ai/layer'
+} from '@/domain/models/app/tables/ai-compute-baseline'
+import { fieldToRequestConfig } from '@/domain/models/app/tables/ai-compute-build-request'
 import { upsertAiComputeStatus } from '@/infrastructure/database/ai-compute-status-repository'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { logError } from '@/infrastructure/logging/logger'
-import { refineAiComputeField, type RefineAiComputeFieldInput } from './refine-field'
+import {
+  AiComputeStoreError,
+  refineAiComputeField,
+  type RefineAiComputeFieldInput,
+} from './refine-field'
+import type { AiService } from '@/application/ports/services/ai-service'
 import type { App, Table } from '@/domain/models/app'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
@@ -118,17 +122,19 @@ const writeSkippedStatuses = (params: {
   readonly tableName: string
   readonly recordId: string | number
   readonly fields: readonly AiComputeField[]
-}): Effect.Effect<void, never> => {
+}): Effect.Effect<void, AiComputeStoreError> => {
   const { appId, tableName, recordId, fields } = params
   return Effect.forEach(
     fields,
     (field) =>
-      Effect.promise(() =>
-        upsertAiComputeStatus(
-          { appId, tableName, recordId: String(recordId), fieldName: field.name },
-          'skipped'
-        )
-      ),
+      Effect.tryPromise({
+        try: () =>
+          upsertAiComputeStatus(
+            { appId, tableName, recordId: String(recordId), fieldName: field.name },
+            'skipped'
+          ),
+        catch: (cause) => new AiComputeStoreError({ step: 'write-status', cause }),
+      }),
     { discard: true }
   )
 }
@@ -167,16 +173,16 @@ export const markUserAuthoredAiFieldsForRecords = (params: {
   readonly app: App
   readonly tableName: string
   readonly records: readonly AiComputeBatchWrite[]
-}): void => {
+}): Effect.Effect<void> => {
   const { app, tableName, records } = params
   const table = app.tables?.find((t) => t.name === tableName)
-  if (!table) return
+  if (!table) return Effect.void
   const work = records.flatMap((record) => {
     const authored = userAuthoredAiFields(table, record.fields)
     return authored.length === 0 ? [] : [{ recordId: record.id, fields: authored }]
   })
-  if (work.length === 0) return
-  runDetached(
+  if (work.length === 0) return Effect.void
+  return labelled(
     Effect.forEach(
       work,
       (item) =>
@@ -189,7 +195,7 @@ export const markUserAuthoredAiFieldsForRecords = (params: {
       { discard: true }
     ),
     'user-authored-skipped-batch'
-  )
+  ).pipe(Effect.withSpan('ai-compute.mark-user-authored-ai-fields-for-records'))
 }
 
 /**
@@ -239,19 +245,46 @@ const buildRefinementInput = (params: {
   }
 }
 
-/** Fire-and-forget runner for an Effect program (off the HTTP response path). */
-const runDetached = (program: Effect.Effect<unknown, never, never>, label: string): void => {
-  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget; do NOT block the response
-  void Effect.runPromise(program).catch((error: unknown) => {
-    logError('[ai-compute] detached program failed', error, { label })
-  })
-}
+/**
+ * Label a fan-out branch and make it total.
+ *
+ * Catches both a typed failure of the ai-compute store and a DEFECT, neither of
+ * which must escape into whatever fiber ends up carrying this work. Logging it
+ * with the branch name is the only diagnosis an operator gets: the write that
+ * triggered it has long since answered 200.
+ *
+ * `Effect.tapCause` sees both channels, so the branch name is attached either
+ * way — which is the whole point of the label.
+ */
+const labelled = <E, R>(
+  program: Effect.Effect<unknown, E, R>,
+  label: string
+): Effect.Effect<void, never, R> =>
+  program.pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => {
+        logError('[ai-compute] detached program failed', Cause.squash(cause), { label })
+      })
+    ),
+    // effect-swallow: see the tap above — the cause is logged with its branch
+    // name first. This runs after the record write has answered, so there is
+    // nobody left to fail.
+    Effect.ignore
+  )
 
 /**
  * AI-compute write-phase signal fan-out for one persisted record. For each
  * firing field: a user override is recorded as `skipped` (both dialects); a
  * computed field is enqueued to the shared worker on SQLite (Postgres uses the
- * NOTIFY listener). Fire-and-forget, gated for non-AI tables.
+ * NOTIFY listener). Gated for non-AI tables.
+ *
+ * RETURNS A DESCRIPTION, NOT A RUNNING FIBER. This used to start its own root
+ * fiber per branch — detached from the write that caused it, outside its trace,
+ * and binding a fresh `AiLive` every time. The caller decides how to detach it
+ * now, which is the only place that knows whether there is a fiber to fork from
+ * (standing rule E1). TODO(W4): the two detach sites below should hand their
+ * fiber to the server runtime's scope once that scope owns long-lived work,
+ * rather than each detaching on its own.
  *
  * @param incoming the user-supplied field map for this write (override detection)
  * @param old      the pre-update stored record (UPDATE only)
@@ -265,10 +298,10 @@ export const signalAiComputeWritePhase = (params: {
   readonly incoming: Readonly<Record<string, unknown>>
   readonly old?: Readonly<Record<string, unknown>> | undefined
   readonly record: Readonly<Record<string, unknown>>
-}): void => {
+}): Effect.Effect<void, never, AiService> => {
   const { app, tableName, op, recordId, incoming, old, record } = params
   const table = app.tables?.find((t) => t.name === tableName)
-  if (!table) return
+  if (!table) return Effect.void
   const decisions = resolveFieldDecisions({ table, op, incoming, old })
 
   // A hand-written column is `skipped` whatever its `computeOn` says, so this
@@ -283,24 +316,35 @@ export const signalAiComputeWritePhase = (params: {
   ]
   const computed = decisions.filter((d) => !d.preserved && !authoredNames.has(d.field.name))
 
-  if (overrides.length === 0 && computed.length === 0) return
+  if (overrides.length === 0 && computed.length === 0) return Effect.void
 
   // Override → `skipped` (both dialects; the only signal for the override case).
-  if (overrides.length > 0) {
-    runDetached(
-      writeSkippedStatuses({ appId: app.name, tableName, recordId, fields: overrides }),
-      'override-skipped'
-    )
-  }
+  const overrideBranch =
+    overrides.length > 0
+      ? labelled(
+          writeSkippedStatuses({ appId: app.name, tableName, recordId, fields: overrides }),
+          'override-skipped'
+        )
+      : Effect.void
 
   // Computed → enqueue the worker on SQLite only (Postgres uses the listener).
-  if (isSqliteRuntime() && computed.length > 0) {
-    const inputs = computed.map((d) =>
-      buildRefinementInput({ app, table, recordId, record, field: d.field })
-    )
-    const program = Effect.forEach(inputs, (input) => refineAiComputeField(input), {
-      discard: true,
-    }).pipe(Effect.provide(AiLive), Effect.result)
-    runDetached(program, 'sqlite-refinement-enqueue')
-  }
+  const computedBranch =
+    isSqliteRuntime() && computed.length > 0
+      ? labelled(
+          Effect.forEach(
+            computed.map((d) =>
+              buildRefinementInput({ app, table, recordId, record, field: d.field })
+            ),
+            (input) => refineAiComputeField(input),
+            { discard: true }
+          ),
+          'sqlite-refinement-enqueue'
+        )
+      : Effect.void
+
+  // Fixed-width literal fan-out (2), not data-dependent: the per-branch widths
+  // are bounded inside each branch.
+  return Effect.all([overrideBranch, computedBranch], { discard: true }).pipe(
+    Effect.withSpan('ai-compute.signal-ai-compute-write-phase')
+  )
 }

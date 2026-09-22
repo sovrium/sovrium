@@ -23,6 +23,9 @@ export const users = authTable('user', {
   email: text('email').notNull().unique(),
   emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
   image: text('image'),
+  // The account's own interface language — see the Postgres twin in
+  // `auth/better-auth/schema-tables.ts` for why it is engine-owned and nullable.
+  language: text('language'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .$defaultFn(() => new Date()),

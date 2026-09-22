@@ -18,7 +18,8 @@
  * @see keystone plan §12 Q1 — two-tier RBAC (admin / operator)
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
 
 /**
  * Sovrium runtime mode literal.
@@ -34,12 +35,12 @@ import { z } from '@hono/zod-openapi'
  * a bug filed against AIO that tries to hit a Postgres-only feature is
  * resolved without needing shell access to confirm the runtime mode.
  */
-export const sovriumRuntimeSchema = z
-  .enum(['postgres', 'sqlite-aio'])
-  .describe('Active database runtime backing this Sovrium process')
+export const sovriumRuntimeSchema = Schema.Literals(['postgres', 'sqlite-aio']).annotate({
+  description: 'Active database runtime backing this Sovrium process',
+})
 
 /** @public */
-export type SovriumRuntime = z.infer<typeof sovriumRuntimeSchema>
+export type SovriumRuntime = typeof sovriumRuntimeSchema.Type
 
 /**
  * Response shape of `GET /api/admin/config/version`.
@@ -68,34 +69,25 @@ export type SovriumRuntime = z.infer<typeof sovriumRuntimeSchema>
  * The shape is exposed under the OpenAPI name `ConfigVersionResponse` so
  * downstream tooling generates a stable type name.
  */
-export const configVersionResponseSchema = z
-  .object({
-    version: z
-      .string()
-      .regex(/^\d+\.\d+\.\d+(-.*)?$/)
-      .describe(
-        'Semantic version string from package.json baked into the binary at build time (e.g. "0.3.0" or "1.0.0-beta.4")'
-      ),
-    commit: z
-      .string()
-      .regex(/^([0-9a-f]{7,40}|unknown)$/)
-      .describe(
-        'Short git commit SHA (7-40 lowercase hex chars) injected at build time via SOVRIUM_COMMIT_SHA, or the literal "unknown" when the env var is unset'
-      ),
-    runtime: sovriumRuntimeSchema,
-    nodeVersion: z
-      .string()
-      .min(1)
-      .describe(
-        'Bun runtime version powering this Sovrium process. Field name retained for OpenAPI tooling familiarity (the value is Bun.version, not Node.js)'
-      ),
-    startedAt: z.iso
-      .datetime()
-      .describe(
-        'ISO 8601 UTC timestamp captured once at process boot; identical across all calls within a single process lifetime'
-      ),
-  })
-  .openapi('ConfigVersionResponse')
+export const configVersionResponseSchema = Schema.Struct({
+  version: Schema.String.annotate({
+    description:
+      'Semantic version string from package.json baked into the binary at build time (e.g. "0.3.0" or "1.0.0-beta.4")',
+  }).pipe(Schema.check(Schema.isPattern(/^\d+\.\d+\.\d+(-.*)?$/))),
+  commit: Schema.String.annotate({
+    description:
+      'Short git commit SHA (7-40 lowercase hex chars) injected at build time via SOVRIUM_COMMIT_SHA, or the literal "unknown" when the env var is unset',
+  }).pipe(Schema.check(Schema.isPattern(/^([0-9a-f]{7,40}|unknown)$/))),
+  runtime: sovriumRuntimeSchema,
+  nodeVersion: Schema.String.annotate({
+    description:
+      'Bun runtime version powering this Sovrium process. Field name retained for OpenAPI tooling familiarity (the value is Bun.version, not Node.js)',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  startedAt: looseIsoDateTime({
+    description:
+      'ISO 8601 UTC timestamp captured once at process boot; identical across all calls within a single process lifetime',
+  }),
+}).annotate({ identifier: 'ConfigVersionResponse' })
 
 /** @public */
-export type ConfigVersionResponse = z.infer<typeof configVersionResponseSchema>
+export type ConfigVersionResponse = typeof configVersionResponseSchema.Type

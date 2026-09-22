@@ -9,11 +9,8 @@ description: >-
 auth:
   $ref: ./config/auth.yaml
 
-theme:
-  $ref: ./config/theme.yaml
-
-# The design system: how the blog sounds, and the line between the public
-# reading surface and the admin space behind auth.
+# The design system: the blog's tokens, how it sounds, and the line between the
+# public reading surface and the admin space behind auth.
 design:
   $ref: ./config/design.yaml
 

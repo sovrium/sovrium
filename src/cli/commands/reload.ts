@@ -7,7 +7,7 @@
 
 import { readFile, writeFile, rm } from 'node:fs/promises'
 import { Effect, Console } from 'effect'
-import { printFailure } from '@/infrastructure/logging/cli-output'
+import { printFailure, printStderr } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import {
   computeConfigHash,
@@ -64,13 +64,13 @@ export const handleReloadCommand = async (argv: readonly string[] = []): Promise
   const options = parseReloadArgs(argv)
   const lockData = await readLockFile()
   if (!lockData) {
-    Effect.runSync(Console.error('Error: No server is running (lock file not found)'))
+    printStderr('Error: No server is running (lock file not found)')
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
   if (!isProcessRunning(lockData.pid)) {
-    Effect.runSync(Console.error('Error: Server is not running'))
+    printStderr('Error: Server is not running')
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
@@ -102,7 +102,7 @@ export const handleReloadCommand = async (argv: readonly string[] = []): Promise
     }
 
     const { decodeAppConfigObject } =
-      await import('@/application/use-cases/schema/decode-app-config')
+      await import('@/application/use-cases/config/decode-app-config')
     const decoded = decodeAppConfigObject(parseResult.parsed)
     if (!decoded.valid) {
       printFailure({
@@ -117,7 +117,6 @@ export const handleReloadCommand = async (argv: readonly string[] = []): Promise
 
     // Update lock file with new config hash
     const newHash = computeConfigHash(parseResult.content)
-    // eslint-disable-next-line functional/no-expression-statements
     await writeLockFile({ ...lockData, configHash: newHash })
   }
 
@@ -127,7 +126,6 @@ export const handleReloadCommand = async (argv: readonly string[] = []): Promise
   // default fallback ("Reloaded from app.yaml").
   if (options.message !== undefined && options.message.length > 0) {
     try {
-      // eslint-disable-next-line functional/no-expression-statements
       await writeFile(getReloadMessageFilePath(), options.message, 'utf-8')
     } catch {
       // Non-fatal — the reload still happens, just without the message.
@@ -135,7 +133,6 @@ export const handleReloadCommand = async (argv: readonly string[] = []): Promise
   } else {
     // Clear any stale sidecar from a prior reload that crashed mid-handler.
     try {
-      // eslint-disable-next-line functional/no-expression-statements
       await rm(getReloadMessageFilePath(), { force: true })
     } catch {
       // Ignore.
@@ -147,7 +144,7 @@ export const handleReloadCommand = async (argv: readonly string[] = []): Promise
     // eslint-disable-next-line functional/no-expression-statements
     process.kill(lockData.pid, 'SIGUSR1')
   } catch {
-    Effect.runSync(Console.error('Error: Failed to send reload signal'))
+    printStderr('Error: Failed to send reload signal')
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }

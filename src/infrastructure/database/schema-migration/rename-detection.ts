@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { detectCycles } from '@/domain/validators/cycle-detection'
+import { detectCycles } from '@/domain/kernel/matching/cycle-detection'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 

@@ -71,6 +71,9 @@ fields:
     displayField: name
     reciprocalField: posts
     allowMultiple: true
+    # A cap on the picker. Past five tags the search closes rather than
+    # inviting a selection it would refuse, and the count reads "5 of 5".
+    maxLinked: 5
   - id: 10
     name: created_at
     type: created-at

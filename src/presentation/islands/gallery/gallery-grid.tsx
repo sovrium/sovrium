@@ -6,9 +6,10 @@
  */
 
 import { useEffect, useState, type ReactElement } from 'react'
+import { computeGalleryGridClasses } from '@/presentation/design/gallery-default-classes'
 import { GalleryCardView } from './gallery-card'
 import { buildGridClasses, resolveActiveColumns } from './grid-class-builder'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 import type {
   GalleryCard,
   GalleryGridColumns,
@@ -59,21 +60,29 @@ export function GalleryGrid({
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  const resolvedLayout = layout ?? 'grid'
   const activeColumns = resolveActiveColumns(gridColumns, viewportWidth)
   const responsiveClasses = buildGridClasses(gridColumns)
-  const resolvedLayout = layout ?? 'grid'
-  // Masonry approximates variable-height card rendering using CSS columns.
-  // Grid uses CSS-grid for equal-height aligned cells.
+  // Masonry approximates variable-height card rendering using CSS columns;
+  // grid uses CSS-grid for equal-height aligned cells. Both shells (and the
+  // canvas' 10px gutter they share) come from the recipe; only the responsive
+  // `grid-cols-*` string stays here, because `buildGridClasses` spells all
+  // thirty of its literals out for the scan-free compiler and the recipe
+  // cannot know which of them a given `gridColumns` config resolved to.
   const layoutClasses =
     resolvedLayout === 'masonry'
-      ? `columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 p-2`
-      : `grid w-full gap-4 p-2 ${responsiveClasses}`
+      ? computeGalleryGridClasses({ layout: 'masonry' })
+      : `${computeGalleryGridClasses()} ${responsiveClasses}`
 
   return (
     <div
       data-component="gallery"
       data-columns={String(activeColumns)}
       data-layout={resolvedLayout}
+      // The component-scoped twin of `data-layout`. `data-layout` is a generic
+      // name several views answer to; a page composing two of them needs to ask
+      // for THIS view's arrangement without matching the other's.
+      data-gallery-layout={resolvedLayout}
       className={layoutClasses}
     >
       {records.map((record) => (

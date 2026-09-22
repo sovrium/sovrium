@@ -9,7 +9,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Data, Effect } from 'effect'
 import { logDebug } from '@/infrastructure/logging'
-import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
+import { resolvePackagePath } from '@/infrastructure/process/package-paths'
 
 /**
  * `generateSearchIndex` — pure Application use-case that materializes the
@@ -156,7 +156,7 @@ const extractTitle = (html: string): string => {
 
 /**
  * Locate the element marked with `data-sovrium-search-body` and return its
- * inner HTML. The marker (placed on `<main>` by `PageMain.tsx`) confines the
+ * inner HTML. The marker (placed on `<main>` by `page-main.tsx`) confines the
  * indexer to the page's primary content region, excluding header/nav/footer
  * chrome that would otherwise pollute every page's excerpt with shared text.
  *
@@ -195,7 +195,7 @@ const extractSearchBodySubtree = (html: string): string | undefined => {
  * `caf&eacute;` → `café`).
  *
  * When the source HTML carries a `data-sovrium-search-body` marker (placed on
- * `<main>` by `PageMain.tsx`), only the marker's subtree is indexed — chrome
+ * `<main>` by `page-main.tsx`), only the marker's subtree is indexed — chrome
  * (header/nav/footer) is excluded so per-page excerpts surface page-specific
  * content rather than shared layout text. Pages without the marker fall back
  * to whole-document extraction.
@@ -256,7 +256,10 @@ const fileExists = (filePath: string): Effect.Effect<boolean> =>
     // mapping the failure channel to `false`.
     try: () => fs.access(filePath).then(() => true),
     catch: () => false as const,
-  }).pipe(Effect.orElseSucceed(() => false))
+  }).pipe(
+    // effect-swallow: the `catch` above already turned the rejection into `false`, which IS the "skip this page" signal; this only moves that value out of the error channel, so there is no failure left to observe.
+    Effect.orElseSucceed(() => false)
+  )
 
 const resolveHtmlPath = (inputDir: string, pagePath: string): Effect.Effect<string | undefined> =>
   Effect.gen(function* () {
@@ -548,4 +551,4 @@ export const generateSearchIndex = (
     return {
       files: ['sovrium-search/index.json', 'sovrium-search/runtime.js'],
     }
-  })
+  }).pipe(Effect.withSpan('server.generate-search-index'))

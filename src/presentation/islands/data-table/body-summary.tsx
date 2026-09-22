@@ -40,13 +40,17 @@
  * per column renders exactly one row, which is what it rendered before.
  */
 
+import {
+  computeTableSummaryCellClasses,
+  computeTableSummaryRowClasses,
+} from '@/presentation/design/table-default-classes'
 import { readSummaryValue, type SummaryAggregations } from './summary-aggregate'
 import { summaryCellText, type SummaryFormatContext } from './summary-format'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type {
   DataTableColumn,
   DataTableSummaryItem,
-} from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+} from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { ReactElement } from 'react'
 
 /** One declared summary, bound to the column index it renders under. */
@@ -99,7 +103,6 @@ interface TableSummaryFooterProps {
   readonly fieldMeta?: FieldMetaMap
   /** Active page locale, threaded into the shared cell formatter. */
   readonly locale: string
-  readonly cellClass: string
 }
 
 /**
@@ -113,7 +116,6 @@ export function TableSummaryFooter({
   columns,
   fieldMeta,
   locale,
-  cellClass,
 }: TableSummaryFooterProps): ReactElement {
   const layers = toSummaryLayers(summary, columnFields)
   const width = Math.max(
@@ -128,14 +130,14 @@ export function TableSummaryFooter({
         <tr
           key={`summary-row-${String(layerIndex)}`}
           role="row"
-          className="bg-background-subtle font-medium"
+          className={computeTableSummaryRowClasses()}
         >
           {Array.from({ length: width }, (_, columnIndex) => {
             const entry = layer.find((candidate) => candidate.index === columnIndex)
             return (
               <td
                 key={`summary-${String(layerIndex)}-${String(columnIndex)}`}
-                className={`${cellClass} text-foreground whitespace-nowrap`}
+                className={computeTableSummaryCellClasses()}
                 {...(entry ? { 'data-summary-field': entry.item.field } : {})}
               >
                 {entry

@@ -11,7 +11,7 @@ fields:
     relatedTable: projects
     relationType: many-to-one
     # Names the column a human should see instead of the foreign key. Measured
-    # against the running app: this reaches the data-table's inline record
+    # against the running app: this reaches the `table` grid's inline record
     # PICKER (`record-picker-editor.tsx` searches and labels on it) but NOT the
     # read-only cell, and not the "Add a task" form, which renders `project` as
     # a plain text input expecting an id. It is declared here anyway because it

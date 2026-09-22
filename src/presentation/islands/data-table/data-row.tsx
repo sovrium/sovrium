@@ -5,31 +5,41 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { flexRender, type Cell, type Row } from '@tanstack/react-table'
+import { flexRender } from '@tanstack/react-table'
 import { useCallback } from 'react'
-import { substituteRecordVars } from '@/domain/utils/substitute-record-vars'
-import { dispatch as dispatchIslandEvent } from '../_shared/event-bus'
-import { AiRefinementMarker } from '../shared/ai-refinement-marker'
-import { readAiRefinementStatus } from '../shared/ai-refinement-status'
+import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  computeTableCellCursorClasses,
+  computeTableFillHandleClasses,
+  computeTableFillPreviewClasses,
+  computeTableRowClasses,
+} from '@/presentation/design/table-default-classes'
+import { AiRefinementMarker } from '../runtime/ai-refinement-marker'
+import { readAiRefinementStatus } from '../runtime/ai-refinement-status'
+import { dispatch as dispatchIslandEvent } from '../runtime/event-bus'
 import { stopClickPropagation } from './cell-click'
-import { EditableCell } from './editable-cell'
-import { isSingleGestureWidget } from './editors/editor-contract'
-import { CheckboxCellControl, RatingCellControl } from './editors/single-gesture-cells'
 import { evaluateCellStyle } from './formatting'
-import { frozenCellStyle, type FrozenOffsets } from './frozen-columns'
+import { FROZEN_CELL_CLASS, frozenCellStyle, type FrozenOffsets } from './frozen-columns'
+import {
+  editorOpener,
+  isEditingThisCell,
+  singleGestureControl,
+  InlineEditor,
+} from './inline-cell-editing'
 import { useRowPaint } from './row-color'
-import { SaveStatusIndicator } from './save-status-indicator'
-import type {
-  EditingCell,
-  FieldMeta,
-  FieldMetaMap,
-  FieldWriteValue,
-  SaveStatus,
-} from '../hooks/use-inline-editing'
-import type { AiFieldRefinementStatus } from '../shared/ai-refinement-status'
-import type { TableRecord } from '../shared/types'
-import type { CellStyleCondition } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
-import type { CSSProperties, ReactElement, ReactNode } from 'react'
+import { rowIdOf } from './row-identity'
+import type { CellMeta, DataRowContext } from './data-row-types'
+import type { AiFieldRefinementStatus } from '../runtime/ai-refinement-status'
+import type { DataTableCell, DataTableRow } from './island/table-features'
+import type { CellRange, GridCursor } from './island/use-grid-cursor'
+import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactElement, ReactNode } from 'react'
+
+export type {
+  CellCommit,
+  DataRowContext,
+  DataTableRowClickAction,
+  InlineAutoSave,
+} from './data-row-types'
 
 /**
  * THE single data-row renderer. Both the flat body and the grouped body render
@@ -44,266 +54,16 @@ import type { CSSProperties, ReactElement, ReactNode } from 'react'
  * remembering to patch both.
  */
 
-/**
- * Auto-save wiring for inline cell editing. When present, cells in the
- * data-table persist edits automatically (debounced) without an Enter keypress.
- */
-export interface InlineAutoSave {
-  readonly enabled: boolean
-  readonly debounceMs: number
-  /**
-   * When true, edits persist only when the field loses focus (Notion-like),
-   * not on every debounced keystroke (Airtable-like).
-   */
-  readonly saveOnBlur?: boolean
-  /** Persists the in-progress edit without exiting edit mode. */
-  readonly onAutoSave: (newValue: unknown) => void | Promise<void>
-  /** Records the latest un-persisted value so a cell switch can flush it. */
-  readonly onTrackValue: (newValue: unknown) => void
-  /** Saves the current value and moves the editor to the next editable cell. */
-  readonly onTabNext: (rowId: string | number, currentField: string, newValue: unknown) => void
-}
-
-/**
- * Action triggered when a user clicks a row in the data-table.
- *
- * Two variants are supported in the foundation tier:
- * - `navigate` — the `path` template can contain `$record.<field>` tokens that
- *   are replaced with the clicked row's field values at click time
- *   (e.g. `/deals/$record.id` → `/deals/42`).
- * - `openDrawer` — PG-04 quick-edit drawer dispatch. Fires a
- *   `sovrium:open-drawer` CustomEvent with `detail: { id, record }` so the
- *   matching drawer island (`{ type: 'drawer', id: <component> }`) toggles
- *   open. The clicked row's record is attached to `detail.record` for the
- *   future form-population tier.
- *
- * These two are now the ONLY variants the schema accepts: `onRowClick` is
- * typed as `RowClickActionSchema`, not the full `ActionSchema`. The remaining
- * six variants (auth / crud / automation / filter / toast / fetch) are
- * rejected at config-validation time rather than accepted and then ignored
- * here. Richer behaviour on a row click belongs on the referenced drawer
- * component's footer `actions`, where the full `ActionSchema` is honoured.
- */
-export type DataTableRowClickAction =
-  | { readonly type: 'navigate'; readonly path: string }
-  | { readonly type: 'openDrawer'; readonly component: string }
-
-/**
- * Persists ONE cell without first entering edit mode.
- *
- * The single-gesture controls (`checkbox`, `rating`) commit on one click, so
- * there is no editor to open and close around the write — and they cannot go
- * through the edit-mode save, which reads the editing cell from its own closure
- * and would drop a toggle fired in the same tick.
- */
-export type CellCommit = (
-  rowId: string | number,
-  field: string,
-  value: FieldWriteValue
-) => void | Promise<unknown>
-
-type CellMeta =
-  | {
-      field?: string
-      editable?: boolean
-      frozen?: boolean
-      cellStyle?: readonly CellStyleCondition[]
-    }
-  | undefined
-
-/**
- * Everything a data row needs beyond the row itself and its stripe index.
- * Assembled ONCE per body render and handed to every row — flat and grouped
- * alike, which is what keeps the two paths from drifting again.
- */
-export interface DataRowContext {
-  readonly cellClass: string
-  readonly borderClass: string
-  readonly striped: boolean
-  readonly selectionMode?: 'none' | 'single' | 'multiple'
-  readonly gridRole?: boolean
-  readonly editingCell?: EditingCell
-  readonly fieldMeta?: FieldMetaMap
-  readonly tableName?: string
-  readonly autoSave?: InlineAutoSave
-  readonly inlineSaveStatus?: SaveStatus
-  readonly onRowClickAction?: DataTableRowClickAction
-  readonly onCellDoubleClick?: (rowId: string | number, field: string, value: unknown) => void
-  readonly onEditSave?: (newValue: unknown) => void
-  readonly onEditCancel?: () => void
-  /** Persists a single-gesture cell (checkbox / rating) — see {@link CellCommit}. */
-  readonly onCellCommit?: CellCommit
-  /** Measured sticky offsets for the pinned (`frozen`) columns, keyed by field. */
-  readonly frozenOffsets?: FrozenOffsets
-  /**
-   * Field whose declared option colours fill each row — the grid's spelling of
-   * the `colorField` the record views already read. Absent on every grid that
-   * declares none, which is every grid shipped before this existed.
-   */
-  readonly rowColorField?: string
-  /**
-   * `optionValue → #RRGGBB` for the field {@link rowColorField} names, resolved
-   * server-side from `app.tables` (the island only ever sees records).
-   */
-  readonly rowColorFieldColors?: Readonly<Record<string, string>>
-}
-
 // ---------------------------------------------------------------------------
 // Cell content
 // ---------------------------------------------------------------------------
-
-function isEditingThisCell(
-  editingCell: EditingCell | undefined,
-  field: string | undefined,
-  rowId: string | number | undefined
-): boolean {
-  return Boolean(
-    editingCell &&
-    field &&
-    rowId !== undefined &&
-    editingCell.rowId === rowId &&
-    editingCell.field === field
-  )
-}
-
-/** The open inline editor, plus its optional save-status companion. */
-function InlineEditor({
-  value,
-  field,
-  rowId,
-  ctx,
-}: {
-  readonly value: unknown
-  readonly field: string
-  readonly rowId: string | number | undefined
-  readonly ctx: DataRowContext
-}): ReactElement {
-  const { autoSave } = ctx
-  return (
-    <div className="flex items-center gap-1">
-      <EditableCell
-        value={value}
-        fieldMeta={ctx.fieldMeta?.[field]}
-        onSave={ctx.onEditSave!}
-        onCancel={ctx.onEditCancel!}
-        tableName={ctx.tableName}
-        recordId={rowId}
-        fieldName={field}
-        autoSave={Boolean(autoSave?.enabled)}
-        autoSaveDebounceMs={autoSave?.debounceMs}
-        saveOnBlur={autoSave?.saveOnBlur === true}
-        {...(autoSave && {
-          onAutoSave: autoSave.onAutoSave,
-          onTrackValue: autoSave.onTrackValue,
-          onTabNext: (newValue: unknown) =>
-            rowId !== undefined && autoSave.onTabNext(rowId, field, newValue),
-        })}
-      />
-      {ctx.inlineSaveStatus && <SaveStatusIndicator status={ctx.inlineSaveStatus} />}
-    </div>
-  )
-}
-
-/**
- * The callback that puts this cell into edit mode, or `undefined` when the cell
- * cannot be edited at all (not declared editable, no addressable row, or no
- * editing wiring supplied).
- */
-function editorOpener(
-  cell: Cell<TableRecord, unknown>,
-  meta: CellMeta,
-  ctx: DataRowContext
-): (() => void) | undefined {
-  const field = meta?.field
-  const rowId = cell.row.original.id as string | number | undefined
-  const { onCellDoubleClick } = ctx
-  if (meta?.editable !== true) return undefined
-  if (field === undefined || rowId === undefined || !onCellDoubleClick) return undefined
-  return () => onCellDoubleClick(rowId, field, cell.getValue())
-}
-
-/**
- * Resolves what a `<td>` renders, plus the two facts its container needs:
- *
- * - `isEditable` — whether the cell OWNS pointer/keyboard interaction. True for
- *   a declared-editable cell AND for one already in edit mode, so a click
- *   landing inside an open editor cannot fall through to the row action.
- * - `onDoubleClick` — present only when the editor can still be OPENED, so a
- *   cell already editing does not re-enter edit mode.
- */
-/**
- * The live control an editable `checkbox` / `rating` cell renders INSTEAD of a
- * picture of its value, or `undefined` when this cell is not one of them.
- *
- * These commit on a single click, so the cell never enters edit mode: there is
- * no editor to open, and therefore no double-click to open it with. Returning
- * `undefined` for everything else keeps the read path unchanged for every other
- * field type.
- */
-function singleGestureControl(
-  cell: Cell<TableRecord, unknown>,
-  meta: CellMeta,
-  ctx: DataRowContext
-): ReactNode | undefined {
-  const field = meta?.field
-  const rowId = cell.row.original.id as string | number | undefined
-  const fieldMeta = field ? ctx.fieldMeta?.[field] : undefined
-  if (meta?.editable !== true || !field || rowId === undefined || !ctx.onCellCommit)
-    return undefined
-  if (!isSingleGestureWidget(fieldMeta)) return undefined
-
-  return (
-    <SingleGestureCell
-      value={cell.getValue()}
-      field={field}
-      rowId={rowId}
-      fieldMeta={fieldMeta}
-      onCellCommit={ctx.onCellCommit}
-    />
-  )
-}
-
-/** The live control itself, so the resolver above stays a resolver. */
-function SingleGestureCell({
-  value,
-  field,
-  rowId,
-  fieldMeta,
-  onCellCommit,
-}: {
-  readonly value: unknown
-  readonly field: string
-  readonly rowId: string | number
-  readonly fieldMeta: FieldMeta | undefined
-  readonly onCellCommit: CellCommit
-}): ReactElement {
-  const commit = useCallback(
-    (next: FieldWriteValue): void => void onCellCommit(rowId, field, next),
-    [onCellCommit, rowId, field]
-  )
-
-  return fieldMeta?.type === 'rating' ? (
-    <RatingCellControl
-      value={value}
-      label={field}
-      fieldMeta={fieldMeta}
-      commit={commit}
-    />
-  ) : (
-    <CheckboxCellControl
-      value={value}
-      label={field}
-      commit={commit}
-    />
-  )
-}
 
 function renderCellContent({
   cell,
   meta,
   ctx,
 }: {
-  readonly cell: Cell<TableRecord, unknown>
+  readonly cell: DataTableCell
   readonly meta: CellMeta
   readonly ctx: DataRowContext
 }): { content: ReactNode; isEditable: boolean; onDoubleClick?: () => void } {
@@ -366,7 +126,7 @@ function frozenPinStyle(
  * cell in the grid pays a single property lookup and nothing more.
  */
 const cellRefinementStatus = (
-  cell: Cell<TableRecord, unknown>,
+  cell: DataTableCell,
   meta: CellMeta
 ): AiFieldRefinementStatus | undefined =>
   meta?.field === undefined ? undefined : readAiRefinementStatus(cell.row.original, meta.field)
@@ -387,6 +147,203 @@ const cellKeyDownHandler =
   }
 
 /**
+ * The identity a cell's row answers to — the same expression the `<tr>` writes
+ * into `data-row-id`, so the cursor and the DOM cannot disagree about which
+ * row a cell belongs to.
+ */
+const cellRowId = (cell: DataTableCell): string => rowIdOf(cell.row)
+
+/**
+ * This cell's place in the roving tabindex, or `undefined` when the table is
+ * not a grid and keeps its native focus behaviour.
+ *
+ * Every cell of a grid carries a tabindex: `0` for the cursor, `-1` for the
+ * rest. That is what makes the whole grid ONE tab stop. Before this, every
+ * editable cell carried `tabIndex: 0`, so a reader tabbing past a modest
+ * twelve-by-six grid crossed seventy-odd stops to get to whatever followed it.
+ *
+ * `-1` rather than no attribute at all is the load-bearing half: it keeps each
+ * cell focusable PROGRAMMATICALLY, which is how an arrow key moves the cursor.
+ * Simply deleting the attribute would make the grid a single tab stop too, and
+ * an unnavigable one.
+ */
+function cellTabIndex(
+  navigable: boolean,
+  isCursor: boolean,
+  canOpenEditor: boolean
+): number | undefined {
+  if (navigable) return isCursor ? 0 : -1
+  // Not a grid: preserve exactly what shipped before — an editable cell is
+  // reachable by Tab, everything else is inert.
+  return canOpenEditor ? 0 : undefined
+}
+
+/**
+ * The cursor-related attributes of one `<td>`: its place in the roving
+ * tabindex, whether it carries the cursor marker, and the column identity the
+ * grid-level focus handler reads back.
+ *
+ * Assembled here rather than inline so `DataCell` stays a renderer. Returns an
+ * empty object for a read-only table, which is what leaves the native `<table>`
+ * semantics — and the focus behaviour that shipped before any of this — exactly
+ * as they were.
+ */
+function cursorCellAttributes(
+  cell: DataTableCell,
+  ctx: DataRowContext,
+  canOpenEditor: boolean
+): { readonly attrs: Record<string, unknown>; readonly isCursor: boolean } {
+  const navigable = ctx.navigable === true
+  if (!navigable) {
+    const tabIndex = cellTabIndex(false, false, canOpenEditor)
+    return { isCursor: false, attrs: tabIndex === undefined ? {} : { tabIndex } }
+  }
+  const rowId = cellRowId(cell)
+  const columnId = cell.column.id
+  const isCursor = ctx.cursorRowId === rowId && ctx.cursorColumnId === columnId
+  return {
+    isCursor,
+    attrs: {
+      'data-col-id': columnId,
+      tabIndex: cellTabIndex(true, isCursor, canOpenEditor),
+      ...selectionMarkers(ctx, rowId, columnId, isCursor),
+    },
+  }
+}
+
+const rangeHas = (range: CellRange | undefined, rowId: string, columnId: string): boolean =>
+  range !== undefined && range.rowIds.has(rowId) && range.columnIds.has(columnId)
+
+/** The range and fill-preview markers of one cell in a navigable grid. */
+function selectionMarkers(
+  ctx: DataRowContext,
+  rowId: string,
+  columnId: string,
+  isCursor: boolean
+): Record<string, 'true'> {
+  const inRange = isCursor || rangeHas(ctx.range, rowId, columnId)
+  const inFillPreview = !isCursor && rangeHas(ctx.fillPreview, rowId, columnId)
+  return {
+    ...(inRange && { 'aria-selected': 'true' as const }),
+    ...(inFillPreview && { 'data-fill-preview': 'true' as const }),
+  }
+}
+
+/**
+ * The fill handle: the square on the cursor's bottom-right corner.
+ *
+ * Its own gestures are stopped from reaching the cell beneath it. A mousedown
+ * that bubbled would move the cursor; a double-click that bubbled would open
+ * the editor over a fill the reader had just asked for.
+ */
+function FillHandle({
+  rowId,
+  columnId,
+  onDragStart,
+  onFillDown,
+}: {
+  readonly rowId: string
+  readonly columnId: string
+  readonly onDragStart: (source: GridCursor) => void
+  readonly onFillDown: (source: GridCursor) => void
+}): ReactElement {
+  const handleMouseDown = useCallback(
+    (event: ReactMouseEvent<HTMLSpanElement>): void => {
+      if (event.button !== 0) return
+      event.preventDefault()
+      event.stopPropagation()
+      onDragStart({ rowId, columnId })
+    },
+    [onDragStart, rowId, columnId]
+  )
+  const handleDoubleClick = useCallback(
+    (event: ReactMouseEvent<HTMLSpanElement>): void => {
+      event.preventDefault()
+      event.stopPropagation()
+      onFillDown({ rowId, columnId })
+    },
+    [onFillDown, rowId, columnId]
+  )
+  return (
+    <span
+      data-fill-handle="true"
+      aria-hidden="true"
+      title="Drag to fill"
+      onMouseDown={handleMouseDown}
+      onDoubleClick={handleDoubleClick}
+      onClick={stopClickPropagation}
+      className={computeTableFillHandleClasses()}
+    />
+  )
+}
+
+/**
+ * The handle for this cell, or nothing: only the cursor carries one, and only
+ * when its column can be written — a read-only or computed column offers no
+ * handle rather than a refusal after the drag.
+ */
+function fillHandleFor(
+  cell: DataTableCell,
+  ctx: DataRowContext,
+  isCursor: boolean
+): ReactElement | undefined {
+  const { onFillDragStart, onFillDown, canFillFrom, cursorPlaced } = ctx
+  if (!isCursor || cursorPlaced !== true) return undefined
+  if (!onFillDragStart || !onFillDown || !canFillFrom?.(cell)) return undefined
+  return (
+    <FillHandle
+      rowId={cellRowId(cell)}
+      columnId={cell.column.id}
+      onDragStart={onFillDragStart}
+      onFillDown={onFillDown}
+    />
+  )
+}
+
+/**
+ * The attributes of one `<td>` that do not depend on what it renders: its
+ * ARIA role, its class, its pin, its field, and its cursor markers.
+ */
+function dataCellAttributes(params: {
+  readonly ctx: DataRowContext
+  readonly meta: CellMeta
+  readonly conditionalClass: string
+  readonly cursorAttrs: Record<string, unknown>
+  readonly positioned: boolean
+  readonly isCursor: boolean
+}): Record<string, unknown> {
+  const { ctx, meta, conditionalClass, cursorAttrs, positioned, isCursor } = params
+  const pinStyle = frozenPinStyle(meta, ctx.frozenOffsets)
+  // The handle is positioned against the cell. A pinned cell is already a
+  // containing block (`position: sticky`), so only an unpinned one needs one.
+  const positionClass = positioned && !pinStyle ? 'relative' : ''
+  return {
+    ...(ctx.gridRole && { role: 'gridcell' }),
+    className: `${ctx.cellClass} ${ctx.borderClass} whitespace-nowrap ${conditionalClass} ${positionClass} ${pinStyle ? FROZEN_CELL_CLASS : ''} ${cellMarkerClass(cursorAttrs, isCursor)}`,
+    ...(pinStyle && { style: pinStyle }),
+    ...(meta?.field && { 'data-field': meta.field }),
+    ...cursorAttrs,
+  }
+}
+
+/**
+ * The paint for the two cell states the keyboard grid MARKS.
+ *
+ * Both markers shipped without one: `aria-selected` and `data-fill-preview`
+ * were set on the `<td>` and no rule in the compiled stylesheet answered
+ * either, so a measured cursor cell computed `box-shadow: none`. The behaviour
+ * landed without its affordance, and this is where the two meet again.
+ *
+ * They are mutually exclusive by construction — `selectionMarkers` never marks
+ * the cursor as preview — so the two rings never compose into a 3px edge.
+ */
+function cellMarkerClass(cursorAttrs: Record<string, unknown>, isCursor: boolean): string {
+  if (isCursor) return computeTableCellCursorClasses()
+  if (cursorAttrs['data-fill-preview'] === 'true') return computeTableFillPreviewClasses()
+  return ''
+}
+
+/**
  * One data `<td>`.
  *
  * Coexistence of inline editing and a row action is discriminated by TARGET,
@@ -395,44 +352,69 @@ const cellKeyDownHandler =
  * A timing discriminator (swallow the first click, wait for a possible second)
  * was rejected — it taxes every row click to serve the minority case and is
  * nondeterministic under test.
+ *
+ * The ACTION cluster is the same rule one column over (R6), and the worse half
+ * of it: those cells are not a place a reader might type, they are buttons, and
+ * a row navigation that swallowed them turned every Ban, Archive and Delete
+ * into a silent drill-down with no confirm ever armed. A button is a more
+ * specific target than the row that contains it, so it claims its own clicks
+ * exactly as the editable cell and the selection checkbox already do.
+ *
+ * `data-col-id` carries the column's identity so the grid-level focus handler
+ * can map a focused `<td>` back to a cursor without knowing anything about the
+ * React tree it came from. `data-field` cannot serve: the generated columns
+ * (selection checkbox, row number, action cluster) have no field, and the
+ * cursor has to be able to sit on them.
+ *
+ * `aria-selected` on the CELL announces the cursor. The identically-named
+ * attribute on `<tr>` means the row was ticked — a different axis, and both
+ * can be true at once.
+ *
+ * `suppressRowClick` is true when this row answers a click at all — from a row
+ * action OR from single-row selection — and a cell holding its own controls may
+ * therefore pre-empt it. It used to be `hasRowAction` alone, while the row was
+ * made clickable by `hasRowAction || selectionMode === 'single'`. The two
+ * conditions disagreed on exactly one case: a single-selection grid with no
+ * `onRowClick`, where a click inside an editable cell still toggled row
+ * selection. That was survivable while every editor needed a double-click to
+ * open — and stopped being survivable the moment a checkbox committed on one
+ * click, because ticking it would also have selected its row.
  */
 function DataCell({
   cell,
   ctx,
   suppressRowClick,
 }: {
-  readonly cell: Cell<TableRecord, unknown>
+  readonly cell: DataTableCell
   readonly ctx: DataRowContext
-  /**
-   * True when this row answers a click at all — from a row action OR from
-   * single-row selection — and an editable cell may therefore pre-empt it.
-   *
-   * This used to be `hasRowAction` alone, while the row was made clickable by
-   * `hasRowAction || selectionMode === 'single'`. The two conditions disagreed
-   * on exactly one case: a single-selection grid with no `onRowClick`, where a
-   * click inside an editable cell still toggled row selection. That was
-   * survivable while every editor needed a double-click to open — and stopped
-   * being survivable the moment a checkbox committed on one click, because
-   * ticking it would also have selected its row.
-   */
   readonly suppressRowClick: boolean
 }): ReactElement {
-  const meta = cell.column.columnDef.meta as CellMeta
+  const { meta } = cell.column.columnDef
   const conditionalClass = meta?.cellStyle ? evaluateCellStyle(cell.getValue(), meta.cellStyle) : ''
   const { content, isEditable, onDoubleClick } = renderCellContent({ cell, meta, ctx })
-  const pinStyle = frozenPinStyle(meta, ctx.frozenOffsets)
   const refinement = cellRefinementStatus(cell, meta)
+
+  const { attrs: cursorAttrs, isCursor } = cursorCellAttributes(
+    cell,
+    ctx,
+    onDoubleClick !== undefined
+  )
+  const fillHandle = fillHandleFor(cell, ctx, isCursor)
 
   return (
     <td
-      {...(ctx.gridRole && { role: 'gridcell' })}
-      className={`${ctx.cellClass} ${ctx.borderClass} whitespace-nowrap ${conditionalClass}`}
-      {...(pinStyle && { style: pinStyle })}
-      {...(meta?.field && { 'data-field': meta.field })}
-      {...(suppressRowClick && isEditable && { onClick: stopClickPropagation })}
+      {...dataCellAttributes({
+        ctx,
+        meta,
+        conditionalClass,
+        cursorAttrs,
+        positioned: fillHandle !== undefined,
+        isCursor,
+      })}
+      {...(suppressRowClick &&
+        (isEditable || meta?.actions === true) && { onClick: stopClickPropagation })}
       {...(onDoubleClick && {
         onDoubleClick,
-        tabIndex: 0,
         onKeyDown: cellKeyDownHandler(onDoubleClick),
       })}
     >
@@ -441,6 +423,7 @@ function DataCell({
         status={refinement}
         placement="tooltip"
       />
+      {fillHandle}
     </td>
   )
 }
@@ -456,7 +439,7 @@ function DataCell({
  * string so a misconfigured path is still navigable rather than silently
  * retaining the literal `$record.id` token).
  */
-function performRowAction(row: Row<TableRecord>, ctx: DataRowContext): void {
+function performRowAction(row: DataTableRow, ctx: DataRowContext): void {
   const action = ctx.onRowClickAction
   // Schema-driven onRowClick wins over single-select toggle when both are
   // configured; selection still works through the row checkbox column.
@@ -502,10 +485,14 @@ function rowBackgroundClass(
   selected: boolean,
   filled: boolean
 ): string {
-  if (filled) return 'transition-colors'
-  return `hover:bg-background-subtle transition-colors ${
-    ctx.striped && rowIndex % 2 === 1 ? 'bg-background-subtle' : ''
-  } ${selected ? 'bg-primary-subtle' : ''}`
+  // ONE axis, with a stated precedence, where three utilities used to compete
+  // on the same element with no ordering guarantee between them: the author's
+  // own hue outranks everything, then selection (which the reader just
+  // performed and needs to see), then striping (a passive reading aid).
+  if (filled) return computeTableRowClasses({ state: 'filled' })
+  if (selected) return computeTableRowClasses({ state: 'selected' })
+  const striped = ctx.striped && rowIndex % 2 === 1
+  return computeTableRowClasses({ state: striped ? 'striped' : 'default' })
 }
 
 export function DataRow({
@@ -513,7 +500,7 @@ export function DataRow({
   rowIndex,
   ctx,
 }: {
-  readonly row: Row<TableRecord>
+  readonly row: DataTableRow
   readonly rowIndex: number
   readonly ctx: DataRowContext
 }): ReactElement {
@@ -539,7 +526,7 @@ export function DataRow({
 
   return (
     <tr
-      data-row-id={String(row.original.id ?? row.id)}
+      data-row-id={rowIdOf(row)}
       className={rowBackgroundClass(ctx, rowIndex, selected, paint.filled)}
       {...(selected && { 'aria-selected': 'true' as const })}
       {...(paint.style && { style: paint.style })}

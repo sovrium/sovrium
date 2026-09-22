@@ -16,15 +16,15 @@ components:
           - type: text
             element: h1
             props:
-              className: text-5xl font-bold mb-4 text-foreground tracking-tight
+              className: text-6xl font-bold mb-4 text-foreground tracking-tight
             content: Blog
           - type: text
             element: p
             props:
-              className: text-lg mb-12 text-muted-foreground
+              className: text-xl mb-12 text-muted-foreground
             content: Thoughts, essays, and notes on building things.
 
-          - type: data-table
+          - type: table
             dataSource:
               table: posts
               filter:

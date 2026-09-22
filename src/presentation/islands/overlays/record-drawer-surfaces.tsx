@@ -34,7 +34,7 @@ import type { ReactElement } from 'react'
 
 const POPUP_CLASS = `${computeDrawerPopupClasses({ side: 'right' })} inset-y-0 right-0 w-[32rem] max-w-full overflow-auto p-6`
 const PANEL_CLASS = 'flex h-full flex-col gap-4'
-const TITLE_CLASS = 'text-foreground text-lg font-semibold'
+const TITLE_CLASS = 'text-foreground text-xl font-semibold'
 const CLOSE_CLASS = 'text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4'
 
 /**

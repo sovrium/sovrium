@@ -7,7 +7,8 @@
 
 import { Context } from 'effect'
 import type { App } from '@/domain/models/app'
-import type { SessionInfo } from '@/domain/types/session-info'
+import type { SessionInfo } from '@/domain/models/app/auth/session-info'
+import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
 
 /**
  * Result of rendering a page, including access control outcomes
@@ -91,6 +92,74 @@ export class PageRenderer extends Context.Service<
          * BY URL outranks a page's own `meta.lang`.
          */
         readonly urlLanguage?: string
+        /**
+         * G1: the scheme + host this request arrived on, which feeds
+         * `$app.origin`. Only the live request knows it, so it cannot be a
+         * config constant.
+         */
+        readonly requestOrigin?: string
+        /**
+         * G1: the app whose OWN facts `$app.*` prints, when that is not the app
+         * being rendered. A mounted embedded app renders its own preset pages
+         * while the name, version and brand it must show are the OPERATOR's —
+         * a fact the preset config cannot contain.
+         */
+        readonly hostApp?: App
+        /**
+         * G2: the mount base every derived breadcrumb href hangs off. A mounted
+         * page is rendered against a path already stripped of the base, so
+         * without this every derived crumb would link OUT of the mount.
+         */
+        readonly basePath?: string
+        /**
+         * G3: the renderer's server-side rows reader — the only way
+         * `page.redirectToFirst` can learn the first row of a list that is a
+         * READ ENDPOINT rather than a table.
+         *
+         * Optional, and its absence is INDISTINGUISHABLE from an empty
+         * collection: the resolver degrades to "no first row" and renders the
+         * page. That is correct for a caller with no request to borrow an
+         * identity from, and a silent trap for one that has a request and simply
+         * forgot to pass it — which is what happened to the mounted-app funnel
+         * for as long as this field was absent from the port.
+         */
+        readonly fetchSystemRows?: (
+          endpoint: string,
+          rowsKey: string
+        ) => Promise<readonly Record<string, unknown>[]>
+        /**
+         * [internal ref]: the SINGLE-RECORD sibling, for a page-level `{ system }`
+         * binding.
+         *
+         * Its absence is NOT indistinguishable from a missing record, and the
+         * asymmetry with the rows reader above is deliberate: absent, the page
+         * falls back to the client-side enhancer marker, because a render with
+         * no request has no caller whose 404 it could be. A fetcher that IS
+         * present and answers `undefined` means the opposite — a caller who
+         * exists and for whom the record does not — and that is the page's 404.
+         */
+        readonly fetchSystemRecord?: (
+          endpoint: string,
+          recordKey: string | undefined
+        ) => Promise<Readonly<Record<string, unknown>> | undefined>
+        /**
+         * P10/mount: the caller's resolved POWERS, when the route layer knows
+         * them and the renderer does not.
+         *
+         * A mounted embedded app renders SESSION-LESS on purpose — handing the
+         * renderer a session would switch on page `access`, `visibility.roles`,
+         * `$user.*` and row-level filtering across every mounted surface at
+         * once. But the mount has already resolved the caller's two powers in
+         * order to decide whether to serve the request at all, and without
+         * them `visibility.capability` and an action column's `capability` are
+         * inert on every mounted page — inert in the direction that hides the
+         * affordance from the administrator it was written for.
+         *
+         * Passing the derived powers rather than the session is what keeps the
+         * blast radius at the capability gate: a capability set cannot be read
+         * as a role, resolve a `$user.*` reference, or reach a row filter.
+         */
+        readonly callerCapabilities?: readonly CallerCapability[]
       }
     ) => PageRenderResult | Promise<PageRenderResult>
 

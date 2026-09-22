@@ -16,12 +16,12 @@ components:
       - type: text
         element: h1
         props:
-          className: text-2xl font-bold mb-1
+          className: text-3xl font-bold mb-1
         content: Board
       - type: text
         element: p
         props:
-          className: text-sm mb-6
+          className: text-md mb-6
         content: Drag tasks between columns as work progresses.
 
       - type: container
@@ -31,7 +31,7 @@ components:
           - type: text
             element: h2
             props:
-              className: text-base font-semibold mb-4
+              className: text-lg font-semibold mb-4
             content: Add a task
           - type: form
             dataSource:
@@ -63,7 +63,7 @@ components:
             - type: text
               element: h3
               props:
-                className: text-sm font-medium
+                className: text-md font-medium
               content: $record.title
           footer:
             - field: due_date

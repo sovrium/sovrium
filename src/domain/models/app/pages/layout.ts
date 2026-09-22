@@ -70,7 +70,17 @@ export type SidebarTemplate = Schema.Schema.Type<typeof SidebarTemplateSchema>
  * to navigation, so the sidebar declares its own subset.
  */
 const SidebarDataSourceSchema = Schema.Struct({
-  /** Table name to query (must exist in app.tables) */
+  /**
+   * Table name to query.
+   *
+   * Resolved against `app.tables` at config load by
+   * `validateTableNameReferences`, which carries a config PATH through its walk
+   * for exactly this class of surface: the sidebar sits on the PAGE rather than
+   * on a component, so it has no `type` to be named by and the component walks
+   * never reached it at all (`collectComponents` yields only typed nodes). It is
+   * reported where the author wrote it —
+   * `pages[2].layout.sidebar[0].dataSource.table`. [internal ref].
+   */
   table: Schema.String.pipe(
     Schema.annotate({
       description: 'Table name to bind to (validated against app.tables)',

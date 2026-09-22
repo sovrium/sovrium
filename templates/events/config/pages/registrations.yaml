@@ -16,15 +16,15 @@ components:
       - type: text
         element: h1
         props:
-          className: text-2xl font-bold mb-1
+          className: text-3xl font-bold mb-1
         content: Registrations
       - type: text
         element: p
         props:
-          className: text-sm mb-6
+          className: text-md mb-6
         content: Everyone who signed up, grouped by event. Each row was confirmed by email automatically.
 
-      - type: data-table
+      - type: table
         dataSource:
           table: registrations
           sort:

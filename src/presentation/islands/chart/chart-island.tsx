@@ -5,9 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { BarChartCanvas } from './bar-chart'
-import { aggregateRecords } from './chart-aggregate'
-import { type ChartSeriesConfig } from './chart-series-shared'
+import { ChartCanvas } from './chart-canvas'
 import {
   ChartEmpty,
   ChartError,
@@ -16,34 +14,20 @@ import {
   ChartMissingTable,
   type ChartEmptyStateConfig,
 } from './chart-states'
-import { LineChartCanvas } from './line-chart'
-import { MultiAreaChart } from './multi-area-chart'
-import { MultiBarChart } from './multi-bar-chart'
-import { MultiLineChart } from './multi-line-chart'
 import { useChartRecords } from './use-chart-records'
 import { useChartSystemRecords } from './use-chart-system-records'
 import type { ChartAggregateConfig } from './chart-aggregate'
-import type { TableRecord } from '../shared/types'
+import type {
+  ChartAxisConfig,
+  ChartLegendConfig,
+  ChartTooltipConfig,
+  ChartType,
+} from './chart-canvas'
+import type { ChartSeriesConfig } from './chart-series-shared'
+import type { TableRecord } from '../runtime/types'
 import type { ChartSystemSource } from '@/domain/models/app/pages/components/component-types/data/chart'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { ReactElement } from 'react'
-
-interface ChartAxisConfig {
-  readonly field: string
-  readonly label?: string
-  readonly format?: 'date' | 'currency' | 'number' | 'percent'
-  readonly scale?: 'linear' | 'logarithmic'
-  readonly gridLines?: boolean
-}
-
-interface ChartLegendConfig {
-  readonly position?: 'top' | 'bottom' | 'left' | 'right' | 'none'
-  readonly visible?: boolean
-}
-
-interface ChartTooltipConfig {
-  readonly format?: string
-}
 
 /** DB-table chart binding (unchanged): series rendered over `/api/tables/:t/records`. */
 interface ChartTableSource {
@@ -62,7 +46,7 @@ type ChartDataSourceProp = ChartTableSource | { readonly system: ChartSystemSour
 
 interface ChartIslandProps {
   readonly dataSource?: ChartDataSourceProp
-  readonly chartType?: 'bar' | 'line' | 'pie' | 'area' | 'donut' | 'scatter'
+  readonly chartType?: ChartType
   readonly xAxis?: ChartAxisConfig
   readonly yAxis?: ChartAxisConfig
   readonly series?: readonly ChartSeriesConfig[]
@@ -167,98 +151,6 @@ function evaluateChartGuards(args: {
   return {}
 }
 
-/**
- * Renders an aggregated chart from a `chartAggregate` config. `line` charts
- * use the line canvas; every other type falls back to the bar canvas.
- */
-function renderAggregatedChart(args: {
-  readonly records: readonly TableRecord[]
-  readonly chartType: ChartIslandProps['chartType']
-  readonly chartAggregate: ChartAggregateConfig
-  readonly xAxis: ChartIslandProps['xAxis']
-  readonly yAxis: ChartIslandProps['yAxis']
-  readonly accessibleName: string | undefined
-}): ReactElement {
-  const { records, chartType, chartAggregate, xAxis, yAxis, accessibleName } = args
-  const aggregated = aggregateRecords(records, chartAggregate)
-  if (chartType === 'line') {
-    return (
-      <LineChartCanvas
-        data={aggregated}
-        accessibleName={accessibleName}
-      />
-    )
-  }
-  return (
-    <BarChartCanvas
-      records={records}
-      xField={chartAggregate.groupBy}
-      yField={chartAggregate.field ?? ''}
-      data={aggregated}
-      xAxis={xAxis}
-      yAxis={yAxis}
-      accessibleName={accessibleName}
-    />
-  )
-}
-
-/** True when the chart declares at least one explicit data series. */
-function hasSeries(series: ChartIslandProps['series']): series is readonly ChartSeriesConfig[] {
-  return Array.isArray(series) && series.length > 0
-}
-
-interface SeriesChartArgs {
-  readonly records: readonly TableRecord[]
-  readonly chartType: ChartIslandProps['chartType']
-  readonly xAxis: ChartIslandProps['xAxis']
-  readonly series: readonly ChartSeriesConfig[]
-  readonly legend: ChartIslandProps['legend']
-  readonly tooltip: ChartIslandProps['tooltip']
-  readonly accessibleName: string | undefined
-}
-
-/** `bar`/`area` series charts share the same prop shape (no tooltip). */
-function renderBarOrAreaSeries(args: SeriesChartArgs, xField: string): ReactElement {
-  const { records, chartType, series, legend, accessibleName } = args
-  const Chart = chartType === 'bar' ? MultiBarChart : MultiAreaChart
-  return (
-    <Chart
-      records={records}
-      xField={xField}
-      series={series}
-      legendPosition={legend?.position}
-      legendVisible={legend?.visible}
-      accessibleName={accessibleName}
-    />
-  )
-}
-
-/**
- * Renders a multi-series chart with an interactive legend. Each
- * declared `series` entry gets its own visual mark whose shape depends on the
- * `chartType`: `bar` renders grouped/stacked coloured bars, `area` renders
- * filled area paths, and every other type falls back to line series with a
- * hover tooltip. The legend lists every series label.
- */
-function renderSeriesChart(args: SeriesChartArgs): ReactElement {
-  const { records, chartType, xAxis, series, legend, tooltip, accessibleName } = args
-  const xField = xAxis?.field ?? ''
-  if (chartType === 'bar' || chartType === 'area') {
-    return renderBarOrAreaSeries(args, xField)
-  }
-  return (
-    <MultiLineChart
-      records={records}
-      xField={xField}
-      series={series}
-      legendPosition={legend?.position}
-      legendVisible={legend?.visible}
-      tooltipFormat={tooltip?.format}
-      accessibleName={accessibleName}
-    />
-  )
-}
-
 /** The read result shared by both chart bindings (records + query status). */
 interface ChartData {
   readonly records: readonly TableRecord[]
@@ -314,32 +206,16 @@ export default function ChartIsland({
   })
   if (guard.element) return guard.element
 
-  // A declared `series` array routes to the multi-series chart.
-  if (hasSeries(series)) {
-    return renderSeriesChart({ records, chartType, xAxis, series, legend, tooltip, accessibleName })
-  }
-
-  // When `chartAggregate` is declared, aggregate records into a `{ key, value }` series.
-  if (chartAggregate) {
-    return renderAggregatedChart({
-      records,
-      chartType,
-      chartAggregate,
-      xAxis,
-      yAxis,
-      accessibleName,
-    })
-  }
-
-  // Foundational [internal ref] implementation renders the bar variant from raw
-  // records. Other chart types layer on top in subsequent specs.
   return (
-    <BarChartCanvas
+    <ChartCanvas
       records={records}
-      xField={xAxis?.field ?? ''}
-      yField={yAxis?.field ?? ''}
+      chartType={chartType}
       xAxis={xAxis}
       yAxis={yAxis}
+      series={series}
+      legend={legend}
+      tooltip={tooltip}
+      chartAggregate={chartAggregate}
       accessibleName={accessibleName}
     />
   )

@@ -57,20 +57,31 @@ function registerPagePaths(
 
 /**
  * Check if a route should be excluded from SSG
+ *
+ * A static build emits the pages the configuration declares, and the assets
+ * those pages reference. It never emits — and never requests — a route the
+ * engine mounts for its own HTTP API: an API response is a live readback of a
+ * server that is not running, and freezing one into a deployable site ships a
+ * value that was true once.
+ *
+ * The rule is about WHO serves a route, not about how its path is spelled, so
+ * the app's own declarations win over the prefix. A configuration is free to
+ * declare a page at `/api/v1/users/profile`, and that page is still emitted —
+ * which is why `declaredPages` is consulted before the prefix and a bare
+ * `startsWith('/api/')` would be wrong.
+ *
+ * `/__sovrium_dev/` and `/test/` stay as separate literals because their
+ * reason is different: they are not API routes, and the dev live-reload SSE
+ * stream only ends at SSE_STREAM_MAX_LIFETIME_MS (25s) — toSSG awaits every
+ * response body, so crawling it stalls each build for the full lifetime.
  */
-function shouldExcludeRoute(pathname: string): boolean {
+function shouldExcludeRoute(pathname: string, declaredPages: ReadonlySet<string>): boolean {
+  if (declaredPages.has(pathname)) {
+    return false
+  }
+
   return (
-    pathname === '/api/health' ||
-    pathname === '/api/openapi.json' ||
-    pathname === '/api/scalar' ||
-    pathname.startsWith('/api/auth/') ||
-    pathname === '/api/tables' || // Exact match for list endpoint
-    pathname.startsWith('/api/tables/') ||
-    pathname === '/api/records' || // Exact match for records endpoint
-    pathname.startsWith('/api/records/') ||
-    // Dev live-reload routes: `/__sovrium_dev/reload` is an SSE stream that
-    // only ends at SSE_STREAM_MAX_LIFETIME_MS (25s) — toSSG awaits every
-    // response body, so crawling it stalls each build for the full lifetime.
+    pathname.startsWith('/api/') ||
     pathname.startsWith('/__sovrium_dev/') ||
     pathname.startsWith('/test/')
   )
@@ -120,12 +131,17 @@ export const generateStaticSite = (
         registerPagePaths(app as Hono, options.pagePaths)
       }
 
+      // The pages the configuration declares, already filtered for access by
+      // `getPublicPagePaths`. They win over the API prefix in the exclusion
+      // check below, so a page declared under `/api/` is still emitted.
+      const declaredPages = new Set(options.pagePaths ?? [])
+
       // Use Hono's toSSG to generate static files
       const result = await toSSG(app as Hono, {
         dir: outputDir,
         beforeRequestHook: (req) => {
           const url = new URL(req.url)
-          return shouldExcludeRoute(url.pathname) ? false : req
+          return shouldExcludeRoute(url.pathname, declaredPages) ? false : req
         },
       })
 

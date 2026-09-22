@@ -54,8 +54,7 @@
  */
 
 import { Effect, Console } from 'effect'
-import { handleAdminCommand } from '@/cli/admin'
-import { getCommandHelp } from '@/cli/command-help'
+import { handleAdminCommand } from '@/cli/commands/admin'
 import { handleBuildCommand } from '@/cli/commands/build'
 import { handleDesignSystemCommand } from '@/cli/commands/design-system'
 import { handleInitCommand } from '@/cli/commands/init'
@@ -63,14 +62,15 @@ import { handleMigrateCommand } from '@/cli/commands/migrate'
 import { handleReloadCommand } from '@/cli/commands/reload'
 import { handleRestartCommand } from '@/cli/commands/restart'
 import { handleSchemaCommand } from '@/cli/commands/schema'
+import { handleSecretCommand } from '@/cli/commands/secret'
 import { handleSeedCommand } from '@/cli/commands/seed'
 import { handleStartCommand } from '@/cli/commands/start'
 import { handleStopCommand } from '@/cli/commands/stop'
 import { handleTypesCommand } from '@/cli/commands/types'
+import { getCurrentVersion, handleUpdateCommand } from '@/cli/commands/update'
 import { handleValidateCommand } from '@/cli/commands/validate'
-import { findUnknownFlag, parseArgs } from '@/cli/dispatch'
-import { handleSecretCommand } from '@/cli/secret'
-import { getCurrentVersion, handleUpdateCommand } from '@/cli/update'
+import { getCommandHelp } from '@/cli/runtime/command-help'
+import { findUnknownFlag, parseArgs } from '@/cli/runtime/dispatch'
 import { printFailure } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 
@@ -291,7 +291,6 @@ const runCommand = async (): Promise<void> => {
 
   const exitHandler = exitCommands[parsed.command]
   if (exitHandler) {
-    // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
     await exitHandler()
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(0)
@@ -300,7 +299,6 @@ const runCommand = async (): Promise<void> => {
 
   const persistentHandler = persistentCommands[parsed.command]
   if (persistentHandler) {
-    // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
     await persistentHandler()
     return
   }

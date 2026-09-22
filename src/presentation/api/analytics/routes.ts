@@ -1,0 +1,562 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Effect } from 'effect'
+import { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
+import { collectPageView } from '@/application/use-cases/analytics/collect-page-view'
+import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
+import { queryCampaigns } from '@/application/use-cases/analytics/query-campaigns'
+import { queryDevices } from '@/application/use-cases/analytics/query-devices'
+import { queryOverview } from '@/application/use-cases/analytics/query-overview'
+import { queryPages } from '@/application/use-cases/analytics/query-pages'
+import { queryReferrers } from '@/application/use-cases/analytics/query-referrers'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { matchesAnyGlobPattern } from '@/domain/kernel/matching/glob-matcher'
+import {
+  analyticsClickSchema,
+  analyticsCollectSchema,
+  analyticsQuerySchema,
+} from '@/domain/models/api/analytics/analytics'
+import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import { logError } from '@/infrastructure/logging/logger'
+import {
+  provideDomain,
+  runDomainPromise,
+  runRequestEffect,
+} from '@/infrastructure/logging/request-effect'
+import { handleClick } from '@/presentation/api/analytics/click-handlers'
+import { handleTargets } from '@/presentation/api/analytics/targets-handlers'
+import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
+import { unauthorized, validationError } from '@/presentation/api/runtime/auth-helpers'
+import { getSessionContext, requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
+import { effectValidator } from '@/presentation/api/runtime/effect-validator'
+import type { Context, Hono } from 'hono'
+
+/**
+ * Parse and validate analytics query parameters from request
+ */
+function parseAnalyticsQuery(
+  c: Context,
+  appName: string
+):
+  | {
+      readonly appName: string
+      readonly from: Date
+      readonly to: Date
+      readonly granularity: 'hour' | 'day' | 'week' | 'month'
+      readonly eventType?: string
+      readonly eventName?: string
+    }
+  | undefined {
+  const fromStr = c.req.query('from')
+  const toStr = c.req.query('to')
+  const validGranularities = new Set(['hour', 'day', 'week', 'month'])
+  const rawGranularity = c.req.query('granularity') ?? 'day'
+  const granularity = (validGranularities.has(rawGranularity) ? rawGranularity : 'day') as
+    'hour' | 'day' | 'week' | 'month'
+
+  if (!fromStr || !toStr) return undefined
+
+  const parsed = decodeSafe(analyticsQuerySchema)({ from: fromStr, to: toStr, granularity })
+  if (!parsed.success) return undefined
+
+  // Round `to` up to the end of its second so that the query range captures
+  // all events within the same wall-clock second.  Without this, sub-second
+  // differences between the client timestamp and server-side NOW() can exclude
+  // rows that logically fall within the requested window.
+  const toDate = new Date(parsed.data.to)
+  const toEndOfSecond = new Date(Math.ceil(toDate.getTime() / 1000) * 1000 + 999)
+
+  // Which event population to aggregate, and optionally which named event within
+  // it. Both pass straight through to the shared where-clause, which pins the
+  // default at `page_view` — so omitting them reproduces the pre-existing
+  // behaviour exactly, and an unrecognised value returns EMPTY rather than
+  // silently widening to every population.
+  const eventType = c.req.query('event_type')
+  const eventName = c.req.query('event_name')
+
+  return {
+    appName,
+    from: new Date(parsed.data.from),
+    to: toEndOfSecond,
+    granularity: parsed.data.granularity,
+    ...(eventType === undefined ? {} : { eventType }),
+    ...(eventName === undefined ? {} : { eventName }),
+  }
+}
+
+/**
+ * Per-app analytics configuration forwarded from route registration.
+ */
+interface AnalyticsRouteConfig {
+  readonly appName: string
+  readonly retentionDays?: number
+  readonly excludedPaths?: readonly string[]
+  readonly respectDoNotTrack?: boolean
+  /**
+   * The link table as the LIVE config currently declares it, for naming the
+   * destination each recorded `targetIndex` resolves to today.
+   *
+   * A thunk rather than a value so a reload is reflected without a restart, and
+   * optional so an app without links pays nothing for the reader existing.
+   */
+  readonly resolveLinks?: () => ReadonlyArray<{
+    readonly slug: string
+    readonly destinations: readonly string[]
+  }>
+}
+
+/**
+ * Handle POST /api/analytics/collect — public endpoint, no auth required
+ *
+ * Records a page view with privacy-safe visitor hashing.
+ * Also triggers retention cleanup (fire-and-forget) to purge stale records.
+ * Returns 204 No Content for fastest response.
+ */
+async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<Response> {
+  const { appName, retentionDays, excludedPaths, respectDoNotTrack } = config
+  const body = c.req.valid('json' as never)
+  const pagePath = (body as { readonly p: string }).p
+
+  // Check if path is excluded - return 204 without recording
+  if (matchesAnyGlobPattern(excludedPaths, pagePath)) {
+    // eslint-disable-next-line unicorn/no-null
+    return c.body(null, 204)
+  }
+
+  // Check Do Not Track header when respectDoNotTrack is enabled
+  const dntHeader = c.req.header('DNT')
+  if (respectDoNotTrack && dntHeader === '1') {
+    // eslint-disable-next-line unicorn/no-null
+    return c.body(null, 204)
+  }
+
+  const ip = getRequestClientIp(c)
+  const userAgent = c.req.header('user-agent') ?? ''
+  const acceptLanguage = c.req.header('accept-language') ?? ''
+
+  // Fire-and-forget: record page view and purge stale data asynchronously
+  // eslint-disable-next-line functional/no-expression-statements
+  void Effect.runPromise(
+    provideDomain(
+      c,
+      Effect.all(
+        [
+          collectPageView({
+            appName,
+            pagePath,
+            pageTitle: (body as { readonly t?: string }).t,
+            referrerUrl: (body as { readonly r?: string }).r,
+            ip,
+            userAgent,
+            acceptLanguage,
+            screenWidth: (body as { readonly sw?: number }).sw,
+            screenHeight: (body as { readonly sh?: number }).sh,
+            utmSource: (body as { readonly us?: string }).us,
+            utmMedium: (body as { readonly um?: string }).um,
+            utmCampaign: (body as { readonly uc?: string }).uc,
+            utmContent: (body as { readonly ux?: string }).ux,
+            utmTerm: (body as { readonly ut?: string }).ut,
+          }),
+          purgeOldAnalyticsData(appName, retentionDays),
+        ],
+        { concurrency: 'unbounded' }
+      )
+    ).pipe(
+      Effect.tapCause((cause) =>
+        Effect.sync(() => {
+          logError('[analytics] page-view collection failed', cause)
+        })
+      ),
+      // effect-swallow: see the tap above. The beacon answers 204 either way —
+      // a visitor's page load must not fail because an analytics row did.
+      Effect.catch(() => Effect.void)
+    )
+  )
+
+  // eslint-disable-next-line unicorn/no-null
+  return c.body(null, 204)
+}
+
+/**
+ * Return a 404 access-denied response for non-admin analytics access.
+ *
+ * Analytics endpoints are admin-only. Per security rule S1 (anti-enumeration),
+ * authenticated-but-unauthorized callers receive 404 (not 403) so they cannot
+ * infer the existence of analytics data.
+ */
+function analyticsAccessDenied(c: Context): Response {
+  return c.json({ success: false, message: 'Not found', code: 'NOT_FOUND' }, 404)
+}
+
+/**
+ * Resolve the caller's session and verify they have the admin role.
+ *
+ * Returns `undefined` (caller should treat as success/continue) when the
+ * caller is an admin, otherwise returns the appropriate error Response.
+ */
+async function requireAdminSession(c: Context): Promise<Response | undefined> {
+  const session = getSessionContext(c)
+  if (!session) {
+    return unauthorized(c)
+  }
+  const role = await runDomainPromise(c, getUserRole(session.userId))
+  if (!isAdminRole(role)) {
+    return analyticsAccessDenied(c)
+  }
+  return undefined
+}
+
+/**
+ * Handle GET /api/analytics/overview — requires admin role
+ */
+async function handleOverview(c: Context, appName: string): Promise<Response> {
+  const denied = await requireAdminSession(c)
+  if (denied) {
+    return denied
+  }
+
+  const params = parseAnalyticsQuery(c, appName)
+  if (!params) {
+    return validationError(
+      c,
+      [
+        { field: 'from', message: 'Missing or invalid from parameter' },
+        { field: 'to', message: 'Missing or invalid to parameter' },
+      ],
+      'Missing or invalid from/to parameters'
+    )
+  }
+
+  const result = await runRequestEffect(
+    c,
+    provideDomain(c, queryOverview(params)).pipe(Effect.result)
+  )
+
+  if (result._tag === 'Failure') {
+    logError('[analytics] overview query failed', result.failure, requestLogAttributes(c))
+    return c.json(
+      { success: false, message: 'Failed to query analytics', code: 'INTERNAL_ERROR' },
+      500
+    )
+  }
+
+  return c.json(result.success, 200)
+}
+
+/**
+ * Handle GET /api/analytics/pages — requires admin role
+ */
+async function handlePages(c: Context, appName: string): Promise<Response> {
+  const denied = await requireAdminSession(c)
+  if (denied) {
+    return denied
+  }
+
+  const params = parseAnalyticsQuery(c, appName)
+  if (!params) {
+    return validationError(
+      c,
+      [
+        { field: 'from', message: 'Missing or invalid from parameter' },
+        { field: 'to', message: 'Missing or invalid to parameter' },
+      ],
+      'Missing or invalid from/to parameters'
+    )
+  }
+
+  const result = await runRequestEffect(c, provideDomain(c, queryPages(params)).pipe(Effect.result))
+
+  if (result._tag === 'Failure') {
+    logError('[analytics] pages query failed', result.failure, requestLogAttributes(c))
+    return c.json({ success: false, message: 'Failed to query pages', code: 'INTERNAL_ERROR' }, 500)
+  }
+
+  return c.json(result.success, 200)
+}
+
+/**
+ * Handle GET /api/analytics/referrers — requires admin role
+ */
+async function handleReferrers(c: Context, appName: string): Promise<Response> {
+  const denied = await requireAdminSession(c)
+  if (denied) {
+    return denied
+  }
+
+  const params = parseAnalyticsQuery(c, appName)
+  if (!params) {
+    return validationError(
+      c,
+      [
+        { field: 'from', message: 'Missing or invalid from parameter' },
+        { field: 'to', message: 'Missing or invalid to parameter' },
+      ],
+      'Missing or invalid from/to parameters'
+    )
+  }
+
+  const result = await runRequestEffect(
+    c,
+    provideDomain(c, queryReferrers(params)).pipe(Effect.result)
+  )
+
+  if (result._tag === 'Failure') {
+    logError('[analytics] referrers query failed', result.failure, requestLogAttributes(c))
+    return c.json(
+      { success: false, message: 'Failed to query referrers', code: 'INTERNAL_ERROR' },
+      500
+    )
+  }
+
+  return c.json(result.success, 200)
+}
+
+/**
+ * Handle GET /api/analytics/devices — requires admin role
+ */
+async function handleDevices(c: Context, appName: string): Promise<Response> {
+  const denied = await requireAdminSession(c)
+  if (denied) {
+    return denied
+  }
+
+  const params = parseAnalyticsQuery(c, appName)
+  if (!params) {
+    return validationError(
+      c,
+      [
+        { field: 'from', message: 'Missing or invalid from parameter' },
+        { field: 'to', message: 'Missing or invalid to parameter' },
+      ],
+      'Missing or invalid from/to parameters'
+    )
+  }
+
+  const result = await runRequestEffect(
+    c,
+    provideDomain(c, queryDevices(params)).pipe(Effect.result)
+  )
+
+  if (result._tag === 'Failure') {
+    logError('[analytics] devices query failed', result.failure, requestLogAttributes(c))
+    return c.json(
+      { success: false, message: 'Failed to query devices', code: 'INTERNAL_ERROR' },
+      500
+    )
+  }
+
+  return c.json(result.success, 200)
+}
+
+/**
+ * Validate the limit/offset pair from /api/analytics/events.
+ *
+ * Returns either parsed numeric values or a tagged error indicating
+ * which parameter failed validation. Defaults are applied when
+ * query params are absent.
+ */
+function validatePagination(
+  limitStr: string | undefined,
+  offsetStr: string | undefined
+):
+  | { readonly _tag: 'ok'; readonly limit: number; readonly offset: number }
+  | { readonly _tag: 'invalid'; readonly param: 'limit' | 'offset' } {
+  const limit = limitStr ? Number.parseInt(limitStr, 10) : 50
+  const offset = offsetStr ? Number.parseInt(offsetStr, 10) : 0
+
+  if (Number.isNaN(limit) || limit < 1 || limit > 1000) {
+    return { _tag: 'invalid', param: 'limit' }
+  }
+  if (Number.isNaN(offset) || offset < 0) {
+    return { _tag: 'invalid', param: 'offset' }
+  }
+  return { _tag: 'ok', limit, offset }
+}
+
+/**
+ * Parse and validate /api/analytics/events query parameters.
+ *
+ * Returns either the parsed parameters or a tagged error indicating
+ * which parameter failed validation.
+ */
+function parseEventsQuery(c: Context):
+  | {
+      readonly _tag: 'ok'
+      readonly limit: number
+      readonly offset: number
+      readonly eventType: string | undefined
+      readonly eventName: string | undefined
+      readonly from: Date | undefined
+      readonly to: Date | undefined
+    }
+  | { readonly _tag: 'invalid'; readonly param: 'limit' | 'offset' } {
+  const pagination = validatePagination(c.req.query('limit'), c.req.query('offset'))
+  if (pagination._tag === 'invalid') return pagination
+
+  const fromStr = c.req.query('from')
+  const toStr = c.req.query('to')
+
+  return {
+    _tag: 'ok',
+    limit: pagination.limit,
+    offset: pagination.offset,
+    eventType: c.req.query('event_type') || undefined,
+    eventName: c.req.query('event_name') || undefined,
+    from: fromStr ? new Date(fromStr) : undefined,
+    to: toStr ? new Date(toStr) : undefined,
+  }
+}
+
+/**
+ * The events read, as an Effect declaring `AnalyticsRepository` in its `R`.
+ *
+ * A named program rather than an inline `Effect.gen` so `handleEvents` stays
+ * inside its line budget once the repository arrives from the server runtime
+ * instead of from a per-call layer. The requirement is DECLARED here and
+ * discharged at the call site, which is the shape E1 asks for.
+ */
+const readEvents = (
+  appName: string,
+  params: Extract<ReturnType<typeof parseEventsQuery>, { readonly _tag: 'ok' }>
+) =>
+  Effect.gen(function* () {
+    const repo = yield* AnalyticsRepository
+    return yield* repo.listEvents({
+      appName,
+      eventType: params.eventType,
+      eventName: params.eventName,
+      limit: params.limit,
+      offset: params.offset,
+      from: params.from,
+      to: params.to,
+    })
+  })
+
+/**
+ * Handle GET /api/analytics/events — requires admin role
+ *
+ * Returns analytics events with optional filtering by eventType and eventName.
+ * Supports cursor-based pagination.
+ */
+async function handleEvents(c: Context, appName: string): Promise<Response> {
+  const session = getSessionContext(c)
+  if (!session) {
+    return unauthorized(c)
+  }
+
+  const role = await runDomainPromise(c, getUserRole(session.userId))
+  if (!isAdminRole(role)) {
+    return unauthorized(c)
+  }
+
+  const params = parseEventsQuery(c)
+  if (params._tag === 'invalid') {
+    return validationError(c, [
+      { field: params.param, message: `Invalid ${params.param} parameter` },
+    ])
+  }
+
+  const result = await runRequestEffect(
+    c,
+    provideDomain(c, readEvents(appName, params)).pipe(Effect.result)
+  )
+
+  if (result._tag === 'Failure') {
+    logError('[analytics] events query failed', result.failure, requestLogAttributes(c))
+    return c.json(
+      { success: false, message: 'Failed to query events', code: 'INTERNAL_ERROR' },
+      500
+    )
+  }
+
+  const events = result.success.events.map((event) => ({
+    id: event.id,
+    app_name: event.appName,
+    event_type: event.eventType,
+    event_name: event.eventName,
+    org_id: event.orgId,
+    visitor_hash: event.visitorHash,
+    session_hash: event.sessionHash,
+    timestamp: event.timestamp,
+    properties: event.properties,
+  }))
+
+  return c.json({ events, pagination: result.success.pagination }, 200)
+}
+
+/**
+ * Handle GET /api/analytics/campaigns — requires admin role
+ */
+async function handleCampaigns(c: Context, appName: string): Promise<Response> {
+  const denied = await requireAdminSession(c)
+  if (denied) {
+    return denied
+  }
+
+  const params = parseAnalyticsQuery(c, appName)
+  if (!params) {
+    return validationError(
+      c,
+      [
+        { field: 'from', message: 'Missing or invalid from parameter' },
+        { field: 'to', message: 'Missing or invalid to parameter' },
+      ],
+      'Missing or invalid from/to parameters'
+    )
+  }
+
+  const result = await runRequestEffect(
+    c,
+    provideDomain(c, queryCampaigns(params)).pipe(Effect.result)
+  )
+
+  if (result._tag === 'Failure') {
+    logError('[analytics] campaigns query failed', result.failure, requestLogAttributes(c))
+    return c.json(
+      { success: false, message: 'Failed to query campaigns', code: 'INTERNAL_ERROR' },
+      500
+    )
+  }
+
+  return c.json(result.success, 200)
+}
+
+/**
+ * Chain analytics routes onto a Hono app
+ *
+ * Provides:
+ * - POST /api/analytics/collect - Record page view (public, no auth)
+ * - POST /api/analytics/click - Record outbound click (public, no auth)
+ * - GET /api/analytics/overview - Summary + time series (admin only)
+ * - GET /api/analytics/pages - Top pages (admin only)
+ * - GET /api/analytics/referrers - Top referrers (admin only)
+ * - GET /api/analytics/devices - Device breakdown (admin only)
+ * - GET /api/analytics/campaigns - UTM campaigns (admin only)
+ *
+ * @param honoApp - Hono instance to chain routes onto
+ * @param config - Per-app analytics configuration (appName, retention, exclusions, DNT)
+ * @returns Hono app with analytics routes chained
+ */
+export function chainAnalyticsRoutes<T extends Hono>(honoApp: T, config: AnalyticsRouteConfig): T {
+  const { appName } = config
+  return honoApp
+    .post('/api/analytics/collect', effectValidator('json', analyticsCollectSchema), (c) =>
+      handleCollect(c, config)
+    )
+    .post('/api/analytics/click', effectValidator('json', analyticsClickSchema), (c) =>
+      handleClick(c, config)
+    )
+    .get('/api/analytics/overview', (c) => handleOverview(c, appName))
+    .get('/api/analytics/pages', (c) => handlePages(c, appName))
+    .get('/api/analytics/referrers', (c) => handleReferrers(c, appName))
+    .get('/api/analytics/devices', (c) => handleDevices(c, appName))
+    .get('/api/analytics/campaigns', (c) => handleCampaigns(c, appName))
+    .get('/api/analytics/targets', (c) => handleTargets(c, config))
+    .get('/api/analytics/events', (c) => handleEvents(c, appName)) as T
+}

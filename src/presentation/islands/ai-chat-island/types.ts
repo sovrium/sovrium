@@ -19,7 +19,17 @@ export interface AiChatIslandProps {
   readonly agent?: string
   /** Custom placeholder text for the message input. */
   readonly placeholder?: string
-  /** Chat container height in pixels. */
+  /**
+   * Chat container height in pixels — forwarded for completeness, and
+   * deliberately NOT read by this island.
+   *
+   * The SSR host already carries it as an inline `height`, and the island
+   * renders INTO that host, so it inherits the bound rather than re-applying
+   * it. Sizing anything here from this number is how `[internal ref]`
+   * happened: the message log floored itself at the container's full height and
+   * pushed the composer past the clip. If you need it, you almost certainly
+   * need `h-full` instead.
+   */
   readonly chatHeight?: number
   /** When true, prior conversation turns are replayed on mount. */
   readonly showHistory?: boolean
@@ -27,6 +37,14 @@ export interface AiChatIslandProps {
   readonly allowAttachments?: boolean
   /** Table scope narrowing forwarded to the chat backend as `pageContext`. */
   readonly allowedTables?: ReadonlyArray<string>
+  /**
+   * Starter prompts drawn as chips under the composer. Already resolved — any
+   * `$t:` entry was substituted server-side before `data-island-props` was
+   * serialised. Absent entirely when the author declared none, never `[]`: the
+   * renderer settles "is there anything to draw" once, rather than leaving it
+   * to be re-decided on every render here.
+   */
+  readonly suggestions?: ReadonlyArray<string>
   /** Optional test id propagated from the component schema. */
   readonly 'data-testid'?: string
   /**

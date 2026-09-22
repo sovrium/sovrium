@@ -5,10 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { describedRef } from '@/domain/models/api/combinators/described-ref'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 import { FILTER_OPERATOR_VOCABULARY } from '@/domain/models/app/tables/closed-vocabulary'
-import { paginationSchema, timestampSchema } from '../_shared/common'
-import { appliedQuerySchema } from '../_shared/search'
+import { paginationSchema, timestampSchema } from '../combinators/common'
+import { appliedQuerySchema } from '../combinators/search'
 
 /**
  * One condition of a view filter, as this API SERIALISES it.
@@ -27,10 +29,10 @@ import { appliedQuerySchema } from '../_shared/search'
  * and the enum can reject nothing that the engine currently emits — it just
  * makes "valid in the config, invalid in the response contract" unrepresentable.
  */
-const viewFilterConditionResponseSchema = z.object({
-  field: z.string(),
-  operator: z.enum(FILTER_OPERATOR_VOCABULARY.terms as readonly [string, ...string[]]),
-  value: z.unknown(),
+const viewFilterConditionResponseSchema = Schema.Struct({
+  field: Schema.String,
+  operator: Schema.Literals(FILTER_OPERATOR_VOCABULARY.terms as readonly [string, ...string[]]),
+  value: optionalField(Schema.Unknown),
 })
 
 /**
@@ -60,26 +62,21 @@ type ViewFilterNodeResponse =
   | { readonly or: readonly ViewFilterNodeResponse[] }
 
 // The explicit annotation is what makes the recursion typeable — TypeScript
-// cannot infer the type of a schema that references itself. `z.ZodType` is a
-// mutable third-party class with no readonly counterpart, so it cannot satisfy
-// `prefer-immutable-types`; the same exemption is already made for the mutable
-// `OpenAPIHono` type in [internal ref].
-// eslint-disable-next-line functional/prefer-immutable-types
-const viewFilterNodeResponseSchema: z.ZodType<ViewFilterNodeResponse> = z
-  .lazy(() =>
-    z.union([
+// cannot infer the type of a schema that references itself.
+//
+// The `identifier` is REQUIRED, not decorative. Without it a self-referencing
+// schema is inlined by walking into it forever, and `GET /api/openapi.json`
+// dies with `RangeError: Maximum call stack size exceeded` — a 500 on the whole
+// document, not just this node. The identifier makes the recursion a `$ref`
+// cycle, which is what OpenAPI expresses recursion with.
+const viewFilterNodeResponseSchema: Schema.Codec<ViewFilterNodeResponse> = Schema.suspend(
+  (): Schema.Codec<ViewFilterNodeResponse> =>
+    Schema.Union([
       viewFilterConditionResponseSchema,
-      z.object({ and: z.array(viewFilterNodeResponseSchema) }),
-      z.object({ or: z.array(viewFilterNodeResponseSchema) }),
-    ])
-  )
-  // The `.openapi()` ref id is REQUIRED, not decorative. Without a registered
-  // ref, `zod-to-openapi` inlines a `z.lazy` schema by walking into it forever
-  // and `GET /api/openapi.json` dies with
-  // `RangeError: Maximum call stack size exceeded` — a 500 on the whole
-  // document, not just this node. The ref makes the recursion a `$ref` cycle,
-  // which is what OpenAPI expresses recursion with.
-  .openapi('ViewFilterNode') as z.ZodType<ViewFilterNodeResponse>
+      Schema.Struct({ and: Schema.Array(viewFilterNodeResponseSchema) }),
+      Schema.Struct({ or: Schema.Array(viewFilterNodeResponseSchema) }),
+    ]) as never
+).annotate({ identifier: 'ViewFilterNode', description: 'View filters' })
 
 // ============================================================================
 // Field Schemas
@@ -90,48 +87,47 @@ const viewFilterNodeResponseSchema: z.ZodType<ViewFilterNodeResponse> = z
  *
  * Common properties for all field types.
  */
-export const baseFieldSchema = z
-  .object({
-    id: z.string().describe('Field identifier'),
-    name: z.string().describe('Field name'),
-    type: z.string().describe('Field type'),
-    required: z.boolean().optional().describe('Whether field is required'),
-    unique: z.boolean().optional().describe('Whether field must be unique'),
-    indexed: z.boolean().optional().describe('Whether field is indexed'),
-    description: z.string().optional().describe('Field description'),
-  })
-  .openapi('Field')
+export const baseFieldSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Field identifier' }),
+  name: Schema.String.annotate({ description: 'Field name' }),
+  type: Schema.String.annotate({ description: 'Field type' }),
+  required: optionalField(Schema.Boolean.annotate({ description: 'Whether field is required' })),
+  unique: optionalField(Schema.Boolean.annotate({ description: 'Whether field must be unique' })),
+  indexed: optionalField(Schema.Boolean.annotate({ description: 'Whether field is indexed' })),
+  description: optionalField(Schema.String.annotate({ description: 'Field description' })),
+}).annotate({ identifier: 'Field' })
 
 /**
  * Field value schema (for record data)
  *
  * Represents a value in a record field.
  */
-export const fieldValueSchema = z
-  .union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(z.unknown()).readonly(),
-    z.record(z.string(), z.unknown()),
-  ])
-  .openapi('FieldValue')
+/** The member list, shared so a nesting union can SPREAD it. */
+const fieldValueMembers = [
+  Schema.String,
+  Schema.Finite,
+  Schema.Boolean,
+  Schema.Null,
+  Schema.Array(Schema.Unknown),
+  Schema.Record(Schema.String, Schema.Unknown),
+] as const
+
+export const fieldValueSchema = Schema.Union([...fieldValueMembers]).annotate({
+  identifier: 'FieldValue',
+})
 
 /**
  * Formatted field value schema (for display formatting)
  *
  * When format=display is requested, fields may include both value and displayValue.
  */
-export const formattedFieldValueSchema = z
-  .union([
-    fieldValueSchema,
-    z.object({
-      value: fieldValueSchema,
-      displayValue: z.string().optional(),
-    }),
-  ])
-  .openapi('FormattedFieldValue')
+export const formattedFieldValueSchema = Schema.Union([
+  ...fieldValueMembers,
+  Schema.Struct({
+    value: fieldValueSchema,
+    displayValue: optionalField(Schema.String),
+  }),
+]).annotate({ identifier: 'FormattedFieldValue' })
 
 // ============================================================================
 // Table Schemas
@@ -142,48 +138,63 @@ export const formattedFieldValueSchema = z
  *
  * Represents a table definition in API responses.
  */
-export const tableSchema = z
-  .object({
-    id: z.string().describe('Table identifier'),
-    name: z.string().describe('Table name'),
-    description: z.string().optional().describe('Table description'),
-    fields: z.array(baseFieldSchema).describe('Table fields'),
-    primaryKey: z.string().optional().describe('Primary key field'),
-    views: z.array(z.unknown()).describe('Table views'),
-    permissions: z
-      .object({
-        read: z
-          .union([z.array(z.string()).readonly(), z.literal('all'), z.literal('authenticated')])
-          .optional(),
-        create: z
-          .union([z.array(z.string()).readonly(), z.literal('all'), z.literal('authenticated')])
-          .optional(),
-        update: z
-          .union([z.array(z.string()).readonly(), z.literal('all'), z.literal('authenticated')])
-          .optional(),
-        delete: z
-          .union([z.array(z.string()).readonly(), z.literal('all'), z.literal('authenticated')])
-          .optional(),
-      })
-      .optional()
-      .describe('Table permissions'),
-  })
-  .extend(timestampSchema.shape)
-  .openapi('Table')
+export const tableSchema = Schema.Struct({
+  ...Schema.Struct({
+    id: Schema.String.annotate({ description: 'Table identifier' }),
+    name: Schema.String.annotate({ description: 'Table name' }),
+    description: optionalField(Schema.String.annotate({ description: 'Table description' })),
+    fields: Schema.Array(baseFieldSchema).annotate({ description: 'Table fields' }),
+    primaryKey: optionalField(Schema.String.annotate({ description: 'Primary key field' })),
+    views: Schema.Array(Schema.Unknown).annotate({ description: 'Table views' }),
+    permissions: optionalField(
+      Schema.Struct({
+        read: optionalField(
+          Schema.Union([
+            Schema.Array(Schema.String),
+            Schema.Literal('all'),
+            Schema.Literal('authenticated'),
+          ])
+        ),
+        create: optionalField(
+          Schema.Union([
+            Schema.Array(Schema.String),
+            Schema.Literal('all'),
+            Schema.Literal('authenticated'),
+          ])
+        ),
+        update: optionalField(
+          Schema.Union([
+            Schema.Array(Schema.String),
+            Schema.Literal('all'),
+            Schema.Literal('authenticated'),
+          ])
+        ),
+        delete: optionalField(
+          Schema.Union([
+            Schema.Array(Schema.String),
+            Schema.Literal('all'),
+            Schema.Literal('authenticated'),
+          ])
+        ),
+      }).annotate({ description: 'Table permissions' })
+    ),
+  }).fields,
+  ...timestampSchema.fields,
+}).annotate({ identifier: 'Table' })
 
 /**
  * Table summary schema (for list endpoints)
  */
-export const tableSummarySchema = z
-  .object({
-    id: z.string().describe('Table identifier'),
-    name: z.string().describe('Table name'),
-    description: z.string().optional().describe('Table description'),
-    fieldCount: z.number().describe('Number of fields'),
-    recordCount: z.number().optional().describe('Number of records'),
-  })
-  .extend(timestampSchema.shape)
-  .openapi('TableSummary')
+export const tableSummarySchema = Schema.Struct({
+  ...Schema.Struct({
+    id: Schema.String.annotate({ description: 'Table identifier' }),
+    name: Schema.String.annotate({ description: 'Table name' }),
+    description: optionalField(Schema.String.annotate({ description: 'Table description' })),
+    fieldCount: Schema.Finite.annotate({ description: 'Number of fields' }),
+    recordCount: optionalField(Schema.Finite.annotate({ description: 'Number of records' })),
+  }).fields,
+  ...timestampSchema.fields,
+}).annotate({ identifier: 'TableSummary' })
 
 // ============================================================================
 // Record Schemas
@@ -199,9 +210,9 @@ export const tableSummarySchema = z
  * two apart, so it is part of the record contract rather than an incidental
  * extra: `status` is the lifecycle state, `error` the recorded provider reason.
  */
-const aiComputeFieldStatusSchema = z.object({
-  status: z.string().describe('pending | refined | failed | skipped'),
-  error: z.string().optional().describe('Recorded provider failure reason'),
+const aiComputeFieldStatusSchema = Schema.Struct({
+  status: Schema.String.annotate({ description: 'pending | refined | failed | skipped' }),
+  error: optionalField(Schema.String.annotate({ description: 'Recorded provider failure reason' })),
 })
 
 /**
@@ -209,9 +220,10 @@ const aiComputeFieldStatusSchema = z.object({
  * entirely for a table that declares no AI-compute field, and for a record with
  * no status rows yet — never sent as an empty object.
  */
-export const aiComputeProjectionSchema = z
-  .record(z.string(), aiComputeFieldStatusSchema)
-  .describe('AI-compute refinement status, keyed by field name')
+export const aiComputeProjectionSchema = Schema.Record(
+  Schema.String,
+  aiComputeFieldStatusSchema
+).annotate({ description: 'AI-compute refinement status, keyed by field name' })
 
 /**
  * The `_display` block: the human label behind a relationship column's stored
@@ -224,9 +236,10 @@ export const aiComputeProjectionSchema = z
  * stored key stays exactly where it was, so filters, editors and the write path
  * are unaffected.
  */
-export const displayLabelsSchema = z
-  .record(z.string(), z.union([z.string(), z.array(z.string())]))
-  .describe('Resolved relationship labels, keyed by field name')
+export const displayLabelsSchema = Schema.Record(
+  Schema.String,
+  Schema.Union([Schema.String, Schema.Array(Schema.String)])
+).annotate({ description: 'Resolved relationship labels, keyed by field name' })
 
 /**
  * Record schema (Airtable-style)
@@ -242,20 +255,26 @@ export const displayLabelsSchema = z
  * logged. Naming one both keeps it on the wire and publishes it in the OpenAPI
  * document.
  */
-export const recordSchema = z
-  .object({
-    id: z.union([z.string(), z.number()]).describe('Record identifier'),
-    fields: z
-      .record(z.string(), formattedFieldValueSchema)
-      .describe('User-defined field values (may include display formatting)'),
-    createdBy: z.string().optional().describe('User who created the record'),
-    updatedBy: z.string().optional().describe('User who last updated the record'),
-    deletedBy: z.string().optional().describe('User who deleted the record'),
-    _aiCompute: aiComputeProjectionSchema.optional(),
-    _display: displayLabelsSchema.optional(),
-  })
-  .extend(timestampSchema.shape)
-  .openapi('Record')
+export const recordSchema = Schema.Struct({
+  ...Schema.Struct({
+    id: Schema.Union([Schema.String, Schema.Finite]).annotate({ description: 'Record identifier' }),
+    fields: Schema.Record(Schema.String, formattedFieldValueSchema).annotate({
+      description: 'User-defined field values (may include display formatting)',
+    }),
+    createdBy: optionalField(
+      Schema.String.annotate({ description: 'User who created the record' })
+    ),
+    updatedBy: optionalField(
+      Schema.String.annotate({ description: 'User who last updated the record' })
+    ),
+    deletedBy: optionalField(
+      Schema.String.annotate({ description: 'User who deleted the record' })
+    ),
+    _aiCompute: optionalField(aiComputeProjectionSchema),
+    _display: optionalField(displayLabelsSchema),
+  }).fields,
+  ...timestampSchema.fields,
+}).annotate({ identifier: 'Record' })
 
 // ============================================================================
 // Table API Response Schemas
@@ -264,16 +283,16 @@ export const recordSchema = z
 /**
  * List tables response schema
  */
-export const listTablesResponseSchema = z.object({
-  tables: z.array(tableSummarySchema).describe('List of tables'),
-  pagination: paginationSchema.optional().describe('Pagination metadata'),
+export const listTablesResponseSchema = Schema.Struct({
+  tables: Schema.Array(tableSummarySchema).annotate({ description: 'List of tables' }),
+  pagination: optionalField(paginationSchema.annotate({ description: 'Pagination metadata' })),
 })
 
 /**
  * Get table response schema
  */
-export const getTableResponseSchema = z.object({
-  table: tableSchema.describe('Table details'),
+export const getTableResponseSchema = Schema.Struct({
+  table: tableSchema.annotate({ description: 'Table details' }),
 })
 
 // ============================================================================
@@ -285,20 +304,22 @@ export const getTableResponseSchema = z.object({
  * single aggregated field, e.g. `?aggregate=amount:sum`) or a per-field record
  * (JSON form or multi-field shortcut).
  */
-const aggregationValueSchema = z.union([z.number(), z.record(z.string(), z.number())])
+const aggregationValueSchema = Schema.Union([
+  Schema.Finite,
+  Schema.Record(Schema.String, Schema.Finite),
+])
 
-const aggregationsSchema = z
-  .object({
-    count: z
-      .union([z.string(), z.number()])
-      .optional()
-      .describe('Total count of records (flat number for shortcut form, string otherwise)'),
-    sum: aggregationValueSchema.optional().describe('Sum aggregation(s)'),
-    avg: aggregationValueSchema.optional().describe('Average aggregation(s)'),
-    min: aggregationValueSchema.optional().describe('Minimum aggregation(s)'),
-    max: aggregationValueSchema.optional().describe('Maximum aggregation(s)'),
-  })
-  .describe('Aggregation results')
+const aggregationsSchema = Schema.Struct({
+  count: optionalField(
+    Schema.Union([Schema.String, Schema.Finite]).annotate({
+      description: 'Total count of records (flat number for shortcut form, string otherwise)',
+    })
+  ),
+  sum: optionalField(aggregationValueSchema.annotate({ description: 'Sum aggregation(s)' })),
+  avg: optionalField(aggregationValueSchema.annotate({ description: 'Average aggregation(s)' })),
+  min: optionalField(aggregationValueSchema.annotate({ description: 'Minimum aggregation(s)' })),
+  max: optionalField(aggregationValueSchema.annotate({ description: 'Maximum aggregation(s)' })),
+}).annotate({ description: 'Aggregation results' })
 
 /**
  * List records response schema
@@ -324,7 +345,7 @@ const aggregationsSchema = z
  * `/api/admin/users`, `/api/admin/buckets/:name/files` and
  * `/api/admin/agents/:name/conversations` — imported rather than restated so
  * one search box cannot mean three things. See
- * `src/domain/models/api/_shared/search.ts` for the state table; the emission
+ * `src/domain/models/api/combinators/search.ts` for the state table; the emission
  * rules THIS route must satisfy are:
  *
  * | Branch                                        | `appliedQuery`     |
@@ -339,33 +360,30 @@ const aggregationsSchema = z
  * filtering. Presence is read per RESPONSE, which is exactly what lets one
  * route hold a searching branch and a non-searching branch at once.
  */
-export const listRecordsResponseSchema = z.object({
-  records: z.array(recordSchema).describe('List of records'),
-  pagination: paginationSchema.optional().describe('Pagination metadata'),
+export const listRecordsResponseSchema = Schema.Struct({
+  records: Schema.Array(recordSchema).annotate({ description: 'List of records' }),
+  pagination: optionalField(paginationSchema.annotate({ description: 'Pagination metadata' })),
   appliedQuery: appliedQuerySchema,
-  aggregations: aggregationsSchema.optional(),
-  groups: z
-    .array(
-      z.object({
-        name: z.union([z.string(), z.null()]).describe('Group value from the groupBy field'),
-        // A group's own value stops being a key the moment `groupBy` names more
-        // than one field: two regions can each hold a `Prospect` group, so a
-        // count carrying only `name` cannot say which one it describes. `path`
-        // carries the value at every level, outermost first, ending in `name`.
-        // A one-field `groupBy` returns single-entry paths and every reader that
-        // keys on `name` alone is unaffected.
-        path: z
-          .array(z.string())
-          .optional()
-          .describe('Group values from the outermost level down to this one'),
-        count: z.number().describe('Number of records in group'),
-        aggregations: aggregationsSchema.optional(),
+  aggregations: optionalField(aggregationsSchema),
+  groups: optionalField(
+    Schema.Array(
+      Schema.Struct({
+        name: Schema.Union([Schema.String, Schema.Null]).annotate({
+          description: 'Group value from the groupBy field',
+        }),
+        path: optionalField(
+          Schema.Array(Schema.String).annotate({
+            description: 'Group values from the outermost level down to this one',
+          })
+        ),
+        count: Schema.Finite.annotate({ description: 'Number of records in group' }),
+        aggregations: optionalField(aggregationsSchema),
       })
-    )
-    .optional()
-    .describe(
-      'Grouped results when groupBy is provided — one entry per group at EVERY named level'
-    ),
+    ).annotate({
+      description:
+        'Grouped results when groupBy is provided — one entry per group at EVERY named level',
+    })
+  ),
 })
 
 /**
@@ -374,19 +392,29 @@ export const listRecordsResponseSchema = z.object({
  * Returns record in flattened format (id, fields, timestamps, authorship at root level)
  * to match test expectations and provide consistent API response structure.
  */
-export const getRecordResponseSchema = z
-  .object({
-    id: z.union([z.string(), z.number()]).describe('Record identifier'),
-    fields: z
-      .record(z.string(), formattedFieldValueSchema)
-      .describe('User-defined field values (may include display formatting)'),
-    createdBy: z.string().optional().describe('User who created the record'),
-    updatedBy: z.string().optional().describe('User who last updated the record'),
-    deletedBy: z.string().optional().describe('User who deleted the record'),
-  })
-  .extend(timestampSchema.shape)
-  // Allow per-field root-level aliases (e.g. record.file alongside record.fields.file).
-  .passthrough()
+export const getRecordResponseSchema = Schema.StructWithRest(
+  Schema.Struct({
+    ...Schema.Struct({
+      id: Schema.Union([Schema.String, Schema.Finite]).annotate({
+        description: 'Record identifier',
+      }),
+      fields: Schema.Record(Schema.String, formattedFieldValueSchema).annotate({
+        description: 'User-defined field values (may include display formatting)',
+      }),
+      createdBy: optionalField(
+        Schema.String.annotate({ description: 'User who created the record' })
+      ),
+      updatedBy: optionalField(
+        Schema.String.annotate({ description: 'User who last updated the record' })
+      ),
+      deletedBy: optionalField(
+        Schema.String.annotate({ description: 'User who deleted the record' })
+      ),
+    }).fields,
+    ...timestampSchema.fields,
+  }),
+  [Schema.Record(Schema.String, Schema.Unknown)]
+).annotate({ title: 'sovrium:open-keys' })
 
 /**
  * Create record response schema
@@ -397,37 +425,45 @@ export const getRecordResponseSchema = z
  * includes `title` and `file` at the root. This lets clients address fields
  * either via `record.fields.<name>` (canonical) or `record.<name>` (flat).
  */
-export const createRecordResponseSchema = z
-  .object({
-    id: z.string().describe('Record identifier'),
-    fields: z.record(z.string(), fieldValueSchema).describe('User-defined field values'),
-    createdBy: z.string().optional().describe('User who created the record'),
-    updatedBy: z.string().optional().describe('User who last updated the record'),
-  })
-  .extend(timestampSchema.shape)
-  // Allow per-field root-level aliases (e.g. record.title alongside record.fields.title).
-  .passthrough()
+export const createRecordResponseSchema = Schema.StructWithRest(
+  Schema.Struct({
+    ...Schema.Struct({
+      id: Schema.String.annotate({ description: 'Record identifier' }),
+      fields: Schema.Record(Schema.String, fieldValueSchema).annotate({
+        description: 'User-defined field values',
+      }),
+      createdBy: optionalField(
+        Schema.String.annotate({ description: 'User who created the record' })
+      ),
+      updatedBy: optionalField(
+        Schema.String.annotate({ description: 'User who last updated the record' })
+      ),
+    }).fields,
+    ...timestampSchema.fields,
+  }),
+  [Schema.Record(Schema.String, Schema.Unknown)]
+).annotate({ title: 'sovrium:open-keys' })
 
 /**
  * Update record response schema
  */
-export const updateRecordResponseSchema = z.object({
-  record: recordSchema.describe('Updated record'),
+export const updateRecordResponseSchema = Schema.Struct({
+  record: describedRef(recordSchema, 'Updated record'),
 })
 
 /**
  * Delete record response schema
  */
-export const deleteRecordResponseSchema = z.object({
-  success: z.literal(true).describe('Record deleted'),
+export const deleteRecordResponseSchema = Schema.Struct({
+  success: Schema.Literal(true).annotate({ description: 'Record deleted' }),
 })
 
 /**
  * Restore record response schema
  */
-export const restoreRecordResponseSchema = z.object({
-  success: z.literal(true).describe('Record restored'),
-  record: recordSchema.describe('Restored record'),
+export const restoreRecordResponseSchema = Schema.Struct({
+  success: Schema.Literal(true).annotate({ description: 'Record restored' }),
+  record: describedRef(recordSchema, 'Restored record'),
 })
 
 // ============================================================================
@@ -437,47 +473,49 @@ export const restoreRecordResponseSchema = z.object({
 /**
  * Batch create records response schema
  */
-export const batchCreateRecordsResponseSchema = z.object({
-  created: z.number().describe('Number of records created'),
-  records: z
-    .array(recordSchema)
-    .optional()
-    .describe('Created records (only if returnRecords=true)'),
+export const batchCreateRecordsResponseSchema = Schema.Struct({
+  created: Schema.Finite.annotate({ description: 'Number of records created' }),
+  records: optionalField(
+    Schema.Array(recordSchema).annotate({
+      description: 'Created records (only if returnRecords=true)',
+    })
+  ),
 })
 
 /**
  * Batch update records response schema
  */
-export const batchUpdateRecordsResponseSchema = z.object({
-  updated: z.number().describe('Number of records updated'),
-  records: z
-    .array(recordSchema)
-    .optional()
-    .describe('Updated records (only if returnRecords=true)'),
+export const batchUpdateRecordsResponseSchema = Schema.Struct({
+  updated: Schema.Finite.annotate({ description: 'Number of records updated' }),
+  records: optionalField(
+    Schema.Array(recordSchema).annotate({
+      description: 'Updated records (only if returnRecords=true)',
+    })
+  ),
 })
 
 /**
  * Batch delete records response schema
  */
-export const batchDeleteRecordsResponseSchema = z.object({
-  deleted: z.number().describe('Number of records deleted'),
+export const batchDeleteRecordsResponseSchema = Schema.Struct({
+  deleted: Schema.Finite.annotate({ description: 'Number of records deleted' }),
 })
 
 /**
  * Batch restore records response schema
  */
-export const batchRestoreRecordsResponseSchema = z.object({
-  success: z.literal(true).describe('Batch restore succeeded'),
-  restored: z.number().describe('Number of records restored'),
+export const batchRestoreRecordsResponseSchema = Schema.Struct({
+  success: Schema.Literal(true).annotate({ description: 'Batch restore succeeded' }),
+  restored: Schema.Finite.annotate({ description: 'Number of records restored' }),
 })
 
 /**
  * Upsert records response schema
  */
-export const upsertRecordsResponseSchema = z.object({
-  records: z.array(recordSchema).describe('Upserted records'),
-  created: z.number().describe('Number of records created'),
-  updated: z.number().describe('Number of records updated'),
+export const upsertRecordsResponseSchema = Schema.Struct({
+  records: Schema.Array(recordSchema).annotate({ description: 'Upserted records' }),
+  created: Schema.Finite.annotate({ description: 'Number of records created' }),
+  updated: Schema.Finite.annotate({ description: 'Number of records updated' }),
 })
 
 // ============================================================================
@@ -487,60 +525,64 @@ export const upsertRecordsResponseSchema = z.object({
 /**
  * View schema
  */
-export const viewSchema = z
-  .object({
-    id: z.string().describe('View identifier'),
-    name: z.string().describe('View name'),
-    tableId: z.string().describe('Parent table ID'),
-    fields: z.array(z.string()).optional().describe('Visible field IDs'),
-    filters: z.array(z.unknown()).optional().describe('View filters'),
-    sorts: z.array(z.unknown()).optional().describe('View sorts'),
-    groupBy: z.string().optional().describe('Group by field'),
-  })
-  .extend(timestampSchema.shape)
-  .openapi('View')
+export const viewSchema = Schema.Struct({
+  ...Schema.Struct({
+    id: Schema.String.annotate({ description: 'View identifier' }),
+    name: Schema.String.annotate({ description: 'View name' }),
+    tableId: Schema.String.annotate({ description: 'Parent table ID' }),
+    fields: optionalField(
+      Schema.Array(Schema.String).annotate({ description: 'Visible field IDs' })
+    ),
+    filters: optionalField(Schema.Array(Schema.Unknown).annotate({ description: 'View filters' })),
+    sorts: optionalField(Schema.Array(Schema.Unknown).annotate({ description: 'View sorts' })),
+    groupBy: optionalField(Schema.String.annotate({ description: 'Group by field' })),
+  }).fields,
+  ...timestampSchema.fields,
+}).annotate({ identifier: 'View' })
 
 /**
  * List views response schema
  */
-export const listViewsResponseSchema = z.object({
-  views: z.array(viewSchema).describe('List of views'),
+export const listViewsResponseSchema = Schema.Struct({
+  views: Schema.Array(viewSchema).annotate({ description: 'List of views' }),
 })
 
 /**
  * Get view response schema
  * Returns view properties directly at root level
  */
-export const getViewResponseSchema = z.object({
-  id: z.string().describe('View identifier'),
-  name: z.string().describe('View name'),
-  filters: viewFilterNodeResponseSchema.optional().describe('View filters'),
-  sorts: z
-    .array(
-      z.object({
-        field: z.string(),
-        direction: z.enum(['asc', 'desc']),
+export const getViewResponseSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'View identifier' }),
+  name: Schema.String.annotate({ description: 'View name' }),
+  filters: optionalField(viewFilterNodeResponseSchema),
+  sorts: optionalField(
+    Schema.Array(
+      Schema.Struct({
+        field: Schema.String,
+        direction: Schema.Literals(['asc', 'desc']),
       })
-    )
-    .optional()
-    .describe('View sorts'),
-  fields: z.array(z.string()).optional().describe('Visible field names'),
-  groupBy: z
-    .object({
-      field: z.string(),
-      direction: z.enum(['asc', 'desc']).optional(),
-    })
-    .optional()
-    .describe('Group by configuration'),
-  isDefault: z.boolean().optional().describe('Whether this is the default view'),
+    ).annotate({ description: 'View sorts' })
+  ),
+  fields: optionalField(
+    Schema.Array(Schema.String).annotate({ description: 'Visible field names' })
+  ),
+  groupBy: optionalField(
+    Schema.Struct({
+      field: Schema.String,
+      direction: optionalField(Schema.Literals(['asc', 'desc'])),
+    }).annotate({ description: 'Group by configuration' })
+  ),
+  isDefault: optionalField(
+    Schema.Boolean.annotate({ description: 'Whether this is the default view' })
+  ),
 })
 
 /**
  * Get view records response schema
  */
-export const getViewRecordsResponseSchema = z.object({
-  records: z.array(recordSchema).describe('Records matching view'),
-  pagination: paginationSchema.optional().describe('Pagination metadata'),
+export const getViewRecordsResponseSchema = Schema.Struct({
+  records: Schema.Array(recordSchema).annotate({ description: 'Records matching view' }),
+  pagination: optionalField(paginationSchema.annotate({ description: 'Pagination metadata' })),
 })
 
 // ============================================================================
@@ -550,56 +592,52 @@ export const getViewRecordsResponseSchema = z.object({
 /**
  * Table permission schema
  */
-export const tablePermissionSchema = z
-  .object({
-    read: z.boolean().describe('Can read records'),
-    create: z.boolean().describe('Can create records'),
-    update: z.boolean().describe('Can update records'),
-    delete: z.boolean().describe('Can delete records'),
-    manage: z.boolean().describe('Can manage table schema'),
-  })
-  .openapi('TablePermission')
+export const tablePermissionSchema = Schema.Struct({
+  read: Schema.Boolean.annotate({ description: 'Can read records' }),
+  create: Schema.Boolean.annotate({ description: 'Can create records' }),
+  update: Schema.Boolean.annotate({ description: 'Can update records' }),
+  delete: Schema.Boolean.annotate({ description: 'Can delete records' }),
+  manage: Schema.Boolean.annotate({ description: 'Can manage table schema' }),
+}).annotate({ identifier: 'TablePermission' })
 
 /**
  * Field permission schema
  */
-export const fieldPermissionSchema = z
-  .object({
-    read: z.boolean().describe('Can read field'),
-    write: z.boolean().describe('Can write field'),
-  })
-  .openapi('FieldPermission')
+export const fieldPermissionSchema = Schema.Struct({
+  read: Schema.Boolean.annotate({ description: 'Can read field' }),
+  write: Schema.Boolean.annotate({ description: 'Can write field' }),
+}).annotate({ identifier: 'FieldPermission' })
 
 /**
  * Get table permissions response schema
  */
-export const getTablePermissionsResponseSchema = z.object({
-  table: z
-    .object({
-      read: z.boolean().describe('Can read records'),
-      create: z.boolean().describe('Can create records'),
-      update: z.boolean().describe('Can update records'),
-      delete: z.boolean().describe('Can delete records'),
-    })
-    .describe('Table-level permissions'),
-  fields: z.record(z.string(), fieldPermissionSchema).describe('Field-level permissions'),
+export const getTablePermissionsResponseSchema = Schema.Struct({
+  table: Schema.Struct({
+    read: Schema.Boolean.annotate({ description: 'Can read records' }),
+    create: Schema.Boolean.annotate({ description: 'Can create records' }),
+    update: Schema.Boolean.annotate({ description: 'Can update records' }),
+    delete: Schema.Boolean.annotate({ description: 'Can delete records' }),
+  }).annotate({ description: 'Table-level permissions' }),
+  fields: Schema.Record(Schema.String, fieldPermissionSchema).annotate({
+    description: 'Field-level permissions',
+  }),
 })
 
 // ============================================================================
 // TypeScript Types
 // ============================================================================
 
-export type BaseField = z.infer<typeof baseFieldSchema>
-export type FieldValue = z.infer<typeof fieldValueSchema>
-export type Table = z.infer<typeof tableSchema>
-export type TableSummary = z.infer<typeof tableSummarySchema>
-export type Record = z.infer<typeof recordSchema>
+export type BaseField = typeof baseFieldSchema.Type
+export type FieldValue = typeof fieldValueSchema.Type
+export type Table = typeof tableSchema.Type
+export type TableSummary = typeof tableSummarySchema.Type
+export type Record = typeof recordSchema.Type
 /** @public */
-export type View = z.infer<typeof viewSchema>
-export type TablePermission = z.infer<typeof tablePermissionSchema>
-export type ListTablesResponse = z.infer<typeof listTablesResponseSchema>
-export type GetTableResponse = z.infer<typeof getTableResponseSchema>
-export type ListRecordsResponse = z.infer<typeof listRecordsResponseSchema>
-export type GetRecordResponse = z.infer<typeof getRecordResponseSchema>
-export type RestoreRecordResponse = z.infer<typeof restoreRecordResponseSchema>
-export type BatchRestoreRecordsResponse = z.infer<typeof batchRestoreRecordsResponseSchema>
+export type View = typeof viewSchema.Type
+export type TablePermission = typeof tablePermissionSchema.Type
+export type ListTablesResponse = typeof listTablesResponseSchema.Type
+export type GetTableResponse = typeof getTableResponseSchema.Type
+export type ListRecordsResponse = typeof listRecordsResponseSchema.Type
+export type GetRecordResponse = typeof getRecordResponseSchema.Type
+export type RestoreRecordResponse = typeof restoreRecordResponseSchema.Type
+export type BatchRestoreRecordsResponse = typeof batchRestoreRecordsResponseSchema.Type

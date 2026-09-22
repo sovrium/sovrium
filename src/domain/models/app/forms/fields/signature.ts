@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { commonFieldProps } from '../../../shared/form-field-props'
+import { commonFieldProps } from '../form-field-props'
 
 /**
  * Signature field — captures a hand-drawn or typed signature.

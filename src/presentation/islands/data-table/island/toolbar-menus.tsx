@@ -22,9 +22,15 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { buildCsvExportHref, buildJsonExportHref, type ActiveFilter } from './export-helpers'
-import type { TableRecord } from '../../shared/types'
-import type { Column, useReactTable } from '@tanstack/react-table'
+import {
+  computeTableCheckboxControlClasses,
+  computeTableMenuClasses,
+  computeTableMenuDragHandleClasses,
+  computeTableMenuItemClasses,
+} from '@/presentation/design/table-default-classes'
+import { buildCsvExportHref, buildJsonExportHref } from './export-helpers'
+import type { DataTableGridColumn, DataTableInstance } from './table-features'
+import type { ActiveFilter } from './use-ui-state'
 import type { CSSProperties } from 'react'
 
 /**
@@ -53,7 +59,7 @@ function toSortableStyle(
  */
 function makeColumnDragEndHandler(
   items: readonly string[],
-  table: ReturnType<typeof useReactTable<TableRecord>>
+  table: DataTableInstance
 ): (event: DragEndEvent) => void {
   return (event: DragEndEvent) => {
     const { active, over } = event
@@ -84,7 +90,7 @@ function toMutableIds(ids: readonly string[]): string[] {
  * via either `[data-testid="column-item-<field>"]` or the data-attribute
  * fallback the spec encodes as `panel.locator('[data-field="X"]')`.
  */
-function SortableColumnRow({ column }: { readonly column: Column<TableRecord, unknown> }) {
+function SortableColumnRow({ column }: { readonly column: DataTableGridColumn }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: column.id,
   })
@@ -97,14 +103,14 @@ function SortableColumnRow({ column }: { readonly column: Column<TableRecord, un
       style={style}
       data-field={column.id}
       data-testid={`column-item-${column.id}`}
-      className="hover:bg-background-subtle flex items-center gap-2 px-2 py-1 text-sm"
+      className={`${computeTableMenuItemClasses()} flex items-center gap-2`}
     >
       <span
         {...attributes}
         {...listeners}
         data-drag-handle
         data-testid={`drag-handle-${column.id}`}
-        className="text-text-muted cursor-grab px-1 select-none active:cursor-grabbing"
+        className={computeTableMenuDragHandleClasses()}
         aria-label={`Reorder ${column.id}`}
         role="button"
         tabIndex={0}
@@ -124,6 +130,7 @@ function SortableColumnRow({ column }: { readonly column: Column<TableRecord, un
           onChange={column.getToggleVisibilityHandler()}
           aria-label={column.id}
           aria-checked={column.getIsVisible()}
+          className={computeTableCheckboxControlClasses()}
         />
         {column.id}
       </label>
@@ -137,13 +144,13 @@ function SortableColumnRow({ column }: { readonly column: Column<TableRecord, un
  * honour the explicit `columnOrder` state and append any unknown IDs (e.g.
  * newly-declared columns) at the end. `select` is excluded from the menu.
  */
-function resolveOrderedColumns(table: ReturnType<typeof useReactTable<TableRecord>>): {
+function resolveOrderedColumns(table: DataTableInstance): {
   readonly orderedIds: readonly string[]
-  readonly orderedColumns: ReadonlyArray<Column<TableRecord, unknown>>
+  readonly orderedColumns: ReadonlyArray<DataTableGridColumn>
 } {
   const allColumns = table.getAllColumns().filter((col) => col.id !== 'select')
   const declaredIds = allColumns.map((col) => col.id)
-  const currentOrder = table.getState().columnOrder
+  const currentOrder = table.state.columnOrder
   const orderedIds =
     currentOrder.length > 0
       ? [
@@ -158,11 +165,7 @@ function resolveOrderedColumns(table: ReturnType<typeof useReactTable<TableRecor
   return { orderedIds, orderedColumns }
 }
 
-export function ColumnsMenu({
-  table,
-}: {
-  readonly table: ReturnType<typeof useReactTable<TableRecord>>
-}) {
+export function ColumnsMenu({ table }: { readonly table: DataTableInstance }) {
   // Sensors mirror the kanban-island defaults: MouseSensor with no distance
   // constraint (Playwright's `dragTo` generates a single mousemove >> 5px so
   // drag activation still fires reliably) + KeyboardSensor for a11y.
@@ -180,7 +183,10 @@ export function ColumnsMenu({
       role="menu"
       data-testid="column-toggle-panel"
       aria-label="Columns"
-      className="border-border bg-background-overlay absolute top-full right-0 z-10 mt-1 min-w-max rounded border p-2 shadow-lg"
+      // POSITION stays here — where a popup opens is a property of its trigger.
+      // Everything else (surface, rule, radius, elevation, item gap) is the
+      // shared menu chrome.
+      className={`${computeTableMenuClasses()} absolute top-full right-0 mt-1 min-w-max`}
     >
       <DndContext
         sensors={sensors}
@@ -214,20 +220,20 @@ export function ExportMenu({
   onClose,
 }: {
   readonly tableName: string
-  readonly table: ReturnType<typeof useReactTable<TableRecord>>
+  readonly table: DataTableInstance
   readonly activeFilter: ActiveFilter | undefined
   readonly onClose: () => void
 }) {
   return (
     <div
       role="menu"
-      className="border-border bg-background-overlay absolute top-full right-0 z-10 mt-1 rounded border shadow-lg"
+      className={`${computeTableMenuClasses()} absolute top-full right-0 mt-1`}
     >
       <a
         href={buildCsvExportHref(tableName, table, activeFilter)}
         download
         role="menuitem"
-        className="hover:bg-background-subtle block w-full px-4 py-2 text-left text-sm"
+        className={computeTableMenuItemClasses()}
         onClick={onClose}
       >
         Export as CSV
@@ -236,7 +242,7 @@ export function ExportMenu({
         href={buildJsonExportHref(tableName, activeFilter)}
         download
         role="menuitem"
-        className="hover:bg-background-subtle block w-full px-4 py-2 text-left text-sm"
+        className={computeTableMenuItemClasses()}
         onClick={onClose}
       >
         Export as JSON

@@ -10,13 +10,14 @@ import { type FieldMetaMap } from '../../hooks/use-inline-editing'
 import { type DataTableRowClickAction } from '../body'
 import { usePasteImport } from '../paste-preview/use-paste-import'
 import { coerceFieldValues, createRecord } from './create-record-data'
-import { DataTableView } from './data-table-view'
 import { useClipboardCopy } from './use-clipboard-copy'
 import { useDataTableIslandSetup } from './use-island-setup'
+import { DataTableView } from './view/data-table-view'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type {
   DataTableBulkAction,
   DataTableColumn,
+  DataTableLayout,
   DataTablePagination,
   ComponentSearch,
   DataTableSelection,
@@ -28,7 +29,7 @@ import type {
   DataTableViewLabels,
   DataTableViewType,
   RowHeight,
-} from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+} from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 
 interface DataTableIslandProps {
@@ -98,6 +99,15 @@ interface DataTableIslandProps {
   readonly noMatchMessage?: string
   readonly showRowNumbers?: boolean
   readonly rowHeight?: RowHeight
+  /**
+   * How the grid occupies its parent. Omitted (or `flow`) is the natural height
+   * the page scrolls past — every grid written before this key existed. `fill`
+   * takes the bounded parent's leftover height and, with it, the scroll: the
+   * rows move inside the grid, the column heads stay pinned to that movement,
+   * and the pager stays at the bottom edge. One value for four consequences,
+   * because a grid that gets three of them is broken rather than half dressed.
+   */
+  readonly layout?: DataTableLayout
   readonly searchSourceId?: string
   readonly tableFields?: readonly string[]
   readonly fieldMeta?: FieldMetaMap
@@ -238,7 +248,7 @@ function ErrorBanner({ error }: { readonly error: unknown }) {
   return (
     <div
       role="alert"
-      className="border-error-border bg-error-bg text-error-fg rounded border p-4 text-sm"
+      className="border-error-border bg-error-bg text-error-fg text-md rounded border p-4"
     >
       <p className="font-medium">This data could not be loaded.</p>
       <p className="mt-1">
@@ -489,6 +499,7 @@ export default function DataTableIsland(props: DataTableIslandProps) {
         table={setup.table}
         {...optionalProps}
         readOnly={isSystemSource}
+        layout={props.layout}
         tableName={tableName}
         allColumns={setup.allColumns}
         totalRecords={setup.totalRecords}
@@ -532,7 +543,6 @@ export default function DataTableIsland(props: DataTableIslandProps) {
         // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- discards the click event so the retry is not passed a MouseEvent as its argument; the alert this lands on only renders after a save has already failed.
         onRetrySave={() => void setup.inlineEditing.retryFailedSave()}
         saveStatus={setup.inlineEditing.saveStatus}
-        saveTarget={setup.inlineEditing.saveTarget}
         saveIndicator={setup.saveIndicator}
         onRowClickAction={onRowClickAction}
         onCellDoubleClick={setup.inlineEditing.startEditing}

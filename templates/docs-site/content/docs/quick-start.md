@@ -47,13 +47,13 @@ For example, a `Theming` page body might look like this:
 Set a single Shiki theme for every fenced code block:
 
 ```yaml
-theme:
+design:
   codeBlock:
     theme: github-light
 ```
 
 ::: callout
-Palette and font tokens live in `theme.yaml`. See the
+Palette and type tokens live in `design.yaml`. See the
 [Configuration guide](/docs/configuration) for the full list.
 :::
 ````

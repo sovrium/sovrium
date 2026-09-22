@@ -80,8 +80,8 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
-import { sanitizeTableName } from '@/domain/utils/database/table-naming'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { db } from '@/infrastructure/database'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import { logInfo, logWarning } from '@/infrastructure/logging/logger'

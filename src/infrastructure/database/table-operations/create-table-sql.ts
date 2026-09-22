@@ -5,10 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isViewComputedFormula } from '../formula/formula-utils'
 import { shouldUseView, getBaseTableName } from '../lookup/lookup-view-generators'
+import { shouldCreateDatabaseColumn } from '../sql/sql-field-predicates'
 import { generateColumnDefinition, generateTableConstraints } from '../sql/sql-generators'
-import { shouldCreateDatabaseColumn, sanitizeTableName } from '../table-queries/shared/field-utils'
 import {
   generateIdColumn,
   needsAutomaticIdColumn,

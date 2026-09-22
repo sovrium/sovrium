@@ -9,7 +9,7 @@
  * Build Mirror Manifest Script - Generates the curated public package.json
  *
  * The public GitHub mirror (github.com/sovrium/sovrium) is a filtered publication
- * of the [internal ref] dev repo: scripts/filtered-mirror.sh allowlists only product
+ * of the [internal ref] dev repo: [internal ref] allowlists only product
  * source + build scripts and excludes all dev tooling ([internal ref], playwright,
  * [internal ref], check-quality.ts, …). The root package.json, however, was historically
  * copied verbatim — dragging 40+ dev scripts whose targets the mirror excludes.
@@ -28,16 +28,22 @@
 
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { printStderr } from '@/infrastructure/logging/cli-output'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 
 /**
  * Script keys kept in the mirrored manifest. Every target here lives in the
- * mirror allowlist (src/, scripts/build/, tsconfig.json) — verified against
- * .github/workflows/release.yml's actual `bun run` calls (build:types,
- * build:binary) plus the public-facing convenience scripts. The generator only
- * decides WHICH keys survive; each value is copied verbatim from the root
- * scripts so they never drift.
+ * mirror allowlist (src/, scripts/build/, tsconfig.json) plus the public-facing
+ * convenience scripts. The generator only decides WHICH keys survive; each value is
+ * copied verbatim from the root scripts so they never drift.
+ *
+ * `build:types` is kept even though release.yml never calls it directly — its only
+ * `bun run` calls are `build:binary` and four `scripts/build/*.ts` helpers, and
+ * build-binary.ts invokes the emitter itself. It stays because
+ * scripts/build/build-types.ts is a mirror REQUIRED_FILE, so a clone must be able to
+ * run it. (An earlier revision of this comment claimed release.yml called it; it did
+ * not, and the claim survived the npm retirement that would have made it false anyway.)
  */
 export const KEEP_SCRIPTS = [
   // NOTE: 'prepare' was removed with the Effect 4 migration. It ran
@@ -78,9 +84,7 @@ export function buildMirrorManifest(root: Manifest): Manifest {
     const value = rootScripts[key]
     if (value === undefined) continue // tolerate removed scripts; don't invent them
     if (FORBIDDEN_SCRIPT_PATTERN.test(value)) {
-      throw new Error(
-        `Kept mirror script "${key}" references an excluded dev target: ${value}`
-      )
+      throw new Error(`Kept mirror script "${key}" references an excluded dev target: ${value}`)
     }
     curatedScripts[key] = value
   }
@@ -95,7 +99,7 @@ export function buildMirrorManifest(root: Manifest): Manifest {
 if (import.meta.main) {
   const outputPath = process.argv[2]
   if (!outputPath) {
-    console.error('Usage: bun run scripts/build/build-mirror-manifest.ts <output-path>')
+    printStderr('Usage: bun run scripts/build/build-mirror-manifest.ts <output-path>')
     process.exit(1)
   }
 
@@ -106,6 +110,6 @@ if (import.meta.main) {
 
   const keptKeys = Object.keys(curated.scripts ?? {})
   console.log(
-    `▸ Wrote curated mirror manifest to ${outputPath} (${keptKeys.length} scripts: ${keptKeys.join(', ')})`
+    `Wrote curated mirror manifest to ${outputPath} (${keptKeys.length} scripts: ${keptKeys.join(', ')})`
   )
 }

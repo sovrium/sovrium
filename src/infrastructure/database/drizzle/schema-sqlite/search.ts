@@ -23,6 +23,10 @@ import { systemTable } from './table-helpers'
  *
  * Tracks FTS/trigram index state per table per field.
  * Used by the search service to manage full-text search index metadata.
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 export const searchIndexes = systemTable(
   'search_indexes',
@@ -53,6 +57,10 @@ export const searchIndexes = systemTable(
  * SQLite: the pg-core `content_tsv tsvector` column and its GIN index are
  * omitted — FTS degrades in SQLite mode. See unsupported-in-sqlite.ts
  * (Phase 5). The `raw_content` JSON column is kept so the table still exists.
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 export const searchIndex = systemTable(
   'search_index',
@@ -74,7 +82,3 @@ export const searchIndex = systemTable(
 )
 
 // Type inference
-export type SearchIndex = typeof searchIndexes.$inferSelect
-export type NewSearchIndex = typeof searchIndexes.$inferInsert
-export type SearchIndexRow = typeof searchIndex.$inferSelect
-export type NewSearchIndexRow = typeof searchIndex.$inferInsert

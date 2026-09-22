@@ -3,10 +3,10 @@ version: 1.0.0
 description: My Sovrium application
 
 # The whole app is this one file — no `config/` tree, no `$ref`s. That is the
-# point of this template, so the theme is inline too.
+# point of this template, so the design tokens are inline too.
 #
 # NINE COLOUR KEYS, AND NOT ONE MORE
-#   `theme.colors` accepts any kebab-case key, but only the keys in
+#   `design.colors` accepts any kebab-case key, but only the keys in
 #   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
 #   the `--sv-*` platform tokens the prestyled components consume; everything
 #   else emits `--color-*` and does nothing until something cites it. The nine
@@ -22,7 +22,7 @@ description: My Sovrium application
 #   already apply. Naming any other family emits a `font-family` with no
 #   matching `@font-face`, which drops the page onto the operating system's
 #   default face AND pushes the shipped face out of its own stack.
-theme:
+design:
   colors:
     primary: '#1e3a5f'
     primary-hover: '#15293f'
@@ -35,7 +35,7 @@ theme:
     border: '#e3e5e9'
 
   # Carried in the stylesheet always; rendered once the app declares
-  # `theme.colorScheme` or ships a `theme-toggle`.
+  # `design.colorScheme` or ships a `theme-toggle`.
   #
   # The accent stays mid-tone rather than getting brighter, because the button
   # below carries a literal `#ffffff` label. `generateThemeColors` derives that
@@ -74,14 +74,14 @@ pages:
               - type: text
                 element: h1
                 props:
-                  className: text-5xl font-bold mb-6
+                  className: text-6xl font-bold mb-6
                   style:
                     color: var(--color-foreground)
                 content: Hello, World!
               - type: text
                 element: p
                 props:
-                  className: text-xl mb-8
+                  className: text-2xl mb-8
                   style:
                     color: var(--color-foreground-muted)
                 content: Built with Sovrium

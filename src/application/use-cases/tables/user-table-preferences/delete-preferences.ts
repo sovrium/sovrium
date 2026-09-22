@@ -33,4 +33,4 @@ export const deleteUserTablePreferences = (
     const repo = yield* UserTablePreferencesRepository
     // eslint-disable-next-line drizzle/enforce-delete-with-where -- `repo.delete` is the port method; the `(userId, tableName)` scoping lives in the live impl's Drizzle `.where(...)`
     return yield* repo.delete(input)
-  })
+  }).pipe(Effect.withSpan('tables.delete-user-table-preferences'))

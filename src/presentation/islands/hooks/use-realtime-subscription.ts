@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { RealtimeConnectionStatus } from '@/domain/models/api/realtime/realtime'
 
 /** Logical connectivity state of the realtime transport. */
@@ -43,6 +43,28 @@ export function useRealtimeSubscription(params: {
   // resolves to `connected` on `onopen` or `disconnected` on a fatal error.
   const [status, setStatus] = useState<RealtimeConnectionState>('reconnecting')
 
+  // `onChange` is read through a ref, and the connection effect below does NOT
+  // depend on it. That is load-bearing, not tidiness.
+  //
+  // The caller is the grid's `handleRefresh`, a `useCallback` keyed on the
+  // records query key — and `buildQueryKey` returns a fresh array literal on
+  // every render, so `handleRefresh` has a new identity on every render too.
+  // With `onChange` in the dependency array, this effect re-ran on EVERY
+  // render: it closed the `EventSource` and opened a replacement, which
+  // unregistered the server-side channel listener and registered a new one.
+  // A change published in any of those gaps reached no listener at all, and
+  // `channel-manager` has no buffer and no replay, so it was dropped silently
+  // and permanently. That is why a write issued moments after the connection
+  // announced itself as `connected` so often never arrived: the connection it
+  // announced had already been replaced.
+  //
+  // A ref keeps the handler current while making the socket's lifetime depend
+  // on the only two things that should ever change it — whether realtime is on,
+  // and which table it is bound to.
+  const onChangeRef = useRef(onChange)
+  // eslint-disable-next-line functional/immutable-data -- ref write: keeps the latest handler reachable without re-opening the socket
+  onChangeRef.current = onChange
+
   useEffect(() => {
     if (!enabled || typeof window === 'undefined' || typeof EventSource === 'undefined') {
       return undefined
@@ -57,7 +79,7 @@ export function useRealtimeSubscription(params: {
         // Only a `change` event warrants a re-fetch; `subscribed`/`heartbeat`
         // are connection-keepalive noise.
         if (parsed.type === 'change') {
-          onChange()
+          onChangeRef.current()
         }
       } catch {
         // Malformed frame — ignore; the next valid event will refresh.
@@ -82,7 +104,9 @@ export function useRealtimeSubscription(params: {
       source.removeEventListener('error', handleError)
       source.close()
     }
-  }, [enabled, table, onChange])
+    // `onChange` is deliberately absent — see the ref above. Including it
+    // re-opened the socket on every render.
+  }, [enabled, table])
 
   return enabled ? status : undefined
 }

@@ -8,7 +8,15 @@
 /* eslint-disable react-perf/jsx-no-new-function-as-prop -- conventional React form event-handler pattern. */
 
 import { useState, type ReactElement } from 'react'
-import { computeCommentFormClasses } from '../recipes/specialty-islands-default-classes'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  computeCommentComposerFieldClasses,
+  computeCommentFormClasses,
+} from '@/presentation/design/comments-default-classes'
+import { computeFormFieldErrorClasses } from '@/presentation/design/form-layout-classes'
+
+const SUBMIT_BUTTON = computeButtonDefaultClasses({ variant: 'default', size: 'sm' })
+const CANCEL_BUTTON = computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })
 
 /**
  * Authenticated comment form.
@@ -58,7 +66,7 @@ function CommentFormActions({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="bg-primary text-primary-foreground rounded px-3 py-1 text-sm disabled:opacity-50"
+        className={SUBMIT_BUTTON}
       >
         {isSubmitting ? submittingLabel : submitLabel}
       </button>
@@ -66,7 +74,7 @@ function CommentFormActions({
         <button
           type="button"
           onClick={onCancel}
-          className="border-input text-foreground rounded border px-3 py-1 text-sm"
+          className={CANCEL_BUTTON}
         >
           Cancel
         </button>
@@ -113,12 +121,12 @@ export function CommentThreadForm({
         value={value}
         onChange={(e) => setValue(e.target.value)}
         maxLength={10_000}
-        className="border-input bg-background min-h-[100px] rounded border px-2 py-1 text-sm"
+        className={computeCommentComposerFieldClasses()}
       />
       {errorMessage && (
         <p
           role="alert"
-          className="text-error-solid text-xs"
+          className={computeFormFieldErrorClasses()}
         >
           {errorMessage}
         </p>

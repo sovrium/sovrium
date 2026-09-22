@@ -5,7 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { type ColumnDef, type Row } from '@tanstack/react-table'
+import {
+  computeTableBodyClasses,
+  computeTableEmptyStateClasses,
+  computeTableSkeletonBarClasses,
+} from '@/presentation/design/table-default-classes'
+import { AddRow, type AddRowConfig } from './add-row'
 import {
   DataRow,
   type DataRowContext,
@@ -14,11 +19,13 @@ import {
   type InlineAutoSave,
 } from './data-row'
 import { GroupedTableBodyRows } from './group-body'
+import { rowIdOf } from './row-identity'
 import type { FrozenOffsets } from './frozen-columns'
 import type { GroupSummaryContext } from './group-summary'
 import type { EditingCell, FieldMetaMap, SaveStatus } from '../hooks/use-inline-editing'
-import type { TableRecord } from '../shared/types'
-import type { DataTableGroupBy } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+import type { DataTableCell, DataTableColumnDef, DataTableRow } from './island/table-features'
+import type { CellRange, GridCursor } from './island/use-grid-cursor'
+import type { DataTableGroupBy } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { ReactElement } from 'react'
 
 // Re-export the table header (now in body-header.tsx) so the existing
@@ -32,8 +39,8 @@ export { TableHeader } from './body-header'
 export type { CellCommit, DataTableRowClickAction, InlineAutoSave } from './data-row'
 
 interface TableBodyRowsProps {
-  readonly rows: readonly Row<TableRecord>[]
-  readonly allColumns: readonly ColumnDef<TableRecord>[]
+  readonly rows: readonly DataTableRow[]
+  readonly allColumns: readonly DataTableColumnDef[]
   readonly isLoading: boolean
   readonly cellClass: string
   readonly borderClass: string
@@ -62,6 +69,29 @@ interface TableBodyRowsProps {
    * Defaults to false — the native `<table>` / `cell` semantics are preserved.
    */
   readonly gridRole?: boolean
+  /**
+   * Whether this grid answers the keyboard with a cell cursor. SEPARATE from
+   * {@link gridRole}: the ARIA role decides what a cell reports itself as, and
+   * this decides whether the keyboard can move between cells. Tying them
+   * together turned every editable table into an ARIA grid, which unhooked
+   * every assertion looking a cell up by its native role.
+   */
+  readonly navigable?: boolean
+  /**
+   * The cell CURSOR, as `(rowId, columnId)` — which single cell the keyboard
+   * points at. Forwarded verbatim to the row context; see `grid-cursor.ts` for
+   * why it is an id pair rather than a pair of indices.
+   */
+  readonly cursorRowId?: string
+  readonly cursorColumnId?: string
+  /** Whether the reader placed the cursor, or the grid merely holds its default tab stop. */
+  readonly cursorPlaced?: boolean
+  /** The cursor's Shift-extended rectangle, and the fill drag's span. See `data-row.tsx`. */
+  readonly range?: CellRange
+  readonly fillPreview?: CellRange
+  readonly onFillDragStart?: (source: GridCursor) => void
+  readonly onFillDown?: (source: GridCursor) => void
+  readonly canFillFrom?: (cell: DataTableCell) => boolean
   readonly editingCell?: EditingCell
   readonly fieldMeta?: FieldMetaMap
   readonly tableName?: string
@@ -123,7 +153,25 @@ interface TableBodyRowsProps {
    * summary, or when it is not grouped.
    */
   readonly groupSummary?: GroupSummaryContext
+  /**
+   * The trailing add-row's wiring — present exactly when the role may create
+   * records here. It rides the SAME gate as the toolbar's create button, so a
+   * role that cannot create sees neither: absent, not disabled.
+   */
+  readonly addRow?: AddRowConfig
 }
+
+/**
+ * The widths a skeleton bar cycles through, column by column.
+ *
+ * A placeholder has to read as TEXT of differing lengths; a run of identical
+ * bars reads as a grid of blocks, which is not what the arriving content will
+ * look like. The design calls for 70 / 50 / 40 / 45 %, and these are the
+ * nearest fraction utilities (75 / 50 / 40 / 41.7 %) — a rounding worth taking
+ * to stay off arbitrary values, since those numbers encode "visibly unequal"
+ * rather than any measured relationship.
+ */
+const SKELETON_BAR_WIDTHS = ['w-3/4', 'w-1/2', 'w-2/5', 'w-5/12'] as const
 
 /**
  * Renders loading skeleton rows
@@ -132,12 +180,12 @@ function SkeletonRows({
   allColumns,
   cellClass,
 }: {
-  readonly allColumns: readonly ColumnDef<TableRecord>[]
+  readonly allColumns: readonly DataTableColumnDef[]
   readonly cellClass: string
 }): ReactElement {
   return (
     <tbody
-      className="divide-border bg-background-raised divide-y"
+      className={computeTableBodyClasses()}
       aria-hidden="true"
     >
       {Array.from({ length: 5 }).map((_, i) => (
@@ -158,7 +206,9 @@ function SkeletonRows({
               key={`skeleton-cell-${String(j)}`}
               className={cellClass}
             >
-              <div className="bg-background-subtle h-4 w-3/4 animate-pulse rounded" />
+              <div
+                className={`${computeTableSkeletonBarClasses()} ${SKELETON_BAR_WIDTHS[j % SKELETON_BAR_WIDTHS.length]}`}
+              />
             </td>
           ))}
         </tr>
@@ -188,6 +238,15 @@ export function TableBodyRows({
   globalFilter,
   selectionMode,
   gridRole,
+  navigable,
+  cursorRowId,
+  cursorColumnId,
+  cursorPlaced,
+  range,
+  fillPreview,
+  onFillDragStart,
+  onFillDown,
+  canFillFrom,
   editingCell,
   fieldMeta,
   tableName,
@@ -206,6 +265,7 @@ export function TableBodyRows({
   groupBy,
   groupCounts,
   groupSummary,
+  addRow,
 }: TableBodyRowsProps): ReactElement {
   if (isLoading) {
     return (
@@ -235,34 +295,37 @@ export function TableBodyRows({
     if (query.trim().length > 0 && noMatchMessage !== undefined) {
       const resolved = noMatchMessage.replace(/\{query\}/g, query)
       return (
-        <tbody className="divide-border bg-background-raised divide-y">
+        <tbody className={computeTableBodyClasses()}>
           <tr>
             <td
               colSpan={allColumns.length}
-              className="py-8 text-center text-sm"
+              className={computeTableEmptyStateClasses()}
             >
               <div
                 role="status"
                 aria-live="polite"
-                className="text-foreground-muted"
               >
                 {resolved}
               </div>
             </td>
           </tr>
+          {addRow && <AddRow config={addRow} />}
         </tbody>
       )
     }
+    // The trailing add-row exists on an EMPTY table too: it is how the first
+    // record gets in without opening a dialog.
     return (
-      <tbody className="divide-border bg-background-raised divide-y">
+      <tbody className={computeTableBodyClasses()}>
         <tr>
           <td
             colSpan={allColumns.length}
-            className="text-foreground-muted py-8 text-center text-sm"
+            className={computeTableEmptyStateClasses()}
           >
             {emptyMessage}
           </td>
         </tr>
+        {addRow && <AddRow config={addRow} />}
       </tbody>
     )
   }
@@ -277,6 +340,15 @@ export function TableBodyRows({
     striped,
     selectionMode,
     gridRole,
+    navigable,
+    cursorRowId,
+    cursorColumnId,
+    cursorPlaced,
+    range,
+    fillPreview,
+    onFillDragStart,
+    onFillDown,
+    canFillFrom,
     editingCell,
     fieldMeta,
     tableName,
@@ -299,7 +371,6 @@ export function TableBodyRows({
         rows={rows}
         groupBy={groupBy}
         allColumns={allColumns}
-        cellClass={cellClass}
         borderClass={borderClass}
         ctx={ctx}
         // eslint-disable-next-line react-perf/jsx-no-new-array-as-prop -- `collapsedGroups ?? []` returns the prop ref unchanged when defined; the empty-fallback path only fires when no group has been collapsed yet
@@ -308,20 +379,34 @@ export function TableBodyRows({
         {...(groupCounts && { groupCounts })}
         {...(fieldMeta && { fieldMeta })}
         {...(groupSummary && { groupSummary })}
+        {...(addRow && { addRow })}
       />
     )
   }
 
+  // Keyed by RECORD identity, not by `row.id`.
+  //
+  // No `getRowId` is configured, so TanStack's `row.id` is the row's
+  // INDEX — and React reconciles by key. A re-read that returns the same
+  // records in a different order (the records API moves a just-updated
+  // row, so any inline edit does exactly this) therefore left every `<tr>`
+  // and `<td>` node where it was and rewrote its CONTENTS. Anything
+  // attached to a node rather than to a record went with the position
+  // instead of the record: focus most visibly — the cell cursor ended up
+  // one row from where it was put — but an open editor the same way.
+  // Keying by the record makes React MOVE the node, so the cursor stays
+  // on the record the reader was working on.
   return (
-    <tbody className="divide-border bg-background-raised divide-y">
+    <tbody className={computeTableBodyClasses()}>
       {rows.map((row, rowIndex) => (
         <DataRow
-          key={row.id}
+          key={rowIdOf(row)}
           row={row}
           rowIndex={rowIndex}
           ctx={ctx}
         />
       ))}
+      {addRow && <AddRow config={addRow} />}
     </tbody>
   )
 }

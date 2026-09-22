@@ -49,4 +49,4 @@ export const queryCampaigns = (
     })
 
     return { campaigns, total: campaigns.length }
-  })
+  }).pipe(Effect.withSpan('analytics.query-campaigns'))

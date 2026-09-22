@@ -8,7 +8,7 @@
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { NotFoundError } from '@/domain/errors'
-import type { UserSession } from '@/application/ports/models/user-session'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { DatabaseError } from '@/domain/errors'
 
 /**
@@ -38,5 +38,5 @@ export function markRecordCommentsReadProgram(config: {
     }
 
     yield* comments.markRead({ session, tableId, recordId })
-  })
+  }).pipe(Effect.withSpan('tables.mark-record-comments-read-program'))
 }

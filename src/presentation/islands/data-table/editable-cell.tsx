@@ -12,11 +12,16 @@
    because edits drive the very state changes that re-render the cell. */
 
 import { useState, useRef, useEffect } from 'react'
-import { optionLabel, optionValue, type SelectOptionLike } from '@/domain/utils/select-option'
+import {
+  optionLabel,
+  optionValue,
+  type SelectOptionLike,
+} from '@/domain/models/app/tables/select-option'
 import { resolveCellEditor, resolveInputType, usesSelectEditor } from './editors/editor-registry'
 import type { CellEditorProps } from './editors/editor-contract'
+import type { TabDirection } from './island/tab-target'
 import type { FieldMeta, FieldWriteValue } from '../hooks/use-inline-editing'
-import type { ReactElement } from 'react'
+import type { MutableRefObject, ReactElement } from 'react'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -44,7 +49,7 @@ interface EditableCellProps {
   /** Records the latest un-persisted value so a cell switch can flush it. */
   readonly onTrackValue?: (newValue: unknown) => void
   /** Saves the current value and moves the editor to the next editable cell. */
-  readonly onTabNext?: (newValue: unknown) => void
+  readonly onTabNext?: (newValue: unknown, direction: TabDirection) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -72,7 +77,7 @@ function SelectEditor({
   readonly options: readonly SelectOptionLike[]
   readonly onSave: (newValue: unknown) => void
   readonly onCancel: () => void
-  readonly onTabNext?: (newValue: unknown) => void
+  readonly onTabNext?: (newValue: unknown, direction: TabDirection) => void
 }): ReactElement {
   const selectRef = useRef<HTMLSelectElement>(null)
 
@@ -88,7 +93,7 @@ function SelectEditor({
     }
     if (e.key === 'Tab' && onTabNext) {
       e.preventDefault()
-      onTabNext(e.currentTarget.value)
+      onTabNext(e.currentTarget.value, e.shiftKey ? 'previous' : 'next')
     }
   }
 
@@ -99,7 +104,7 @@ function SelectEditor({
       defaultValue={String(value ?? '')}
       onChange={(e) => onSave(e.target.value)}
       onKeyDown={handleKeyDown}
-      className="border-primary focus:ring-focus-ring w-full rounded border px-1 py-0.5 text-sm focus:ring-1 focus:outline-none"
+      className="border-primary focus:ring-focus-ring text-md w-full rounded border px-1 py-0.5 focus:ring-1 focus:outline-none"
     >
       {options.map((opt) => (
         <option
@@ -160,7 +165,7 @@ interface TextEditorProps {
   readonly saveOnBlur?: boolean
   readonly onAutoSave?: (newValue: unknown) => void | Promise<void>
   readonly onTrackValue?: (newValue: unknown) => void
-  readonly onTabNext?: (newValue: unknown) => void
+  readonly onTabNext?: (newValue: unknown, direction: TabDirection) => void
 }
 
 function useTextEditorState(value: unknown) {
@@ -297,7 +302,7 @@ function AutoSaveTextEditor(props: TextEditorProps): ReactElement {
         e.preventDefault()
         cancelTimer()
         if (saveOnBlur) fireAutoSave(localValue)
-        else props.onTabNext?.(localValue)
+        else props.onTabNext?.(localValue, e.shiftKey ? 'previous' : 'next')
         break
       case 'Enter':
         e.preventDefault()
@@ -327,9 +332,50 @@ function AutoSaveTextEditor(props: TextEditorProps): ReactElement {
       onChange={(e) => handleChange(e.target.value)}
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
-      className="border-primary focus:ring-focus-ring w-full rounded border px-1 py-0.5 text-sm focus:ring-1 focus:outline-none"
+      className="border-primary focus:ring-focus-ring text-md w-full rounded border px-1 py-0.5 focus:ring-1 focus:outline-none"
     />
   )
+}
+
+/**
+ * Manual-save mode's key handling, lifted out of the component so the
+ * component stays a renderer.
+ */
+function manualSaveKeyHandler(ctx: {
+  readonly props: TextEditorProps
+  readonly localValue: string
+  readonly savingRef: MutableRefObject<boolean>
+}): (e: React.KeyboardEvent) => void {
+  const { props, localValue, savingRef } = ctx
+  return (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      // eslint-disable-next-line functional/immutable-data -- Ref mutation required to track save state
+      savingRef.current = true
+      // Committed over the API, and the page is KEPT. The `<form>` around this
+      // input is left for a browser with no script, which submits it natively;
+      // with one, letting that submit navigate would throw away the cell
+      // cursor and land the reader on `document.body`, where the next
+      // keystroke scrolls the document instead of moving to the row below.
+      e.preventDefault()
+      void Promise.resolve(props.onSave(localValue))
+      return
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      props.onCancel()
+      return
+    }
+    // Tab commits and moves to the neighbouring editable cell, in both
+    // directions. Without it the browser walks its own DOM tab order, which
+    // lands on the next cell WITHOUT opening its editor — so a reader who
+    // overshot by one column could not get back without the mouse.
+    if (e.key === 'Tab' && props.onTabNext) {
+      e.preventDefault()
+      // eslint-disable-next-line functional/immutable-data -- Ref mutation required to track save state
+      savingRef.current = true
+      props.onTabNext(localValue, e.shiftKey ? 'previous' : 'next')
+    }
+  }
 }
 
 /**
@@ -337,23 +383,12 @@ function AutoSaveTextEditor(props: TextEditorProps): ReactElement {
  * when wrapped in {@link InlineEditForm}) and cancels on blur/Escape.
  */
 function ManualSaveTextEditor(props: TextEditorProps): ReactElement {
-  const { inputType, onSave, onCancel, tableName, recordId, fieldName } = props
+  const { inputType, onCancel, tableName, recordId, fieldName } = props
   const { localValue, setLocalValue, inputRef, savingRef } = useTextEditorState(props.value)
 
   const useFormSubmit = Boolean(tableName && recordId && fieldName)
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      // eslint-disable-next-line functional/immutable-data -- Ref mutation required to track save state
-      savingRef.current = true
-      if (useFormSubmit) return // Let form submit naturally
-      e.preventDefault()
-      void Promise.resolve(onSave(localValue))
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      onCancel()
-    }
-  }
+  const handleKeyDown = manualSaveKeyHandler({ props, localValue, savingRef })
 
   const inputElement = (
     <input
@@ -366,7 +401,7 @@ function ManualSaveTextEditor(props: TextEditorProps): ReactElement {
       onBlur={() => {
         if (!savingRef.current) onCancel()
       }}
-      className="border-primary focus:ring-focus-ring w-full rounded border px-1 py-0.5 text-sm focus:ring-1 focus:outline-none"
+      className="border-primary focus:ring-focus-ring text-md w-full rounded border px-1 py-0.5 focus:ring-1 focus:outline-none"
     />
   )
 

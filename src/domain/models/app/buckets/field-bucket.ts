@@ -13,8 +13,13 @@ import type { App } from '@/domain/models/app'
  * The test-only `'attachment'` alias is deliberately absent: it is parsed as
  * `UnknownFieldSchema` and therefore carries no `bucket` property, so it can
  * only ever resolve to its caller's fallback.
+ *
+ * Exported because a second question needs the same list: `appUsesStorage`
+ * asks whether an app can put a byte in storage AT ALL, and one of the three
+ * ways it can is a column of one of these types. Two lists that had to agree
+ * about which columns are attachments could not be kept in step by review.
  */
-const BUCKET_BOUND_FIELD_TYPES: ReadonlySet<string> = new Set([
+export const BUCKET_BOUND_FIELD_TYPES: ReadonlySet<string> = new Set([
   'single-attachment',
   'multiple-attachments',
 ])

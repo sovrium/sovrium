@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
-import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
+import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import {
@@ -19,14 +19,23 @@ import {
 } from './run-automation'
 import type { TriggerData } from './resolve-trigger-data'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
+import type { AutomationRunDatabaseError } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { App } from '@/domain/models/app'
 
 /**
  * Error tags surfaced by the replay flow that do not fit the existing
  * `RunAutomationError` set. Mapped to HTTP responses by the route handler.
+ *
+ * `AutomationRunDatabaseError` is a member in its own right, NOT folded into
+ * `AutomationRunNotFound`. A `mapError(() => AutomationRunNotFound)` over the
+ * repository read answers "no such run" when the truth is "the store did not
+ * answer": a 404 for a run the caller can see, and a non-alerting one for the
+ * operator with the database on fire. Absence is decided from an `undefined`
+ * row; a failure stays a failure and reaches the route as a 5xx.
  */
 export type ReplayAutomationRunError =
   | RunAutomationError
+  | AutomationRunDatabaseError
   | { readonly _tag: 'AutomationRunNotFound'; readonly runId: string }
   | { readonly _tag: 'AutomationRunMismatch'; readonly runId: string; readonly name: string }
 
@@ -138,9 +147,8 @@ export const replayAutomationRun = (
     const handlers = options.handlers ?? defaultActionHandlers
 
     const repo = yield* AutomationRunRepository
-    const run = yield* repo
-      .findById(runId)
-      .pipe(Effect.mapError(() => ({ _tag: 'AutomationRunNotFound' as const, runId })))
+    // No `mapError`: a read that FAILED is not a read that found nothing.
+    const run = yield* repo.findById(runId)
     if (run === undefined) {
       return yield* Effect.fail({ _tag: 'AutomationRunNotFound' as const, runId })
     }
@@ -151,9 +159,7 @@ export const replayAutomationRun = (
     // Entry point: one read of the operational pauses, threaded into the gate.
     const pausedNames = yield* loadPausedAutomationNames
     const automation = yield* resolveReplayTarget(app, name, pausedNames)
-    const steps = yield* repo
-      .findStepsByRunId(runId)
-      .pipe(Effect.mapError(() => ({ _tag: 'AutomationRunNotFound' as const, runId })))
+    const steps = yield* repo.findStepsByRunId(runId)
     const skipActionNames = collectExecutedActionNames(steps)
 
     const automationId = yield* resolveAutomationId(name, automation)
@@ -170,4 +176,4 @@ export const replayAutomationRun = (
       userId,
       skipActionNames,
     })
-  })
+  }).pipe(Effect.withSpan('automations.replay-automation-run'))

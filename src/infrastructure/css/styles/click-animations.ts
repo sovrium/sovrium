@@ -29,7 +29,7 @@
  * The class names collided for the same reason (both sides emit into
  * `@layer utilities`, where source order decides), so BOTH are namespaced:
  * keyframes as `sv-click-*`, classes as `animate-click-*` — the latter matching
- * the prefix the runtime click handler builds in `PageBodyScripts.tsx`.
+ * the prefix the runtime click handler builds in `page-body-scripts.tsx`.
  *
  * Never name a keyframe here after a Tailwind animation utility.
  */

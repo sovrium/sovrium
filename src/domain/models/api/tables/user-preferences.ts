@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * Personal Table Preferences API schemas (Phase 7 Cycle 3 — PATCH body validation).
@@ -31,7 +32,7 @@ import { z } from 'zod'
  */
 
 /** Row-density enum mirrors the literal union used throughout the data-table island. */
-export const rowDensitySchema = z.enum(['compact', 'normal', 'spacious'])
+export const rowDensitySchema = Schema.Literals(['compact', 'normal', 'spacious'])
 
 /**
  * Column-widths shape: a flat `{ [columnId]: widthPx }` record where every
@@ -42,7 +43,10 @@ export const rowDensitySchema = z.enum(['compact', 'normal', 'spacious'])
  * scoped per-view instead of per-(user, table). Sharing the definition is what
  * keeps the two stores from drifting into accepting different garbage.
  */
-export const columnWidthsSchema = z.record(z.string(), z.number().finite().nonnegative())
+export const columnWidthsSchema = Schema.Record(
+  Schema.String,
+  Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
+)
 
 /**
  * PATCH body for `/api/tables/:tableId/user-preferences`.
@@ -51,15 +55,13 @@ export const columnWidthsSchema = z.record(z.string(), z.number().finite().nonne
  * new preference key requires updating this schema AND the route's
  * `mergePreferences` builder in lockstep — that is the design.
  */
-export const userTablePreferencesPatchSchema = z
-  .object({
-    rowDensity: rowDensitySchema.optional(),
-    columnWidths: columnWidthsSchema.optional(),
-    columnOrder: z.array(z.string()).optional(),
-    frozenColumns: z.number().int().nonnegative().optional(),
-    defaultViewId: z.string().optional(),
-  })
-  .strict()
+export const userTablePreferencesPatchSchema = Schema.Struct({
+  rowDensity: optionalField(rowDensitySchema),
+  columnWidths: optionalField(columnWidthsSchema),
+  columnOrder: optionalField(Schema.Array(Schema.String)),
+  frozenColumns: optionalField(Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))),
+  defaultViewId: optionalField(Schema.String),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys' })
 
 /**
  * @public Wire-contract companion type to `userTablePreferencesPatchSchema`
@@ -67,7 +69,7 @@ export const userTablePreferencesPatchSchema = z
  * convention; the application
  * layer currently consumes the structurally-identical port interface.
  */
-export type UserTablePreferencesPatch = z.infer<typeof userTablePreferencesPatchSchema>
+export type UserTablePreferencesPatch = typeof userTablePreferencesPatchSchema.Type
 
 /**
  * Response schema — Phase 8 Cycle 2.
@@ -83,14 +85,14 @@ export type UserTablePreferencesPatch = z.infer<typeof userTablePreferencesPatch
  * writes are gated by `userTablePreferencesPatchSchema`; the response schema
  * stays generous on read so a legacy malformed row does not 500 the GET path.
  */
-export const userTablePreferencesResponseSchema = z.object({
-  tableName: z.string(),
-  columnWidths: z.unknown().optional(),
-  columnOrder: z.unknown().optional(),
-  rowDensity: z.string().optional(),
-  defaultViewId: z.string().optional(),
-  frozenColumns: z.number().optional(),
-  updatedAt: z.string().optional(),
+export const userTablePreferencesResponseSchema = Schema.Struct({
+  tableName: Schema.String,
+  columnWidths: optionalField(Schema.Unknown),
+  columnOrder: optionalField(Schema.Unknown),
+  rowDensity: optionalField(Schema.String),
+  defaultViewId: optionalField(Schema.String),
+  frozenColumns: optionalField(Schema.Finite),
+  updatedAt: optionalField(Schema.String),
 })
 
 /**
@@ -99,4 +101,4 @@ export const userTablePreferencesResponseSchema = z.object({
  * single-source-of-truth convention; the application layer currently consumes
  * the structurally-identical port interface of the same name.
  */
-export type UserTablePreferencesResponse = z.infer<typeof userTablePreferencesResponseSchema>
+export type UserTablePreferencesResponse = typeof userTablePreferencesResponseSchema.Type

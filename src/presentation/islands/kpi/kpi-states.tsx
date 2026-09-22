@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeKpiCardClasses,
+  computeKpiLabelClasses,
+} from '@/presentation/design/kpi-default-classes'
 import type { ReactElement } from 'react'
 
 /**
@@ -15,14 +19,18 @@ import type { ReactElement } from 'react'
 export function KpiLoading(): ReactElement {
   return (
     <div
-      className="border-border bg-background-raised w-full rounded-lg border p-4"
+      className={`${computeKpiCardClasses()} w-full`}
       data-component="kpi"
       data-kpi-state="loading"
       role="status"
       aria-label="Loading KPI..."
     >
-      <div className="bg-background-subtle mb-2 h-4 w-32 animate-pulse rounded" />
-      <div className="bg-background-subtle h-8 w-24 animate-pulse rounded" />
+      {/* Placeholder bars are sized to the parts they stand in for — a 16px
+          caption line and the value's 36px leading — and spaced by the card's
+          own `gap-1` rather than a margin, so the skeleton occupies the same
+          box the loaded card will. */}
+      <div className="bg-background-subtle h-4 w-32 animate-pulse rounded" />
+      <div className="bg-background-subtle h-9 w-24 animate-pulse rounded" />
     </div>
   )
 }
@@ -40,7 +48,7 @@ export function KpiError({
   // replaced by raw error text.
   return (
     <div
-      className="border-error-border bg-error-bg rounded border p-3 text-sm"
+      className="border-error-border bg-error-bg text-md rounded border p-3"
       data-component="kpi"
       data-kpi-state="error"
       role="alert"
@@ -48,7 +56,7 @@ export function KpiError({
       {label && (
         <div
           data-role="kpi-label"
-          className="text-foreground-muted mb-1 font-medium"
+          className={`${computeKpiLabelClasses()} mb-1`}
         >
           {label}
         </div>
@@ -64,7 +72,7 @@ export function KpiError({
 export function KpiMissingTable(): ReactElement {
   return (
     <div
-      className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm"
+      className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
       data-component="kpi"
       data-kpi-state="missing-table"
       role="alert"

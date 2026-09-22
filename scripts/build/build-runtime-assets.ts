@@ -11,8 +11,8 @@
  */
 
 import { join } from 'node:path'
-import { buildRuntimeAssets } from './lib/runtime-assets'
+import { buildRuntimeAssets } from '../lib/runtime-assets'
 
 const ROOT = join(import.meta.dir, '..', '..')
 await buildRuntimeAssets(join(ROOT, 'dist'), join(ROOT, 'src'))
-console.log('✓ runtime assets built into dist/ (client-bundle.js, client-scripts/, island-chunks/)')
+console.log('runtime assets built into dist/ (client-bundle.js, client-scripts/, island-chunks/)')

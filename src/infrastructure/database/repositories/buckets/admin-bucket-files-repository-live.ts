@@ -13,8 +13,8 @@ import {
   type AdminBucketFileRow,
   type AdminBucketFilesListFilters,
 } from '@/application/ports/repositories/buckets/admin-bucket-files-repository'
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
-import { STORAGE_KEY_UUID_PREFIX_LENGTH } from '@/domain/utils/storage-key'
+import { STORAGE_KEY_UUID_PREFIX_LENGTH } from '@/domain/kernel/identity/storage-key'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'

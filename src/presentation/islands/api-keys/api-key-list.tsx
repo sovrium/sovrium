@@ -8,7 +8,7 @@
 /**
  * The operator's own keys, as a table, with a revoke gate.
  *
- * WHY THIS IS NOT A CONFIG `data-table` WITH AN `actions` COLUMN — the
+ * WHY THIS IS NOT A CONFIG `table` WITH AN `actions` COLUMN — the
  * declarative path was the first design and it does not work here, for a reason
  * worth recording. `ActionButton`'s confirm gate is rendered INLINE, replacing
  * the clicked row's button (`data-table/action-cell.tsx`), so with two keys
@@ -23,6 +23,11 @@
  * there is nothing here to leak.
  */
 
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  computeFormFieldLabelClasses,
+  computeFormHelpTextClasses,
+} from '@/presentation/design/form-layout-classes'
 import { formatCreatedAt, type ApiKeySummary } from './api-key-client'
 import type { ReactElement } from 'react'
 
@@ -32,8 +37,8 @@ interface ApiKeyListProps {
   readonly onRequestRevoke: (key: ApiKeySummary) => void
 }
 
-const CELL = 'text-foreground px-3 py-2 text-sm'
-const HEAD = 'text-foreground-subtle px-3 py-2 text-left text-xs font-medium uppercase'
+const CELL = 'text-foreground px-3 py-2 text-md'
+const HEAD = 'text-foreground-subtle px-3 py-2 text-left text-sm font-medium uppercase'
 
 /** One row: what the key is, how to recognise it, and how to retire it. */
 function ApiKeyRow({
@@ -53,7 +58,7 @@ function ApiKeyRow({
           type="button"
           // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- the handler closes over this row's key; hoisting it would need a per-row memo for no measurable gain on a list this size
           onClick={() => onRequestRevoke(apiKey)}
-          className="border-border text-error-fg hover:bg-error-bg rounded-md border px-2 py-1 text-xs transition-colors"
+          className={computeButtonDefaultClasses({ variant: 'outline', size: 'sm' })}
         >
           Revoke
         </button>
@@ -65,7 +70,7 @@ function ApiKeyRow({
 /** The table, or an honest empty state — never a spinner that never resolves. */
 export function ApiKeyList({ keys, onRequestRevoke }: ApiKeyListProps): ReactElement {
   if (keys.length === 0) {
-    return <p className="text-foreground-subtle text-sm">You have no API keys yet.</p>
+    return <p className={computeFormHelpTextClasses()}>You have no API keys yet.</p>
   }
   return (
     <table
@@ -115,9 +120,9 @@ export function RevokeGate({
       role="alertdialog"
       aria-modal="false"
       aria-label="Revoke API key"
-      className="border-border bg-background-raised mt-4 flex flex-col gap-3 rounded-md border p-4"
+      className="border-border bg-background-raised mt-4 flex flex-col gap-3.5 rounded-md border p-4"
     >
-      <p className="text-foreground text-sm">
+      <p className={computeFormFieldLabelClasses()}>
         Revoke “{apiKey.name ?? 'Unnamed key'}”? Anything still presenting it stops working
         immediately, and it cannot be restored.
       </p>
@@ -125,14 +130,14 @@ export function RevokeGate({
         <button
           type="button"
           onClick={onConfirm}
-          className="bg-error-bg text-error-fg rounded-md px-3 py-1.5 text-sm font-medium transition-opacity hover:opacity-90"
+          className={computeButtonDefaultClasses({ variant: 'destructive', size: 'sm' })}
         >
           Revoke key
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="border-border text-foreground-subtle hover:bg-background-subtle rounded-md border px-3 py-1.5 text-sm transition-colors"
+          className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
         >
           Cancel
         </button>

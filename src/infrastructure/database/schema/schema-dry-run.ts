@@ -41,24 +41,25 @@ import { existsSync } from 'node:fs'
 import { SQL } from 'bun'
 import { Database as BunSqlite } from 'bun:sqlite'
 import { Effect } from 'effect'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import * as lookupViewGenerators from '../lookup/lookup-view-generators'
 import { generateAlterTableStatements, needsTableRecreation } from '../schema-migration'
 import { sqliteTransactionLike } from '../sql/dialect-ddl'
 import { executeSQL, getExistingColumns, tableExists } from '../sql/sql-execution'
+import { applySqlitePragmas } from '../sql/sqlite-pragmas'
 import { buildTablePrimaryKeyTypesMap, generateCreateTableSQL } from '../table-operations'
 import {
   detectUnconvertibleRows,
   planTypeChangeProbes,
   resolveProbeIdColumn,
 } from '../table-operations/type-change-preflight'
-import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import { applySchemaDefaults } from './apply-schema-defaults'
 import { getPreviousSchema } from './migration-audit-trail'
 import { sortTablesByDependencies } from './schema-dependency-sorting'
 import type { TransactionLike } from '../sql/sql-execution'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables'
-import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 
 /** What would happen to one config table. */
 export interface TableChange {
@@ -131,6 +132,7 @@ const planRefusals = (params: {
     physicalTableName: physical,
     idColumn: resolveProbeIdColumn(existingColumns),
     probes,
+    // effect-swallow: a probe that cannot run means "no refusal is PROVEN", not "a refusal was found". This is a dry-run REPORT, so the honest degradation is to list no refusals rather than to invent one or to fail the whole plan; the apply path runs the same probe again at its own decision site and is where a real refusal is enforced.
   }).pipe(Effect.orElseSucceed(() => []))
 }
 
@@ -238,10 +240,19 @@ const withReadOnlyTx = <A>(
     ? Effect.acquireUseRelease(
         Effect.sync(() => new SQL(config.databaseUrl)),
         (client) => use({ unsafe: (sql: string) => client.unsafe(sql) }),
+        // effect-promise: total -- `SQL.close()` resolves once the pool is drained and has no rejection path; as the `acquireUseRelease` RELEASE arm it must also stay infallible, or a teardown failure would displace the plan this read-only transaction just produced.
         (client) => Effect.promise(() => client.close())
       )
     : Effect.acquireUseRelease(
-        Effect.sync(() => new BunSqlite(config.path, { create: false, readonly: true })),
+        Effect.sync(() => {
+          const client = new BunSqlite(config.path, { create: false, readonly: true })
+          // The busy timeout alone — the other two PRAGMAs need write access
+          // this handle deliberately does not have. Without it a `--dry-run`
+          // run concurrent with any writer is refused rather than delayed.
+
+          applySqlitePragmas(client, { readOnly: true })
+          return client
+        }),
         (client) => use(sqliteTransactionLike(client)),
         (client) => Effect.sync(() => client.close())
       )
@@ -290,6 +301,7 @@ export const planConfigTableChanges = (
         // [internal ref] classes as a defect rather than a limitation — the same
         // judgement this module already makes about the unsimulated recreate.
         // Letting a defect through turns a silently wrong plan into a refusal.
+        // effect-swallow: see the paragraph above — a missing previous snapshot is the FIRST-BOOT case, not an error, and `orElseSucceed` is narrowed to failures precisely so a defect still refuses the plan.
         Effect.orElseSucceed(() => undefined)
       )
 

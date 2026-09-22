@@ -29,7 +29,7 @@ import { Schema } from 'effect'
  *    so both fall outside the pattern.
  *  - whitespace-bearing targets, which no author writes on purpose.
  *
- * NOTE for whoever finds `isSafeRedirectPath` in `@/domain/utils/redirect-safety`
+ * NOTE for whoever finds `isSafeRedirectPath` in `@/domain/kernel/url/redirect-safety`
  * and wonders why it is not reused: that helper is the canonical SAME-ORIGIN
  * check and would reject every legitimate off-site destination. It answers a
  * different question. This is not a second copy of it.

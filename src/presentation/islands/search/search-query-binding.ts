@@ -10,10 +10,10 @@
  *
  * Two query sources feed the same applied-query state:
  *
- * 1. **Bound** — `dataSource.bindTo` names an external `searchInput` component.
+ * 1. **Bound** — `dataSource.bindTo` names an external `search-input` component (any scope; in practice `scope: 'subscribers'`).
  *    That input is static SSR markup which publishes its value via DOM `input`
  *    events. The per-publisher query controls (`debounceMs`, `minQueryLength`)
- *    are declared on the searchInput schema and stamped by its renderer onto
+ *    are declared on the `search-input` schema and stamped by its renderer onto
  *    the inner `<input>` as `data-search-debounce` / `data-search-min-length`;
  *    {@link readSearchInputConfig} reads them back off the DOM at bind time.
  *    Keeping the attribute names behind that ONE function means a second
@@ -34,7 +34,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 
-/** Per-publisher query controls, as declared on a `searchInput` component. */
+/** Per-publisher query controls, as declared on a `search-input` component. */
 export interface SearchInputConfig {
   readonly debounceMs: number
   readonly minQueryLength: number
@@ -50,7 +50,7 @@ function parseNonNegativeInt(raw: string | null): number {
 }
 
 /**
- * Reads a publisher `searchInput`'s query controls off its DOM attributes.
+ * Reads a publisher `search-input`'s query controls off its DOM attributes.
  *
  * The single place that knows the attribute names. An absent attribute means
  * the author never declared the field, so the reader supplies the default —
@@ -124,7 +124,7 @@ function useDebouncedDispatch(): DebouncedDispatch {
 }
 
 /**
- * Subscribes to an external `searchInput`'s value when `bindTo` is set,
+ * Subscribes to an external `search-input`'s value when `bindTo` is set,
  * applying that publisher's declared debounce and minimum-length gate.
  *
  * The config is read once at bind time: the attributes are static SSR markup,
@@ -172,7 +172,7 @@ export interface UnboundQuery {
  * publisher's DOM attributes — same debounce, different declaration site.
  *
  * There is deliberately no `minQueryLength` counterpart: that control is
- * declared on `searchInput`, and `dataSource` has no such field, so an unbound
+ * declared on `search-input`, and `dataSource` has no such field, so an unbound
  * box has no minimum to enforce.
  */
 export function useUnboundQuery(

@@ -6,12 +6,14 @@
  */
 
 import { useState } from 'react'
-import { hasDataBinding, resolveIslandRecords } from '../shared/data-binding'
+import { hasDataBinding, resolveIslandRecords } from '../runtime/data-binding'
+import { GalleryCarousel } from './gallery-carousel'
 import { GalleryGrid } from './gallery-grid'
+import { GalleryPager } from './gallery-pager'
 import { GalleryEmpty, GalleryError, GalleryLoading, GalleryMissingTable } from './gallery-states'
 import { LoadMoreButton } from './load-more-button'
 import { useGalleryRecords } from './use-gallery-records'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 import type {
   GalleryCard,
   GalleryGridColumns,
@@ -21,7 +23,27 @@ import type { SystemSource } from '@/domain/models/app/pages/components/system-s
 import type { ReactElement } from 'react'
 
 interface PaginationConfig {
+  /**
+   * The most cards the grid may DRAW at once — a display gate over the set the
+   * island has already fetched, not a request size. The fetch asks for one
+   * large page (`useGalleryRecords`) and the slice happens here.
+   */
   readonly pageSize: number
+  /**
+   * How the reader reaches the records past the first page — carried from
+   * `dataSource.pagination.style`, and OMITTED means `numbered` (the default
+   * the schema states, never "no control": a `pageSize` that narrows the grid
+   * with nothing to page by would put bound records out of reach).
+   *
+   * `infinite` is accepted by the schema and deliberately NOT implemented:
+   * scroll-triggered paging needs a sentinel row, an intersection observer and
+   * a re-entrancy guard, and none of that can ship until something specifies
+   * how it behaves at the end of the set. The same refusal is written on the
+   * list's `loadMore` prop (`../list/list-island.tsx`) and on
+   * `PaginationStyleSchema`, which the published JSON Schema carries. A gallery
+   * declaring it therefore pages exactly as `numbered` does — the refusal costs
+   * the reader a nicer interaction, never a record.
+   */
   readonly style?: 'loadMore' | 'numbered' | 'infinite'
 }
 
@@ -50,28 +72,72 @@ interface GalleryIslandProps {
   readonly gridColumns?: GalleryGridColumns
   readonly galleryCard?: GalleryCard
   readonly emptyMessage?: string
-  readonly layout?: 'grid' | 'masonry'
+  readonly layout?: 'grid' | 'masonry' | 'carousel'
 }
 
 interface PaginationView {
   readonly visibleRecords: readonly TableRecord[]
   readonly showLoadMore: boolean
+  /**
+   * The numbered pager should render. Decided HERE rather than re-derived at
+   * the JSX, so "which control does this style get" is answered in exactly one
+   * place and the two controls cannot both appear (or both vanish on the last
+   * page of a `loadMore` gallery, which a `!showLoadMore` guard would do).
+   */
+  readonly showPager: boolean
+  /** How many pages the bound set spans — `1` when there is nothing to page. */
+  readonly pageCount: number
+  /** The 1-based page actually drawn, clamped into `pageCount`. */
+  readonly currentPage: number
 }
 
-/** Compute the paginated slice + whether the Load More button should render. */
+/**
+ * Compute what the grid draws, and which control gets the reader to the rest.
+ *
+ * Every style pages: the choice decides the CONTROL, never whether the records
+ * past the first page are reachable. `loadMore` grows the slice from the top;
+ * `numbered` — and `infinite`, which falls back to it — moves a window of
+ * `pageSize`. With no `pageSize` at all there is no window and no control:
+ * paging is opt-in, and a gallery that was not asked to page draws everything.
+ */
 function computePaginationView(
   records: readonly TableRecord[],
-  visibleCount: number,
+  page: number,
   pageSize: number | undefined,
   paginationStyle: PaginationConfig['style'] | undefined
 ): PaginationView {
   if (pageSize === undefined) {
-    return { visibleRecords: records, showLoadMore: false }
+    return {
+      visibleRecords: records,
+      showLoadMore: false,
+      showPager: false,
+      pageCount: 1,
+      currentPage: 1,
+    }
   }
-  const sliceCount = Math.min(visibleCount || pageSize, records.length)
+  const pageCount = Math.max(1, Math.ceil(records.length / pageSize))
+  const currentPage = Math.min(page, pageCount)
+
+  if (paginationStyle === 'loadMore') {
+    const sliceCount = Math.min(page * pageSize, records.length)
+    return {
+      visibleRecords: records.slice(0, sliceCount),
+      showLoadMore: sliceCount < records.length,
+      showPager: false,
+      pageCount,
+      currentPage,
+    }
+  }
+
+  const start = (currentPage - 1) * pageSize
   return {
-    visibleRecords: records.slice(0, sliceCount),
-    showLoadMore: sliceCount < records.length && paginationStyle === 'loadMore',
+    visibleRecords: records.slice(start, start + pageSize),
+    showLoadMore: false,
+    // A single page offers nowhere to go, and a pager promising that is noise —
+    // the same call the SSR list pager makes at `totalPages <= 1`.
+    showPager: pageCount > 1,
+    pageCount,
+    currentPage,
   }
 }
 
@@ -80,20 +146,15 @@ function computePaginationView(
  * builder keeps the `onClick` JSX prop as a plain reference (rather than an
  * inline arrow that the react-perf rule would flag).
  */
-function buildLoadMoreHandler(
-  pageSize: number | undefined,
-  setVisibleCount: (updater: (prev: number) => number) => void
-): () => void {
-  return () => {
-    if (pageSize === undefined) return
-    setVisibleCount((prev) => (prev === 0 ? pageSize * 2 : prev + pageSize))
-  }
+function buildLoadMoreHandler(setPage: (updater: (prev: number) => number) => void): () => void {
+  return () => setPage((prev) => prev + 1)
 }
 
 /**
- * Renders the populated gallery (records + optional Load More button). Pulled
- * out of `GalleryIsland` so the parent stays under the cyclomatic-complexity
- * cap — this component only deals with the "we have records" branch.
+ * Renders the populated gallery (records + whichever paging control the
+ * declared style asks for). Pulled out of `GalleryIsland` so the parent stays
+ * under the cyclomatic-complexity cap — this component only deals with the "we
+ * have records" branch.
  */
 function GalleryContent({
   records,
@@ -108,26 +169,48 @@ function GalleryContent({
   readonly paginationStyle: PaginationConfig['style'] | undefined
   readonly galleryCard: GalleryCard | undefined
   readonly gridColumns: GalleryGridColumns | undefined
-  readonly layout: 'grid' | 'masonry' | undefined
+  readonly layout: 'grid' | 'masonry' | 'carousel' | undefined
 }): ReactElement {
-  const [visibleCount, setVisibleCount] = useState<number>(() => pageSize ?? 0)
-  const { visibleRecords, showLoadMore } = computePaginationView(
+  // One 1-based cursor serves both controls: `loadMore` reads it as "how many
+  // pages have been revealed", the numbered pager as "which page is drawn". The
+  // setter goes to the pager as-is — it is referentially stable, which a fresh
+  // arrow per render would not be.
+  const [page, setPage] = useState<number>(1)
+  const { visibleRecords, showLoadMore, showPager, pageCount, currentPage } = computePaginationView(
     records,
-    visibleCount,
+    page,
     pageSize,
     paginationStyle
   )
-  const onLoadMore = buildLoadMoreHandler(pageSize, setVisibleCount)
+  const onLoadMore = buildLoadMoreHandler(setPage)
 
+  // A carousel is the same cards on a walkable track rather than a wrapped
+  // shell, so it owns its own container and controls; the responsive column
+  // arithmetic the grid does describes an arrangement it does not have. Paging
+  // is unchanged — a load-more still appends to the track.
   return (
     <>
-      <GalleryGrid
-        records={visibleRecords}
-        card={galleryCard}
-        gridColumns={gridColumns}
-        layout={layout}
-      />
+      {layout === 'carousel' ? (
+        <GalleryCarousel
+          records={visibleRecords}
+          card={galleryCard}
+        />
+      ) : (
+        <GalleryGrid
+          records={visibleRecords}
+          card={galleryCard}
+          gridColumns={gridColumns}
+          layout={layout}
+        />
+      )}
       {showLoadMore && <LoadMoreButton onClick={onLoadMore} />}
+      {showPager && (
+        <GalleryPager
+          pageCount={pageCount}
+          currentPage={currentPage}
+          onSelect={setPage}
+        />
+      )}
     </>
   )
 }

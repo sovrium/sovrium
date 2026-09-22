@@ -15,8 +15,11 @@
  * not touch the URL.
  */
 
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { subscribe } from '../../_shared/event-bus'
+import { useDebouncedValue } from '../../hooks/use-debounced-value'
+import { subscribe } from '../../runtime/event-bus'
+import { READ_ONCE_QUERY_OPTIONS } from '../../runtime/query-client'
 import {
   loadAllConversations,
   loadConversation,
@@ -105,21 +108,34 @@ function useConversationList(
   readonly list: ListState
   readonly reloadList: () => void
 } {
-  const [list, setList] = useState<ListState>(LIST_LOADING)
-  // Stable dependency for the load effect (the names array identity varies per render).
+  const queryClient = useQueryClient()
+  // Stable key component (the names array identity varies per render).
   const namesKey = agentNames.join(' ')
-  const reloadList = useCallback(() => {
-    setList(LIST_LOADING)
-    void loadAllConversations(namesKey ? namesKey.split(' ') : [], search).then(setList)
-  }, [namesKey, search])
-  useEffect(() => {
-    reloadList()
-  }, [reloadList])
+  const listKey = useMemo(
+    () => ['admin-agent-conversations', 'list', namesKey, search] as const,
+    [namesKey, search]
+  )
+
+  const listQuery = useQuery({
+    queryKey: listKey,
+    queryFn: () => loadAllConversations(namesKey ? namesKey.split(' ') : [], search),
+    ...READ_ONCE_QUERY_OPTIONS,
+  })
+
+  // A reload REPLACES the list with the loading state rather than leaving the
+  // old rows up under a spinner — that was the explicit `setList(LIST_LOADING)`
+  // ahead of every load, and it is what makes a search that narrows to nothing
+  // read as "searching" instead of as stale results. `isFetching` reproduces it
+  // for a refetch; a changed key has no data of its own, so it falls out.
+  const list: ListState = listQuery.isFetching ? LIST_LOADING : (listQuery.data ?? LIST_LOADING)
+
+  const reloadList = useCallback((): void => {
+    void queryClient.invalidateQueries({ queryKey: listKey })
+  }, [queryClient, listKey])
 
   // Reload when the composer reports a persisted round-trip for any of our
   // agents — the same event-bus refresh the bucket-files list uses after an
-  // upload (CONV-013, no TanStack Query). The composer keys the event
-  // `agent-conversation:${agentSlug}`.
+  // upload (CONV-013). The composer keys the event `agent-conversation:${agentSlug}`.
   useEffect(() => {
     const names = new Set(namesKey ? namesKey.split(' ') : [])
     return subscribe('sovrium:crud-success', (detail) => {
@@ -176,19 +192,38 @@ function useSelectedThread(
   list: ListState,
   selectedId: string | undefined
 ): { readonly thread: ThreadState; readonly reloadThread: () => void } {
-  const [thread, setThread] = useState<ThreadState>(THREAD_IDLE)
+  const queryClient = useQueryClient()
   const selectedAgent = useMemo(
     () => list.conversations.find((c) => c.id === selectedId)?.agentName,
     [list.conversations, selectedId]
   )
-  const reloadThread = useCallback(() => {
-    if (!selectedAgent || !selectedId) return
-    setThread(THREAD_LOADING)
-    void loadConversation(selectedAgent, selectedId).then(setThread)
-  }, [selectedAgent, selectedId])
-  useEffect(() => {
-    if (selectedId) reloadThread()
-  }, [selectedId, reloadThread])
+  const enabled = Boolean(selectedAgent && selectedId)
+  const threadKey = useMemo(
+    () => ['admin-agent-conversations', 'thread', selectedAgent, selectedId] as const,
+    [selectedAgent, selectedId]
+  )
+
+  const threadQuery = useQuery({
+    queryKey: threadKey,
+    // Guarded by `enabled`; the non-null assertions are unreachable when it is false.
+    queryFn: () => loadConversation(selectedAgent ?? '', selectedId ?? ''),
+    enabled,
+    ...READ_ONCE_QUERY_OPTIONS,
+  })
+
+  // Three states, and the third is why `enabled` is read before the data: a
+  // DISABLED query is `pending` too, so "no data" alone would paint the thread
+  // column as loading when nothing is selected, instead of as the idle prompt.
+  const thread: ThreadState = !enabled
+    ? THREAD_IDLE
+    : threadQuery.isFetching
+      ? THREAD_LOADING
+      : (threadQuery.data ?? THREAD_LOADING)
+
+  const reloadThread = useCallback((): void => {
+    void queryClient.invalidateQueries({ queryKey: threadKey })
+  }, [queryClient, threadKey])
+
   return { thread, reloadThread }
 }
 
@@ -208,11 +243,7 @@ export function useAgentConversations(
   // network. Binding the fetch straight to `search` would fan one request per
   // declared agent out on every character typed.
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS)
-    return () => clearTimeout(timer)
-  }, [search])
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS)
   const { list, reloadList } = useConversationList(agentNames, debouncedSearch)
   const [agent, setAgent] = useState('')
   const { thread, reloadThread } = useSelectedThread(list, selectedId)

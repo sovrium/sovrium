@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { computeTableEditorFooterClasses } from '@/presentation/design/table-default-classes'
 import type { ImportResult, ImportWizardStep, CsvPreview } from './types'
 
 interface DialogFooterProps {
@@ -29,11 +31,11 @@ export function DialogFooter({
   onImport,
 }: DialogFooterProps) {
   return (
-    <div className="mt-4 flex justify-end gap-2">
+    <div className={computeTableEditorFooterClasses()}>
       {step === 'preview' && preview && (
         <button
           type="button"
-          className="bg-primary text-primary-fg hover:bg-primary-hover rounded px-4 py-2 text-sm"
+          className={computeButtonDefaultClasses({ variant: 'default', size: 'sm' })}
           onClick={onPreviewNext}
         >
           Next
@@ -43,14 +45,14 @@ export function DialogFooter({
         <>
           <button
             type="button"
-            className="bg-primary text-primary-fg hover:bg-primary-hover rounded px-4 py-2 text-sm"
+            className={computeButtonDefaultClasses({ variant: 'default', size: 'sm' })}
             onClick={onMappingNext}
           >
             Next
           </button>
           <button
             type="button"
-            className="border-border hover:bg-background-subtle rounded border px-4 py-2 text-sm"
+            className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
             disabled={isImporting}
             onClick={onImport}
           >
@@ -61,7 +63,7 @@ export function DialogFooter({
       {step === 'duplicate-handling' && !importResult && (
         <button
           type="button"
-          className="bg-primary text-primary-fg hover:bg-primary-hover rounded px-4 py-2 text-sm"
+          className={computeButtonDefaultClasses({ variant: 'default', size: 'sm' })}
           disabled={isImporting}
           onClick={onImport}
         >
@@ -70,7 +72,7 @@ export function DialogFooter({
       )}
       <button
         type="button"
-        className="border-border hover:bg-background-subtle rounded border px-4 py-2 text-sm"
+        className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
         onClick={onClose}
       >
         Cancel

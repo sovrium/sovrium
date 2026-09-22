@@ -112,7 +112,7 @@ export const AutoSaveConfigSchema = Schema.Struct({
   identifier: 'AutoSaveConfig',
   title: 'Auto Save Configuration',
   description:
-    'Configuration for automatic persistence of edits. Applies to data-table, form, kanban, and calendar components.',
+    'Configuration for automatic persistence of edits. Applies to table, form, kanban, and calendar components.',
 })
 
 // ---------------------------------------------------------------------------

@@ -12,7 +12,7 @@ import {
   rawActionProps,
   resolveRunContextValue,
 } from './run-context-resolution'
-import { itemLoopOutcome } from './shared'
+import { actionAttributes, itemLoopOutcome } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
 /**
@@ -236,7 +236,7 @@ const runAllIterations = (input: {
   }, Promise.resolve(EMPTY_TALLY))
 }
 
-export const handleLoopEach: ActionHandler = (_action, _app, _automation, runContext) =>
+export const handleLoopEach: ActionHandler = (action, _app, _automation, runContext) =>
   Effect.gen(function* () {
     if (runContext === undefined || runContext.invokeNativeAction === undefined) {
       return ok({ results: [], iterations: 0 })
@@ -264,4 +264,4 @@ export const handleLoopEach: ActionHandler = (_action, _app, _automation, runCon
         onFailure: (error) => fail(error.message),
       })
     )
-  })
+  }).pipe(Effect.withSpan('automations.handle-loop-each', { attributes: actionAttributes(action) }))

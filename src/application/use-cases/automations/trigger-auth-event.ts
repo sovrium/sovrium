@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
+import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { loadPausedAutomationNames } from './paused-automation-names'
@@ -115,5 +115,6 @@ export const triggerAuthEventAutomations = (
       Effect.sync(() => {
         logError('[automation:auth-event] dispatch failure', cause)
       })
-    )
+    ),
+    Effect.withSpan('automations.trigger-auth-event-automations')
   )

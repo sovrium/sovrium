@@ -15,7 +15,7 @@ import {
   rawActionProps,
   resolveRunContextValue,
 } from './run-context-resolution'
-import { stringProp } from './shared'
+import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
 /**
@@ -131,7 +131,9 @@ export const handleFileParseXlsx: ActionHandler = (action) =>
         sheetNames: read.parsed.sheetNames,
       },
     } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-file-parse-xlsx', { attributes: actionAttributes(action) })
+  )
 
 // ---------------------------------------------------------------------------
 // generateXlsx
@@ -245,4 +247,8 @@ export const handleFileGenerateXlsx: ActionHandler = (action, _app, _automation,
       status: 'success',
       output: destination ? { ...base, path: destination } : { ...base, temporary: true },
     } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-file-generate-xlsx', {
+      attributes: actionAttributes(action),
+    })
+  )

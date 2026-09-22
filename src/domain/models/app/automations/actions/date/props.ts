@@ -16,7 +16,7 @@
  *
  * Kept as loose `Schema` values (not a composed struct) because each operator
  * spreads a DIFFERENT subset: `parse` takes no `locale` (locale NAME tokens are
- * format-only — see `TOKENS[].parseable` in `domain/services/date-tokens.ts`),
+ * format-only — see `TOKENS[].parseable` in `domain/kernel/format/date-tokens.ts`),
  * and `add`/`subtract` take no `pattern` at all.
  */
 
@@ -52,7 +52,7 @@ export const LocaleProp = Schema.String.pipe(
  * Format pattern over the CLOSED token set.
  *
  * The vocabulary is the single source of truth in
- * `domain/services/date-tokens.ts` (`TOKENS`). It is closed on purpose: an
+ * `domain/kernel/format/date-tokens.ts` (`TOKENS`). It is closed on purpose: an
  * unrecognised letter outside a quoted literal is an ERROR, never a silent
  * pass-through, which is what keeps a hand-rolled tokenizer defensible.
  */

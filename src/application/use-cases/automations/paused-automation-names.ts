@@ -59,5 +59,6 @@ export const loadPausedAutomationNames: Effect.Effect<
       logError('[automations] failed to read operational pauses; treating none as paused', error)
       return NO_PAUSES
     })
-  )
+  ),
+  Effect.withSpan('automations.load-paused-automation-names')
 )

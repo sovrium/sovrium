@@ -7,32 +7,27 @@
 
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 
 /**
  * Count the users who currently hold one of `adminRoles` and are not banned.
  *
- * Promise-based wrapper around the Effect-native
- * `AuthRepository.countActiveAdmins` so the plain-async Better Auth `before`
- * hook can consult it without rewriting that hook in `Effect.gen` (same shape
- * as `findUserEmailById`).
+ * Yields `undefined` when the lookup fails. The caller (the last-admin lockout
+ * guard) then SKIPS the guard rather than blocking: a transient DB error must
+ * not make role management unusable, and the guard is a foot-gun rail between
+ * two already-privileged actors — not a security boundary. That degradation is
+ * folded into the value here, so the effect cannot fail.
  *
- * Returns `undefined` when the lookup fails. The caller (the last-admin
- * lockout guard) then SKIPS the guard rather than blocking: a transient DB
- * error must not make role management unusable, and the guard is a foot-gun
- * rail between two already-privileged actors — not a security boundary.
+ * `AuthRepository` is declared rather than provided (standing rule E1); see the
+ * sibling `readUserRoleById` for where the Promise bridge lives and why.
  */
-export async function countActiveAdmins(
+export const countActiveAdmins = (
   adminRoles: readonly string[]
-): Promise<number | undefined> {
-  const program = Effect.gen(function* () {
+): Effect.Effect<number | undefined, never, AuthRepository> =>
+  Effect.gen(function* () {
     const repo = yield* AuthRepository
     return yield* repo.countActiveAdmins(adminRoles)
-  }).pipe(Effect.provide(AuthRepositoryLive))
-
-  try {
-    return await Effect.runPromise(program)
-  } catch {
-    return undefined
-  }
-}
+  }).pipe(
+    // effect-swallow: `undefined` means "the count is unknown", and the last-admin guard skips itself rather than blocking — a transient DB error must not make role management unusable between two already-privileged actors.
+    Effect.orElseSucceed(() => undefined),
+    Effect.withSpan('auth.count-active-admins')
+  )

@@ -50,25 +50,30 @@
  * the tokenizer's only job is to be predictable.
  */
 
+import { escapeLikeMetacharacters } from '@/domain/kernel/sql/sql-formatting'
+
 /** Prefix of every per-table FTS5 virtual table (SQLite). Reserved namespace. */
 const SQLITE_FTS_PREFIX = 'fts__'
 
 /**
- * {@link SQLITE_FTS_PREFIX} with its underscores escaped, for use in a `LIKE`
- * pattern. `_` is a single-character wildcard, so the unescaped prefix would
- * also match names this feature never created — and the one query that uses it
- * builds a DROP list.
+ * {@link SQLITE_FTS_PREFIX} escaped for use in a `LIKE … ESCAPE '\'` pattern.
+ *
+ * `_` is a single-character wildcard, so the unescaped prefix would also match
+ * names this feature never created — and the one query that uses it builds a
+ * DROP list. Escaped through the canonical helper rather than a local
+ * `.replace(/_/g, …)`, which covers `%` and `\` too and so stays correct if the
+ * prefix ever gains one.
  */
-export const SQLITE_FTS_PREFIX_LIKE = SQLITE_FTS_PREFIX.replace(/_/g, '\\_')
+export const SQLITE_FTS_PREFIX_LIKE = escapeLikeMetacharacters(SQLITE_FTS_PREFIX)
 
 /** Prefix of every per-table GIN expression index (PostgreSQL). Reserved namespace. */
 const PG_FTS_INDEX_PREFIX = 'cs_fts_'
 
 /**
- * {@link PG_FTS_INDEX_PREFIX} with `_` escaped for a SQL `LIKE … ESCAPE '\'`,
- * so the pre-migration sweep matches the namespace and nothing adjacent.
+ * {@link PG_FTS_INDEX_PREFIX} escaped for a SQL `LIKE … ESCAPE '\'`, so the
+ * pre-migration sweep matches the namespace and nothing adjacent.
  */
-export const PG_FTS_INDEX_PREFIX_LIKE = PG_FTS_INDEX_PREFIX.replace(/_/g, '\\_')
+export const PG_FTS_INDEX_PREFIX_LIKE = escapeLikeMetacharacters(PG_FTS_INDEX_PREFIX)
 
 /** The unindexed FTS5 column carrying the base row's primary key, as TEXT. */
 export const SQLITE_FTS_RECORD_ID_COLUMN = 'record_id'

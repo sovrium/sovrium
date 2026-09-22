@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import { DataSourceSchema } from '../../data-source'
 import { SystemDetailSourceSchema } from '../../system-detail-source'
+import { ColumnFormatSchema } from '../data/table/columns'
 import { coreFields } from '../modules/core'
 import { visibilityFields } from '../modules/visibility'
 
@@ -32,6 +33,23 @@ export const RecordFieldTypeLiteral = Schema.Literal('record-field')
 export const recordFieldFields = {
   ...coreFields,
   ...visibilityFields,
+  /**
+   * Display format override for the resolved value — the SAME vocabulary a
+   * data-table column declares (`ColumnFormatSchema`), applied by the same
+   * `formatCellValue`.
+   *
+   * A `record-field` is how a value reaches a row template, a card, or a detail
+   * panel: everywhere a grid is not. Without this it could only ever print
+   * `String(value)`, so a `file_size` column showed `11742` in a `list` row and
+   * `11 KB` in a `table` — the same number, two answers, on the same page.
+   * Reusing the column vocabulary rather than inventing a second one is what
+   * keeps them from drifting apart again.
+   *
+   * Omit it to keep the field-type dispatch (`rich-text` -> sanitized HTML,
+   * attachment -> download link, else plain text), which is the behaviour every
+   * already-shipped `record-field` has.
+   */
+  format: Schema.optional(ColumnFormatSchema),
   /**
    * Optional OWN single-record source.
    *

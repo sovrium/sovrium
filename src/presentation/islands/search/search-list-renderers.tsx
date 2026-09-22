@@ -6,6 +6,19 @@
  */
 
 import React from 'react'
+import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  LIST_TEXT_COLUMN_CLASSES,
+  computeListBadgeClasses,
+  computeListDividerClasses,
+  computeListEmptyClasses,
+  computeListItemClasses,
+  computeListMetaClasses,
+  computeListShellClasses,
+  computeListSubtitleClasses,
+  computeListThumbClasses,
+  computeListTitleClasses,
+} from '@/presentation/design/list-default-classes'
 
 export type ChildTemplate = readonly (ChildNode | string)[]
 
@@ -24,13 +37,17 @@ export interface ItemTemplate {
   readonly metadata?: readonly { readonly field: string; readonly format?: string }[]
 }
 
-// Record substitution (mirrors data-source-resolver substituteRecordVars)
-export function substituteRecordVars(text: string, record: Record<string, unknown>): string {
-  return text.replace(/\$record\.([a-zA-Z0-9_]+)/g, (_, fieldName: string) => {
-    const value = record[fieldName]
-    return value !== undefined ? String(value) : ''
-  })
-}
+/**
+ * Record substitution — re-exported from the ONE implementation in
+ * `@/domain/utils/substitute-record-vars`, which is `effect`-free and already
+ * the browser-reachable home for helpers like this one.
+ *
+ * The local copy this replaces rendered an explicit `null` as the literal text
+ * `null`, so a nullable column reached a search result as the word. It also had
+ * no fallback chain, so `$record.title|$record.slug` was inert here while it
+ * worked on the server.
+ */
+export { substituteRecordVars }
 
 function substituteChildProps(
   props: Record<string, unknown> | undefined,
@@ -73,7 +90,6 @@ const TYPE_TO_TAG: Record<string, string> = {
   link: 'a',
   button: 'button',
   image: 'img',
-  hero: 'div',
 }
 
 // Render child template to JSX
@@ -103,23 +119,49 @@ export function renderChild(child: ChildNode | string, key: string): React.React
 }
 
 // Item-template rendering (declarative title/subtitle/image/badge/metadata)
+//
+// Every class below comes from `list-default-classes.ts`. Before wave R-D this
+// renderer emitted NO classes at all, so a data-bound list painted as the
+// browser's default bulleted list — indented behind a disc, on no surface.
+//
+// The `data-list-*` attributes are the selector contract the specs assert on
+// (`[data-list-item]`, `[data-list-title]`, `[data-list-subtitle]`,
+// `[data-list-badge]`, `[data-list-meta=<field>]`) and are untouched: each one
+// still sits on the same element, in the same order.
+
+/**
+ * The trailing metadata group.
+ *
+ * Wrapped in a row of its own so the values sit on the canvas' 6px gap rather
+ * than inheriting the item's 10px — they are one group (`4 items · 2 days
+ * ago`), not peers of the title and the badge. The wrapper is omitted entirely
+ * when no declared field resolved, so an item without metadata pays no gap for
+ * an empty box.
+ *
+ * The declared index is preserved through the filter so React keys stay stable
+ * when a nullable column drops out of one record and not another.
+ */
 function renderItemMetadata(
   metadata: ItemTemplate['metadata'],
   record: Record<string, unknown>,
   key: string
 ): React.ReactNode {
-  return metadata?.map((meta, i) => {
-    const value = record[meta.field]
-    if (value === undefined) return undefined
-    return (
-      <span
-        key={`${key}-meta-${i}`}
-        data-list-meta={meta.field}
-      >
-        {String(value)}
-      </span>
-    )
-  })
+  const entries = (metadata ?? [])
+    .map((meta, index) => ({ meta, index }))
+    .filter(({ meta }) => record[meta.field] !== undefined)
+  if (entries.length === 0) return undefined
+  return (
+    <div className={computeListMetaClasses()}>
+      {entries.map(({ meta, index }) => (
+        <span
+          key={`${key}-meta-${index}`}
+          data-list-meta={meta.field}
+        >
+          {String(record[meta.field])}
+        </span>
+      ))}
+    </div>
+  )
 }
 
 function renderItemTemplate(
@@ -130,22 +172,54 @@ function renderItemTemplate(
   const sub = (field?: string) => (field ? substituteRecordVars(field, record) : undefined)
   const title = sub(template.title)
   const image = sub(template.image)
+  const subtitle = sub(template.subtitle)
+  const badge = sub(template.badge)
   return (
     <li
       key={key}
       data-list-item="true"
+      className={`${computeListItemClasses()} ${computeListDividerClasses()}`}
     >
       {image ? (
         <img
           src={image}
           alt={title ?? ''}
+          className={computeListThumbClasses()}
         />
       ) : undefined}
-      {title ? <span data-list-title="true">{title}</span> : undefined}
-      {sub(template.subtitle) ? (
-        <span data-list-subtitle="true">{sub(template.subtitle)}</span>
+      {/* The one element R-D adds to this template: title and subtitle are
+          siblings of the row's own row-direction flex, so without a column
+          wrapper they lay out side by side instead of stacking. Rendered only
+          when at least one of them exists, so a badge-only row is not pushed
+          right by an empty `flex-1` box. */}
+      {title !== undefined || subtitle !== undefined ? (
+        <div className={LIST_TEXT_COLUMN_CLASSES}>
+          {title ? (
+            <span
+              data-list-title="true"
+              className={computeListTitleClasses()}
+            >
+              {title}
+            </span>
+          ) : undefined}
+          {subtitle ? (
+            <span
+              data-list-subtitle="true"
+              className={computeListSubtitleClasses()}
+            >
+              {subtitle}
+            </span>
+          ) : undefined}
+        </div>
       ) : undefined}
-      {sub(template.badge) ? <span data-list-badge="true">{sub(template.badge)}</span> : undefined}
+      {badge ? (
+        <span
+          data-list-badge="true"
+          className={computeListBadgeClasses()}
+        >
+          {badge}
+        </span>
+      ) : undefined}
       {renderItemMetadata(template.metadata, record, key)}
     </li>
   )
@@ -165,15 +239,28 @@ export function renderResultsBody({
   childTemplate,
 }: ResultsBodyProps): React.ReactNode {
   if (records.length === 0 && emptyMessage) {
-    return <p data-list-empty="true">{emptyMessage}</p>
+    return (
+      <p
+        data-list-empty="true"
+        className={computeListEmptyClasses()}
+      >
+        {emptyMessage}
+      </p>
+    )
   }
   return (
-    <ul>
+    <ul className={computeListShellClasses()}>
       {records.map((record, i) =>
         itemTemplate ? (
           renderItemTemplate(itemTemplate, record, `item-${i}`)
         ) : (
-          <li key={i}>
+          // A `childTemplate` row carries the same geometry as an
+          // `itemTemplate` row — the two differ in what they render INSIDE the
+          // row, not in what a row is — so both sit on the shell identically.
+          <li
+            key={i}
+            className={`${computeListItemClasses()} ${computeListDividerClasses()}`}
+          >
             {childTemplate.map((child, j) => {
               const substituted = substituteChildTemplate([child], record)[0]
               return substituted ? renderChild(substituted, `${i}-${j}`) : undefined

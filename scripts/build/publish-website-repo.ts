@@ -27,11 +27,16 @@
  *        Metadata read; Administration only for a --create bootstrap run)
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import * as Effect from 'effect/Effect'
 import { CONFIG_TYPES_DECLARATION } from '../../src/infrastructure/assets/embedded-config-types.generated'
+import { assertFloor } from '../lib/drift/floors'
+import { walkSync } from '../lib/drift/walk'
+import { CommandServiceLive, spawn } from '../lib/effect/command-service'
 import { syncInstallScript } from './sync-install-script'
 import { copyWebsitePayload } from './website-payload'
+import type { CommandError } from '../lib/effect/command-service'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const WEBSITE_ROOT = join(PROJECT_ROOT, 'apps', 'website')
@@ -212,16 +217,13 @@ const DEFAULT_MAX_DELETE_RATIO = 0.6
 
 /** List every file in `dir`, as paths relative to it. */
 export function listFiles(dir: string): string[] {
-  const walk = (current: string): string[] =>
-    readdirSync(current, { withFileTypes: true }).flatMap((e) => {
-      const full = join(current, e.name)
-      return e.isDirectory() ? walk(full) : [relative(dir, full)]
-    })
-  return walk(dir).sort()
+  return walkSync({ root: dir })
+    .map((abs) => relative(dir, abs))
+    .sort()
 }
 
 /**
- * The four fail-closed guards, adapted from scripts/filtered-mirror.sh. Pure over
+ * The four fail-closed guards, adapted from [internal ref]. Pure over
  * an injected file list + reader so the whole guard surface is unit-testable.
  */
 export function assertMirrorSafety(
@@ -250,12 +252,20 @@ export function assertMirrorSafety(
   }
 
   const docs = files.filter((f) => f.startsWith('content/docs/') && f.endsWith('.md'))
-  if (docs.length < MIN_DOC_FILES) {
-    throw new Error(`mirror has only ${docs.length} doc files (expected >= ${MIN_DOC_FILES})`)
-  }
-  if (files.length < MIN_TOTAL_FILES) {
-    throw new Error(`mirror has only ${files.length} files (expected >= ${MIN_TOTAL_FILES})`)
-  }
+  assertFloor({
+    check: 'publish-website-repo',
+    name: 'doc file(s) under content/docs/',
+    actual: docs.length,
+    min: MIN_DOC_FILES,
+    why: 'The published mirror always ships the full docs corpus; a count this low means the payload build stripped it or handed this function an empty tree, not that the site genuinely shrank this far.',
+  })
+  assertFloor({
+    check: 'publish-website-repo',
+    name: 'file(s) in the mirror tree',
+    actual: files.length,
+    min: MIN_TOTAL_FILES,
+    why: 'A published mirror this small is not a website — buildMirrorTree produced, or was handed, a stripped or empty payload rather than the real site.',
+  })
 }
 
 /**
@@ -271,10 +281,7 @@ export function assertMirrorSafety(
  */
 const areaOf = (file: string): string => (file.includes('/') ? file.split('/')[0]! : '<root>')
 
-export function assertNotMassDeletion(
-  published: readonly string[],
-  next: readonly string[]
-): void {
+export function assertNotMassDeletion(published: readonly string[], next: readonly string[]): void {
   if (published.length === 0) return
   const incoming = new Set(next)
 
@@ -341,17 +348,67 @@ export function buildMirrorTree(
   Bun.write(join(destDir, 'sovrium.d.ts'), CONFIG_TYPES_DECLARATION)
 }
 
-const run = (cmd: readonly string[], cwd?: string): string => {
-  const proc = Bun.spawnSync([...cmd], { cwd, stdout: 'pipe', stderr: 'pipe' })
-  if (proc.exitCode !== 0) {
-    throw new Error(`command failed (${proc.exitCode}): ${cmd.join(' ')}\n${proc.stderr.toString()}`)
+// ─── Deadlines ─────────────────────────────────────────────────────
+//
+// Each call below now carries an explicit timeout instead of the indefinite
+// block `Bun.spawnSync` allowed — a stuck credential prompt or a wedged clone
+// used to hang this script (and any CI job driving it) forever.
+
+/** Local git plumbing against a small, already-checked-out tree: init, remote
+ * add, status, commit, tag. Seconds, or the repository is broken. */
+const LOCAL_TIMEOUT_MS = 15_000
+
+/** `git rm -rqf` / `git add -A` over the WHOLE mirrored site (250+ files,
+ * binary assets included) — still local disk I/O, but sized for the tree. */
+const LOCAL_TREE_TIMEOUT_MS = 60_000
+
+/** One round trip against the GitHub API or a remote ref list: the curl
+ * existence probe, `git ls-remote`, `gh repo create`. */
+const NETWORK_QUERY_TIMEOUT_MS = 30_000
+
+/** `git clone` / `git push` transferring the whole mirrored site's history
+ * and assets over the network. */
+const NETWORK_TRANSFER_TIMEOUT_MS = 300_000
+
+/** Render a `CommandError` the way the previous `Bun.spawnSync`-based `run` did. */
+const describeRunFailure = (argv: readonly string[], error: CommandError): Error => {
+  switch (error._tag) {
+    case 'CommandTimeoutError':
+      return new Error(`command timed out after ${error.timeoutMs}ms: ${argv.join(' ')}`)
+    case 'CommandFailedError':
+      return new Error(`command failed (${error.exitCode}): ${argv.join(' ')}\n${error.stderr}`)
+    case 'CommandSpawnError':
+      return new Error(`command could not be started: ${argv.join(' ')}\n${String(error.cause)}`)
   }
-  return proc.stdout.toString().trim()
 }
 
-const tryRun = (cmd: readonly string[], cwd?: string): { ok: boolean; out: string } => {
-  const proc = Bun.spawnSync([...cmd], { cwd, stdout: 'pipe', stderr: 'pipe' })
-  return { ok: proc.exitCode === 0, out: proc.stdout.toString().trim() }
+/** Run a command as argv through `CommandService`, returning trimmed stdout. Throws on a non-zero exit, a timeout, or a spawn failure. */
+const run = (
+  argv: readonly string[],
+  cwd?: string,
+  timeout: number = LOCAL_TIMEOUT_MS
+): Promise<string> =>
+  Effect.runPromise(
+    spawn(argv, { timeout, ...(cwd ? { cwd } : {}) }).pipe(
+      Effect.map((result) => result.stdout.trim()),
+      Effect.mapError((error) => describeRunFailure(argv, error)),
+      Effect.provide(CommandServiceLive)
+    )
+  )
+
+/** Same as `run`, but reports success/failure instead of throwing — for a
+ * probe where a non-zero exit is a legitimate, expected answer. */
+const tryRun = async (
+  argv: readonly string[],
+  cwd?: string,
+  timeout: number = LOCAL_TIMEOUT_MS
+): Promise<{ readonly ok: boolean; readonly out: string }> => {
+  const result = await Effect.runPromise(
+    spawn(argv, { timeout, throwOnError: false, ...(cwd ? { cwd } : {}) }).pipe(
+      Effect.provide(CommandServiceLive)
+    )
+  )
+  return { ok: result.exitCode === 0, out: result.stdout.trim() }
 }
 
 /**
@@ -365,21 +422,25 @@ const tryRun = (cmd: readonly string[], cwd?: string): { ok: boolean; out: strin
  * thing to keep working. `gh` is used only on the --create bootstrap path, which
  * runs from a maintainer's machine.
  */
-const ensureRepo = (opts: CliOptions): void => {
+const ensureRepo = async (opts: CliOptions): Promise<void> => {
   const token = process.env['GH_TOKEN'] ?? ''
-  const probe = tryRun([
-    'curl',
-    '-s',
-    '-o',
-    '/dev/null',
-    '-w',
-    '%{http_code}',
-    '-H',
-    `Authorization: Bearer ${token}`,
-    '-H',
-    'Accept: application/vnd.github+json',
-    `https://api.github.com/repos/${ORG}/${REPO}`,
-  ])
+  const probe = await tryRun(
+    [
+      'curl',
+      '-s',
+      '-o',
+      '/dev/null',
+      '-w',
+      '%{http_code}',
+      '-H',
+      `Authorization: Bearer ${token}`,
+      '-H',
+      'Accept: application/vnd.github+json',
+      `https://api.github.com/repos/${ORG}/${REPO}`,
+    ],
+    undefined,
+    NETWORK_QUERY_TIMEOUT_MS
+  )
   if (probe.ok && probe.out === '200') return
   if (!opts.create) {
     throw new Error(
@@ -388,44 +449,53 @@ const ensureRepo = (opts: CliOptions): void => {
     )
   }
   console.log(`  creating ${ORG}/${REPO}`)
-  run([
-    'gh',
-    'repo',
-    'create',
-    `${ORG}/${REPO}`,
-    '--public',
-    '--description',
-    'The Sovrium configuration that runs sovrium.com — a source-available reference, not a template.',
-    '--homepage',
-    'https://sovrium.com',
-  ])
+  await run(
+    [
+      'gh',
+      'repo',
+      'create',
+      `${ORG}/${REPO}`,
+      '--public',
+      '--description',
+      'The Sovrium configuration that runs sovrium.com — a source-available reference, not a template.',
+      '--homepage',
+      'https://sovrium.com',
+    ],
+    undefined,
+    NETWORK_QUERY_TIMEOUT_MS
+  )
 }
 
 /** Clone main, replace the tree, commit + tag + push (never forced, idempotent). */
-const pushTree = (treeDir: string, version: string): 'pushed' | 'unchanged' => {
+const pushTree = async (treeDir: string, version: string): Promise<'pushed' | 'unchanged'> => {
   const token = process.env['GH_TOKEN'] ?? ''
   const remote = `https://x-access-token:${token}@github.com/${ORG}/${REPO}.git`
   const cloneDir = join(treeDir, '..', `${REPO}-clone`)
-  const cloned = tryRun(['git', 'clone', '--depth', '1', remote, cloneDir]).ok
+  const clone = await tryRun(
+    ['git', 'clone', '--depth', '1', remote, cloneDir],
+    undefined,
+    NETWORK_TRANSFER_TIMEOUT_MS
+  )
+  const cloned = clone.ok
   if (!cloned) {
     // Empty repo (first publish): init a fresh clone directory instead.
     mkdirSync(cloneDir, { recursive: true })
-    run(['git', 'init', '-b', 'main'], cloneDir)
-    run(['git', 'remote', 'add', 'origin', remote], cloneDir)
+    await run(['git', 'init', '-b', 'main'], cloneDir)
+    await run(['git', 'remote', 'add', 'origin', remote], cloneDir)
   } else {
     assertNotMassDeletion(
       listFiles(cloneDir).filter((f) => !f.startsWith('.git/')),
       listFiles(treeDir)
     )
   }
-  run(['git', 'rm', '-rqf', '--ignore-unmatch', '.'], cloneDir)
+  await run(['git', 'rm', '-rqf', '--ignore-unmatch', '.'], cloneDir, LOCAL_TREE_TIMEOUT_MS)
   cpSync(treeDir, cloneDir, { recursive: true })
-  run(['git', 'add', '-A'], cloneDir)
-  if (run(['git', 'status', '--porcelain'], cloneDir) === '') {
+  await run(['git', 'add', '-A'], cloneDir, LOCAL_TREE_TIMEOUT_MS)
+  if ((await run(['git', 'status', '--porcelain'], cloneDir)) === '') {
     console.log(`  unchanged (already at ${version})`)
     return 'unchanged'
   }
-  run(
+  await run(
     [
       'git',
       '-c',
@@ -438,18 +508,26 @@ const pushTree = (treeDir: string, version: string): 'pushed' | 'unchanged' => {
     ],
     cloneDir
   )
-  const tagExists = tryRun(['git', 'ls-remote', '--tags', 'origin', `v${version}`], cloneDir)
+  const tagExists = await tryRun(
+    ['git', 'ls-remote', '--tags', 'origin', `v${version}`],
+    cloneDir,
+    NETWORK_QUERY_TIMEOUT_MS
+  )
   if (tagExists.ok && tagExists.out === '') {
-    run(['git', 'tag', `v${version}`], cloneDir)
-    run(['git', 'push', 'origin', 'main', `v${version}`], cloneDir)
+    await run(['git', 'tag', `v${version}`], cloneDir)
+    await run(
+      ['git', 'push', 'origin', 'main', `v${version}`],
+      cloneDir,
+      NETWORK_TRANSFER_TIMEOUT_MS
+    )
   } else {
-    run(['git', 'push', 'origin', 'main'], cloneDir)
+    await run(['git', 'push', 'origin', 'main'], cloneDir, NETWORK_TRANSFER_TIMEOUT_MS)
   }
   console.log(`  published ${version}`)
   return 'pushed'
 }
 
-const main = (): void => {
+const main = async (): Promise<void> => {
   const opts = parseCliOptions(process.argv.slice(2))
   const workRoot = join(PROJECT_ROOT, '.website-publish')
   rmSync(workRoot, { recursive: true, force: true })
@@ -470,12 +548,12 @@ const main = (): void => {
     return
   }
 
-  ensureRepo(opts)
-  pushTree(treeDir, opts.version)
+  await ensureRepo(opts)
+  await pushTree(treeDir, opts.version)
   rmSync(workRoot, { recursive: true, force: true })
   console.log(`✓ ${ORG}/${REPO} publish complete`)
 }
 
 if (import.meta.main) {
-  main()
+  await main()
 }

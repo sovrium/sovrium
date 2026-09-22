@@ -37,7 +37,7 @@
 
 import type { SummaryAggregations } from './summary-aggregate'
 import type { SummaryFormatContext } from './summary-format'
-import type { DataTableSummaryItem } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+import type { DataTableSummaryItem } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 /** Everything the group row needs to render the declared summaries for one group. */
 export interface GroupSummaryContext extends SummaryFormatContext {

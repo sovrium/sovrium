@@ -9,7 +9,8 @@
  * Path-based secret redaction for the live `App` configuration object.
  *
  * Backs the two config-reflection surfaces authorised by [internal ref] amendment A1
- * (`GET /api/admin/config/schema`, `/_admin/schema`).
+ * (`GET /api/admin/config/schema`, and the console's configuration-as-booted
+ * view at `/_admin/changelog?view=current`).
  *
  * ─── WHY PATH-BASED AND NOT VALUE-MATCHING ──────────────────────────────────
  *
@@ -109,7 +110,8 @@ const ACTION_SECRET_PROP_KEYS: readonly string[] = ['secret', 'password', 'heade
  * keeps redacting. `EnvVarSchema` now carries the `secret` marker the earlier
  * note asked for, so an author who knows a default is harmless — a port, a
  * region, a base URL — opts it OUT with an explicit `secret: false` and reads
- * it verbatim on `/_admin/schema` (see {@link redactEnvVar}).
+ * it verbatim on the configuration-as-booted view at
+ * `/_admin/changelog?view=current` (see {@link redactEnvVar}).
  *
  * Where the value stays hidden the diagnostic still survives:
  * `GET /api/admin/env` reports `hasDefault` (is there a fallback at all?)

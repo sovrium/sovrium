@@ -18,7 +18,7 @@ import { SystemSourceSchema } from '../../system-source'
  * `dataSource` is discriminated: the shared DB-table binding (`DataSourceSchema`
  * — `{ table, ... }`) OR the shared system read-endpoint binding
  * (`{ system: { endpoint, ... } }`). This generalizes the variant first proven on
- * `data-table` so every rows-oriented data-bound component (data-table + the list
+ * `table` so every rows-oriented data-bound component (data-table + the list
  * family: kanban / calendar / gallery / list / data-timeline) inherits it.
  *
  * Specialized consumers may OVERRIDE this field:

@@ -7,12 +7,13 @@
 
 import { Effect } from 'effect'
 import { db, DatabaseError } from '@/infrastructure/database'
+import { withTransaction } from '@/infrastructure/database/transaction'
 import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
 import { logActivity } from '../query-helpers/activity-log-helpers'
-import { wrapDatabaseErrorWithValidation } from '../shared/error-handling'
-import { validateTableName } from '../shared/validation'
-import { BATCH_FANOUT_CONCURRENCY, createSingleRecordInBatch, runEffectInTx } from './batch-helpers'
+import { wrapDatabaseErrorWithValidation } from '../statement/error-handling'
+import { validateTableName } from '../statement/validation'
+import { BATCH_FANOUT_CONCURRENCY, createSingleRecordInBatch } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DrizzleTransaction, ValidationError } from '@/infrastructure/database'
 
@@ -35,26 +36,24 @@ const batchCreateFailure = (tableName: string): string =>
  * ERRORS: the `catch` reuses the SAME wrapper and message as
  * `batchCreateRecords`'s outer catch, which makes the conversion
  * error-identical. `wrapDatabaseErrorWithValidation` returns a
- * `DatabaseError` / `ValidationError` UNCHANGED when handed one, so a
- * rejection wrapped here, re-thrown by `runEffectInTx` via `Cause.squash`, and
- * caught out there passes straight through rather than being wrapped twice.
+ * `DatabaseError` / `ValidationError` UNCHANGED when handed one, so a failure
+ * raised here passes straight through the outer handler rather than being
+ * wrapped twice.
  */
 const injectAuthorshipForBatch = (
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
   userId: string | undefined,
   recordsData: readonly Record<string, unknown>[]
-): Promise<readonly Record<string, unknown>[]> =>
-  runEffectInTx(
-    Effect.all(
-      recordsData.map((fields) =>
-        Effect.tryPromise({
-          try: () => injectCreateAuthorship(fields, userId, tx, tableName),
-          catch: wrapDatabaseErrorWithValidation(batchCreateFailure(tableName)),
-        })
-      ),
-      { concurrency: BATCH_FANOUT_CONCURRENCY }
-    )
+): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> =>
+  Effect.all(
+    recordsData.map((fields) =>
+      Effect.tryPromise({
+        try: () => injectCreateAuthorship(fields, userId, tx, tableName),
+        catch: wrapDatabaseErrorWithValidation(batchCreateFailure(tableName)),
+      })
+    ),
+    { concurrency: BATCH_FANOUT_CONCURRENCY }
   )
 
 /**
@@ -74,19 +73,22 @@ export function batchCreateRecords(
   recordsData: readonly Record<string, unknown>[]
 ): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> {
   return Effect.gen(function* () {
-    const createdRecords = yield* Effect.tryPromise({
-      try: () =>
-        db.transaction(async (tx) => {
+    const onFailure = wrapDatabaseErrorWithValidation(batchCreateFailure(tableName))
+    const createdRecords = yield* withTransaction(
+      db,
+      (tx) =>
+        Effect.gen(function* () {
           validateTableName(tableName)
 
           if (recordsData.length === 0) {
-            // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
-            throw new DatabaseError('Cannot create batch with no records', undefined)
+            return yield* Effect.fail(
+              new DatabaseError('Cannot create batch with no records', undefined)
+            )
           }
 
           // Inject authorship metadata for each record — bounded fan-out, see
           // `injectAuthorshipForBatch`.
-          const recordsWithAuthorship = await injectAuthorshipForBatch(
+          const recordsWithAuthorship = yield* injectAuthorshipForBatch(
             tx,
             tableName,
             session.userId,
@@ -99,26 +101,22 @@ export function batchCreateRecords(
           // answers each record's question — and the lookup short-circuits to
           // `{}` when the batch is scalar-only (the common case) or the engine
           // is SQLite (no native array type).
-          const arrayColumnTypes = await resolveArrayColumnTypes(
-            tx,
-            tableName,
-            recordsWithAuthorship
-          )
+          const arrayColumnTypes = yield* Effect.tryPromise({
+            try: () => resolveArrayColumnTypes(tx, tableName, recordsWithAuthorship),
+            catch: onFailure,
+          })
 
-          // Use Effect.reduce with runEffectInTx to properly propagate ValidationError
-          return await runEffectInTx(
-            Effect.reduce(
-              recordsWithAuthorship,
-              () => [] as readonly Record<string, unknown>[],
-              (acc, fields) =>
-                createSingleRecordInBatch(tx, tableName, fields, arrayColumnTypes).pipe(
-                  Effect.map((record) => (record ? [...acc, record] : acc))
-                )
-            )
+          return yield* Effect.reduce(
+            recordsWithAuthorship,
+            () => [] as readonly Record<string, unknown>[],
+            (acc, fields) =>
+              createSingleRecordInBatch(tx, tableName, fields, arrayColumnTypes).pipe(
+                Effect.map((record) => (record ? [...acc, record] : acc))
+              )
           )
         }),
-      catch: wrapDatabaseErrorWithValidation(batchCreateFailure(tableName)),
-    })
+      onFailure
+    )
 
     // Log activity for each created record
     yield* Effect.forEach(createdRecords, (record) =>

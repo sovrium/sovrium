@@ -8,10 +8,11 @@
 import { dirname, basename, resolve } from 'node:path'
 import { Effect, Console } from 'effect'
 import {
-  detectFormat,
   formatConfigCandidatesLine,
   formatDiscoveredConfigNotice,
-} from '@/domain/utils'
+} from '@/domain/kernel/config-parsing/default-config-files'
+import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
+import { printStderr } from '@/infrastructure/logging/cli-output'
 import { lazyImportSchema } from './utils'
 
 /**
@@ -20,7 +21,7 @@ import { lazyImportSchema } from './utils'
 const validateFileExists = async (filePath: string): Promise<void> => {
   const exists = await Bun.file(filePath).exists()
   if (!exists) {
-    Effect.runSync(Console.error(`Error: File not found: ${filePath}`))
+    printStderr(`Error: File not found: ${filePath}`)
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
@@ -29,9 +30,7 @@ const validateFileExists = async (filePath: string): Promise<void> => {
 const validateFileFormat = (filePath: string): ReturnType<typeof detectFormat> => {
   const format = detectFormat(filePath)
   if (format === 'unsupported') {
-    Effect.runSync(
-      Console.error(`Error: Unsupported file format. Supported: .json, .yaml, .yml, .ts`)
-    )
+    printStderr(`Error: Unsupported file format. Supported: .json, .yaml, .yml, .ts`)
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
@@ -50,7 +49,8 @@ const parseConfigWithRefSources = async (
     return { parsed, refSources: new Map<string, string>() }
   }
 
-  const { parseYamlContent, parseJsonContent } = await import('@/domain/utils')
+  const { parseYamlContent, parseJsonContent } =
+    await import('@/domain/models/app/app-content-parsing')
 
   // Read and parse raw content to collect $ref sources before resolution
   const content = await Bun.file(filePath).text()
@@ -75,7 +75,6 @@ const parseConfigWithRefSources = async (
 export const loadConfigForValidationWithSources = async (
   filePath: string
 ): Promise<{ readonly parsed: unknown; readonly refSources: ReadonlyMap<string, string> }> => {
-  // eslint-disable-next-line functional/no-expression-statements
   await validateFileExists(filePath)
   const format = validateFileFormat(filePath)
   const { loadSchemaFromFile: loadFromFile, collectRefSources } = await lazyImportSchema()
@@ -83,10 +82,8 @@ export const loadConfigForValidationWithSources = async (
   try {
     return await parseConfigWithRefSources(filePath, format, loadFromFile, collectRefSources)
   } catch (error) {
-    Effect.runSync(
-      Console.error(
-        `Error: Failed to parse file: ${error instanceof Error ? error.message : String(error)}`
-      )
+    printStderr(
+      `Error: Failed to parse file: ${error instanceof Error ? error.message : String(error)}`
     )
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
@@ -214,7 +211,7 @@ const runPostDecodeChecks = async (
   // Lazily imported for the same reason the decoder above is: it keeps the
   // compiled-binary `validate` path from resolving modules it may never need.
   const { validateCodeActionBodies } =
-    await import('@/application/use-cases/schema/validate-code-actions')
+    await import('@/application/use-cases/config/validate-code-actions')
   // The code-action check is handed the DECODED app, which is what
   // `startServer` type-checks — so the two commands examine the same bodies
   // rather than two parses that could drift.
@@ -265,7 +262,7 @@ const validateParsedConfig = async (
   refSources: ReadonlyMap<string, string>
 ): Promise<ValidationOutcome> => {
   // Lazily imported to keep the compiled-binary `validate` path domain-only.
-  const { decodeAppConfigObject } = await import('@/application/use-cases/schema/decode-app-config')
+  const { decodeAppConfigObject } = await import('@/application/use-cases/config/decode-app-config')
   const decoded = decodeAppConfigObject(parsed, { refSources })
 
   if (!decoded.valid) {
@@ -346,19 +343,17 @@ const discoverValidationConfig = async (): Promise<string> => {
   const discovered = await discoverDefaultConfigFile(process.cwd())
 
   if (!discovered) {
-    Effect.runSync(
-      Console.error(
-        `Error: No config file provided.\n\n` +
-          `${formatConfigCandidatesLine(process.cwd())}\n\n` +
-          `Usage:\n  sovrium validate <config.json|config.yaml>\n\n` +
-          `Run 'sovrium init' to scaffold a new project.`
-      )
+    printStderr(
+      `Error: No config file provided.\n\n` +
+        `${formatConfigCandidatesLine(process.cwd())}\n\n` +
+        `Usage:\n  sovrium validate <config.json|config.yaml>\n\n` +
+        `Run 'sovrium init' to scaffold a new project.`
     )
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
 
-  Effect.runSync(Console.error(formatDiscoveredConfigNotice(discovered)))
+  printStderr(formatDiscoveredConfigNotice(discovered))
   return discovered
 }
 
@@ -382,7 +377,7 @@ export const handleValidateCommand = async (filePath?: string): Promise<void> =>
     // offending property and value, so the block IS the guidance. `validate` also
     // has no side effects, so there is no "nothing was written" to reassure about.
     const errorLines = outcome.errors.map((err) => `  ${err}`).join('\n')
-    Effect.runSync(Console.error(`Error: Validation failed.\n\n${errorLines}`))
+    printStderr(`Error: Validation failed.\n\n${errorLines}`)
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
@@ -392,7 +387,7 @@ export const handleValidateCommand = async (filePath?: string): Promise<void> =>
   // one clean line, and a human still sees the deprecation.
   if (outcome.notices.length > 0) {
     const noticeLines = outcome.notices.map((notice) => `  ${notice}`).join('\n')
-    Effect.runSync(Console.error(`Notice:\n\n${noticeLines}\n`))
+    printStderr(`Notice:\n\n${noticeLines}\n`)
   }
 
   Effect.runSync(Console.log(`Valid configuration: ${outcome.name}`))

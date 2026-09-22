@@ -27,6 +27,11 @@
  */
 
 import { useCallback, useState } from 'react'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  computeFormFieldLabelClasses,
+  computeFormHelpTextClasses,
+} from '@/presentation/design/form-layout-classes'
 import type { ReactElement } from 'react'
 
 interface ApiKeyRevealProps {
@@ -74,28 +79,28 @@ export function ApiKeyReveal({ value, onDismiss }: ApiKeyRevealProps): ReactElem
       aria-label="Your new API key"
       className={PANEL_CLASS}
     >
-      <p className="text-foreground text-sm font-medium">
+      <p className={computeFormFieldLabelClasses()}>
         Copy this key now — it is shown once and cannot be recovered.
       </p>
       <code
         data-testid="api-key-reveal"
-        className="border-border bg-background text-foreground overflow-x-auto rounded-md border p-3 font-mono text-sm break-all"
+        className="border-border bg-background-subtle text-foreground overflow-x-auto rounded-md border p-3 font-mono text-sm break-all"
       >
         {value}
       </code>
-      {copyState !== '' && <p className="text-foreground-subtle text-xs">{copyState}</p>}
+      {copyState !== '' && <p className={computeFormHelpTextClasses()}>{copyState}</p>}
       <div className="flex gap-2">
         <button
           type="button"
           onClick={copy}
-          className="border-border text-foreground hover:bg-background-subtle rounded-md border px-3 py-1.5 text-sm transition-colors"
+          className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
         >
           Copy
         </button>
         <button
           type="button"
           onClick={onDismiss}
-          className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-sm font-medium transition-opacity hover:opacity-90"
+          className={computeButtonDefaultClasses({ size: 'sm' })}
         >
           Done
         </button>

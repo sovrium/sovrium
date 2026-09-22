@@ -5,15 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { ApprovalRequestActionSchema } from './request'
-import type { Schema } from 'effect'
-
-/**
- * Approval Action — currently only the 'request' operator
- */
-export const ApprovalActionSchema = ApprovalRequestActionSchema
-
-/** @public */
-export type ApprovalAction = Schema.Schema.Type<typeof ApprovalActionSchema>
+export * from './approval-action'
 
 export * from './request'

@@ -6,6 +6,7 @@
  */
 
 import { Duration, Effect } from 'effect'
+import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
 /**
@@ -88,7 +89,9 @@ export const handleDelayWait: ActionHandler = (action) =>
     const ms = clampSleep(resolveWaitMs(propsOf(action)))
     yield* sleep(ms)
     return ok({ resumedAt: new Date().toISOString() })
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-delay-wait', { attributes: actionAttributes(action) })
+  )
 
 /**
  * Synthesise a callback identifier for a `delay/webhook` action — used as the
@@ -112,11 +115,15 @@ export const handleDelayWebhook: ActionHandler = (action) =>
       return ok({ callbackUrl, callbackId, timedOut: true })
     }
     return ok({ callbackUrl, callbackId })
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-delay-webhook', { attributes: actionAttributes(action) })
+  )
 
 export const handleDelayQueue: ActionHandler = (action) =>
   Effect.gen(function* () {
     const intervalMs = clampSleep(parseDurationMs(propsOf(action)['interval']))
     yield* sleep(intervalMs)
     return ok()
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-delay-queue', { attributes: actionAttributes(action) })
+  )

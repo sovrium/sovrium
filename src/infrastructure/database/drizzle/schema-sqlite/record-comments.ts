@@ -101,7 +101,3 @@ export const recordComments = systemTable(
     ),
   ]
 )
-
-// Type exports for consumers
-export type RecordComment = typeof recordComments.$inferSelect
-export type NewRecordComment = typeof recordComments.$inferInsert

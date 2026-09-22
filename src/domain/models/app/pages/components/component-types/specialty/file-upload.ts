@@ -72,7 +72,7 @@ export const fileUploadFields = {
    *    a sibling list (a DB-table `dataSource` OR a `dataSource.system` read
    *    endpoint) reflects the just-uploaded file WITHOUT a full reload. This is
    *    what lets a config page compose `file-upload` + a sibling file
-   *    `data-table` into a self-refreshing browse-and-upload surface.
+   *    `table` into a self-refreshing browse-and-upload surface.
    *
    * @example
    * ```yaml

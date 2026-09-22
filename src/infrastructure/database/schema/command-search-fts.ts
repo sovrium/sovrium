@@ -38,16 +38,16 @@
 
 import { SQL } from 'bun'
 import { Data, Effect } from 'effect'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { escapeLikeMetacharacters, escapeSqlString } from '@/domain/kernel/sql/sql-formatting'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import {
   searchableTextColumns,
   tableHasIdColumn,
-} from '@/domain/utils/database/searchable-text-columns'
-import { escapeSqlString } from '@/domain/utils/database/sql-formatting'
+} from '@/domain/models/app/tables/searchable-text-columns'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { logDebug, logWarning } from '@/infrastructure/logging/logger'
 import { getBaseTableName, shouldUseView } from '../lookup/lookup-view-generators'
 import { openSqliteDdlDatabase, runSqliteSchemaTransaction } from '../sql/dialect-ddl'
-import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import {
   isSafeIdentifier,
   pgFtsIndexName,
@@ -63,7 +63,7 @@ import {
 } from './command-search-fts-ddl'
 import type { TransactionLike } from '../sql/sql-execution'
 import type { Table } from '@/domain/models/app/tables'
-import type { DatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 
 /** One table's resolved index target: what to index, on what, over which columns. */
 interface FtsTarget {
@@ -133,6 +133,7 @@ const exec = (tx: TransactionLike, statement: string): Promise<unknown> => tx.un
  * migrates; the checksum fast path never gets here.
  */
 export const dropCommandSearchFtsObjects = (tx: TransactionLike): Effect.Effect<void, never> =>
+  // effect-promise: total -- the thunk's entire body sits in a `try` whose `catch` logs and returns, so it has no rejection path. That shape is deliberate and explained inside: this runs inside the migration transaction, and nothing about clearing a search index is worth aborting a boot for.
   Effect.promise(async () => {
     try {
       // Inside the `try`, not before it: this runs as `Effect.promise`, whose
@@ -230,13 +231,18 @@ const reconcileSqliteTarget = async (tx: TransactionLike, target: FtsTarget): Pr
  *
  * The `_` in the prefix is escaped because it is a LIKE wildcard: unescaped,
  * `cs_fts_notes_%` would also match names this module did not create, and this
- * list is a DROP list.
+ * list is a DROP list. The relation name is already constrained to
+ * `^[a-z][a-z0-9_]*$`, so {@link escapeLikeMetacharacters} is defence in depth
+ * — but a DROP list is exactly where defence in depth is worth its keystrokes.
+ *
+ * Order is load-bearing: LIKE-escape FIRST, then `escapeSqlString` for the SQL
+ * literal. Reversed, the backslashes this adds would themselves be quoted.
  */
 const pgObsoleteIndexNames = async (
   tx: TransactionLike,
   target: FtsTarget
 ): Promise<readonly string[]> => {
-  const prefix = pgFtsIndexPrefixFor(target.queriedRelation).replace(/_/g, '\\_')
+  const prefix = escapeLikeMetacharacters(pgFtsIndexPrefixFor(target.queriedRelation))
   const keep = pgFtsIndexName(target.queriedRelation, target.columns)
   const rows = (await tx.unsafe(
     `SELECT indexname FROM pg_indexes

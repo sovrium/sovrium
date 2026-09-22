@@ -78,7 +78,7 @@ export const runBatchItems = (input: {
             return halt ? { ...next, stopped: true } : next
           })
         )
-  )
+  ).pipe(Effect.withSpan('automations.run-batch-items'))
 
 /**
  * Turn a tally into the action outcome. A batch with failures fails the STEP

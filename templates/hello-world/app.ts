@@ -1,7 +1,7 @@
 /**
  * Example: TypeScript configuration file for Sovrium
  *
- * The TypeScript twin of `app.yaml` — same app, same theme, other syntax. Keep
+ * The TypeScript twin of `app.yaml` — same app, same design, other syntax. Keep
  * the two in sync when either changes; they exist to show that the format is a
  * choice, not a difference in capability.
  *
@@ -36,7 +36,7 @@ export default {
   // the page below. A key outside that map emits `--color-*` only and paints
   // nothing until something references it. See app.yaml for the long form of
   // this note, including why the dark accent stays mid-tone.
-  theme: {
+  design: {
     colors: {
       primary: '#1e3a5f',
       'primary-hover': '#15293f',
@@ -86,7 +86,7 @@ export default {
                   type: 'text',
                   element: 'h1',
                   props: {
-                    className: 'text-5xl font-bold mb-6',
+                    className: 'text-6xl font-bold mb-6',
                     style: { color: 'var(--color-foreground)' },
                   },
                   content: 'Hello, World!',
@@ -95,7 +95,7 @@ export default {
                   type: 'text',
                   element: 'p',
                   props: {
-                    className: 'text-xl mb-8',
+                    className: 'text-2xl mb-8',
                     style: { color: 'var(--color-foreground-muted)' },
                   },
                   content: 'Built with Sovrium',

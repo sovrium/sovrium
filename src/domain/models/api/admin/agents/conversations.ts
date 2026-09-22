@@ -43,18 +43,20 @@
  * admin-only projections.
  *
  * @see ./metrics.ts — sibling per-agent rollup endpoint
- * @see ../../_shared/cursor-pagination.ts — opaque base64 cursor contract
+ * @see ../../combinators/cursor-pagination.ts — opaque base64 cursor contract
  * @see ../audit-log/action-catalog.ts — `agent.conversation.list.queried` /
  *      `agent.conversation.detail.queried` (resource.type `agent`)
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 import {
   appliedQuerySchema,
   cursorPaginationQuerySchema,
   cursorPaginationResponseSchema,
   searchTermSchema,
-} from '../../_shared'
+} from '../../combinators'
 
 /**
  * A single conversation row in the list. Flat projection of
@@ -68,47 +70,36 @@ import {
  * exchange ran), `lastActivityAt` (= the conversation's `updatedAt`, the column
  * the list orders + the cursor seeks on), and the `createdAt` open timestamp.
  */
-export const agentConversationListItemSchema = z
-  .object({
-    id: z
-      .string()
-      .min(1)
-      .describe(
-        'Unique conversation id (`ai_conversations.id`, a uuid). The path segment the conversation-detail endpoint resolves by. Doubles as the deterministic cursor tie-break.'
-      ),
-    title: z
-      .string()
-      .nullable()
-      .describe(
-        'Human conversation title (`ai_conversations.title`), auto-generated from the first user message. `null` when the store has not titled the thread yet — the dashboard falls back to the sessionId or a "(untitled)" label.'
-      ),
-    sessionId: z
-      .string()
-      .nullable()
-      .describe(
-        "The durable store's session key (`ai_conversations.session_id`) — half of the `(userId, sessionId)` thread identity. `null` for conversations created without a session id."
-      ),
-    messageCount: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'Number of messages in this conversation (`COUNT(ai_messages.id)` for the conversation). Lets the operator gauge thread length without opening it.'
-      ),
-    lastActivityAt: z
-      .string()
-      .datetime()
-      .describe(
-        'ISO 8601 UTC timestamp of the last activity (`ai_conversations.updated_at`). The column the list orders by (newest-first) and the cursor seeks on.'
-      ),
-    createdAt: z
-      .string()
-      .datetime()
-      .describe(
-        'ISO 8601 UTC timestamp the conversation was opened (`ai_conversations.created_at`).'
-      ),
-  })
-  .openapi('AgentConversationListItem')
+export const agentConversationListItemSchema = Schema.Struct({
+  id: Schema.String.annotate({
+    description:
+      'Unique conversation id (`ai_conversations.id`, a uuid). The path segment the conversation-detail endpoint resolves by. Doubles as the deterministic cursor tie-break.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  title: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'Human conversation title (`ai_conversations.title`), auto-generated from the first user message. `null` when the store has not titled the thread yet — the dashboard falls back to the sessionId or a "(untitled)" label.',
+    })
+  ),
+  sessionId: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        "The durable store's session key (`ai_conversations.session_id`) — half of the `(userId, sessionId)` thread identity. `null` for conversations created without a session id.",
+    })
+  ),
+  messageCount: Schema.Int.annotate({
+    description:
+      'Number of messages in this conversation (`COUNT(ai_messages.id)` for the conversation). Lets the operator gauge thread length without opening it.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  lastActivityAt: looseIsoDateTime({
+    description:
+      'ISO 8601 UTC timestamp of the last activity (`ai_conversations.updated_at`). The column the list orders by (newest-first) and the cursor seeks on.',
+  }),
+  createdAt: looseIsoDateTime({
+    description:
+      'ISO 8601 UTC timestamp the conversation was opened (`ai_conversations.created_at`).',
+  }),
+}).annotate({ identifier: 'AgentConversationListItem' })
 
 /**
  * Query schema for `GET /api/admin/agents/:name/conversations`.
@@ -140,24 +131,24 @@ export const agentConversationListItemSchema = z
  * explain why. If full-transcript search is wanted it should arrive as its own
  * declared capability, with its own affordance.
  */
-export const agentConversationsListQuerySchema = cursorPaginationQuerySchema.extend({
-  from: z
-    .string()
-    .datetime()
-    .optional()
-    .describe(
-      'Optional inclusive ISO 8601 lower bound on `lastActivityAt` (the conversation `updated_at`). Omit for no lower bound.'
-    ),
-  to: z
-    .string()
-    .datetime()
-    .optional()
-    .describe(
-      'Optional inclusive ISO 8601 upper bound on `lastActivityAt` (the conversation `updated_at`). Omit for no upper bound.'
-    ),
-  q: searchTermSchema.describe(
-    'Optional free-text search over the conversation `title` and `sessionId`, as a case-insensitive literal substring. Composes with the `from`/`to` window (AND) and with the cursor, so the page is a page of MATCHES. Message `content` is intentionally not searched — transcript search is a separate capability. Empty / whitespace-only means "no search".'
+export const agentConversationsListQuerySchema = Schema.Struct({
+  ...cursorPaginationQuerySchema.fields,
+  from: optionalField(
+    looseIsoDateTime({
+      description:
+        'Optional inclusive ISO 8601 lower bound on `lastActivityAt` (the conversation `updated_at`). Omit for no lower bound.',
+    })
   ),
+  to: optionalField(
+    looseIsoDateTime({
+      description:
+        'Optional inclusive ISO 8601 upper bound on `lastActivityAt` (the conversation `updated_at`). Omit for no upper bound.',
+    })
+  ),
+  q: searchTermSchema.annotate({
+    description:
+      'Optional free-text search over the conversation `title` and `sessionId`, as a case-insensitive literal substring. Composes with the `from`/`to` window (AND) and with the cursor, so the page is a page of MATCHES. Message `content` is intentionally not searched — transcript search is a separate capability. Empty / whitespace-only means "no search".',
+  }),
 })
 
 /**
@@ -167,11 +158,10 @@ export const agentConversationsListQuerySchema = cursorPaginationQuerySchema.ext
  * conversation list items, ordered newest-first by `lastActivityAt` with `id`
  * as the deterministic tie-break.
  */
-export const agentConversationsListResponseSchema = cursorPaginationResponseSchema(
-  agentConversationListItemSchema
-)
-  .extend({ appliedQuery: appliedQuerySchema })
-  .openapi('AgentConversationsListResponse')
+export const agentConversationsListResponseSchema = Schema.Struct({
+  ...cursorPaginationResponseSchema(agentConversationListItemSchema).fields,
+  appliedQuery: appliedQuerySchema,
+}).annotate({ identifier: 'AgentConversationsListResponse' })
 
 /**
  * A single message in a conversation transcript. Flat projection of
@@ -179,81 +169,73 @@ export const agentConversationsListResponseSchema = cursorPaginationResponseSche
  * envelope. `conversationId` is NOT exposed (it is the request path segment;
  * echoing it back is redundant + leaks the join key).
  */
-export const agentConversationMessageSchema = z
-  .object({
-    id: z.string().min(1).describe('Unique message id (`ai_messages.id`).'),
-    role: z
-      .enum(['user', 'assistant', 'tool'])
-      .describe(
-        'Author of the message (`ai_messages.role`): `user` (the human), `assistant` (the agent), or `tool` (a tool-call result turn).'
-      ),
-    content: z
-      .string()
-      .describe(
-        'Message body (`ai_messages.content`). The raw chat text — surfaced verbatim to the operator reviewing the transcript. May be empty for a pure tool-call turn.'
-      ),
-    status: z
-      .enum(['complete', 'incomplete'])
-      .describe(
-        'Delivery status (`ai_messages.status`): `complete` for buffered/fully-streamed turns; `incomplete` when a streamed assistant response was interrupted before the terminal marker. User messages are always `complete`.'
-      ),
-    model: z
-      .string()
-      .nullable()
-      .describe(
-        'The model that produced an assistant message (`ai_messages.model`), e.g. `gpt-4o`, `llama3`. `null` for user/tool turns and for turns where no model was recorded.'
-      ),
-    tokenCount: z
-      .number()
-      .int()
-      .nonnegative()
-      .nullable()
-      .describe(
-        'Token count attributed to the message (`ai_messages.token_count`). `null` when the store did not record a count for the turn.'
-      ),
-    toolCalls: z
-      .unknown()
-      .nullable()
-      .describe(
-        'Structured tool-call payload for an assistant/tool turn (`ai_messages.tool_calls`, jsonb). `null` for plain text turns. Opaque JSON — the dashboard renders it as a collapsible tool-call panel.'
-      ),
-    createdAt: z
-      .string()
-      .datetime()
-      .describe('ISO 8601 UTC timestamp the message was recorded (`ai_messages.created_at`).'),
-  })
-  .openapi('AgentConversationMessage')
+export const agentConversationMessageSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Unique message id (`ai_messages.id`).' }).pipe(
+    Schema.check(Schema.isMinLength(1))
+  ),
+  role: Schema.Literals(['user', 'assistant', 'tool']).annotate({
+    description:
+      'Author of the message (`ai_messages.role`): `user` (the human), `assistant` (the agent), or `tool` (a tool-call result turn).',
+  }),
+  content: Schema.String.annotate({
+    description:
+      'Message body (`ai_messages.content`). The raw chat text — surfaced verbatim to the operator reviewing the transcript. May be empty for a pure tool-call turn.',
+  }),
+  status: Schema.Literals(['complete', 'incomplete']).annotate({
+    description:
+      'Delivery status (`ai_messages.status`): `complete` for buffered/fully-streamed turns; `incomplete` when a streamed assistant response was interrupted before the terminal marker. User messages are always `complete`.',
+  }),
+  model: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'The model that produced an assistant message (`ai_messages.model`), e.g. `gpt-4o`, `llama3`. `null` for user/tool turns and for turns where no model was recorded.',
+    })
+  ),
+  tokenCount: Schema.NullOr(
+    Schema.Int.annotate({
+      description:
+        'Token count attributed to the message (`ai_messages.token_count`). `null` when the store did not record a count for the turn.',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
+  ),
+  toolCalls: optionalField(
+    Schema.Unknown.annotate({
+      description:
+        'Structured tool-call payload for an assistant/tool turn (`ai_messages.tool_calls`, jsonb). `null` for plain text turns. Opaque JSON — the dashboard renders it as a collapsible tool-call panel.',
+    })
+  ),
+  createdAt: looseIsoDateTime({
+    description: 'ISO 8601 UTC timestamp the message was recorded (`ai_messages.created_at`).',
+  }),
+}).annotate({ identifier: 'AgentConversationMessage' })
 
 /**
  * The conversation header echoed alongside the messages in the detail response.
  * A subset of the list item (no `messageCount` — the operator counts the
  * `messages` array directly on the detail screen).
  */
-export const agentConversationHeaderSchema = z
-  .object({
-    id: z.string().min(1).describe('Unique conversation id (`ai_conversations.id`).'),
-    title: z
-      .string()
-      .nullable()
-      .describe('Human conversation title (`ai_conversations.title`); `null` when untitled.'),
-    sessionId: z
-      .string()
-      .nullable()
-      .describe(
-        "The durable store's session key (`ai_conversations.session_id`); `null` when absent."
-      ),
-    createdAt: z
-      .string()
-      .datetime()
-      .describe(
-        'ISO 8601 UTC timestamp the conversation was opened (`ai_conversations.created_at`).'
-      ),
-    lastActivityAt: z
-      .string()
-      .datetime()
-      .describe('ISO 8601 UTC timestamp of the last activity (`ai_conversations.updated_at`).'),
-  })
-  .openapi('AgentConversationHeader')
+export const agentConversationHeaderSchema = Schema.Struct({
+  id: Schema.String.annotate({
+    description: 'Unique conversation id (`ai_conversations.id`).',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  title: Schema.NullOr(
+    Schema.String.annotate({
+      description: 'Human conversation title (`ai_conversations.title`); `null` when untitled.',
+    })
+  ),
+  sessionId: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        "The durable store's session key (`ai_conversations.session_id`); `null` when absent.",
+    })
+  ),
+  createdAt: looseIsoDateTime({
+    description:
+      'ISO 8601 UTC timestamp the conversation was opened (`ai_conversations.created_at`).',
+  }),
+  lastActivityAt: looseIsoDateTime({
+    description: 'ISO 8601 UTC timestamp of the last activity (`ai_conversations.updated_at`).',
+  }),
+}).annotate({ identifier: 'AgentConversationHeader' })
 
 /**
  * Response schema for `GET /api/admin/agents/:name/conversations/:id`.
@@ -262,26 +244,24 @@ export const agentConversationHeaderSchema = z
  * (`createdAt` ascending) — exactly how a transcript reads top-to-bottom in the
  * ChatGPT-style viewer.
  */
-export const agentConversationDetailResponseSchema = z
-  .object({
-    conversation: agentConversationHeaderSchema.describe('The conversation header.'),
-    messages: z
-      .array(agentConversationMessageSchema)
-      .describe('Every message in the conversation, ordered chronologically (oldest first).'),
-  })
-  .openapi('AgentConversationDetailResponse')
+export const agentConversationDetailResponseSchema = Schema.Struct({
+  conversation: agentConversationHeaderSchema.annotate({ description: 'The conversation header.' }),
+  messages: Schema.Array(agentConversationMessageSchema).annotate({
+    description: 'Every message in the conversation, ordered chronologically (oldest first).',
+  }),
+}).annotate({ identifier: 'AgentConversationDetailResponse' })
 
 /**
  * TypeScript types inferred from the schemas.
  * @public
  */
-export type AgentConversationListItem = z.infer<typeof agentConversationListItemSchema>
+export type AgentConversationListItem = typeof agentConversationListItemSchema.Type
 /** @public */
-export type AgentConversationsListQuery = z.infer<typeof agentConversationsListQuerySchema>
+export type AgentConversationsListQuery = typeof agentConversationsListQuerySchema.Type
 /** @public */
-export type AgentConversationsListResponse = z.infer<typeof agentConversationsListResponseSchema>
-export type AgentConversationMessage = z.infer<typeof agentConversationMessageSchema>
+export type AgentConversationsListResponse = typeof agentConversationsListResponseSchema.Type
+export type AgentConversationMessage = typeof agentConversationMessageSchema.Type
 /** @public */
-export type AgentConversationHeader = z.infer<typeof agentConversationHeaderSchema>
+export type AgentConversationHeader = typeof agentConversationHeaderSchema.Type
 /** @public */
-export type AgentConversationDetailResponse = z.infer<typeof agentConversationDetailResponseSchema>
+export type AgentConversationDetailResponse = typeof agentConversationDetailResponseSchema.Type

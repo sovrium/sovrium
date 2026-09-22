@@ -9,7 +9,7 @@
 
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import type { BucketBinding } from '@/application/ports/services/storage-service'

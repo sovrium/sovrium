@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useMemo } from 'react'
-import { cn } from '@/presentation/utils/design/class-merge'
+import { cn } from '@/presentation/design/class-merge'
 import { usePageSearch } from '../page-search/use-page-search'
 import type { SearchResult } from '../page-search/matcher'
 import type { MouseEvent, ReactElement } from 'react'
@@ -48,7 +48,7 @@ interface PanelInlineStyles {
 // override recolors it) yet still paints a sensible default on a bare host
 // page. Same SSR-safe pattern the chart island uses for its SVG strokes.
 // Operators can further override via plain CSS targeting
-// `[data-island="page-search"]` selectors.
+// `[data-island="search-input"]` selectors.
 const STYLES: PanelInlineStyles = {
   container: { position: 'relative', width: '100%' },
   input: {

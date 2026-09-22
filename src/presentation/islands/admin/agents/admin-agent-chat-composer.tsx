@@ -24,13 +24,16 @@ import {
   computeAiChatInputRowClasses,
   computeAiChatMessageBubbleClasses,
   computeAiChatMessageListClasses,
-  computeAiChatSendButtonClasses,
-} from '../../recipes/specialty-islands-default-classes'
+} from '@/presentation/design/ai-chat-default-classes'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { ChatTurnActions, type ChatTurnAction } from './admin-agent-chat-actions'
 import { useAgentChat, type AgentChatTurn } from './admin-agent-chat-data'
 
 /** Shared empty-actions reference — a fresh `[]` per render would remount the list. */
 const NO_ACTIONS: ReadonlyArray<ChatTurnAction> = []
+
+/** Send is the ordinary small primary button, as it is in every chat surface. */
+const SEND_BUTTON = computeButtonDefaultClasses({ size: 'sm' })
 
 /** A single conversation turn — assistant replies are `article` landmarks. */
 function ChatTurn({ turn }: { readonly turn: AgentChatTurn }): ReactElement {
@@ -116,7 +119,7 @@ function InputRow({
       <button
         type="submit"
         disabled={draft.trim().length === 0 || isSending}
-        className={computeAiChatSendButtonClasses()}
+        className={SEND_BUTTON}
       >
         Send
       </button>

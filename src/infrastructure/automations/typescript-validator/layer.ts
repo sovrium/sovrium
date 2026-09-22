@@ -131,6 +131,28 @@ const getTsLibContents = (): ReadonlyMap<string, string> => {
 // block. Module scope shadows any ambient global of the same name, so
 // this stays inert even if a future host change causes `@types/node` to
 // be auto-included.
+// DELIBERATELY LOOSER THAN THE SHIPPED DECLARATION, and the direction matters.
+//
+// `sovrium.d.ts` now closes `actions` into named families with per-operator props
+// (`CodeContextActions` in src/index.ts, expanded by build-types.ts). This prelude
+// keeps the open index signature, so this gate accepts everything the closed type
+// accepts and more. That asymmetry is SAFE in this direction: the author's editor
+// is strict, so a mistake surfaces where they are looking, and this gate never
+// rejects code their editor called valid. The dangerous direction — a gate
+// stricter than the editor, so code passes authoring and dies at boot — is the
+// one this arrangement avoids.
+//
+// It is also not free: because this is open, `context.actions.record.lst({})`
+// still passes STARTUP validation and fails at request time. Closing it here
+// would move that catch to boot, and needs the expanded text available at
+// runtime (this is a string fed to tsc, not a type). That is the natural
+// follow-up; it is out of scope for the change that closed the author-facing
+// surface.
+//
+// Note also that this gate runs `strict: false` (see COMPILER_OPTIONS) while the
+// emitted tsconfig runs `strict: true` + `noUncheckedIndexedAccess: true`. Those
+// two configurations have never matched, and closing `actions` is what stopped
+// that mismatch from producing the TS18048/TS2722 pair on the documented call.
 const CODE_CONTEXT_PRELUDE = `export {};
 interface CodeContext {
   readonly inputData: Record<string, any>;

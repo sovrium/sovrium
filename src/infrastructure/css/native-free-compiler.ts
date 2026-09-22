@@ -36,6 +36,7 @@
 import typography from '@tailwindcss/typography'
 import { Effect } from 'effect'
 import { compile, type Polyfills } from 'tailwindcss'
+import { designComponentClassCandidates } from '@/domain/models/app/design/components'
 import {
   BUILTIN_CSS_CANDIDATES,
   TAILWIND_INDEX_CSS,
@@ -149,11 +150,31 @@ const collectClassStrings = (node: unknown): readonly string[] => {
 }
 
 /**
+ * Every class an app contributes beyond the build-time scan: the `className` /
+ * `class` props authored anywhere in the config, PLUS `design.components`.
+ *
+ * The second half is not reachable by `collectClassStrings`, and that is worth
+ * stating rather than implying: it walks for the KEYS `className` and `class`
+ * with string values, so any other key holding classes is invisible to it and
+ * the failure is silent — the class reaches the element, the stylesheet never
+ * emits the utility, and nothing paints. `design.components` holds its classes
+ * under `parts` / `variants` / `states`, none of which is that key, and its
+ * `states` entries additionally need their variant prefix applied before they
+ * are offered to the engine — the prefixed form, not the bare one. Both are
+ * handled by `designComponentClassCandidates`, which lives beside the state
+ * vocabulary in the domain so the harvest and the renderer cannot drift.
+ */
+const collectAppCandidates = (app?: App): readonly string[] => [
+  ...collectClassStrings(app),
+  ...designComponentClassCandidates(app?.design?.components),
+]
+
+/**
  * Resolve the full candidate list for native-free compilation: the build-time
  * source-tree scan unioned with the classes authored in the operator's app.
  */
 export const resolveNativeFreeCandidates = (app?: App): readonly string[] => [
-  ...new Set([...BUILTIN_CSS_CANDIDATES, ...collectClassStrings(app)]),
+  ...new Set([...BUILTIN_CSS_CANDIDATES, ...collectAppCandidates(app)]),
 ]
 
 /**
@@ -165,13 +186,13 @@ export const resolveNativeFreeCandidates = (app?: App): readonly string[] => [
  * sound *only* when the app contributes no extra candidates — otherwise classes
  * the app uses but the builtin scan never saw (e.g. `max-w-6xl` or an arbitrary
  * `grid-cols-[…]` authored in a test/operator fixture, which the scan excludes
- * because it only covers `src`+`examples`) are silently dropped from the served
+ * because it only covers `src`+`templates`+`apps/admin`) are silently dropped from the served
  * CSS, breaking layout. When this returns `true`, callers MUST compile per-app
  * instead of reusing the pre-compiled file.
  */
 export const appAddsCandidatesBeyondBuiltin = (app?: App): boolean => {
   const builtin = new Set<string>(BUILTIN_CSS_CANDIDATES)
-  return collectClassStrings(app).some((token) => !builtin.has(token))
+  return collectAppCandidates(app).some((token) => !builtin.has(token))
 }
 
 /**

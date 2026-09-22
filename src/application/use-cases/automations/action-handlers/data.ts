@@ -147,7 +147,7 @@ const withRunContext = (
 export const handleDataSet: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
     withRunContext(runContext, (props, ctx) => ok({ value: resolveProp(props['value'], ctx) }))
-  )
+  ).pipe(Effect.withSpan('automations.handle-data-set'))
 
 export const handleDataAggregate: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
@@ -163,7 +163,7 @@ export const handleDataAggregate: ActionHandler = (_action, _app, _automation, r
             : aggregateOne(fn, items, field),
       })
     })
-  )
+  ).pipe(Effect.withSpan('automations.handle-data-aggregate'))
 
 export const handleDataSort: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
@@ -173,7 +173,7 @@ export const handleDataSort: ActionHandler = (_action, _app, _automation, runCon
       const cmp = compareByKey(String(props['direction'] ?? 'asc'))
       return ok({ result: items.toSorted((a, b) => cmp(fieldOf(a, field), fieldOf(b, field))) })
     })
-  )
+  ).pipe(Effect.withSpan('automations.handle-data-sort'))
 
 export const handleDataLimit: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
@@ -182,7 +182,7 @@ export const handleDataLimit: ActionHandler = (_action, _app, _automation, runCo
       const count = numProp(props, ctx, 'count')
       return ok({ result: items.slice(0, Number.isFinite(count) ? count : items.length) })
     })
-  )
+  ).pipe(Effect.withSpan('automations.handle-data-limit'))
 
 export const handleDataDeduplicate: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
@@ -201,7 +201,7 @@ export const handleDataDeduplicate: ActionHandler = (_action, _app, _automation,
       )
       return ok({ result: deduped.out })
     })
-  )
+  ).pipe(Effect.withSpan('automations.handle-data-deduplicate'))
 
 export const handleDataMerge: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
@@ -219,7 +219,7 @@ export const handleDataMerge: ActionHandler = (_action, _app, _automation, runCo
         }),
       })
     })
-  )
+  ).pipe(Effect.withSpan('automations.handle-data-merge'))
 
 export const handleDataSplit: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
@@ -227,7 +227,7 @@ export const handleDataSplit: ActionHandler = (_action, _app, _automation, runCo
       const items = toArray(resolveProp(props['input'], ctx))
       return ok({ result: chunk(items, numProp(props, ctx, 'size')) })
     })
-  )
+  ).pipe(Effect.withSpan('automations.handle-data-split'))
 
 export const handleDataCompare: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
@@ -245,7 +245,7 @@ export const handleDataCompare: ActionHandler = (_action, _app, _automation, run
         },
       })
     })
-  )
+  ).pipe(Effect.withSpan('automations.handle-data-compare'))
 
 export const handleDataLookup: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
@@ -255,4 +255,4 @@ export const handleDataLookup: ActionHandler = (_action, _app, _automation, runC
       const value = resolveProp(props['value'], ctx)
       return ok({ result: items.find((item) => fieldOf(item, key) === value) })
     })
-  )
+  ).pipe(Effect.withSpan('automations.handle-data-lookup'))

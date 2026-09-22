@@ -5,17 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-export * from './_shared'
+export * from './envelope'
 export * from './audit-log'
 export * from './automations'
 export * from './buckets'
 export * from './config'
+export * from './decisions'
 export * from './design-system'
 export * from './env'
 export * from './footprint'
 export * from './forms'
 export * from './links'
+export * from './organisation'
 export * from './overview'
+export * from './releases'
 export * from './search'
 export * from './storage/status'
 export * from './tables'

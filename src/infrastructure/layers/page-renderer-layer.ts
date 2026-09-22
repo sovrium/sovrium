@@ -8,11 +8,12 @@
 import { Effect, Layer } from 'effect'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
+import { getSovriumVersion } from '@/infrastructure/process/version'
 import { buildIslands } from '@/infrastructure/server/route-setup/static-assets'
-import { renderErrorPage, renderNotFoundPage } from '@/presentation/rendering/render-error-pages'
-import { renderPage } from '@/presentation/rendering/render-page'
-import { renderRssFeed } from '@/presentation/rendering/render-rss-feed'
-import type { DataSourceDb } from '@/presentation/rendering/data-source-resolver'
+import { renderErrorPage, renderNotFoundPage } from '@/presentation/render/page/render-error-pages'
+import { renderPage } from '@/presentation/render/page/render-page'
+import { renderRssFeed } from '@/presentation/render/page/render-rss-feed'
+import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
 
 /**
  * Creates a DataSourceDb adapter from the Effect DataSourceRepository.
@@ -60,6 +61,19 @@ export const PageRendererLive = Layer.effect(
     const dataSourceRepo = yield* DataSourceRepository
     const db = createDataSourceDbAdapter(dataSourceRepo)
     const islandBuilder = { buildIslands }
+    // `$app.engineVersion` — the engine's OWN version, read ONCE while this
+    // Layer is built (before the listener binds) and handed to every render.
+    //
+    // It is injected HERE rather than threaded from the two route funnels for
+    // the reason it is a process constant: a value that cannot vary per request
+    // should not travel on one, and the two funnels that would each have to
+    // carry it are exactly the pair that has already diverged once over an
+    // optional render input. Injecting it beside `db` and `islandBuilder` also
+    // keeps `presentation/render/**` free of any `@/infrastructure/process`
+    // import — it receives a string and asks no questions about where a version
+    // comes from.
+    // effect-promise: total -- `getSovriumVersion` falls back to the build-time define and wraps its `package.json` read in a try/catch, so it always resolves a string.
+    const engineVersion = yield* Effect.promise(() => getSovriumVersion())
 
     return {
       renderPage: (app, path, requestContext) =>
@@ -67,6 +81,7 @@ export const PageRendererLive = Layer.effect(
           ...(requestContext ?? {}),
           db,
           islandBuilder,
+          engineVersion,
         }),
       renderNotFound: renderNotFoundPage,
       renderError: renderErrorPage,

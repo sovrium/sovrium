@@ -9,7 +9,7 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { CalendarCreateModal } from './calendar-create-modal'
 import {
   buildDropPatch,
@@ -18,16 +18,18 @@ import {
   persistEventDrop,
   resolveEventNavigatePath,
 } from './calendar-handlers'
+import { CalendarToolbar } from './calendar-toolbar'
+import type { CalendarToolbarProps } from './calendar-toolbar'
 import type { CalendarEvent } from './record-to-event'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 import type {
   CalendarEventConfig,
   CalendarInteraction,
   CalendarView,
 } from '@/domain/models/app/pages/components/component-types/data/calendar/schema'
-import type { EventClickArg, EventDropArg, EventMountArg } from '@fullcalendar/core'
+import type { DatesSetArg, EventClickArg, EventDropArg, EventMountArg } from '@fullcalendar/core'
 import type { DateClickArg } from '@fullcalendar/interaction'
-import type { ReactElement } from 'react'
+import type { ReactElement, RefObject } from 'react'
 
 const VIEW_TO_FULLCALENDAR: Record<CalendarView, string> = {
   month: 'dayGridMonth',
@@ -35,13 +37,26 @@ const VIEW_TO_FULLCALENDAR: Record<CalendarView, string> = {
   day: 'timeGridDay',
 }
 
+/**
+ * The reverse of {@link VIEW_TO_FULLCALENDAR}.
+ *
+ * The Sovrium toolbar has to reflect the view FullCalendar is ACTUALLY
+ * showing, not the one it was last told to show. Those diverge whenever
+ * something other than the toolbar changes the view — a `navLink` day-name
+ * click, a `dateClick` under `dayMaxEvents`, or a future external view
+ * switcher — and a segmented control that keeps its own idea of the state is
+ * the classic way a toolbar starts lying about what is on screen. Reading the
+ * view back out of `datesSet` is what makes the control a mirror rather than a
+ * second source of truth.
+ */
+const FULLCALENDAR_TO_VIEW: Record<string, CalendarView> = {
+  dayGridMonth: 'month',
+  timeGridWeek: 'week',
+  timeGridDay: 'day',
+}
+
 // Module-level constants — stable references avoid jsx-no-new-* warnings.
 const CALENDAR_PLUGINS = [dayGridPlugin, timeGridPlugin, interactionPlugin]
-const HEADER_TOOLBAR = {
-  left: 'prev,next today',
-  center: 'title',
-  right: 'dayGridMonth,timeGridWeek,timeGridDay',
-}
 // 24-hour `09:00` format (matches the test contract for time-grid views).
 const SLOT_LABEL_FORMAT = {
   hour: '2-digit' as const,
@@ -118,6 +133,23 @@ function buildEventDropHandler(args: {
 }
 
 /**
+ * The `slotDuration` option, as a bag to spread — carrying the key only when a
+ * slot interval was actually declared.
+ *
+ * It cannot be passed as a plain attribute, because FullCalendar decides which
+ * defaults apply by KEY PRESENCE rather than by value: an explicit
+ * `slotDuration={undefined}` is not "unset", it SHADOWS the timegrid view's own
+ * `00:30:00` default with nothing. The week and day views then try to divide by
+ * a duration that never parsed, throw while rendering, and leave a blank card
+ * where the grid should be. Month view is unaffected only because it has no
+ * time slots to lay out.
+ */
+function slotDurationProp(minutes: number | undefined): { readonly slotDuration?: string } {
+  const slotDuration = minutesToSlotDuration(minutes)
+  return slotDuration === undefined ? {} : { slotDuration }
+}
+
+/**
  * Resolve the target table for the create modal — uses the CRUD action's
  * declared `table` when present, otherwise falls back to the calendar's
  * bound `tableName`. Returns `undefined` for non-create actions so the
@@ -187,12 +219,72 @@ function useDateClickModal(interaction: CalendarInteraction | undefined): DateCl
   return { open, clickedDate, handleDateClick, closeModal }
 }
 
+interface ToolbarState {
+  readonly calendarRef: RefObject<FullCalendar | null>
+  readonly handleDatesSet: (arg: DatesSetArg) => void
+  /**
+   * The toolbar's whole prop set, ready to spread. Returned as one object
+   * rather than six loose members so the wiring is a single line at the call
+   * site: the parent component sits under a `max-lines-per-function` cap and
+   * six JSX attributes is most of the budget the toolbar can afford there.
+   */
+  readonly toolbar: CalendarToolbarProps
+}
+
 /**
- * Renders the FullCalendar shell with month/week/day plugins.
+ * Internal hook wiring the Sovrium toolbar to the FullCalendar instance.
+ *
+ * Split out for the same reason as {@link useDateClickModal} — the parent
+ * component sits under a `max-lines-per-function` cap — but also because the
+ * whole of the toolbar's relationship to FullCalendar is these eight members,
+ * and having them in one place is what makes it obvious that the toolbar reads
+ * state OUT of the calendar and pushes commands IN, rather than holding a
+ * second copy of the view state.
+ *
+ * `title` starts empty because FullCalendar has not mounted yet on the first
+ * render; `datesSet` fires on mount and on every navigation, so the caption is
+ * populated before the calendar is interactive. That is also the only event
+ * that fires for BOTH a toolbar navigation and an internal one, which is what
+ * keeps the segmented control honest when something else changes the view.
+ */
+function useCalendarToolbar(defaultView: CalendarView): ToolbarState {
+  const calendarRef = useRef<FullCalendar | null>(null)
+  const [title, setTitle] = useState('')
+  const [activeView, setActiveView] = useState<CalendarView>(defaultView)
+
+  const handleDatesSet = (arg: DatesSetArg): void => {
+    setTitle(arg.view.title)
+    const next = FULLCALENDAR_TO_VIEW[arg.view.type]
+    if (next) setActiveView(next)
+  }
+
+  const toolbar: CalendarToolbarProps = {
+    title,
+    activeView,
+    onPrev: () => calendarRef.current?.getApi().prev(),
+    onNext: () => calendarRef.current?.getApi().next(),
+    onToday: () => calendarRef.current?.getApi().today(),
+    onViewChange: (view) => calendarRef.current?.getApi().changeView(VIEW_TO_FULLCALENDAR[view]),
+  }
+
+  return { calendarRef, handleDatesSet, toolbar }
+}
+
+/**
+ * Renders the Sovrium toolbar above the FullCalendar shell (month/week/day
+ * plugins).
  *
  * The wrapping `<div data-component="calendar">` carries the test marker
  * (matching the kanban precedent) so spec tests can scope locators to the
  * calendar's interactive surface, ignoring the SSR skeleton above it.
+ *
+ * `headerToolbar={false}` retires FullCalendar's own toolbar in favour of
+ * {@link CalendarToolbar}. Two consequences worth knowing before reinstating
+ * it: the entire `--fc-button-*` variable family goes dead with it (no Sovrium
+ * token ever needed to be invented for FullCalendar's `#2c3e50` button slab),
+ * and `.fc-toolbar-title` disappears — which is why the replacement title
+ * carries the `sv-calendar-title` hook the heading spec locator resolves
+ * through. See `presentation/utils/recipes/calendar-default-classes.ts`.
  */
 export function CalendarViewComponent({
   events,
@@ -210,9 +302,9 @@ export function CalendarViewComponent({
   const handleEventClick = buildEventClickHandler(calendarEvent)
   const handleEventDrop = buildEventDropHandler({ tableName, dateField, endDateField })
   const { open, clickedDate, handleDateClick, closeModal } = useDateClickModal(calendarInteraction)
+  const { calendarRef, handleDatesSet, toolbar } = useCalendarToolbar(defaultView)
 
   const editableDrag = Boolean(handleEventDrop)
-  const slotDuration = minutesToSlotDuration(calendarInteraction?.timeSlotInterval)
   const showCurrentTimeIndicator = calendarInteraction?.showCurrentTimeIndicator !== false
   const createTable = resolveCreateTable(calendarInteraction, tableName)
 
@@ -222,11 +314,14 @@ export function CalendarViewComponent({
       data-view={defaultView}
       className="w-full"
     >
+      <CalendarToolbar {...toolbar} />
       <FullCalendar
+        ref={calendarRef}
         plugins={CALENDAR_PLUGINS}
         initialView={initialView}
         {...(initialDate && { initialDate })}
-        headerToolbar={HEADER_TOOLBAR}
+        headerToolbar={false}
+        datesSet={handleDatesSet}
         events={events as CalendarEvent[]}
         height="auto"
         firstDay={1}
@@ -237,7 +332,7 @@ export function CalendarViewComponent({
         dateClick={handleDateClick}
         editable={editableDrag}
         eventDrop={handleEventDrop}
-        slotDuration={slotDuration}
+        {...slotDurationProp(calendarInteraction?.timeSlotInterval)}
         slotLabelFormat={SLOT_LABEL_FORMAT}
       />
       <CalendarCreateModal

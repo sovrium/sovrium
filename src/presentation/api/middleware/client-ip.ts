@@ -6,12 +6,15 @@
  */
 
 import { getConnInfo } from 'hono/bun'
-import { parseTrustedProxyHops, TRUSTED_PROXY_HOPS_DEFAULT } from '@/domain/models/env/proxy'
 import {
   hasUntrustedForwardingHeader,
   resolveClientIp,
   resolveTrustedForwardedIp,
-} from '@/domain/utils/client-ip'
+} from '@/domain/kernel/url/client-ip'
+import {
+  parseTrustedProxyHops,
+  TRUSTED_PROXY_HOPS_DEFAULT,
+} from '@/domain/models/process-env/proxy'
 import { logError, logWarning } from '@/infrastructure/logging/logger'
 import type { Context } from 'hono'
 

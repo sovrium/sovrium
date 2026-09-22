@@ -43,9 +43,9 @@ import {
   executeRecordUpdateCRUD,
 } from '../mutation-helpers/update-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
-import { wrapDatabaseError } from '../shared/error-handling'
-import { typedExecute } from '../shared/typed-execute'
-import { validateTableName } from '../shared/validation'
+import { wrapDatabaseError } from '../statement/error-handling'
+import { typedExecute } from '../statement/typed-execute'
+import { validateTableName } from '../statement/validation'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -73,7 +73,8 @@ async function executeCreateRecordTx(
   // lookup, so the round-trip is skipped on the common scalar-only path.
   const arrayColumnTypes = await resolveArrayColumnTypes(tx, tableName, [fieldsWithAuthorship])
   const { columnsClause, valuesClause } = buildInsertClauses(fieldsWithAuthorship, arrayColumnTypes)
-  // Execute INSERT directly (avoid Effect.runPromise which wraps errors in FiberFailure).
+  // Execute the INSERT directly: this helper is already inside a promise the
+  // caller's `Effect.tryPromise` owns, so there is no Effect to run here.
   // `RETURNING *` is supported by both PostgreSQL and SQLite (≥ 3.35). [internal ref](b):
   // view-backed tables return a NULL id from the view — `insertAndResolveRow`
   // resolves the real base id and re-reads the row so create is uniform.
@@ -354,7 +355,6 @@ async function runDeleteTransaction(
   }
 
   if (app) {
-    // eslint-disable-next-line functional/no-expression-statements -- Required for cascade operation
     await cascadeSoftDelete(tx, tableName, recordId, app, session.userId)
   }
 

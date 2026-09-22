@@ -34,12 +34,12 @@ import type {
 // Better Auth schema (sqlite-core mirror)
 export * from './schema-sqlite/auth-tables'
 export * from './schema-sqlite/auth-oauth-resource-tables'
-export * from './schema-sqlite/auth-relations'
 
 // System / application tables (sqlite-core mirrors)
 export * from './schema-sqlite/activity-log'
 export * from './schema-sqlite/admin-search'
 export * from './schema-sqlite/audit-log'
+export * from './schema-sqlite/boot-ledger'
 export * from './schema-sqlite/bootstrap-tokens'
 export * from './schema-sqlite/ai'
 export * from './schema-sqlite/analytics-events'

@@ -6,8 +6,8 @@
  */
 
 import { hc } from 'hono/client'
-import type { chainRecordRoutesMethods } from '@/presentation/api/routes/tables/record-routes'
-import type { chainTableRoutesMethods } from '@/presentation/api/routes/tables/table-routes'
+import type { chainRecordRoutesMethods } from '@/presentation/api/tables/record-routes'
+import type { chainTableRoutesMethods } from '@/presentation/api/tables/table-routes'
 
 /**
  * Narrowed RPC type for table record operations only.

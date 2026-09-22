@@ -18,18 +18,18 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm'
-import { Effect } from 'effect'
+import { Data, Effect } from 'effect'
 import { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import {
   chunkText,
   resolveChunkSettings,
   type ChunkSettings,
-} from '@/domain/services/rag/rag-chunking'
+} from '@/domain/models/app/agents/rag-chunking'
 import { db } from '@/infrastructure/database'
 import { extractRows } from '@/infrastructure/database/sql/sql-utils'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { logError } from '@/infrastructure/logging/logger'
-import { countRowsBy, embedChunksToRows, RagSyncLayer } from './embed-pipeline'
+import { countRowsBy, embedChunksToRows, RagSyncLayer, swallowLogged } from './embed-pipeline'
 import type { RagAgent } from './rag-agent-input'
 import type { NewEmbedding } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AiService } from '@/application/ports/services/ai-service'
@@ -88,6 +88,18 @@ const runReadQuery = async (query: SQL): Promise<ReadonlyArray<Record<string, un
 }
 
 /**
+ * A knowledge table that could not be read — most often renamed or dropped out
+ * from under an agent's `knowledge:` binding. Non-fatal by design (the sync
+ * continues with no records for that table), which is exactly why it needs a
+ * name: an anonymous `unknown` in the error channel is how the two cases became
+ * indistinguishable in the first place.
+ */
+class KnowledgeTableUnreadable extends Data.TaggedError('KnowledgeTableUnreadable')<{
+  readonly table: string
+  readonly cause: unknown
+}> {}
+
+/**
  * Load records for one knowledge-table entry. Selects `id` plus each
  * configured field, applying the optional equality filter. Failures resolve
  * to an empty list so a missing/renamed table never aborts the sync.
@@ -123,8 +135,18 @@ const loadKnowledgeRecords = (input: {
         return { id: String(row['id']), fields }
       })
     },
-    catch: () => [],
-  }).pipe(Effect.orElseSucceed(() => [] as ReadonlyArray<KnowledgeRecord>))
+    // Keep the cause so the tap below can name it. `catch: () => []` discarded
+    // it here AND again in the `orElseSucceed`, which is why a renamed table and
+    // an empty one used to produce byte-identical behaviour and no log line.
+    catch: (cause) => new KnowledgeTableUnreadable({ table: input.table, cause }),
+  }).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => {
+        logError('[ai-rag] knowledge table not readable', cause, { table: input.table })
+      })
+    ),
+    Effect.orElseSucceed(() => [] as ReadonlyArray<KnowledgeRecord>)
+  )
 
 /** A chunk awaiting embedding, carrying its provenance. */
 interface PendingChunk {
@@ -193,7 +215,9 @@ const syncAgentKnowledge = (input: {
     const repo = yield* AiEmbeddingRepository
     const { agent } = input
 
-    yield* repo.deleteBySourceIdPrefix(`table-agent:${agent.name}:`).pipe(Effect.ignore)
+    yield* repo
+      .deleteBySourceIdPrefix(`table-agent:${agent.name}:`)
+      .pipe(swallowLogged('agent embeddings not pre-cleared', { agent: agent.name }))
 
     const pendingGroups = yield* Effect.forEach(agent.tables, (entry) =>
       loadKnowledgeRecords({
@@ -211,7 +235,12 @@ const syncAgentKnowledge = (input: {
     const rows = yield* embedChunksToRows(pending, (chunk, embedding) =>
       toTableEmbeddingRow(agent.name, chunk, embedding)
     )
-    yield* repo.insertMany(rows).pipe(Effect.ignore)
+    yield* repo.insertMany(rows).pipe(
+      swallowLogged('agent embeddings not persisted', {
+        agent: agent.name,
+        rows: String(rows.length),
+      })
+    )
 
     const tables = countRowsBy(rows, (row) => String((row.metadata ?? {})['table'] ?? ''))
     return { tables, totalChunks: rows.length } satisfies SyncKnowledgeStats
@@ -320,8 +349,11 @@ export const embedKnowledgeRecord = async (input: {
   const program = Effect.gen(function* () {
     const repo = yield* AiEmbeddingRepository
     // Clear the record's prior embeddings (idempotent re-embed).
-    yield* repo.deleteBySourceIdPrefix(sourceId).pipe(Effect.ignore)
+    yield* repo
+      .deleteBySourceIdPrefix(sourceId)
+      .pipe(swallowLogged('record embeddings not pre-cleared', { sourceId }))
 
+    // effect-promise: total -- `loadSingleRecord` resolves its query through `Effect.runPromise(...).catch(() => [])`, so an unreadable table yields no record rather than rejecting.
     const record = yield* Effect.promise(() =>
       loadSingleRecord({
         table: input.table,
@@ -346,7 +378,11 @@ export const embedKnowledgeRecord = async (input: {
     const rows = yield* embedChunksToRows(chunks, (chunk, embedding) =>
       toTableEmbeddingRow(input.agentName, chunk, embedding)
     )
-    yield* repo.insertMany(rows).pipe(Effect.ignore)
+    yield* repo
+      .insertMany(rows)
+      .pipe(
+        swallowLogged('record embeddings not persisted', { sourceId, rows: String(rows.length) })
+      )
   }).pipe(Effect.provide(RagSyncLayer))
   // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget best-effort embedding
   await Effect.runPromise(program).catch(() => undefined)
@@ -364,7 +400,9 @@ export const removeKnowledgeRecordEmbeddings = async (input: {
   const sourceId = `table-agent:${input.agentName}:${input.table}:${input.recordId}`
   const program = Effect.gen(function* () {
     const repo = yield* AiEmbeddingRepository
-    yield* repo.deleteBySourceIdPrefix(sourceId).pipe(Effect.ignore)
+    yield* repo
+      .deleteBySourceIdPrefix(sourceId)
+      .pipe(swallowLogged('record embeddings not removed', { sourceId }))
   }).pipe(Effect.provide(RagSyncLayer))
   // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget best-effort embedding
   await Effect.runPromise(program).catch(() => undefined)

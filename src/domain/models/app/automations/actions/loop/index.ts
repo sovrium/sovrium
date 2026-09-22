@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { LoopEachActionSchema } from './each'
-
-export const LoopActionSchema = LoopEachActionSchema
+export * from './loop-action'
 
 export * from './each'

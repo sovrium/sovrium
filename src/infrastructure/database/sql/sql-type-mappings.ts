@@ -6,7 +6,7 @@
  */
 
 import { resolveArrayItemSqlType } from '@/domain/models/app/tables/fields/field-types/advanced/array-item-type'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
 /**

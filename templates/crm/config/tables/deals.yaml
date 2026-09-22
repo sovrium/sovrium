@@ -10,6 +10,13 @@ fields:
     type: relationship
     relatedTable: companies
     relationType: many-to-one
+    # What a human should see instead of the foreign key, and what the picker
+    # searches on.
+    displayField: name
+    # A deal often arrives before its company is in the CRM. With this on, the
+    # picker offers to create the company from what was typed and links it in
+    # one step, instead of sending the salesperson to another table first.
+    allowCreate: true
   - id: 3
     name: stage
     type: single-select

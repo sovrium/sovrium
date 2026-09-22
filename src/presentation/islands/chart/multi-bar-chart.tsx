@@ -6,25 +6,37 @@
  */
 
 import { Group } from '@visx/group'
-import { scaleBand, scaleLinear } from '@visx/scale'
+import { scaleBand } from '@visx/scale'
 import { Bar } from '@visx/shape'
+import { CHART_BAR_RADIUS } from '@/presentation/design/chart-default-classes'
 import { BandScaleAxes } from './chart-axes'
 import {
+  buildValueScale,
   CHART_MARGIN,
+  minPositiveAcrossSeries,
   numericValue,
   seriesColor,
   xKeys,
+  type ChartAxisDisplay,
   type ChartSeriesConfig,
+  type ChartValueScale,
   type LegendPosition,
 } from './chart-series-shared'
 import { ChartShell } from './chart-shell'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 import type { ReactElement } from 'react'
 
 interface MultiBarChartProps {
   readonly records: readonly TableRecord[]
   readonly xField: string
   readonly series: readonly ChartSeriesConfig[]
+  /**
+   * The value axis' display configuration — its title, tick format, scale and
+   * grid. Forwarded from the chart's `yAxis`, whose `field` this binding does
+   * not use (the `series[]` entries name the fields) but whose DISPLAY keys it
+   * honours exactly as the single-series canvas does.
+   */
+  readonly yAxis?: ChartAxisDisplay
   readonly legendPosition?: LegendPosition
   readonly legendVisible?: boolean
   /** Operator-set `<svg role="img">` name; falls back to the "Bar chart" default. */
@@ -63,7 +75,7 @@ interface ColumnGeometry {
   readonly base: number
   readonly groupWidth: number
   readonly innerHeight: number
-  readonly yScale: ReturnType<typeof scaleLinear<number>>
+  readonly yScale: ChartValueScale
 }
 
 /** Accumulator threaded through one column's series reduction. */
@@ -86,11 +98,14 @@ function barFor(args: {
   const { base, groupWidth, innerHeight, yScale } = geometry
   const fill = seriesColor(series, index)
   const common = { id: `${key}-${series.field}`, width: groupWidth, fill, field: series.field }
+  // Every mapping goes through `toY` rather than the pixel scale: a logarithmic
+  // projection is undefined at zero and below its floor, and an `NaN` reaching a
+  // `height` attribute is a bar that silently fails to draw.
   if (stacked) {
-    const y = yScale(cumulative + value)
-    return { ...common, x: base, y, height: yScale(cumulative) - y }
+    const y = yScale.toY(cumulative + value)
+    return { ...common, x: base, y, height: yScale.toY(cumulative) - y }
   }
-  const y = yScale(value)
+  const y = yScale.toY(value)
   return { ...common, x: base + index * groupWidth, y, height: innerHeight - y }
 }
 
@@ -102,7 +117,7 @@ function buildBars(args: {
   readonly series: readonly ChartSeriesConfig[]
   readonly stacked: boolean
   readonly xScale: ReturnType<typeof scaleBand<string>>
-  readonly yScale: ReturnType<typeof scaleLinear<number>>
+  readonly yScale: ChartValueScale
   readonly innerHeight: number
 }): readonly BarSpec[] {
   const { records, keys, xField, series, stacked, xScale, yScale, innerHeight } = args
@@ -139,6 +154,7 @@ interface MultiBarSvgProps {
   readonly records: readonly TableRecord[]
   readonly xField: string
   readonly series: readonly ChartSeriesConfig[]
+  readonly yAxis?: ChartAxisDisplay
   readonly hidden: ReadonlySet<string>
   readonly accessibleName?: string
 }
@@ -168,6 +184,7 @@ function computeMaxY(args: {
 interface BarLayout {
   readonly keys: readonly string[]
   readonly xScale: ReturnType<typeof scaleBand<string>>
+  readonly yScale: ChartValueScale
   readonly innerWidth: number
   readonly innerHeight: number
   readonly bars: readonly BarSpec[]
@@ -180,20 +197,21 @@ function buildLayout(args: {
   readonly records: readonly TableRecord[]
   readonly xField: string
   readonly series: readonly ChartSeriesConfig[]
+  readonly yAxis: ChartAxisDisplay | undefined
   readonly hidden: ReadonlySet<string>
 }): BarLayout {
-  const { width, height, records, xField, series, hidden } = args
+  const { width, height, records, xField, series, yAxis, hidden } = args
   const innerWidth = Math.max(0, width - CHART_MARGIN.left - CHART_MARGIN.right)
   const innerHeight = Math.max(0, height - CHART_MARGIN.top - CHART_MARGIN.bottom)
   const keys = xKeys(records, xField)
   const visibleSeries = series.filter((s) => !hidden.has(s.field))
   const stacked = isStacked(visibleSeries)
   const xScale = scaleBand<string>({ domain: [...keys], range: [0, innerWidth], padding: 0.2 })
-  const maxY = computeMaxY({ records, keys, xField, series: visibleSeries, stacked })
-  const yScale = scaleLinear<number>({
-    domain: [0, maxY === 0 ? 1 : maxY],
-    range: [innerHeight, 0],
-    nice: true,
+  const yScale = buildValueScale({
+    maxValue: computeMaxY({ records, keys, xField, series: visibleSeries, stacked }),
+    minPositiveValue: minPositiveAcrossSeries(records, visibleSeries),
+    innerHeight,
+    scale: yAxis?.scale,
   })
   const bars = buildBars({
     records,
@@ -205,7 +223,7 @@ function buildLayout(args: {
     yScale,
     innerHeight,
   })
-  return { keys, xScale, innerWidth, innerHeight, bars }
+  return { keys, xScale, yScale, innerWidth, innerHeight, bars }
 }
 
 function MultiBarSvg({
@@ -214,15 +232,17 @@ function MultiBarSvg({
   records,
   xField,
   series,
+  yAxis,
   hidden,
   accessibleName,
 }: MultiBarSvgProps): ReactElement {
-  const { keys, xScale, innerWidth, innerHeight, bars } = buildLayout({
+  const { keys, xScale, yScale, innerWidth, innerHeight, bars } = buildLayout({
     width,
     height,
     records,
     xField,
     series,
+    yAxis,
     hidden,
   })
 
@@ -242,6 +262,8 @@ function MultiBarSvg({
           xScale={xScale}
           innerWidth={innerWidth}
           innerHeight={innerHeight}
+          valueScale={yScale}
+          valueAxis={yAxis}
         />
         {bars.map((b) => (
           <Bar
@@ -251,6 +273,7 @@ function MultiBarSvg({
             width={b.width}
             height={b.height}
             fill={b.fill}
+            rx={CHART_BAR_RADIUS}
             data-bar-key={b.id}
             data-series-field={b.field}
           />
@@ -272,6 +295,7 @@ export function MultiBarChart({
   records,
   xField,
   series,
+  yAxis,
   legendPosition,
   legendVisible,
   accessibleName,
@@ -289,6 +313,7 @@ export function MultiBarChart({
           records={records}
           xField={xField}
           series={series}
+          yAxis={yAxis}
           hidden={hidden}
           accessibleName={accessibleName}
         />

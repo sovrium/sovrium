@@ -59,9 +59,10 @@
 import { existsSync } from 'node:fs'
 import { Database as BunSqlite } from 'bun:sqlite'
 import { getLoadablePath } from 'sqlite-vec'
-import { resolveRagAcceleration } from '@/domain/services/rag/rag-acceleration'
+import { resolveRagAcceleration } from '@/domain/models/app/agents/rag-acceleration'
 import { logInfo, logWarning } from '@/infrastructure/logging/logger'
-import { isCompiled } from '@/infrastructure/utils/package-paths'
+import { isCompiled } from '@/infrastructure/process/package-paths'
+import { applySqlitePragmas } from './sqlite-pragmas'
 
 /**
  * The sqlite-vec accelerated connection, or `undefined` when acceleration is
@@ -93,8 +94,11 @@ const openAndLoad = (dbPath: string, extensionPath: string): BunSqlite | undefin
   const client = new BunSqlite(dbPath, { create: true })
   try {
     client.loadExtension(extensionPath)
-    // eslint-disable-next-line functional/no-expression-statements -- match the primary connection's WAL + busy-timeout so the second handle reads concurrently
-    client.exec('PRAGMA busy_timeout = 5000')
+    // Match the primary connection exactly — this is a SECOND handle on the
+    // same file, so it needs the same busy timeout and the same WAL journaling
+    // to read while the primary writes. It previously set the timeout alone.
+
+    applySqlitePragmas(client)
     return client
   } catch {
     try {

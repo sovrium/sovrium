@@ -40,6 +40,8 @@ interface KpiPresentationProps {
   readonly label?: string
   readonly kpiFormat?: KpiFormatConfig
   readonly icon?: string
+  /** Server-resolved geometry for `icon` (see `@/presentation/utils/lucide-glyph`). */
+  readonly iconNode?: unknown
   readonly trend?: KpiTrendConfig
 }
 
@@ -68,6 +70,7 @@ function KpiSystemTile({
   label,
   kpiFormat,
   icon,
+  iconNode,
   trend,
 }: KpiPresentationProps & { readonly system: KpiSystemSource }): ReactElement {
   const { data } = useKpiSystemValue(system)
@@ -83,6 +86,7 @@ function KpiSystemTile({
       label={label}
       value={value}
       icon={icon}
+      iconNode={iconNode}
       trend={trend}
     />
   )
@@ -98,6 +102,7 @@ function KpiTableTile({
   kpiAggregate,
   kpiFormat,
   icon,
+  iconNode,
   trend,
   thresholds,
   sparkline,
@@ -130,6 +135,7 @@ function KpiTableTile({
       label={label}
       value={formatted}
       icon={icon}
+      iconNode={iconNode}
       trend={trend}
       thresholdColor={thresholdColor}
       sparklineSeries={sparklineSeries}
@@ -154,6 +160,7 @@ export default function KpiIsland({
   kpiAggregate,
   kpiFormat,
   icon,
+  iconNode,
   trend,
   thresholds,
   sparkline,
@@ -165,6 +172,7 @@ export default function KpiIsland({
         label={label}
         kpiFormat={kpiFormat}
         icon={icon}
+        iconNode={iconNode}
         trend={trend}
       />
     )
@@ -178,6 +186,7 @@ export default function KpiIsland({
         kpiAggregate={kpiAggregate}
         kpiFormat={kpiFormat}
         icon={icon}
+        iconNode={iconNode}
         trend={trend}
         thresholds={thresholds}
         sparkline={sparkline}

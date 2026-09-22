@@ -129,6 +129,25 @@ export const ZoneVoiceOverrideSchema = Schema.Struct({
 )
 
 /**
+ * The voice fields a zone MAY override, in schema declaration order.
+ *
+ * The keys of {@link ZoneVoiceOverrideSchema}, named once so that a reader of
+ * the override — the zones facet, which reports which fields a zone inherits
+ * rather than overrides — derives the candidate set from the schema that
+ * defines it instead of keeping a second list that would silently stop covering
+ * a fifth field the day one is added.
+ *
+ * `personality` is absent and that is the point: it is not an omission from the
+ * override schema, it is app identity, so it is CONSTANT rather than inherited.
+ * A facet listing it among inheritable fields would present a field a zone
+ * could override.
+ *
+ * Order is this schema's own, not alphabetical, so a report reads in the order
+ * an author meets the fields.
+ */
+export const ZONE_OVERRIDABLE_VOICE_FIELDS = ['pronoun', 'prefer', 'avoid', 'tone'] as const
+
+/**
  * One zone: a route pattern, the zone it belongs to, and what that zone is
  * allowed to spend and say.
  */

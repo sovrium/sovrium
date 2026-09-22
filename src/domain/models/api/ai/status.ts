@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
 
 /**
  * MCP status API contract schema — the `status` sub-resource shared by the
@@ -19,22 +19,22 @@ import { z } from '@hono/zod-openapi'
  */
 
 /** A status response for an ENABLED MCP mode (server or client). */
-export const aiStatusEnabledSchema = z.object({
-  enabled: z.literal(true),
+export const aiStatusEnabledSchema = Schema.Struct({
+  enabled: Schema.Literal(true),
 })
 
 /** A status response for a DISABLED MCP mode — returned with status 404. */
-export const aiStatusDisabledSchema = z.object({
-  enabled: z.literal(false),
-  error: z.string(),
+export const aiStatusDisabledSchema = Schema.Struct({
+  enabled: Schema.Literal(false),
+  error: Schema.String,
 })
 
 /** The full status envelope: either an enabled detail or a disabled reason. */
-export const aiStatusSchema = z.union([aiStatusEnabledSchema, aiStatusDisabledSchema])
+export const aiStatusSchema = Schema.Union([aiStatusEnabledSchema, aiStatusDisabledSchema])
 
 /** @public */
-export type AiStatusEnabled = z.infer<typeof aiStatusEnabledSchema>
+export type AiStatusEnabled = typeof aiStatusEnabledSchema.Type
 /** @public */
-export type AiStatusDisabled = z.infer<typeof aiStatusDisabledSchema>
+export type AiStatusDisabled = typeof aiStatusDisabledSchema.Type
 /** @public */
-export type AiStatus = z.infer<typeof aiStatusSchema>
+export type AiStatus = typeof aiStatusSchema.Type

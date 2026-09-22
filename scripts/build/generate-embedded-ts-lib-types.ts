@@ -27,8 +27,10 @@
  * (also run automatically by `build:binary`).
  */
 
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { basename, join } from 'node:path'
+import { printStderr } from '@/infrastructure/logging/cli-output'
+import { listDirSync } from '../lib/drift/walk'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const TS_LIB_DIR = join(PROJECT_ROOT, 'node_modules', 'typescript', 'lib')
@@ -54,7 +56,7 @@ const resolveTypescriptVersion = (): string => {
   const lockBody = readFileSync(BUN_LOCK, 'utf8')
   const match = lockBody.match(/"typescript":\s*\[\s*"typescript@([0-9]+\.[0-9]+\.[0-9]+)"/)
   if (match === null) {
-    console.error('✗ Could not find resolved typescript version in bun.lock')
+    printStderr('Could not find resolved typescript version in bun.lock')
     process.exit(1)
   }
   return match[1]!
@@ -72,12 +74,13 @@ interface ImportLine {
 // libs via `/// <reference lib="..."/>` directives and a missing file would
 // surface as a confusing `Cannot find global type 'X'` at boot. The full
 // corpus is ~3.9 MB and adds negligible size to a ~120 MB binary.
-const libFiles = readdirSync(TS_LIB_DIR)
+const libFiles = listDirSync({ root: TS_LIB_DIR })
+  .map((abs) => basename(abs))
   .filter((f) => f.startsWith('lib.') && f.endsWith('.d.ts'))
   .toSorted()
 
 if (libFiles.length === 0) {
-  console.error(`✗ No lib.*.d.ts files found under ${TS_LIB_DIR}`)
+  printStderr(`No lib.*.d.ts files found under ${TS_LIB_DIR}`)
   process.exit(1)
 }
 
@@ -108,7 +111,7 @@ const header = `/**
 // compiled binary (\`/$bunfs/...\` path).
 //
 // The SOVRIUM_TS_LIB_VERSION sentinel is the canonical fingerprint of which
-// TypeScript stdlib was embedded; \`scripts/check-embedded-ts-version-drift.ts\`
+// TypeScript stdlib was embedded; \`scripts/drift/check-embedded-ts-version-drift.ts\`
 // compares it against the resolved \`typescript\` version in \`bun.lock\` and
 // fails CI if they diverge — guards against a forgotten regeneration after
 // \`bun add typescript@...\`.
@@ -127,5 +130,5 @@ ${entries}
 
 writeFileSync(OUT_FILE, `${header}\n${importBlock}\n${body}`)
 console.log(
-  `✓ embedded-ts-lib-types.generated.ts — ${libFiles.length} lib.*.d.ts files (typescript@${TS_VERSION})`
+  `embedded-ts-lib-types.generated.ts — ${libFiles.length} lib.*.d.ts files (typescript@${TS_VERSION})`
 )

@@ -30,6 +30,16 @@
  *  `<pre class="shiki nord …">`) so spec selectors like `[class*="nord"]`
  *  match.
  *
+ * **A second palette, when the app names one.** `design.codeBlock.darkTheme`
+ * switches the call into Shiki's dual-theme mode, where the second palette
+ * arrives as a `--shiki-dark` custom property inside that same doomed inline
+ * style. It leaves the transformer the way the first one does — as a class,
+ * `tok-dark-XXXXXX`, beside `tok-XXXXXX` on the very same span — and the
+ * code-block CSS generator scopes its rules under the dark colour scheme. Both
+ * palettes are resolved over ONE token stream, so the light half of a dual
+ * render is byte-identical to a single-theme render of the same fence: adding
+ * the counterpart cannot repaint what a reader already sees in light.
+ *
  * **Unknown language → graceful degrade.** Shiki rejects unsupported langs
  * with an exception; the highlighter catches that and returns a plain
  * `<pre><code class="language-X">{escaped}</code></pre>` so the page still
@@ -45,7 +55,7 @@
 import { logDebug, logWarning } from '@/infrastructure/logging/logger'
 
 /**
- * Default Shiki theme used when `app.theme.codeBlock.theme` is unset. Matches
+ * Default Shiki theme used when `app.design.codeBlock.theme` is unset. Matches
  * the test fixture default (`'github-dark'`) so [internal ref] and
  * [internal ref] hold without explicit configuration.
  */
@@ -86,7 +96,22 @@ type ShikiCodeToHtml = (code: string, options: ShikiOptions) => Promise<string>
 
 interface ShikiOptions {
   readonly lang: string
-  readonly theme: string
+  readonly theme?: string
+  /**
+   * Shiki's DUAL-THEME mode, used only when the app declares a dark
+   * counterpart. Both palettes are resolved in ONE pass over one token stream,
+   * which is what keeps the light half byte-identical to what a single-theme
+   * call produces — measured on `github-light`: the same fifteen spans, the
+   * same texts and the same `color:` hexes, with `--shiki-dark` added beside
+   * each one. That identity is the contract the light scheme is held to.
+   */
+  readonly themes?: { readonly light: string; readonly dark: string }
+  /**
+   * Which half of a dual render owns the plain `color:` declaration. Pinned to
+   * `'light'` so the existing `color:#XXXXXX` → `tok-XXXXXX` conversion keeps
+   * working untouched and the dark half arrives as a separate custom property.
+   */
+  readonly defaultColor?: string
   readonly transformers?: readonly ShikiTransformerLike[]
 }
 
@@ -143,6 +168,34 @@ const getShikiForTheme = (theme: string): Promise<ShikiCodeToHtml> => {
 }
 
 /**
+ * Turn the one or two theme names an app declared into the options Shiki is
+ * called with, and into the cache key that stands for them.
+ *
+ * With no dark counterpart the call is exactly what it always was — one
+ * `theme`, one palette. With one, Shiki renders BOTH palettes over a single
+ * token stream, and the light half comes back unchanged; that is why the dark
+ * counterpart can be added to a live config without repainting anything a
+ * reader already sees in the light scheme.
+ */
+const shikiPaletteOptions = (theme: string, darkTheme: string | undefined): ShikiPalette =>
+  darkTheme === undefined || darkTheme.length === 0
+    ? { key: theme, options: { theme } }
+    : {
+        key: `${theme}|${darkTheme}`,
+        options: { themes: { light: theme, dark: darkTheme }, defaultColor: 'light' },
+      }
+
+/**
+ * The palette a render is about to use, and the name it is cached and logged
+ * under. One value rather than two loose arguments: they are always derived
+ * together and are meaningless apart.
+ */
+interface ShikiPalette {
+  readonly key: string
+  readonly options: Omit<ShikiOptions, 'lang' | 'transformers'>
+}
+
+/**
  * Convert an inline `style="…color:#XXXXXX…"` attribute into a `tok-XXXXXX`
  * class on the same hast node, then drop the `style` attribute entirely. Any
  * other style declarations are also dropped — they would be stripped by the
@@ -159,6 +212,30 @@ const styleToColorClass = (style: string): string | undefined => {
   const hex = match[1]
   if (hex === undefined) return undefined
   return `tok-${hex.toUpperCase()}`
+}
+
+/**
+ * The same conversion for the DARK half of a dual render.
+ *
+ * In dual-theme mode Shiki writes the second palette as a custom property in
+ * the very same inline style — `style="color:#D73A49;--shiki-dark:#F97583"` —
+ * and that style is about to be deleted, because the canonical sanitiser drops
+ * the attribute outright. So the dark colour has to leave the transformer the
+ * only way a colour can: as a SECOND class on the same span, beside the light
+ * one. It needs its own pattern rather than a second pass of
+ * {@link COLOR_RE}, which is unanchored and stops at the FIRST `color:` in the
+ * declaration list — the light one, every time.
+ *
+ * `tok-dark-XXXXXX` is a plain author selector, never a Tailwind utility, so —
+ * exactly like its `tok-XXXXXX` sibling — it needs no candidate-corpus entry.
+ */
+const DARK_COLOR_RE = /--shiki-dark\s*:\s*#([0-9a-fA-F]{3,8})/
+const styleToDarkColorClass = (style: string): string | undefined => {
+  const match = DARK_COLOR_RE.exec(style)
+  if (match === null) return undefined
+  const hex = match[1]
+  if (hex === undefined) return undefined
+  return `tok-dark-${hex.toUpperCase()}`
 }
 
 /**
@@ -183,6 +260,13 @@ const CLASS_BASED_TRANSFORMER: ShikiTransformerLike = {
     if (colorClass !== undefined) {
       this.addClassToHast(hast, colorClass)
     }
+    // The dark half of a dual render, when there is one. Absent from a
+    // single-theme render, so a config that names no counterpart emits exactly
+    // the markup it emitted before.
+    const darkColorClass = styleToDarkColorClass(style)
+    if (darkColorClass !== undefined) {
+      this.addClassToHast(hast, darkColorClass)
+    }
     // Drop ALL inline style on token spans regardless of whether we mapped a
     // color — uncolored tokens (whitespace) must not carry residual style.
     if (hast.properties !== undefined && 'style' in hast.properties) {
@@ -201,7 +285,7 @@ const highlightOne = async (
   codeToHtml: ShikiCodeToHtml,
   lang: string,
   code: string,
-  theme: string
+  palette: ShikiPalette
 ): Promise<string> => {
   if (lang.length === 0) {
     // Tagless fences degrade to plain escaped output — Shiki would reject an
@@ -211,12 +295,12 @@ const highlightOne = async (
   try {
     return await codeToHtml(code, {
       lang,
-      theme,
+      ...palette.options,
       transformers: [CLASS_BASED_TRANSFORMER],
     })
   } catch (error) {
     logWarning(
-      `[shiki] Failed to highlight ${lang} block (theme=${theme}); falling back to plain pre/code: ${
+      `[shiki] Failed to highlight ${lang} block (theme=${palette.key}); falling back to plain pre/code: ${
         error instanceof Error ? error.message : String(error)
       }`
     )
@@ -257,24 +341,30 @@ const PLACEHOLDER_RE =
  * supplied HTML. Returns the composed HTML — input is returned verbatim when
  * `codeBlocks` is empty (no fenced blocks in the source).
  *
- * The active theme is taken from `theme.codeBlock.theme`; an unset value or a
- * missing `theme.codeBlock` block defaults to `DEFAULT_THEME` so spec fixtures
- * that omit `theme.codeBlock` still get colorisation.
+ * The active theme is taken from `design.codeBlock.theme`; an unset value or a
+ * missing `design.codeBlock` block defaults to `DEFAULT_THEME` so spec fixtures
+ * that omit `design.codeBlock` still get colorisation.
+ *
+ * `darkTheme` is `design.codeBlock.darkTheme`, and omitting it is an answer
+ * rather than a gap: one theme then governs both colour schemes, exactly as
+ * before the key existed.
  */
 export const highlightCodeBlocks = async (
   html: string,
   codeBlocks: readonly { readonly lang: string; readonly code: string }[],
-  theme: string | undefined
+  theme: string | undefined,
+  darkTheme?: string
 ): Promise<string> => {
   if (codeBlocks.length === 0) return html
   const activeTheme = theme && theme.length > 0 ? theme : DEFAULT_THEME
-  const codeToHtml = await getShikiForTheme(activeTheme)
+  const palette = shikiPaletteOptions(activeTheme, darkTheme)
+  const codeToHtml = await getShikiForTheme(palette.key)
 
   // Highlight every block once up-front so the `replace` callback is sync
   // (it is invoked once per placeholder during the regex scan).
   const highlighted = await Promise.all(
     codeBlocks.map(async ({ lang, code }, index) =>
-      withFenceIndexClass(await highlightOne(codeToHtml, lang, code, activeTheme), index)
+      withFenceIndexClass(await highlightOne(codeToHtml, lang, code, palette), index)
     )
   )
 
@@ -302,9 +392,11 @@ export const highlightCodeBlocks = async (
 export const highlightCodeToHtml = async (
   lang: string,
   code: string,
-  theme: string | undefined
+  theme: string | undefined,
+  darkTheme?: string
 ): Promise<string> => {
   const activeTheme = theme && theme.length > 0 ? theme : DEFAULT_THEME
-  const codeToHtml = await getShikiForTheme(activeTheme)
-  return highlightOne(codeToHtml, lang, code, activeTheme)
+  const palette = shikiPaletteOptions(activeTheme, darkTheme)
+  const codeToHtml = await getShikiForTheme(palette.key)
+  return highlightOne(codeToHtml, lang, code, palette)
 }

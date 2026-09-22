@@ -12,7 +12,6 @@ import {
   resolvePurgeTableAuthorship,
 } from '@/infrastructure/database/account-purge'
 import { logError } from '@/infrastructure/logging/logger'
-import { CronSchedulerLive } from './cron-scheduler-live'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -70,7 +69,9 @@ const PURGE_JOB_ID = 'account-purge-due'
  * @returns Effect yielding the scheduled job id, or `undefined` when the
  *   scheduler could not be armed (logged, non-fatal).
  */
-export const registerAccountPurgeScheduler = (app: App): Effect.Effect<string | undefined, never> =>
+export const registerAccountPurgeScheduler = (
+  app: App
+): Effect.Effect<string | undefined, never, CronScheduler> =>
   Effect.gen(function* () {
     // Authorship columns resolved from the DECLARED FIELD TYPES, matching the
     // `/api/account/purge-due` trigger. Passing bare names let the sweep assume
@@ -110,4 +111,4 @@ export const registerAccountPurgeScheduler = (app: App): Effect.Effect<string | 
           })
         )
       )
-  }).pipe(Effect.provide(CronSchedulerLive))
+  })

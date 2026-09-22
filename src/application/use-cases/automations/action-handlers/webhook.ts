@@ -7,11 +7,11 @@
 
 import { createHmac } from 'node:crypto'
 import { Effect } from 'effect'
-import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/utils/timeouts'
-import { validateOutboundUrl } from '@/infrastructure/utils/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/utils/with-fetch-timeout'
+import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
+import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
+import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import { resolveConnectionHeaders } from './auth-headers'
-import { serializeActionBody, stringProp } from './shared'
+import { actionAttributes, serializeActionBody, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
 /**
@@ -85,8 +85,11 @@ export const handleWebhookSend: ActionHandler = (action, app, automation) =>
         ? { ...merged.headers, 'X-Webhook-Signature': signBody(bodyResult.success, secret) }
         : merged.headers
 
+    // effect-promise: total -- `sendWebhook` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
     return yield* Effect.promise(() => sendWebhook(url, method, signedHeaders, bodyResult.success))
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-webhook-send', { attributes: actionAttributes(action) })
+  )
 
 /**
  * Compute the `sha256=<hex>` HMAC signature header value for a request
@@ -133,7 +136,7 @@ export const handleWebhookResponse: ActionHandler = (action) =>
       ...(props['headers'] !== undefined ? { headers: props['headers'] } : {}),
     }
     return { status: 'success', responseOverride } satisfies ActionOutcome
-  })
+  }).pipe(Effect.withSpan('automations.handle-webhook-response'))
 
 /**
  * Bounded outbound POST. Mirrors `performHttpRequest` from `http.ts` but

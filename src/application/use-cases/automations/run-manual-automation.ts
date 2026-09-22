@@ -6,8 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
-import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
+import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import {
@@ -225,4 +225,4 @@ export const runManualAutomation = ({
       handlers,
       userId,
     })
-  })
+  }).pipe(Effect.withSpan('automations.run-manual-automation'))

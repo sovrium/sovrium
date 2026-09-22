@@ -7,28 +7,27 @@
 
 import { Group } from '@visx/group'
 import { ParentSize } from '@visx/responsive'
-import { scaleBand, scaleLinear } from '@visx/scale'
-import { Bar } from '@visx/shape'
+import { scaleBand } from '@visx/scale'
+import {
+  CHART_AXIS_LABEL_FILL,
+  CHART_AXIS_LABEL_FONT_SIZE,
+  CHART_AXIS_LABEL_FONT_WEIGHT,
+  CHART_AXIS_STROKE,
+  CHART_GRID_LINE_STROKE,
+  CHART_TICK_FILL,
+  CHART_TICK_FONT_SIZE,
+  CHART_X_TICK_BASELINE_OFFSET,
+  CHART_Y_TICK_GAP,
+  computeChartBodyClasses,
+  computeChartShellClasses,
+} from '@/presentation/design/chart-default-classes'
+import { BarPlot } from './bar-chart-hover'
 import { formatAxisLabel, formatAxisValue } from './chart-format'
-import { PRIMARY_SERIES_PAINT } from './chart-series-shared'
-import type { ChartAxisFormat } from './chart-format'
-import type { TableRecord } from '../shared/types'
+import { buildCategoryData, buildValueScale, minPositiveInCategories } from './chart-series-shared'
+import type { ChartTooltipDisplay } from './bar-chart-hover'
+import type { CategoryDatum, ChartAxisDisplay, ChartValueScale } from './chart-series-shared'
+import type { TableRecord } from '../runtime/types'
 import type { ReactElement } from 'react'
-
-export interface BarDatum {
-  readonly key: string
-  readonly value: number
-}
-
-/**
- * Per-axis display configuration forwarded from the chart schema's
- * `xAxis`/`yAxis` (custom title, value format, grid lines).
- */
-export interface ChartAxisDisplay {
-  readonly label?: string
-  readonly format?: ChartAxisFormat
-  readonly gridLines?: boolean
-}
 
 interface BarChartProps {
   readonly records: readonly TableRecord[]
@@ -36,48 +35,31 @@ interface BarChartProps {
   readonly yField: string
   /**
    * Pre-aggregated `{ key, value }` series. When supplied (chart declares
-   * `chartAggregate`), it bypasses the record-driven `buildBarData` path.
+   * `chartAggregate`), it bypasses the record-driven `buildCategoryData` path.
    */
-  readonly data?: readonly BarDatum[]
+  readonly data?: readonly CategoryDatum[]
   readonly xAxis?: ChartAxisDisplay
   readonly yAxis?: ChartAxisDisplay
+  /**
+   * The chart's declared `tooltip` block. Present means the bars are hoverable
+   * and draw a callout; absent means they are inert, exactly as before this
+   * layer existed.
+   */
+  readonly tooltip?: ChartTooltipDisplay
   /** Operator-set `<svg role="img">` name; falls back to the "Bar chart" default. */
   readonly accessibleName?: string
-}
-
-/**
- * Builds bar data by mapping each record onto an x-key (xField) and a numeric
- * y-value (yField). When multiple records share the same x-key, values are
- * summed — keeps the basic chart honest if upstream data has duplicates.
- */
-function buildBarData(
-  records: readonly TableRecord[],
-  xField: string,
-  yField: string
-): readonly BarDatum[] {
-  // Reduce over records into an immutable record keyed by x-value, then
-  // project to a BarDatum array. Avoids in-place Map mutation.
-  const grouped = records.reduce<Readonly<Record<string, number>>>((acc, r) => {
-    const xRaw = r[xField]
-    const yRaw = r[yField]
-    if (xRaw === undefined || xRaw === null) return acc
-    const key = String(xRaw)
-    const value = typeof yRaw === 'number' ? yRaw : Number(yRaw)
-    if (!Number.isFinite(value)) return acc
-    return { ...acc, [key]: (acc[key] ?? 0) + value }
-  }, {})
-  return Object.entries(grouped).map(([key, value]) => ({ key, value }))
 }
 
 interface BarChartSvgProps {
   readonly records: readonly TableRecord[]
   readonly xField: string
   readonly yField: string
-  readonly data?: readonly BarDatum[]
+  readonly data?: readonly CategoryDatum[]
   readonly width: number
   readonly height: number
   readonly xAxis?: ChartAxisDisplay
   readonly yAxis?: ChartAxisDisplay
+  readonly tooltip?: ChartTooltipDisplay
   readonly accessibleName?: string
 }
 
@@ -90,7 +72,7 @@ function GridLines({
   innerWidth,
 }: {
   readonly ticks: readonly number[]
-  readonly yScale: ReturnType<typeof scaleLinear<number>>
+  readonly yScale: ChartValueScale
   readonly innerWidth: number
 }): ReactElement {
   return (
@@ -100,9 +82,9 @@ function GridLines({
           key={`grid-${String(t)}`}
           x1={0}
           x2={innerWidth}
-          y1={yScale(t)}
-          y2={yScale(t)}
-          stroke="var(--color-border)"
+          y1={yScale.toY(t)}
+          y2={yScale.toY(t)}
+          stroke={CHART_GRID_LINE_STROKE}
           data-chart-gridline="true"
         />
       ))}
@@ -125,7 +107,7 @@ function ChartGridLayers({
   readonly xAxis: ChartAxisDisplay | undefined
   readonly yAxis: ChartAxisDisplay | undefined
   readonly ticks: readonly number[]
-  readonly yScale: ReturnType<typeof scaleLinear<number>>
+  readonly yScale: ChartValueScale
   readonly innerWidth: number
 }): ReactElement | undefined {
   if (!xAxis?.gridLines && !yAxis?.gridLines) return undefined
@@ -151,7 +133,7 @@ function XAxisLabels({
   innerHeight,
   axis,
 }: {
-  readonly data: readonly BarDatum[]
+  readonly data: readonly CategoryDatum[]
   readonly xScale: ReturnType<typeof scaleBand<string>>
   readonly innerWidth: number
   readonly innerHeight: number
@@ -165,7 +147,7 @@ function XAxisLabels({
         x2={xScale.range()[1]}
         y1={innerHeight}
         y2={innerHeight}
-        stroke="var(--color-border)"
+        stroke={CHART_AXIS_STROKE}
       />
       {data.map((d) => {
         const x = (xScale(d.key) ?? 0) + bandwidth / 2
@@ -173,9 +155,9 @@ function XAxisLabels({
           <text
             key={`x-label-${d.key}`}
             x={x}
-            y={innerHeight + 18}
-            fontSize={11}
-            fill="var(--color-foreground-muted)"
+            y={innerHeight + CHART_X_TICK_BASELINE_OFFSET}
+            fontSize={CHART_TICK_FONT_SIZE}
+            fill={CHART_TICK_FILL}
             textAnchor="middle"
           >
             {formatAxisLabel(d.key, axis?.format)}
@@ -186,9 +168,9 @@ function XAxisLabels({
         <text
           x={innerWidth / 2}
           y={innerHeight + 44}
-          fontSize={12}
-          fontWeight={600}
-          fill="var(--color-foreground)"
+          fontSize={CHART_AXIS_LABEL_FONT_SIZE}
+          fontWeight={CHART_AXIS_LABEL_FONT_WEIGHT}
+          fill={CHART_AXIS_LABEL_FILL}
           textAnchor="middle"
           data-chart-axis-title="x"
         >
@@ -206,7 +188,7 @@ function YAxisLabels({
   axis,
 }: {
   readonly ticks: readonly number[]
-  readonly yScale: ReturnType<typeof scaleLinear<number>>
+  readonly yScale: ChartValueScale
   readonly innerHeight: number
   readonly axis: ChartAxisDisplay | undefined
 }): ReactElement {
@@ -217,15 +199,15 @@ function YAxisLabels({
         x2={0}
         y1={0}
         y2={innerHeight}
-        stroke="var(--color-border)"
+        stroke={CHART_AXIS_STROKE}
       />
       {ticks.map((t) => (
         <text
           key={`y-label-${String(t)}`}
-          x={-8}
-          y={yScale(t)}
-          fontSize={11}
-          fill="var(--color-foreground-muted)"
+          x={-CHART_Y_TICK_GAP}
+          y={yScale.toY(t)}
+          fontSize={CHART_TICK_FONT_SIZE}
+          fill={CHART_TICK_FILL}
           textAnchor="end"
           dominantBaseline="central"
         >
@@ -236,9 +218,9 @@ function YAxisLabels({
         <text
           x={-MARGIN.left + 14}
           y={innerHeight / 2}
-          fontSize={12}
-          fontWeight={600}
-          fill="var(--color-foreground)"
+          fontSize={CHART_AXIS_LABEL_FONT_SIZE}
+          fontWeight={CHART_AXIS_LABEL_FONT_WEIGHT}
+          fill={CHART_AXIS_LABEL_FILL}
           textAnchor="middle"
           transform={`rotate(-90 ${String(-MARGIN.left + 14)} ${String(innerHeight / 2)})`}
           data-chart-axis-title="y"
@@ -250,57 +232,39 @@ function YAxisLabels({
   )
 }
 
-/** Renders the `<Bar>` rects for the chart's aggregated series. */
-function BarRects({
-  data,
-  xScale,
-  yScale,
-  innerHeight,
-}: {
-  readonly data: readonly BarDatum[]
-  readonly xScale: ReturnType<typeof scaleBand<string>>
-  readonly yScale: ReturnType<typeof scaleLinear<number>>
+/**
+ * Builds the band (X) and value (Y) scales for the chart's inner area.
+ *
+ * The value scale reads `yAxis.scale`, which this binding used to ignore as
+ * completely as the series binding did — the axis config reached the canvas,
+ * but the scale was a hardcoded `scaleLinear`, so `logarithmic` was a key the
+ * schema accepted and nothing anywhere honoured.
+ *
+ * Both scales are handed WHOLE to `BarPlot`, which draws the bars and anchors
+ * the hover callout off the same geometry. Two scales — one for the rects, one
+ * for the callout — would put a tooltip somewhere the bar is not the moment the
+ * axis stops being linear, which is precisely when it is hardest to notice.
+ */
+function buildScales(args: {
+  readonly data: readonly CategoryDatum[]
+  readonly innerWidth: number
   readonly innerHeight: number
-}): ReactElement {
-  return (
-    <g>
-      {data.map((d) => {
-        const barY = yScale(d.value)
-        return (
-          <Bar
-            key={`bar-${d.key}`}
-            x={xScale(d.key) ?? 0}
-            y={barY}
-            width={xScale.bandwidth()}
-            height={innerHeight - barY}
-            fill={PRIMARY_SERIES_PAINT}
-            data-bar-key={d.key}
-          />
-        )
-      })}
-    </g>
-  )
-}
-
-/** Builds the band (X) and linear (Y) scales for the chart's inner area. */
-function buildScales(
-  data: readonly BarDatum[],
-  innerWidth: number,
-  innerHeight: number
-): {
+  readonly yAxis: ChartAxisDisplay | undefined
+}): {
   readonly xScale: ReturnType<typeof scaleBand<string>>
-  readonly yScale: ReturnType<typeof scaleLinear<number>>
+  readonly yScale: ChartValueScale
 } {
+  const { data, innerWidth, innerHeight, yAxis } = args
   const xScale = scaleBand<string>({
     domain: data.map((d) => d.key),
     range: [0, innerWidth],
     padding: 0.2,
   })
-  const maxY = data.reduce((acc, d) => (d.value > acc ? d.value : acc), 0)
-  const yScale = scaleLinear<number>({
-    domain: [0, maxY === 0 ? 1 : maxY],
-    range: [innerHeight, 0],
-    nice: true,
+  const yScale = buildValueScale({
+    maxValue: data.reduce((acc, d) => (d.value > acc ? d.value : acc), 0),
+    minPositiveValue: minPositiveInCategories(data),
+    innerHeight,
+    scale: yAxis?.scale,
   })
   return { xScale, yScale }
 }
@@ -314,13 +278,14 @@ function BarChartSvg({
   data: preAggregated,
   xAxis,
   yAxis,
+  tooltip,
   accessibleName,
 }: BarChartSvgProps): ReactElement {
-  const data = preAggregated ?? buildBarData(records, xField, yField)
+  const data = preAggregated ?? buildCategoryData(records, xField, yField)
   const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right)
   const innerHeight = Math.max(0, height - MARGIN.top - MARGIN.bottom)
-  const { xScale, yScale } = buildScales(data, innerWidth, innerHeight)
-  const yTicks = yScale.ticks(5)
+  const { xScale, yScale } = buildScales({ data, innerWidth, innerHeight, yAxis })
+  const yTicks = yScale.tickValues
 
   return (
     <svg
@@ -353,20 +318,33 @@ function BarChartSvg({
           innerHeight={innerHeight}
           axis={xAxis}
         />
-        <BarRects
+        <BarPlot
           data={data}
           xScale={xScale}
           yScale={yScale}
           innerHeight={innerHeight}
+          tooltip={tooltip}
         />
       </Group>
     </svg>
   )
 }
 
-// Tailwind-driven container height keeps `style={...}` out of JSX (react-perf
-// rule forbids inline objects).
-const CHART_CONTAINER_CLASSES = 'w-full h-80'
+// The chart card, from the one recipe — auto-height, like the multi-series
+// shell's. It used to carry its own `h-80` and be the `ParentSize` parent
+// itself, which after the card's 1px border and `py-2.5` left a 298px plot
+// against the shell's 288: the same `chartType: 'bar'` over the same rows drew
+// two different heights depending only on whether a `series[]` was declared.
+// The measured element is now the body below, whose height is the subtree's
+// single source of truth.
+//
+// This used to be a LOCAL constant of the same name as the shared one in
+// `chart-series-shared.ts`, shadowing it and quietly dropping its `relative`.
+const CHART_CANVAS_CLASSES = computeChartShellClasses()
+
+// The measured interior — the same recipe the multi-series shell's body spends,
+// so both canvases draw into a box of identical height.
+const CHART_CANVAS_BODY_CLASSES = computeChartBodyClasses()
 
 export function BarChartCanvas({
   records,
@@ -375,31 +353,35 @@ export function BarChartCanvas({
   data,
   xAxis,
   yAxis,
+  tooltip,
   accessibleName,
 }: BarChartProps): ReactElement {
   return (
     <div
       data-component="chart"
-      className={CHART_CONTAINER_CLASSES}
+      className={CHART_CANVAS_CLASSES}
     >
-      <ParentSize>
-        {({ width, height }) => {
-          if (width <= 0 || height <= 0) return undefined
-          return (
-            <BarChartSvg
-              width={width}
-              height={height}
-              records={records}
-              xField={xField}
-              yField={yField}
-              data={data}
-              xAxis={xAxis}
-              yAxis={yAxis}
-              accessibleName={accessibleName}
-            />
-          )
-        }}
-      </ParentSize>
+      <div className={CHART_CANVAS_BODY_CLASSES}>
+        <ParentSize>
+          {({ width, height }) => {
+            if (width <= 0 || height <= 0) return undefined
+            return (
+              <BarChartSvg
+                width={width}
+                height={height}
+                records={records}
+                xField={xField}
+                yField={yField}
+                data={data}
+                xAxis={xAxis}
+                yAxis={yAxis}
+                tooltip={tooltip}
+                accessibleName={accessibleName}
+              />
+            )
+          }}
+        </ParentSize>
+      </div>
     </div>
   )
 }

@@ -66,4 +66,4 @@ export const handleFlowStop: ActionHandler = (_action, _app, _automation, runCon
       responseOverride: { status: 200, body, headers: {} },
       returnData: {},
     } as const satisfies ActionOutcome
-  })
+  }).pipe(Effect.withSpan('automations.handle-flow-stop'))

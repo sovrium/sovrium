@@ -58,6 +58,8 @@ export interface AccountUserRow {
   readonly email: string
   readonly name: string | null
   readonly image: string | null
+  /** The account's own interface-language preference, or `null` if never chosen. */
+  readonly language: string | null
   readonly emailVerified: boolean
   readonly role: string | null
   readonly createdAt: Date

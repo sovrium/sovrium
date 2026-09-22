@@ -23,6 +23,10 @@ import { systemTable } from './table-helpers'
  *
  * Tracks all schema migrations with timestamps and checksums.
  * Each migration is recorded with a version number and the complete schema snapshot.
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 export const sovriumMigrationHistory = systemTable('migration_history', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -38,6 +42,10 @@ export const sovriumMigrationHistory = systemTable('migration_history', {
  *
  * Tracks migration operations including rollbacks with status and reason.
  * Used for debugging and audit trail of schema changes.
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 export const sovriumMigrationLog = systemTable('migration_log', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -54,6 +62,10 @@ export const sovriumMigrationLog = systemTable('migration_log', {
  *
  * Singleton table storing current schema checksum for change detection.
  * Uses a single row with id='singleton' to track the current state.
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 export const sovriumSchemaChecksum = systemTable('schema_checksum', {
   id: text('id').primaryKey(),
@@ -61,11 +73,3 @@ export const sovriumSchemaChecksum = systemTable('schema_checksum', {
   schema: text('schema', { mode: 'json' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).$defaultFn(() => new Date()),
 })
-
-// Type exports for consumers
-export type SovriumMigrationHistory = typeof sovriumMigrationHistory.$inferSelect
-export type NewSovriumMigrationHistory = typeof sovriumMigrationHistory.$inferInsert
-export type SovriumMigrationLog = typeof sovriumMigrationLog.$inferSelect
-export type NewSovriumMigrationLog = typeof sovriumMigrationLog.$inferInsert
-export type SovriumSchemaChecksum = typeof sovriumSchemaChecksum.$inferSelect
-export type NewSovriumSchemaChecksum = typeof sovriumSchemaChecksum.$inferInsert

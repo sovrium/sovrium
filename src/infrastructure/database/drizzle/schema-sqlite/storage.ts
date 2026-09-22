@@ -67,6 +67,10 @@ export const fileStorageMetadata = systemTable(
  * SQLite blob content storage (fallback when S3/local not configured) —
  * mirror of the pg-core `bytea` content column. References
  * file_storage_metadata for metadata.
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 export const fileStorageBytea = systemTable('file_storage_bytea', {
   id: text('id')
@@ -80,6 +84,3 @@ export const fileStorageBytea = systemTable('file_storage_bytea', {
 })
 
 // Type inference
-export type FileStorageMetadataRow = typeof fileStorageMetadata.$inferSelect
-export type NewFileStorageMetadata = typeof fileStorageMetadata.$inferInsert
-export type FileStorageByteaRow = typeof fileStorageBytea.$inferSelect

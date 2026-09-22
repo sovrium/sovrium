@@ -7,16 +7,16 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
+import { deleteRecordProgram } from '@/application/use-cases/tables/record-lifecycle-programs'
 import {
   createRecordProgram,
-  deleteRecordProgram,
   updateRecordProgram,
-} from '@/application/use-cases/tables/programs'
+} from '@/application/use-cases/tables/write-record-programs'
+import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import {
   buildCreateAuthorshipOverrides,
   buildUpdateAuthorshipOverrides,
-} from '@/domain/services/authorship-fields'
-import { SYSTEM_USER_ID } from '@/domain/services/guest-session'
+} from '@/domain/models/app/tables/authorship-fields'
 import {
   buildGuestSession,
   buildSyntheticSession,
@@ -32,7 +32,7 @@ import {
   sortFieldRefusal,
   toQueryFilter,
 } from './record-filters'
-import { findMultiSelectViolationMessage, recordProp, stringProp } from './shared'
+import { actionAttributes, findMultiSelectViolationMessage, recordProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
 import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
@@ -102,7 +102,9 @@ export const handleRecordCreate: ActionHandler = (action, app, automation) =>
       return { status: 'failure', error: message } as const
     }
     return { status: 'success' } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-record-create', { attributes: actionAttributes(action) })
+  )
 
 /**
  * `record/update` handler — apply a filter, then update each matched row
@@ -162,7 +164,9 @@ export const handleRecordUpdate: ActionHandler = (action, app, automation) =>
       data,
       tables: app.tables,
     })
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-record-update', { attributes: actionAttributes(action) })
+  )
 
 /**
  * Write branch of `record/update` — stamp authorship, then update each matched
@@ -326,7 +330,9 @@ export const handleRecordUpsert: ActionHandler = (action, app, automation) =>
           data,
           updateOverrides: buildUpdateAuthorshipOverrides(app.tables, tableName, actorId),
         })
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-record-upsert', { attributes: actionAttributes(action) })
+  )
 
 /**
  * `record/delete` handler — apply a filter, then soft-delete each matched
@@ -394,7 +400,9 @@ export const handleRecordDelete: ActionHandler = (action, app, _automation) =>
       return { status: 'failure', error: message } as const
     }
     return { status: 'success', output: { deletedCount: idsToDelete.length } } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-record-delete', { attributes: actionAttributes(action) })
+  )
 
 /**
  * Build the canonical read success output, SHARED by `record/read` and
@@ -640,7 +648,9 @@ export const handleRecordRead: ActionHandler = (action, _app, _automation) =>
       return { status: 'failure', error: 'record.read requires props.id' } as const
     }
     return yield* readByPrimaryKey(tableName, idValue)
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-record-read', { attributes: actionAttributes(action) })
+  )
 
 /**
  * `record/list` handler — the set-shaped read.
@@ -715,4 +725,6 @@ export const handleRecordList: ActionHandler = (action, app, _automation) =>
     return buildReadOutput(
       fields === undefined ? result.success : trimToFields(result.success, fields)
     )
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-record-list', { attributes: actionAttributes(action) })
+  )

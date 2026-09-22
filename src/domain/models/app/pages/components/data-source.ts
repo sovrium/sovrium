@@ -76,6 +76,33 @@ export const CurrentUserRefSchema = Schema.Struct({
 export type CurrentUserRef = Schema.Schema.Type<typeof CurrentUserRefSchema>
 
 /**
+ * Route-parameter reference — discriminated value used in
+ * `dataSource.filter[].value`.
+ *
+ * `name` is a segment declared by the host page's `path` (`/items/:group` →
+ * `group`). At request time the resolver substitutes the matched segment value,
+ * so ONE page definition filters differently per URL. It is the ROUTE sibling of
+ * {@link CurrentUserRefSchema}: same position in the filter-value union, same
+ * server-side resolution, a different source of truth for the value.
+ *
+ * A reference naming a segment the page's `path` does not declare is rejected at
+ * DECODE time, so `sovrium validate` catches the typo offline instead of the
+ * page silently filtering on an undefined value.
+ */
+export const RouteParamRefSchema = Schema.Struct({
+  kind: Schema.Literal('routeParam'),
+  name: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+}).annotate({
+  identifier: 'RouteParamRef',
+  title: 'Route Parameter Reference',
+  description:
+    "Server-resolved reference to a segment of the host page's path (e.g. :group). Resolved per-request from the matched route.",
+})
+
+/** @public */
+export type RouteParamRef = Schema.Schema.Type<typeof RouteParamRefSchema>
+
+/**
  * Literal filter value — JSON-serializable scalar or array of scalars.
  *
  * Arrays are accepted to support the `in` operator (e.g. when comparing a
@@ -91,15 +118,21 @@ export const FilterLiteralSchema = Schema.Union([
 ])
 
 /**
- * Filter value — either a literal or a `$currentUser` reference.
+ * Filter value — a literal, a `$currentUser` reference, or a `$param` reference.
  *
- * String-template sugar (resolved by the config loader before reaching this
- * schema):
+ * String-template sugar (a template is a plain string here — the union's
+ * `FilterLiteralSchema` branch accepts it — and is normalized by the resolver at
+ * request time, exactly as `$currentUser.*` already is):
  * - `'$currentUser.id'` -> `{ kind: 'currentUser', path: { kind: 'scalar', name: 'id' } }`
  * - `'$currentUser.assignments.<table>'` -> `{ kind: 'currentUser', path: { kind: 'assignment', tableSlug: '<table>' } }`
  * - `'$currentUser.activeAssignment'` -> `{ kind: 'currentUser', path: { kind: 'activeAssignment' } }`
+ * - `'$param.<name>'` -> `{ kind: 'routeParam', name: '<name>' }`
  */
-export const FilterValueSchema = Schema.Union([FilterLiteralSchema, CurrentUserRefSchema])
+export const FilterValueSchema = Schema.Union([
+  FilterLiteralSchema,
+  CurrentUserRefSchema,
+  RouteParamRefSchema,
+])
 
 /** @public */
 export type FilterValue = Schema.Schema.Type<typeof FilterValueSchema>
@@ -177,12 +210,28 @@ export const DataSortSchema = Schema.Struct({
 })
 
 /**
- * Pagination style
+ * How the reader reaches the records past the first page.
+ *
+ * **An omitted `style` means `numbered`**, and that default is load-bearing
+ * rather than cosmetic: `pageSize` alone already narrows what a component DRAWS,
+ * so a style that renders no control leaves the remaining records unreachable —
+ * a config that silently hides rows rather than paging them. Every consumer
+ * therefore draws a pager unless it was asked for `loadMore`.
+ *
+ * `infinite` is accepted by this vocabulary and is deliberately NOT implemented
+ * — see `src/presentation/islands/list/list-island.tsx`, which states the reason
+ * at the point a reader meets it: scroll-triggered paging needs a sentinel row,
+ * an intersection observer and a re-entrancy guard, and none of that can be
+ * called shipped until something specifies how it behaves at the end of the set.
+ * A component declaring it therefore pages exactly as `numbered` does. That
+ * fallback is the whole point: the refusal costs the reader a nicer interaction,
+ * never a record.
  */
 export const PaginationStyleSchema = Schema.Literals(['numbered', 'loadMore', 'infinite']).annotate(
   {
     title: 'Pagination Style',
-    description: 'How pagination controls are displayed',
+    description:
+      'How pagination controls are displayed (default: numbered). `infinite` is accepted but not implemented and pages as `numbered`.',
   }
 )
 
@@ -205,7 +254,7 @@ export const PaginationSchema = Schema.Struct({
       examples: [10, 20, 50],
     })
   ),
-  /** Pagination UI style */
+  /** Pagination UI style — omitted means `numbered`, never "no control" */
   style: Schema.optional(PaginationStyleSchema),
 }).annotate({
   title: 'Pagination',
@@ -271,13 +320,13 @@ export type RefreshMode = Schema.Schema.Type<typeof RefreshModeSchema>
  *
  * When a data source carries `sharedFilter`, its `bindTo` reference is treated
  * as a SHARED FILTER / PERIOD publisher (a sibling selector / filter / period
- * control) rather than a `searchInput`: the publisher's current value is
+ * control) rather than a `search-input`: the publisher's current value is
  * published as a request-param bag and merged into EVERY request this data
  * source issues — to its DB table OR its `system.endpoint` — as the DYNAMIC
  * counterpart to a system source's static `query`. ONE publisher can drive MANY
  * sibling subscribers (e.g. a period selector shared by a KPI strip, a
  * timeseries chart and a top-pages table; or an automation/status filter bar
- * driving a runs `data-table`).
+ * driving a runs `table`).
  *
  * This is purely additive: it reuses the existing `bindTo` id-reference (it does
  * NOT introduce a second publisher-id namespace) and is INERT when `bindTo` is
@@ -305,7 +354,7 @@ export type RefreshMode = Schema.Schema.Type<typeof RefreshModeSchema>
 export const SharedFilterBindingSchema = Schema.Struct({
   /**
    * Request-param key(s) this subscriber contributes from the bound publisher's
-   * value. A scalar publisher (e.g. a `searchInput`) maps its value to the named
+   * value. A scalar publisher (e.g. a `search-input`) maps its value to the named
    * param(s); a multi-value selector publishes a param bag and `params` selects
    * which of its keys this subscriber merges. Omit to merge the publisher's full
    * param bag verbatim.
@@ -329,6 +378,102 @@ export const SharedFilterBindingSchema = Schema.Struct({
 
 /** @public */
 export type SharedFilterBinding = Schema.Schema.Type<typeof SharedFilterBindingSchema>
+
+/**
+ * Shared-filter PUBLISHER — the half `SharedFilterBindingSchema` subscribes to.
+ *
+ * ─── WHY THE SUBSCRIBER HALF ALONE IS NOT A FEATURE ────────────────────────
+ *
+ * `bindTo` + `sharedFilter` describes a component that CONSUMES a published
+ * param bag, and the only thing that publishes one today is either a
+ * `search-input` (a scalar, under its own component id) or a bespoke island with
+ * no component type at all — `shared-filter-select`, which the automation-runs
+ * console mounts from TypeScript. So a config author can declare a subscriber
+ * and has no way to declare what it listens to. This is the missing half.
+ *
+ * ─── ONE CHANNEL, MANY CONTRIBUTORS ────────────────────────────────────────
+ *
+ * `bindTo` here names the CHANNEL the control publishes on — deliberately the
+ * same key name a subscriber uses, because it is deliberately the same string,
+ * and a validator comparing `bindTo` to `bindTo` is one a reader can check by
+ * eye. It is NOT the publisher's own component id: the runs directory needs TWO
+ * selectors ("Filter by automation", "Filter by status") driving ONE grid, and a
+ * subscriber's `bindTo` names a single channel. Both selectors publish on
+ * `runs-filter`, each contributing its own `param`, and the grid merges the bag.
+ *
+ * Making the channel explicit rather than defaulting to the control's `props.id`
+ * is the point: a select's id is also its form-control id, and overloading it
+ * would silently make every id-bearing select a publisher, with collisions
+ * decided by whichever rendered last.
+ *
+ * ─── PUBLISHED, NOT REQUESTED ──────────────────────────────────────────────
+ *
+ * The publisher emits on the client bus; the subscriber's own `sharedFilter`
+ * decides which keys it merges. So a channel may carry more than any one
+ * subscriber consumes, which is what lets a period channel drive a KPI strip
+ * reading `[from, to]` beside a chart reading `[from, to, granularity]`.
+ *
+ * @example
+ * ```yaml
+ * # Two selects on one channel
+ * - type: select
+ *   props: { id: automation-filter, label: Filter by automation }
+ *   dataSource:
+ *     system: { endpoint: /api/admin/automations, rowsKey: automations }
+ *     valueKey: name
+ *     labelKey: name
+ *   publishes: { bindTo: runs-filter, param: automationName }
+ * - type: select
+ *   props: { id: status-filter, label: Filter by status }
+ *   options: [{ value: completed, label: Success }, { value: failed, label: Failed }]
+ *   publishes: { bindTo: runs-filter, param: status }
+ * # ...and the grid that merges both
+ * - type: table
+ *   dataSource:
+ *     system:
+ *       endpoint: /api/admin/automations/runs
+ *       bindTo: runs-filter
+ *       sharedFilter: {}
+ * ```
+ */
+export const SharedFilterPublisherSchema = Schema.Struct({
+  /**
+   * The shared-filter CHANNEL this control publishes on — the same string a
+   * subscriber's `bindTo` names. Several controls may share one channel, each
+   * contributing its own `param`.
+   */
+  bindTo: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
+      description:
+        "Shared-filter channel id this control publishes on (the string a subscriber's bindTo names)",
+      examples: ['runs-filter', 'period'],
+    })
+  ),
+  /**
+   * The request-param key this control's current value is published under.
+   *
+   * Required, for the reason `labelKey` and `displayField` are: there is no
+   * defensible default. Guessing the control's `props.id` would publish
+   * `?automation-filter=` to an endpoint that reads `?automationName=`, which is
+   * a filter that validates and quietly narrows nothing.
+   */
+  param: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.annotate({
+      description: "Request-param key this control's value is published under",
+      examples: ['automationName', 'status', 'period'],
+    })
+  ),
+}).annotate({
+  identifier: 'SharedFilterPublisher',
+  title: 'Shared Filter Publisher',
+  description:
+    'Marks a choice control as a shared-filter publisher: its current value is published on the named channel under `param`, and every data source whose bindTo names that channel merges it into each request.',
+})
+
+/** @public */
+export type SharedFilterPublisher = Schema.Schema.Type<typeof SharedFilterPublisherSchema>
 
 /**
  * Data Source Schema
@@ -376,9 +521,44 @@ export type SharedFilterBinding = Schema.Schema.Type<typeof SharedFilterBindingS
  * ```
  */
 export const DataSourceSchema = Schema.Struct({
-  /** Table name to query (must exist in app.tables) */
+  /**
+   * Table to query — a declared name, or a `$param.<name>` reference naming a
+   * segment of the host page's `path`.
+   *
+   * A literal name is cross-validated against `app.tables` at config load, on
+   * EVERY component that spreads this schema — `validateTableNameReferences`,
+   * run by the shared decode pipeline, so `validate`, `start` and `build` reach
+   * the same verdict.
+   *
+   * It used to be checked only when that component was a `table`:
+   * `validateDbTableColumns` was the one validator that rejected an unknown
+   * name, and the walker feeding it (`collectDataTableComponents`) filters on
+   * `type === 'table'`. So under a `kpi`, `chart`, `kanban`, `calendar`,
+   * `gallery`, `list`, `timeline`, `container`, `form` or `record-field` an
+   * undeclared name decoded clean and rendered an empty component, while the
+   * generic pass that DOES visit them (`validateComponentFieldReferences`)
+   * skipped it, deferring to a rule that never ran for it. [internal ref]..038
+   * closed that by keying the rule on the SHAPE that binds a table rather than
+   * on the component type carrying it, which is what makes the `description`
+   * below true rather than aspirational.
+   *
+   * A ROUTE
+   * REFERENCE deliberately is not, and cannot be: which table `/records/:table`
+   * binds to is a fact about the request, not about the config, so the only
+   * offline question worth asking is whether the page's own path declares the
+   * segment — which `collectPageBindingViolations` does ask, naming the
+   * reference and the path. At request time a segment naming no declared table
+   * 404s the page rather than rendering an empty grid, because "this table does
+   * not exist" and "this table is empty" must not look the same.
+   *
+   * The reference is what makes ONE page definition a records explorer over
+   * every table an app declares; pair it with `columnsFrom: table` on the grid,
+   * which cannot enumerate columns it will only learn at request time either.
+   */
   table: Schema.String.annotate({
-    description: 'Table name to bind to (validated against app.tables)',
+    description:
+      'Table to bind to: a declared name (validated against app.tables), or a $param.<name> route reference declared by the page path',
+    examples: ['posts', '$param.table'],
   }),
   /** Optional subset of fields to fetch (validated against table schema) */
   fields: Schema.optional(
@@ -461,12 +641,12 @@ export const DataSourceSchema = Schema.Struct({
   bindTo: Schema.optional(
     Schema.String.annotate({
       description:
-        'ID of a publisher component whose value drives this data source (cross-component binding). By default a searchInput whose query string drives the search; when sharedFilter is also set, a shared filter/period selector whose published params are merged into every request',
+        'ID of a publisher component whose value drives this data source (cross-component binding). By default a `search-input` whose query string drives the search; when sharedFilter is also set, a shared filter/period selector whose published params are merged into every request',
     })
   ),
   /**
    * Shared-filter param mapping (companion to `bindTo`). When set, `bindTo`
-   * references a shared filter/period selector (not a searchInput) whose
+   * references a shared filter/period selector (not a `search-input`) whose
    * published params are merged into every request. Inert without `bindTo`.
    */
   sharedFilter: Schema.optional(

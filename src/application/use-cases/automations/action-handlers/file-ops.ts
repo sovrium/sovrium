@@ -8,7 +8,7 @@
 import { Effect } from 'effect'
 import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { mimeByExt, uploadArtifact } from './file-support'
-import { stringProp } from './shared'
+import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
 type Storage = Effect.Success<typeof StorageService>
@@ -64,7 +64,7 @@ export const handleFileList: ActionHandler = (action) =>
       status: 'success',
       output: { files: keys.map((key) => ({ key })) },
     } as const
-  })
+  }).pipe(Effect.withSpan('automations.handle-file-list', { attributes: actionAttributes(action) }))
 
 // ---------------------------------------------------------------------------
 // getMetadata
@@ -80,7 +80,11 @@ export const handleFileGetMetadata: ActionHandler = (action) =>
     if (meta._tag === 'Failure') return softError(`file not found: ${key}`)
 
     return { status: 'success', output: { ...meta.success } } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-file-get-metadata', {
+      attributes: actionAttributes(action),
+    })
+  )
 
 // ---------------------------------------------------------------------------
 // copy / move (download + upload [+ delete])
@@ -156,7 +160,9 @@ export const handleFileDelete: ActionHandler = (action) =>
       return { status: 'failure', error: `file not found: ${key}` } as const
     }
     return { status: 'success', output: { deleted: true, key } } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-file-delete', { attributes: actionAttributes(action) })
+  )
 
 // ---------------------------------------------------------------------------
 // signUrl
@@ -189,4 +195,6 @@ export const handleFileSignUrl: ActionHandler = (action) =>
         expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
       },
     } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-file-sign-url', { attributes: actionAttributes(action) })
+  )

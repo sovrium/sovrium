@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { PermissionValueSchema } from '@/domain/models/shared/permissions'
+import { PermissionValueSchema } from '@/domain/models/app/auth/permissions'
 
 /**
  * AgentPermissionsSchema describes how an agent integrates with the RBAC system

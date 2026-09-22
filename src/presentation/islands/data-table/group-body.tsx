@@ -5,16 +5,23 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Fragment } from 'react'
+import { Fragment, useMemo } from 'react'
+import {
+  TABLE_GROUP_INDENT_PX,
+  computeTableBodyClasses,
+  computeTableGroupCellClasses,
+  computeTableGroupRowClasses,
+} from '@/presentation/design/table-default-classes'
+import { AddRow, type AddRowConfig } from './add-row'
 import { DataRow, type DataRowContext } from './data-row'
 import { buildGroupTree, groupPathKey, type GroupLevel, type GroupNode } from './group-order'
 import { buildGroupSummaryLayout } from './group-summary'
 import { GroupSummaryCells, GroupSummaryLeadingCells } from './group-summary-cells'
+import { rowIdOf } from './row-identity'
 import type { GroupSummaryContext, GroupSummaryLayout } from './group-summary'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
-import type { TableRecord } from '../shared/types'
-import type { DataTableGroupBy } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
-import type { ColumnDef, Row } from '@tanstack/react-table'
+import type { DataTableColumnDef, DataTableRow } from './island/table-features'
+import type { DataTableGroupBy } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { ReactElement } from 'react'
 
 /**
@@ -45,25 +52,36 @@ function resolveGroupLevels(
 }
 
 /**
- * One spacer per level above this one, so a sub-group reads as sitting inside
- * its parent.
+ * The spacer that sets a sub-group's label inside its parent's.
  *
- * Repeating ONE utility rather than scaling a per-level class keeps the indent
- * working off the already-compiled set: a `pl-14` no other module names renders
- * as no indent at all until the CSS corpus is regenerated, and depth is a poor
- * thing to make depend on that.
+ * ONE span carrying an inline `paddingLeft`, where this used to repeat an
+ * already-compiled `pl-8` once per level. The repetition was a correct
+ * workaround for a real constraint — a per-level utility cannot be enumerated
+ * by a SCAN-FREE compiler, so a `pl-14` no other module names emits no rule and
+ * renders as no indent at all — but it spends 32px a level where the design
+ * spends 14, so a three-deep grouping pushed its labels 64px off the edge. An
+ * inline style sidesteps the compiler entirely and can carry any number.
+ *
+ * ## `level - 1`, because the two counts start from different places
+ * `node.level` is ONE-based — it is the number `data-group-level` exposes, and
+ * the one `levels[node.level - 1]` indexes the declared grouping with — while
+ * an indent is a DEPTH: a top-level group is nested inside nothing and owes no
+ * inset at all. Spending `level * 14` gave every top-level group header a 14px
+ * indent it had not earned (measured live) and pushed each nested level one
+ * step further out than the design places it. The subtraction is CLAMPED
+ * rather than trusted: nothing renders a level 0 today, and a negative padding
+ * would silently pull a label back out of its own cell.
  */
 function GroupIndent({ level }: { readonly level: number }): ReactElement {
+  const style = useMemo(
+    () => ({ paddingLeft: Math.max(0, level - 1) * TABLE_GROUP_INDENT_PX }),
+    [level]
+  )
   return (
-    <>
-      {Array.from({ length: level - 1 }, (_, depth) => (
-        <span
-          key={`indent-${String(depth)}`}
-          aria-hidden="true"
-          className="pl-8"
-        />
-      ))}
-    </>
+    <span
+      aria-hidden="true"
+      style={style}
+    />
   )
 }
 
@@ -87,8 +105,7 @@ function isGroupCollapsed(
 
 /** Everything every group in the tree draws against — constant for one render. */
 interface GroupRenderContext {
-  readonly allColumns: readonly ColumnDef<TableRecord>[]
-  readonly cellClass: string
+  readonly allColumns: readonly DataTableColumnDef[]
   readonly borderClass: string
   readonly ctx: DataRowContext
   readonly levels: readonly GroupLevel[]
@@ -99,6 +116,28 @@ interface GroupRenderContext {
     readonly layout: GroupSummaryLayout
     readonly context: GroupSummaryContext
   }
+  /** The trailing add-row's wiring, drawn once per LEAF group. */
+  readonly addRow?: AddRowConfig
+}
+
+/**
+ * What a group's PLACE already says about a record created inside it: every
+ * level's value down the path, so a row added under `prospect` is born with
+ * `stage: 'prospect'` without the reader typing it — the way a grouped add in
+ * a spreadsheet prefills the group.
+ *
+ * The leaf's own level carries the raw value; the ancestors' values are only
+ * known stringified, which is what the path holds.
+ */
+function groupPrefill(node: GroupNode, levels: readonly GroupLevel[]): Record<string, unknown> {
+  return Object.fromEntries(
+    levels
+      .slice(0, node.level)
+      .map((level, index) => [
+        level.field,
+        index === node.level - 1 ? node.rawValue : node.path[index],
+      ])
+  )
 }
 
 /**
@@ -122,7 +161,7 @@ function GroupHeaderRow({
   readonly isCollapsed: boolean
 }): ReactElement {
   const pathKey = groupPathKey(node.path)
-  const { summary, cellClass, borderClass, onToggle } = shared
+  const { summary, borderClass, onToggle } = shared
   const handleToggle = onToggle ? () => onToggle(pathKey) : undefined
   return (
     <tr
@@ -137,11 +176,11 @@ function GroupHeaderRow({
       data-group-level={String(node.level)}
       role="row"
       aria-expanded={!isCollapsed}
-      className="group-header bg-background-subtle"
+      className={`group-header ${computeTableGroupRowClasses()}`}
     >
       <td
         colSpan={summary ? summary.layout.leadSpan : shared.allColumns.length}
-        className={`${cellClass} ${borderClass} text-foreground cursor-pointer font-medium`}
+        className={`${computeTableGroupCellClasses()} ${borderClass}`}
         {...(handleToggle && { onClick: handleToggle })}
       >
         <GroupIndent level={node.level} />
@@ -165,7 +204,6 @@ function GroupHeaderRow({
           layout={summary.layout}
           context={summary.context}
           groupKey={pathKey}
-          cellClass={cellClass}
           borderClass={borderClass}
         />
       )}
@@ -205,7 +243,7 @@ function GroupNodes({
               data-group-path={pathKey}
               data-group-level={String(node.level)}
               data-testid={`group-${node.value}`}
-              className="divide-border bg-background-raised divide-y"
+              className={computeTableBodyClasses()}
             >
               <GroupHeaderRow
                 node={node}
@@ -215,12 +253,21 @@ function GroupNodes({
               {!collapsed &&
                 node.dataRows.map((row, rowIndex) => (
                   <DataRow
-                    key={row.id}
+                    key={rowIdOf(row)}
                     row={row}
                     rowIndex={rowIndex}
                     ctx={shared.ctx}
                   />
                 ))}
+              {/* One trailing row per LEAF group, born with the group's value.
+                  A parent holds only its header here — its records live in the
+                  sibling bodies below — so it gets none. */}
+              {!collapsed && shared.addRow && node.children.length === 0 && (
+                <AddRow
+                  config={shared.addRow}
+                  prefill={groupPrefill(node, shared.levels)}
+                />
+              )}
             </tbody>
             {!collapsed && node.children.length > 0 && (
               <GroupNodes
@@ -250,7 +297,6 @@ function GroupNodes({
 export function GroupedTableBodyRows({
   rows,
   allColumns,
-  cellClass,
   borderClass,
   ctx,
   groupBy,
@@ -259,10 +305,10 @@ export function GroupedTableBodyRows({
   groupCounts,
   fieldMeta,
   groupSummary,
+  addRow,
 }: {
-  readonly rows: readonly Row<TableRecord>[]
-  readonly allColumns: readonly ColumnDef<TableRecord>[]
-  readonly cellClass: string
+  readonly rows: readonly DataTableRow[]
+  readonly allColumns: readonly DataTableColumnDef[]
   readonly borderClass: string
   readonly ctx: DataRowContext
   readonly groupBy: DataTableGroupBy
@@ -271,6 +317,7 @@ export function GroupedTableBodyRows({
   readonly groupCounts?: Readonly<Record<string, number>>
   readonly fieldMeta?: FieldMetaMap
   readonly groupSummary?: GroupSummaryContext
+  readonly addRow?: AddRowConfig
 }): ReactElement {
   const levels = resolveGroupLevels(groupBy, fieldMeta)
   // Computed once for the whole grid: the layout depends only on the declared
@@ -282,7 +329,6 @@ export function GroupedTableBodyRows({
   // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- a render-scoped bag whose own members (notably `ctx`) are rebuilt by the caller every render, so memoizing this would keep no reference stable
   const shared: GroupRenderContext = {
     allColumns,
-    cellClass,
     borderClass,
     ctx,
     levels,
@@ -290,6 +336,7 @@ export function GroupedTableBodyRows({
     ...(onToggleGroupCollapsed && { onToggle: onToggleGroupCollapsed }),
     ...(groupCounts && { groupCounts }),
     ...(layout && groupSummary && { summary: { layout, context: groupSummary } }),
+    ...(addRow && { addRow }),
   }
   return (
     <GroupNodes

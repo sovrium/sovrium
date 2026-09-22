@@ -39,7 +39,7 @@ import {
   resolveEffectiveLowDataDefault,
   resolveLowDataMode,
   type LowDataSignals,
-} from '@/domain/models/env/eco/eco-low-data-default'
+} from '@/domain/models/process-env/eco/eco-low-data-default'
 import type { Context, MiddlewareHandler, Next } from 'hono'
 
 const LOW_DATA_COOKIE_NAME = 'sovrium_low_data'
@@ -174,7 +174,6 @@ function injectFullVariantSentinel(html: string): string {
 
 // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context is mutable by library design
 async function handleLowDataResponse(c: Context, next: Next): Promise<void> {
-  // eslint-disable-next-line functional/no-expression-statements -- middleware contract
   await next()
 
   // EFFECTIVE posture, not the raw `ECO_LOW_DATA_DEFAULT` parse: `ECO_MODE`

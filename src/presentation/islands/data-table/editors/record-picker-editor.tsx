@@ -6,9 +6,11 @@
  */
 
 import { useCallback } from 'react'
+import { createRelatedRecord, fetchCandidatePage } from '../../parts/record-candidates'
+import { RECORD_PICKER_COPY } from '../../runtime/picker-contract'
 import { editMetaOf, type CellEditorProps } from './editor-contract'
 import { FetchingPicker } from './fetching-picker'
-import type { ListboxCandidate } from './option-listbox'
+import type { CandidatePage } from '../../parts/use-candidate-search'
 import type { ReactElement } from 'react'
 
 /**
@@ -26,6 +28,11 @@ import type { ReactElement } from 'react'
  * declared column is predictable and auditable. When `displayField` is absent
  * the picker offers ids and says so, rather than guessing a column.
  *
+ * The candidate query, the row→candidate mapping and the inline create all live
+ * in `shared/record-candidates.ts` rather than here, because the FORM renders a
+ * picker for the same column and the two had drifted to the point where only
+ * one of them was a picker at all.
+ *
  * `limitToView` does not participate. It is also dead, and waking it means
  * resolving a named view with its filters and sort at query time — a larger
  * feature with its own permission surface. It stays tracked.
@@ -34,69 +41,71 @@ import type { ReactElement } from 'react'
  * rather than a column, so there is nothing on this record to write.
  */
 
-/** Server-side page size for candidates. A picker is a shortlist, not a table. */
-const CANDIDATE_LIMIT = 20
-
-interface RecordRow {
-  readonly id?: unknown
-  readonly fields?: Readonly<Record<string, unknown>>
-  readonly [key: string]: unknown
-}
-
-function buildCandidatesUrl(relatedTable: string, displayField: string | undefined, term: string) {
-  const params = new URLSearchParams({ limit: String(CANDIDATE_LIMIT), sort: 'id:asc' })
-  if (displayField && term.trim() !== '') {
-    params.set(
-      'filter',
-      JSON.stringify({ and: [{ field: displayField, operator: 'contains', value: term.trim() }] })
-    )
+/**
+ * The picker's own copy, derived from what the field declares.
+ *
+ * Pulled out of the component so its branches count against a helper rather
+ * than against the render, which is what `complexity` is protecting.
+ */
+function pickerLabels(args: {
+  readonly relatedTable: string | undefined
+  readonly displayField: string | undefined
+  readonly fieldName: string | undefined
+}) {
+  const { relatedTable, displayField, fieldName } = args
+  return {
+    sourceKey: `${relatedTable ?? ''}:${displayField ?? ''}`,
+    searchLabel: `Search ${relatedTable ?? 'records'}`,
+    searchPlaceholder: displayField ? `Search by ${displayField}` : 'Search by id',
+    listLabel: fieldName ?? 'Linked records',
   }
-  return `/api/tables/${encodeURIComponent(relatedTable)}/records?${params.toString()}`
-}
-
-function rowToCandidate(row: RecordRow, displayField: string | undefined): ListboxCandidate {
-  const flat = { ...row, ...(row.fields ?? {}) }
-  const key = String(flat.id ?? '')
-  const label = displayField ? flat[displayField] : undefined
-  // A row whose display column is empty still has to be pickable, and the key is
-  // the only thing left that identifies it.
-  return { value: key, label: label === undefined || label === null ? key : String(label) }
 }
 
 export function RecordPickerEditor(props: CellEditorProps): ReactElement {
-  const { relatedTable, displayField, allowMultiple } = editMetaOf(props.fieldMeta)
+  const { relatedTable, displayField, allowMultiple, allowCreate, maxLinked, canCreateRelated } =
+    editMetaOf(props.fieldMeta)
 
   const fetchCandidates = useCallback(
-    async (term: string, signal: AbortSignal): Promise<readonly ListboxCandidate[]> => {
-      if (!relatedTable) return []
-      const res = await fetch(buildCandidatesUrl(relatedTable, displayField, term), {
-        signal,
-        credentials: 'include',
-      })
-      if (!res.ok) {
-        // eslint-disable-next-line functional/no-throw-statements -- The search hook reports a failed load distinctly from an empty one.
-        throw new Error(`Failed to load ${relatedTable} candidates: ${res.status}`)
-      }
-      const body = (await res.json()) as { records?: readonly RecordRow[] }
-      return (body.records ?? []).map((row) => rowToCandidate(row, displayField))
-    },
+    async (term: string, page: number, signal: AbortSignal): Promise<CandidatePage> =>
+      relatedTable
+        ? fetchCandidatePage({ relatedTable, displayField, term, page, signal })
+        : { candidates: [], hasMore: false },
     [relatedTable, displayField]
   )
+
+  const createFromTerm = useCallback(
+    async (term: string) =>
+      relatedTable
+        ? createRelatedRecord({ relatedTable, displayField, term })
+        : ({ ok: false, message: 'This field declares no related table' } as const),
+    [relatedTable, displayField]
+  )
+
+  // BOTH halves must hold. `allowCreate` is what the AUTHOR declared;
+  // `canCreateRelated` is what this CALLER may do, resolved server-side where
+  // the session role is known. `undefined` on the second means auth is not
+  // configured, which is the full-access model — the same absent-value default
+  // the grid toolbar's own create gate uses.
+  const offersCreate =
+    allowCreate === true && canCreateRelated !== false && relatedTable !== undefined
+
+  const optional = {
+    ...(offersCreate && { createFromTerm }),
+    ...(maxLinked !== undefined && { maxLinked }),
+    ...(relatedTable === undefined && {
+      unconfiguredLabel: RECORD_PICKER_COPY.unconfigured,
+    }),
+  }
 
   return (
     <FetchingPicker
       {...props}
       fetchCandidates={fetchCandidates}
-      sourceKey={`${relatedTable ?? ''}:${displayField ?? ''}`}
       allowMultiple={allowMultiple === true}
-      searchLabel={`Search ${relatedTable ?? 'records'}`}
-      searchPlaceholder={displayField ? `Search by ${displayField}` : 'Search by id'}
-      listLabel={props.fieldName ?? 'Linked records'}
-      emptyLabel="No matching records"
-      failedLabel="Could not load records"
-      {...(relatedTable === undefined && {
-        unconfiguredLabel: 'This field declares no related table',
-      })}
+      emptyLabel={RECORD_PICKER_COPY.empty}
+      failedLabel={RECORD_PICKER_COPY.failed}
+      {...pickerLabels({ relatedTable, displayField, fieldName: props.fieldName })}
+      {...optional}
     />
   )
 }

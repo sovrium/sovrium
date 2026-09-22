@@ -61,6 +61,7 @@ import {
   type LinkUtmPatch,
   type LinkValueRejectedError,
 } from '@/application/use-cases/links'
+import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type {
   LinkDbError,
@@ -225,7 +226,9 @@ export const handleLinkCreate: ActionHandler = (action, app) =>
       status: 'success',
       output: { slug: result.success.slug, destination, ...addresses(origin, result.success.slug) },
     } as const satisfies ActionOutcome
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-link-create', { attributes: actionAttributes(action) })
+  )
 
 /** `link/update` — apply a sparse edit; every prop left out is left alone. */
 export const handleLinkUpdate: ActionHandler = (action, app) =>
@@ -261,7 +264,9 @@ export const handleLinkUpdate: ActionHandler = (action, app) =>
         ...addresses(origin, result.success.slug),
       },
     } as const satisfies ActionOutcome
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-link-update', { attributes: actionAttributes(action) })
+  )
 
 /**
  * `link/delete` — retire a link without erasing it.
@@ -286,4 +291,6 @@ export const handleLinkDelete: ActionHandler = (action, app) =>
       status: 'success',
       output: { slug, changed: result.success.changed },
     } as const satisfies ActionOutcome
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-link-delete', { attributes: actionAttributes(action) })
+  )

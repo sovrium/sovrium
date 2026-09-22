@@ -16,7 +16,7 @@ import { extractTextFromBytes, type ExtractTextFormat } from './file-extract'
 import { renderHtmlToPdf } from './file-pdf'
 import { extOf, mimeByExt, tempKey, uploadArtifact } from './file-support'
 import { buildStoredZip } from './file-zip'
-import { numberProp, stringProp } from './shared'
+import { actionAttributes, numberProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
 /**
@@ -92,7 +92,9 @@ export const handleFileCompress: ActionHandler = (action) =>
       status: 'success',
       output: destination ? { ...base, path: destination } : { ...base, temporary: true },
     } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-file-compress', { attributes: actionAttributes(action) })
+  )
 
 // ---------------------------------------------------------------------------
 // extractText
@@ -126,7 +128,11 @@ export const handleFileExtractText: ActionHandler = (action) =>
         pageCount: extracted.pageCount,
       },
     } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-file-extract-text', {
+      attributes: actionAttributes(action),
+    })
+  )
 
 // ---------------------------------------------------------------------------
 // transformImage
@@ -256,7 +262,11 @@ export const handleFileTransformImage: ActionHandler = (action) =>
         byteSize: result.bytes.length,
       }),
     } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-file-transform-image', {
+      attributes: actionAttributes(action),
+    })
+  )
 
 // ---------------------------------------------------------------------------
 // generatePdf
@@ -282,4 +292,8 @@ export const handleFileGeneratePdf: ActionHandler = (action) =>
       status: 'success',
       output: destination ? { ...base, path: destination } : { ...base, temporary: true },
     } as const
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-file-generate-pdf', {
+      attributes: actionAttributes(action),
+    })
+  )

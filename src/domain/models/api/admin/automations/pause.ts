@@ -25,26 +25,31 @@
  * does not write `automations[].enabled`.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * The operator-visible state of one automation.
  *
  * MUST stay identical to the domain type `AutomationOperationalState`
- * (`@/domain/utils/automation-operational-state`), which is the same value the
+ * (`@/domain/models/app/automations/automation-operational-state`), which is the same value the
  * twelve-gate predicate derives its verdict from. The console's Pause/Resume
  * row actions gate on this field via `visibleWhen`, so a fourth value added
  * here without a matching `visibleWhen` clause would render a row with no
  * controls at all.
  */
-export const automationOperationalStateSchema = z
-  .enum(['active', 'paused', 'disabled'])
-  .describe(
-    "Operator-visible state. 'active' runs normally; 'paused' is an operational pause held in system.automation_pauses and clearable from the console; 'disabled' is enabled:false in the app config and can only be changed by editing config."
-  )
+export const automationOperationalStateSchema = Schema.Literals([
+  'active',
+  'paused',
+  'disabled',
+]).annotate({
+  description:
+    "Operator-visible state. 'active' runs normally; 'paused' is an operational pause held in system.automation_pauses and clearable from the console; 'disabled' is enabled:false in the app config and can only be changed by editing config.",
+})
 
 /** @public */
-export type AutomationOperationalStateResponse = z.infer<typeof automationOperationalStateSchema>
+export type AutomationOperationalStateResponse = typeof automationOperationalStateSchema.Type
 
 /**
  * One row of the automations catalog.
@@ -58,51 +63,52 @@ export type AutomationOperationalStateResponse = z.infer<typeof automationOperat
  * sheds the identifier while the pause itself survives (GDPR Art. 17). A pause
  * whose author was erased renders with an unknown actor, never as un-paused.
  */
-export const automationCatalogItemSchema = z
-  .object({
-    name: z.string().describe('The config automation name (kebab-case) — the stable identity'),
-    label: z.string().optional().describe('Human-readable label from config, when set'),
-    trigger: z
-      .string()
-      .describe("Trigger type discriminator, e.g. 'webhook', 'cron', 'record', 'form'"),
-    state: automationOperationalStateSchema,
-    pausedBy: z
-      .string()
-      .nullable()
-      .optional()
-      .describe(
-        'Display name of the operator who paused it. Null when that account has since been deleted. Absent unless state is paused.'
-      ),
-    pausedAt: z
-      .string()
-      .datetime()
-      .optional()
-      .describe('ISO 8601 timestamp of the pause. Absent unless state is paused.'),
-  })
-  .openapi('AutomationCatalogItem')
+export const automationCatalogItemSchema = Schema.Struct({
+  name: Schema.String.annotate({
+    description: 'The config automation name (kebab-case) — the stable identity',
+  }),
+  label: optionalField(
+    Schema.String.annotate({ description: 'Human-readable label from config, when set' })
+  ),
+  trigger: Schema.String.annotate({
+    description: "Trigger type discriminator, e.g. 'webhook', 'cron', 'record', 'form'",
+  }),
+  state: automationOperationalStateSchema,
+  pausedBy: optionalField(
+    Schema.NullOr(
+      Schema.String.annotate({
+        description:
+          'Display name of the operator who paused it. Null when that account has since been deleted. Absent unless state is paused.',
+      })
+    )
+  ),
+  pausedAt: optionalField(
+    looseIsoDateTime({
+      description: 'ISO 8601 timestamp of the pause. Absent unless state is paused.',
+    })
+  ),
+}).annotate({ identifier: 'AutomationCatalogItem' })
 
 /** @public */
-export type AutomationCatalogItem = z.infer<typeof automationCatalogItemSchema>
+export type AutomationCatalogItem = typeof automationCatalogItemSchema.Type
 
 /**
  * `GET /api/admin/automations` response.
  *
- * `items` (not a bare array) because the console's `data-table` binds via
+ * `items` (not a bare array) because the console's `table` binds via
  * `dataSource.system` with `rowsKey: 'items'`, matching every sibling admin
  * list endpoint. Uncursored by design: the catalog enumerates CONFIG, which is
  * bounded by the app file — unlike run history, it cannot grow unboundedly at
  * runtime.
  */
-export const automationsCatalogResponseSchema = z
-  .object({
-    items: z
-      .array(automationCatalogItemSchema)
-      .describe('Every automation declared in config, in config order'),
-  })
-  .openapi('AutomationsCatalogResponse')
+export const automationsCatalogResponseSchema = Schema.Struct({
+  items: Schema.Array(automationCatalogItemSchema).annotate({
+    description: 'Every automation declared in config, in config order',
+  }),
+}).annotate({ identifier: 'AutomationsCatalogResponse' })
 
 /** @public */
-export type AutomationsCatalogResponse = z.infer<typeof automationsCatalogResponseSchema>
+export type AutomationsCatalogResponse = typeof automationsCatalogResponseSchema.Type
 
 /**
  * Path parameters for the pause/resume mutations.
@@ -112,14 +118,14 @@ export type AutomationsCatalogResponse = z.infer<typeof automationsCatalogRespon
  * run has no id to address, and pausing exactly such an automation (one that
  * is about to misbehave) is the primary incident use case.
  */
-export const automationPauseParamsSchema = z
-  .object({
-    name: z.string().min(1).describe('The config automation name'),
-  })
-  .openapi('AutomationPauseParams')
+export const automationPauseParamsSchema = Schema.Struct({
+  name: Schema.String.annotate({ description: 'The config automation name' }).pipe(
+    Schema.check(Schema.isMinLength(1))
+  ),
+}).annotate({ identifier: 'AutomationPauseParams' })
 
 /** @public */
-export type AutomationPauseParams = z.infer<typeof automationPauseParamsSchema>
+export type AutomationPauseParams = typeof automationPauseParamsSchema.Type
 
 /**
  * `POST /api/admin/automations/:name/{pause,resume}` success response.
@@ -140,14 +146,14 @@ export type AutomationPauseParams = z.infer<typeof automationPauseParamsSchema>
  *     precisely that: understood, addressed to a real resource, incoherent
  *     with its current state.
  */
-export const automationPauseResponseSchema = z
-  .object({
-    name: z.string().describe('The config automation name'),
-    state: automationOperationalStateSchema,
-    pausedBy: z.string().nullable().optional().describe('Absent unless state is paused'),
-    pausedAt: z.string().datetime().optional().describe('Absent unless state is paused'),
-  })
-  .openapi('AutomationPauseResponse')
+export const automationPauseResponseSchema = Schema.Struct({
+  name: Schema.String.annotate({ description: 'The config automation name' }),
+  state: automationOperationalStateSchema,
+  pausedBy: optionalField(
+    Schema.NullOr(Schema.String.annotate({ description: 'Absent unless state is paused' }))
+  ),
+  pausedAt: optionalField(looseIsoDateTime({ description: 'Absent unless state is paused' })),
+}).annotate({ identifier: 'AutomationPauseResponse' })
 
 /** @public */
-export type AutomationPauseResponse = z.infer<typeof automationPauseResponseSchema>
+export type AutomationPauseResponse = typeof automationPauseResponseSchema.Type

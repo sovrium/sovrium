@@ -15,11 +15,12 @@ import {
 } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspection'
+import { withTransaction } from '@/infrastructure/database/transaction'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
 import { buildUpdateSetClauseCRUD } from '../mutation-helpers/update-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
-import { validateTableName, validateColumnName } from '../shared/validation'
-import { BatchValidationError, runEffectInTx, createSingleRecord } from './batch-helpers'
+import { validateTableName, validateColumnName } from '../statement/validation'
+import { BatchValidationError, createSingleRecord } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -345,22 +346,20 @@ export function upsertRecords(
     yield* validateMergeFieldsPresent(recordsData, fieldsToMergeOn)
 
     // Execute upsert in a transaction
-    const result = yield* Effect.tryPromise({
-      try: () =>
-        db.transaction(async (tx) => {
-          // eslint-disable-next-line functional/no-expression-statements -- Required for transaction validation
-          await runEffectInTx(validateAllRecordsHaveRequiredFields(tx, tableName, recordsData))
+    const result = yield* withTransaction(
+      db,
+      (tx) =>
+        Effect.gen(function* () {
+          yield* validateAllRecordsHaveRequiredFields(tx, tableName, recordsData)
 
-          return await runEffectInTx(
-            Effect.reduce(
-              recordsData,
-              () => ({ records: [], created: 0, updated: 0 }) as UpsertResult,
-              (acc, fields) =>
-                processSingleUpsert(tx, { session, tableName, fields, fieldsToMergeOn, acc })
-            )
+          return yield* Effect.reduce(
+            recordsData,
+            () => ({ records: [], created: 0, updated: 0 }) as UpsertResult,
+            (acc, fields) =>
+              processSingleUpsert(tx, { session, tableName, fields, fieldsToMergeOn, acc })
           )
         }),
-      catch: (error) => {
+      (error) => {
         if (error instanceof DatabaseError) return error
         // A constraint rejection from the create branch arrives typed, carrying
         // the client-safe wording from `CONSTRAINT_MESSAGES`. It used to fall
@@ -376,8 +375,8 @@ export function upsertRecords(
           return new DatabaseError(error.message, error)
         }
         return new DatabaseError(`Failed to upsert records in ${tableName}`, error)
-      },
-    })
+      }
+    )
 
     return result
   })

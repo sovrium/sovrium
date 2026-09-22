@@ -125,7 +125,7 @@ export const NUMBER_HELPERS = [
  *
  * ## Format tokens — a CLOSED set
  *
- * The vocabulary is defined once, in `src/domain/services/date-tokens.ts`, and
+ * The vocabulary is defined once, in `src/domain/kernel/format/date-tokens.ts`, and
  * is deliberately CLOSED: an unrecognised letter outside a quoted literal is a
  * failure, never a silent pass-through. Implying a full date-library
  * vocabulary would oblige us to deliver all of it.

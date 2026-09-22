@@ -71,7 +71,3 @@ export const automationDigestItems = systemTable(
 )
 
 // Type inference
-export type AutomationDigestBucket = typeof automationDigestBuckets.$inferSelect
-export type NewAutomationDigestBucket = typeof automationDigestBuckets.$inferInsert
-export type AutomationDigestItem = typeof automationDigestItems.$inferSelect
-export type NewAutomationDigestItem = typeof automationDigestItems.$inferInsert

@@ -23,11 +23,19 @@
  *   - a 30-events/minute token bucket caps the outbound rate;
  *   - an HTTP 429 `Retry-After` mutes reporting for the advised window.
  *
- * Module-scoped mutable state (single-process deployments) mirrors
- * `infrastructure/forms/form-rate-limiter.ts`.
+ * Any OTHER non-2xx is not backpressure but a delivery failure, and is WARNed
+ * about (once per `url:status` per dedup window) with an excerpt of the
+ * receiver's response body — see `sendEnvelope`.
+ *
+ * Module-scoped mutable state (single-process deployments). The token bucket
+ * composes the shared `createSlidingWindowLimiter()` primitive, as
+ * `infrastructure/forms/form-rate-limiter.ts` does; the dedup guards do not,
+ * because they answer "seen recently?" rather than "how many in the window".
  */
 
 import { hostname } from 'node:os'
+import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
+import { emitLog } from './observability-runtime'
 import {
   buildAuthHeader,
   buildEnvelope,
@@ -37,14 +45,18 @@ import {
   type RequestContext,
   type SentryEvent,
   type SentryTransaction,
+  type TransactionInput,
 } from './sentry-envelope'
 import { getTelemetryConfig } from './telemetry-config'
-import type { SentryDsn } from '@/domain/models/env/telemetry/sentry-dsn'
+import type { SentryDsn } from '@/domain/models/process-env/telemetry/sentry-dsn'
+import type { SlidingWindowConfig } from '@/infrastructure/process/sliding-window-limiter'
 
 const RATE_LIMIT = 30
 const RATE_WINDOW_MS = 60_000
 const POST_TIMEOUT_MS = 3000
 const FLUSH_CAP_MS = 2000
+/** How much of a refusing receiver's response body travels into the WARN line. */
+const BODY_EXCERPT_LIMIT = 200
 
 /**
  * Fingerprint dedup window — how long an identical `name:message:first-frame`
@@ -77,8 +89,23 @@ const muteState = new Map<'until', number>()
 const reportedObjects = new WeakMap<object, number>()
 /** Fingerprint → last-report ms, for the `DEDUP_WINDOW_MS` dedup window. */
 const fingerprintSeen = new Map<string, number>()
-/** Sliding-window report timestamps for the 30/min token bucket. */
-const rateWindow = new Map<'all', ReadonlyArray<number>>()
+/**
+ * Report budget for the 30/min sliding window, on the shared limiter.
+ *
+ * One global bucket, so the key is a constant: this caps what the process as
+ * a whole ships to the collector, deliberately unlike the per-caller limiters
+ * elsewhere. The two dedup guards above stay bespoke — they hold ONE timestamp
+ * per key and answer "seen recently?", with no count and no ceiling, which is
+ * a different question from "how many in the window".
+ */
+const reportBudget = createSlidingWindowLimiter()
+const REPORT_BUDGET_KEY = 'all'
+const REPORT_BUDGET: SlidingWindowConfig = {
+  windowMs: RATE_WINDOW_MS,
+  maxRequests: RATE_LIMIT,
+}
+/** `url:status` → last-warned ms, so a refusing collector is warned about once. */
+const deliveryFailureSeen = new Map<string, number>()
 
 /**
  * Provide the reporter with its release/environment/server_name. Called once
@@ -126,20 +153,27 @@ export const reportException = (error: unknown, request?: RequestContext): Promi
   }
 }
 
+/** What the caller knows about a finished request, minus the reporter's own metadata. */
+export type ReportTransactionInput = Omit<TransactionInput, 'meta'>
+
 /**
  * Report a completed HTTP request as a Sentry performance transaction
  * (fire-and-forget). Shares the DSN ingest path with errors, so it is a no-op
  * unless error reporting is enabled. Sampling is the caller's responsibility —
  * this always emits when called (respecting only the 429 mute).
+ *
+ * The input is an options object rather than positional arguments because it
+ * grew from four values to nine; `meta` is supplied here, since the release and
+ * environment are the reporter's business and not the middleware's.
  */
-export const reportTransaction = (name: string, startMs: number, endMs: number): void => {
+export const reportTransaction = (input: ReportTransactionInput): void => {
   try {
     const { errorReporting } = getTelemetryConfig()
     if (errorReporting === undefined) return
     if (isMuted(Date.now())) return
 
     const meta = resolveMeta(errorReporting.environment)
-    const transaction = buildTransaction(name, startMs, endMs, meta)
+    const transaction = buildTransaction({ ...input, meta })
     // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget transaction POST
     void emitEnvelope(errorReporting.dsn, meta.release, 'transaction', transaction)
   } catch {
@@ -187,14 +221,9 @@ const isDuplicateFingerprint = (error: unknown, now: number): boolean => {
 }
 
 const allowByRate = (now: number): boolean => {
-  const pruned = (rateWindow.get('all') ?? []).filter((t) => now - t < RATE_WINDOW_MS)
-  if (pruned.length >= RATE_LIMIT) {
-    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- persist pruned window
-    rateWindow.set('all', pruned)
-    return false
-  }
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- record report timestamp
-  rateWindow.set('all', [...pruned, now])
+  if (reportBudget.isExceeded(REPORT_BUDGET_KEY, REPORT_BUDGET, now)) return false
+  // eslint-disable-next-line functional/no-expression-statements -- record against the shared limiter's mutable store
+  reportBudget.record(REPORT_BUDGET_KEY, REPORT_BUDGET, now)
   return true
 }
 
@@ -233,12 +262,52 @@ const emitEnvelope = (
 }
 
 /**
- * POST an envelope, never throwing. Honors HTTP 429 by muting further reports
- * for the advised `Retry-After` window (default 60 s).
+ * The one capability the send path needs from `fetch`, declared structurally
+ * rather than as `typeof fetch`: the global type carries runtime-specific extras
+ * (Bun adds `preconnect`) that a test stub has no business implementing.
  */
-const sendEnvelope = async (url: string, body: string, authHeader: string): Promise<void> => {
+export type FetchLike = (input: string, init?: Readonly<RequestInit>) => Promise<Response>
+
+/** Injectable seams so delivery-failure reporting is testable without a network. */
+export interface EnvelopeSendDeps {
+  readonly fetchImpl: FetchLike
+  readonly log: (message: string) => void
+  readonly now: () => number
+}
+
+const defaultSendDeps: EnvelopeSendDeps = {
+  fetchImpl: fetch,
+  // `emitLog`, deliberately — NOT `reportException`. Reporting a failure to
+  // report would recurse straight back into this function.
+  log: (message) => emitLog('warn', message),
+  now: () => Date.now(),
+}
+
+/**
+ * POST an envelope, never throwing. Honors HTTP 429 by muting further reports
+ * for the advised `Retry-After` window (default 60 s), and WARNS on any other
+ * non-2xx.
+ *
+ * That warning is the whole point of the second branch. This function used to
+ * inspect `response.status` for 429 and nothing else, so a 400 (a payload the
+ * receiver's schema rejects), a 401 (a stale key) or a 413 (an envelope over the
+ * size cap) discarded the event with no signal on any surface. Combined with the
+ * empty-backend ambiguity — no data looks the same as no traffic — that is how
+ * error reporting can be broken for weeks while every gate stays green. The
+ * response body carries the receiver's own validation error, which is the single
+ * most useful diagnostic available, so an excerpt of it travels with the status.
+ *
+ * Exported for its unit test: the delivery-failure branch is only reachable
+ * through an injected `fetch`.
+ */
+export const sendEnvelope = async (
+  url: string,
+  body: string,
+  authHeader: string,
+  deps: EnvelopeSendDeps = defaultSendDeps
+): Promise<void> => {
   try {
-    const response = await fetch(url, {
+    const response = await deps.fetchImpl(url, {
       method: 'POST',
       headers: {
         'content-type': 'application/x-sentry-envelope',
@@ -250,10 +319,49 @@ const sendEnvelope = async (url: string, body: string, authHeader: string): Prom
     if (response.status === 429) {
       const retryAfter = Number(response.headers.get('retry-after')) || 60
       // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- 429 backoff
-      muteState.set('until', Date.now() + retryAfter * 1000)
+      muteState.set('until', deps.now() + retryAfter * 1000)
+      return
+    }
+    if (!response.ok) {
+      await warnDeliveryRefused(url, response, deps)
     }
   } catch {
     // Never throw — a dead/slow collector must not break the observed request.
+  }
+}
+
+/**
+ * WARN once per `(url, status)` per dedup window. A collector refusing one
+ * envelope is refusing all of them, so an un-deduplicated warning would out-shout
+ * the errors it is trying to make visible. Same clock as the fingerprint window,
+ * for the same reason: one backpressure story, not two.
+ */
+const warnDeliveryRefused = async (
+  url: string,
+  response: Response,
+  deps: EnvelopeSendDeps
+): Promise<void> => {
+  const key = `${url}:${response.status}`
+  const now = deps.now()
+  const last = deliveryFailureSeen.get(key)
+  if (last !== undefined && now - last < DEDUP_WINDOW_MS) return
+  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- dedup window
+  deliveryFailureSeen.set(key, now)
+
+  const excerpt = await readBodyExcerpt(response)
+  const detail = excerpt === '' ? '' : ` Response: ${excerpt}`
+  deps.log(
+    `Error reporting was refused by ${url} (HTTP ${response.status}) — the event was ` +
+      `discarded. Check SENTRY_DSN and the receiver's ingest configuration.${detail}`
+  )
+}
+
+/** First slice of the response body — the receiver's own validation error. */
+const readBodyExcerpt = async (response: Response): Promise<string> => {
+  try {
+    return (await response.text()).slice(0, BODY_EXCERPT_LIMIT).trim()
+  } catch {
+    return ''
   }
 }
 

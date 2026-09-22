@@ -5,23 +5,27 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { type ColumnDef } from '@tanstack/react-table'
+import {
+  computeTableCheckboxControlClasses,
+  computeTableRowNumberClasses,
+} from '@/presentation/design/table-default-classes'
+import { resolvePageLocale } from '../../runtime/page-locale'
 import { stopClickPropagation } from '../cell-click'
 import {
   autoGenerateColumns,
   autoGenerateColumnsFromFields,
   mapColumnsToColumnDefs,
-  resolvePageLocale,
   type RowActionHandler,
 } from '../formatting'
+import type { DataTableColumnDef } from './table-features'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
-import type { TableRecord } from '../../shared/types'
+import type { TableRecord } from '../../runtime/types'
 import type {
   DataTableColumn,
   DataTableSelection,
-} from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+} from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
-function buildSelectionColumn(mode?: string): ColumnDef<TableRecord> {
+function buildSelectionColumn(mode?: string): DataTableColumnDef {
   return {
     id: 'select',
     header:
@@ -32,6 +36,7 @@ function buildSelectionColumn(mode?: string): ColumnDef<TableRecord> {
               checked={t.getIsAllRowsSelected()}
               onChange={t.getToggleAllRowsSelectedHandler()}
               aria-label="Select all rows"
+              className={computeTableCheckboxControlClasses({ interactive: true })}
             />
           )
         : '',
@@ -49,6 +54,7 @@ function buildSelectionColumn(mode?: string): ColumnDef<TableRecord> {
         // gesture on it.
         onClick={stopClickPropagation}
         aria-label={`Select row ${row.index + 1}`}
+        className={computeTableCheckboxControlClasses({ interactive: true })}
       />
     ),
     enableSorting: false,
@@ -64,7 +70,7 @@ function buildSelectionColumn(mode?: string): ColumnDef<TableRecord> {
  * by the rows that came before. A per-page 1..N would make two different rows
  * both "row 1", which is the one thing a row number exists to prevent.
  */
-function buildRowNumberColumn(offset: number): ColumnDef<TableRecord> {
+function buildRowNumberColumn(offset: number): DataTableColumnDef {
   return {
     id: '__row_number',
     header: '#',
@@ -74,7 +80,7 @@ function buildRowNumberColumn(offset: number): ColumnDef<TableRecord> {
     cell: ({ row }) => (
       <span
         data-row-number=""
-        className="text-[var(--sv-fg-muted,oklch(0.445_0_0))] tabular-nums"
+        className={computeTableRowNumberClasses()}
       >
         {offset + row.index + 1}
       </span>
@@ -129,7 +135,7 @@ export interface BuildColumnsOptions {
   readonly cancelLabel?: string
 }
 
-export function buildColumns(options: BuildColumnsOptions): ColumnDef<TableRecord>[] {
+export function buildColumns(options: BuildColumnsOptions): DataTableColumnDef[] {
   const {
     columnConfig,
     records,
@@ -159,7 +165,7 @@ export function buildColumns(options: BuildColumnsOptions): ColumnDef<TableRecor
     onButtonInvoked,
   }
 
-  const baseColumns: ColumnDef<TableRecord>[] =
+  const baseColumns: DataTableColumnDef[] =
     columnConfig && columnConfig.length > 0
       ? [
           ...mapColumnsToColumnDefs(columnConfig, {
@@ -188,7 +194,7 @@ function buildLeadingColumns(
   selectionConfig: DataTableSelection | undefined,
   showRowNumbers: boolean | undefined,
   rowNumberOffset: number | undefined
-): ColumnDef<TableRecord>[] {
+): DataTableColumnDef[] {
   const selectionEnabled =
     selectionConfig?.mode === 'single' || selectionConfig?.mode === 'multiple'
   return [

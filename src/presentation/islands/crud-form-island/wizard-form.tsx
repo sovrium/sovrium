@@ -6,44 +6,17 @@
  */
 
 import { useCallback, useState } from 'react'
-import { computeFormLayoutClasses } from '@/presentation/utils/design/form-layout-classes'
-import { type FieldDef } from '../components/crud-form/fields'
-import { FormFields } from '../components/crud-form/layout'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
+import { StepRail } from '@/presentation/design/step-rail'
+import { type FieldDef } from '../parts/crud-form/fields'
+import { FormFields } from '../parts/crud-form/layout'
 import { findMissingRequiredFields, submitCrudForm } from './submit-pipeline'
-import {
-  type CrudFormIslandProps,
-  type FormState,
-  type SubmitContext,
-  type WizardStep,
-} from './types'
+import { type CrudFormIslandProps, type FormState, type SubmitContext } from './types'
 
 function resolveStepFields(island: CrudFormIslandProps, step: number): readonly FieldDef[] {
   const names = new Set(island.wizard![step]?.fields ?? [])
   return island.fields.filter((f) => names.has(f.name))
-}
-
-/**
- * Step progress indicator. Renders every step's label so the user sees the
- * wizard's overall shape; the current step is marked `aria-current="step"`.
- */
-function WizardProgress(props: {
-  readonly steps: readonly WizardStep[]
-  readonly current: number
-}) {
-  const { steps, current } = props
-  return (
-    <ol data-wizard-progress>
-      {steps.map((s, i) => (
-        <li
-          key={s.label}
-          {...(i === current && { 'aria-current': 'step' })}
-          data-wizard-step-label
-        >
-          {s.label}
-        </li>
-      ))}
-    </ol>
-  )
 }
 
 function WizardNav(props: {
@@ -60,7 +33,7 @@ function WizardNav(props: {
       {step > 0 && (
         <button
           type="button"
-          className="btn btn-secondary"
+          className={computeButtonDefaultClasses({ variant: 'secondary' })}
           onClick={onBack}
         >
           Back
@@ -69,7 +42,7 @@ function WizardNav(props: {
       {isLastStep ? (
         <button
           type="submit"
-          className="btn btn-primary"
+          className={computeButtonDefaultClasses()}
           disabled={isPending}
         >
           {isPending ? 'Saving...' : buttonLabel}
@@ -77,7 +50,7 @@ function WizardNav(props: {
       ) : (
         <button
           type="button"
-          className="btn btn-primary"
+          className={computeButtonDefaultClasses()}
           onClick={onNext}
         >
           Next
@@ -171,7 +144,7 @@ export function WizardCreateForm(props: {
       data-action-table={island.table}
       noValidate
     >
-      <WizardProgress
+      <StepRail
         steps={island.wizard!}
         current={step}
       />

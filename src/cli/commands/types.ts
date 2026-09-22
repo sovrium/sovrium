@@ -81,13 +81,11 @@ export const writeConfigTypesFiles = async (targetDir: string): Promise<TypesFil
   await mkdir(targetDir, { recursive: true })
 
   const declarationPath = join(targetDir, DECLARATION_FILENAME)
-  // eslint-disable-next-line functional/no-expression-statements
   await writeFile(declarationPath, CONFIG_TYPES_DECLARATION)
 
   const tsconfigPath = join(targetDir, TSCONFIG_FILENAME)
   const tsconfigExists = await Bun.file(tsconfigPath).exists()
   if (!tsconfigExists) {
-    // eslint-disable-next-line functional/no-expression-statements
     await writeFile(tsconfigPath, CONFIG_TSCONFIG)
   }
 

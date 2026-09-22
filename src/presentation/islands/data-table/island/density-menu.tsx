@@ -7,6 +7,10 @@
 
 import { Menu } from '@base-ui/react/menu'
 import { useCallback } from 'react'
+import {
+  computeTableMenuClasses,
+  computeTableMenuItemClasses,
+} from '@/presentation/design/table-default-classes'
 import { DROPDOWN_TRIGGER_CLASS } from './use-dropdown-state'
 import type { RowDensity } from '../../hooks/use-table-preferences'
 
@@ -46,7 +50,10 @@ function DensityMenuItem({ densityKey, label, current, onSelect }: DensityMenuIt
   const handleClick = useCallback(() => onSelect(densityKey), [densityKey, onSelect])
   return (
     <Menu.Item
-      className={`hover:bg-background-subtle data-[highlighted]:bg-background-subtle cursor-pointer px-4 py-2 text-sm ${
+      // `data-[highlighted]` is Base UI's keyboard/pointer focus, which is a
+      // DIFFERENT state from `active` (the density currently in force) — so the
+      // well arrives twice, once per state, and never from a third literal.
+      className={`${computeTableMenuItemClasses({ active: current === densityKey })} data-[highlighted]:bg-background-subtle cursor-pointer ${
         current === densityKey ? 'font-medium' : ''
       }`}
       onClick={handleClick}
@@ -69,7 +76,7 @@ export function DensityMenu({ current, onSelect }: DensityMenuProps) {
         <Menu.Positioner sideOffset={4}>
           <Menu.Popup
             aria-label="Row density"
-            className="border-border bg-background-overlay z-50 rounded border py-1 shadow-lg"
+            className={computeTableMenuClasses()}
           >
             {DENSITY_LABELS.map(({ key, label }) => (
               <DensityMenuItem

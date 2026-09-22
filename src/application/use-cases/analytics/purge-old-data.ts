@@ -37,4 +37,4 @@ export const purgeOldAnalyticsData = (
     cutoff.setDate(cutoff.getDate() - days)
 
     return yield* repo.deleteOlderThan(appName, cutoff)
-  })
+  }).pipe(Effect.withSpan('analytics.purge-old-analytics-data'))

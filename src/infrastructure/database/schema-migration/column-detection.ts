@@ -7,9 +7,9 @@
 
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { isViewComputedFormula } from '../formula/formula-utils'
+import { shouldCreateDatabaseColumn } from '../sql/sql-field-predicates'
 import { generateColumnDefinition, isFieldNotNull } from '../sql/sql-generators'
 import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
-import { shouldCreateDatabaseColumn } from '../table-queries/shared/field-utils'
 import {
   normalizeDataType,
   doesColumnTypeMatch,

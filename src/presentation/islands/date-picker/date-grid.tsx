@@ -197,7 +197,7 @@ export function DateGrid({
   return (
     <table
       role="grid"
-      className="border-collapse text-sm"
+      className="text-md border-collapse"
     >
       <thead>
         <WeekdayHeaderRow />

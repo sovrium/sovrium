@@ -6,8 +6,8 @@
  */
 
 import { useState } from 'react'
-import { type FieldDef } from '../components/crud-form/fields'
 import { useCreateRecord, useUpdateRecord, useDeleteRecord } from '../hooks/use-table-mutations'
+import { type FieldDef } from '../parts/crud-form/fields'
 import { type CrudFormIslandProps, type FormState, type SubmitContext } from './types'
 
 function buildInitialValues(

@@ -105,7 +105,9 @@ export function writeCssFile(
     }
 
     return 'assets/output.css'
-  })
+  }).pipe(
+    Effect.withSpan('server.write-css-file', { attributes: { outputDir, file: versionedFileName } })
+  )
 }
 
 /**
@@ -132,7 +134,7 @@ export function generateHydrationFiles(outputDir: string, enabled: boolean, fs: 
           return ['assets/client.js'] as const
         })
       : Effect.succeed([] as readonly string[])
-  )
+  ).pipe(Effect.withSpan('server.generate-hydration-files'))
 }
 
 /**
@@ -148,7 +150,10 @@ const publicDirExists = (publicDir: string): Effect.Effect<boolean, never, never
   Effect.tryPromise({
     try: () => fs.stat(publicDir).then((s) => s.isDirectory()),
     catch: () => false as const,
-  }).pipe(Effect.orElseSucceed(() => false))
+  }).pipe(
+    // effect-swallow: the `catch` above already turned the rejection into `false` — a missing `./public` is the documented no-op, not an error; this only moves that value out of the error channel.
+    Effect.orElseSucceed(() => false)
+  )
 
 /**
  * Copy static assets from public directory if provided.
@@ -170,7 +175,7 @@ export function copyPublicAssets(publicDir: string | undefined, outputDir: strin
           return yield* copyDirectory(publicDir!, outputDir)
         })
       : Effect.succeed([] as readonly string[])
-  )
+  ).pipe(Effect.withSpan('server.copy-public-assets'))
 }
 
 /**
@@ -223,7 +228,11 @@ export function formatHtmlFiles(
         }),
       { concurrency: 'unbounded' }
     )
-  })
+  }).pipe(
+    Effect.withSpan('server.format-html-files', {
+      attributes: { outputDir, files: String(generatedFiles.length) },
+    })
+  )
 }
 
 /**
@@ -269,7 +278,11 @@ export function applyHtmlOptimizations(config: {
           )
         : Effect.void
     )
-  })
+  }).pipe(
+    Effect.withSpan('server.apply-html-optimizations', {
+      attributes: { outputDir: config.outputDir },
+    })
+  )
 }
 
 /**
@@ -329,7 +342,7 @@ export function generateSitemapFile(
           return ['sitemap.xml'] as const
         })
       : Effect.succeed([] as readonly string[])
-  )
+  ).pipe(Effect.withSpan('server.generate-sitemap-file'))
 }
 
 /**
@@ -367,7 +380,7 @@ export function generateRobotsFile(
           return ['robots.txt'] as const
         })
       : Effect.succeed([] as readonly string[])
-  )
+  ).pipe(Effect.withSpan('server.generate-robots-file'))
 }
 
 /** Write `/llms-full.txt` (gated on `app.llms.full !== false`). */
@@ -431,7 +444,7 @@ export function generateLlmsFiles(
           return ['llms.txt', ...fullFiles] as readonly string[]
         })
       : Effect.succeed([] as readonly string[])
-  )
+  ).pipe(Effect.withSpan('server.generate-llms-files'))
 }
 
 /**
@@ -483,5 +496,5 @@ export function generateGitHubPagesFiles(
     )
 
     return [...nojekyllFiles, ...cnameFiles] as readonly string[]
-  })
+  }).pipe(Effect.withSpan('server.generate-git-hub-pages-files', { attributes: { outputDir } }))
 }

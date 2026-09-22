@@ -22,6 +22,11 @@
     "node_modules",
     "dist",
     "tmp",
+    // Vendored upstream subtrees (ADR-031). `include: ["src"]` already keeps
+    // them out of this program, but `exclude` is REPLACED rather than merged
+    // when a config extends another, so this file would otherwise be the one
+    // tsconfig in the repo with no vendor exclusion of its own.
+    "vendor",
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
     "specs",

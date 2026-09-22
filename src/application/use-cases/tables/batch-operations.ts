@@ -10,8 +10,8 @@ import {
   BatchRepository,
   type BatchValidationError,
 } from '@/application/ports/repositories/tables/batch-repository'
-import { transformRecords, type TransformedRecord } from './utils/record-transformer'
-import type { UserSession } from '@/application/ports/models/user-session'
+import { transformRecords, type TransformedRecord } from './record-transformer'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { NotFoundError, DatabaseError, ValidationError } from '@/domain/errors'
 import type { BatchRestoreRecordsResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
@@ -49,7 +49,7 @@ export function batchCreateProgram(config: {
           }
 
     return response
-  })
+  }).pipe(Effect.withSpan('tables.batch-create-program'))
 }
 
 export function batchUpdateProgram(config: {
@@ -86,7 +86,7 @@ export function batchUpdateProgram(config: {
           }
 
     return response
-  })
+  }).pipe(Effect.withSpan('tables.batch-update-program'))
 }
 
 export function batchDeleteProgram(
@@ -101,7 +101,7 @@ export function batchDeleteProgram(
     return {
       deleted: deletedCount,
     }
-  })
+  }).pipe(Effect.withSpan('tables.batch-delete-program'))
 }
 
 export function batchRestoreProgram(
@@ -116,7 +116,7 @@ export function batchRestoreProgram(
       success: true as const,
       restored,
     }
-  })
+  }).pipe(Effect.withSpan('tables.batch-restore-program'))
 }
 
 export function upsertProgram(
@@ -152,5 +152,5 @@ export function upsertProgram(
       created: result.created,
       updated: result.updated,
     }
-  })
+  }).pipe(Effect.withSpan('tables.upsert-program'))
 }

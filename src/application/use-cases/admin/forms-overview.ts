@@ -28,13 +28,14 @@
  * `form.submission.body.revealed`) stays in the route after a successful read.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   AdminFormsRepository,
   type AdminFormAggregateRow,
   type AdminFormSubmissionRow,
   type AdminFormsDatabaseError,
 } from '@/application/ports/repositories/forms/admin-forms-repository'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import {
   formAdminDetailResponseSchema,
   formsListResponseSchema,
@@ -47,9 +48,8 @@ import {
   type FormSubmissionAdminItem,
   type FormSubmissionStatus,
 } from '@/domain/models/api/admin/forms/submissions-list'
-import { classifyPermissionRung } from '@/domain/models/shared/permission-evaluation'
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
-import { AdminFormsRepositoryLive } from '@/infrastructure/database/repositories/forms/admin-forms-repository-live'
+import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { classifyPermissionRung } from '@/domain/models/app/auth/permission-evaluation'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
@@ -93,11 +93,7 @@ function aggregateLastSubmissionIso(raw: Readonly<Date> | string | null): string
  * aggregate metadata read from `form_submissions`. Pure — the aggregate row is
  * supplied by the caller (which sourced it via the repository).
  */
-function buildFormAdminItem(
-  form: Form,
-  aggregate: AdminFormAggregateRow
-  // eslint-disable-next-line functional/prefer-immutable-types -- FormAdminItem is the Zod-inferred response shape (upstream-mutable); the route serializes it straight to JSON without mutating
-): FormAdminItem {
+function buildFormAdminItem(form: Form, aggregate: AdminFormAggregateRow): FormAdminItem {
   const submissionCount = toFiniteCount(aggregate.submissionCount)
   const lastSubmissionAt = aggregateLastSubmissionIso(aggregate.lastSubmissionAt ?? null)
 
@@ -172,7 +168,6 @@ function coerceStatus(raw: unknown): FormSubmissionStatus {
 function buildSubmissionAdminItem(
   row: AdminFormSubmissionRow,
   formName: string
-  // eslint-disable-next-line functional/prefer-immutable-types -- FormSubmissionAdminItem is the Zod-inferred response shape (upstream-mutable); the route serializes it straight to JSON without mutating
 ): FormSubmissionAdminItem {
   const submittedAt =
     row.submittedAt instanceof Date
@@ -301,12 +296,15 @@ export const BuildFormsList = (
     )
 
     const body = { items, nextCursor }
-    const parsed = formsListResponseSchema.safeParse(body)
+    const parsed = decodeSafe(formsListResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
-    return { _tag: 'Ok', body: { items: parsed.data.items, nextCursor: parsed.data.nextCursor } }
-  })
+    return {
+      _tag: 'Ok',
+      body: { items: parsed.data.items, nextCursor: parsed.data.nextCursor },
+    } as const
+  }).pipe(Effect.withSpan('admin.build-forms-list'))
 
 /**
  * Build the single-form detail body for `formName`. Unknown form (not in
@@ -331,12 +329,12 @@ export const BuildFormDetail = (
 
     const aggregate = yield* repo.aggregateForForm(form.name)
     const item = buildFormAdminItem(form, aggregate)
-    const parsed = formAdminDetailResponseSchema.safeParse(item)
+    const parsed = decodeSafe(formAdminDetailResponseSchema)(item)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
-    return { _tag: 'Ok', body: parsed.data }
-  })
+    return { _tag: 'Ok', body: parsed.data } as const
+  }).pipe(Effect.withSpan('admin.build-form-detail'))
 
 // ─── Submissions-list use case ───────────────────────────────────────────────
 
@@ -414,7 +412,7 @@ export const BuildSubmissionsList = (
     // two columns it renders. Omitting the key on a no-term request would
     // re-arm that in-memory pass the moment an operator CLEARS the box.
     const body = { items, nextCursor, appliedQuery: input.q ?? null }
-    const parsed = formsSubmissionsListResponseSchema.safeParse(body)
+    const parsed = decodeSafe(formsSubmissionsListResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
@@ -425,8 +423,8 @@ export const BuildSubmissionsList = (
         nextCursor: parsed.data.nextCursor,
         appliedQuery: parsed.data.appliedQuery ?? null,
       },
-    }
-  })
+    } as const
+  }).pipe(Effect.withSpan('admin.build-submissions-list'))
 
 // ─── Submission-detail use case ──────────────────────────────────────────────
 
@@ -500,11 +498,11 @@ export const BuildSubmissionDetail = (
       : undefined
 
     const item = buildSubmissionAdminItem(row, input.formName)
-    // eslint-disable-next-line functional/prefer-immutable-types -- FormSubmissionDetailItem is the Zod-inferred response shape (upstream-mutable); serialized straight to JSON without mutating
+
     const withBody: FormSubmissionDetailItem =
       bodyToInclude !== undefined ? { ...item, body: bodyToInclude } : item
 
-    const parsed = formSubmissionDetailResponseSchema.safeParse(withBody)
+    const parsed = decodeSafe(formSubmissionDetailResponseSchema)(withBody)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
@@ -512,8 +510,8 @@ export const BuildSubmissionDetail = (
       _tag: 'Ok',
       body: parsed.data as FormSubmissionDetailItem,
       bodyRevealed: bodyToInclude !== undefined,
-    }
-  })
+    } as const
+  }).pipe(Effect.withSpan('admin.build-submission-detail'))
 
 // ─── Submissions-bulk use case ───────────────────────────────────────────────
 
@@ -546,16 +544,11 @@ export const BuildSubmissionsBulk = (
       .filter((item): item is FormSubmissionAdminItem => item !== undefined)
 
     const body = { items }
-    const parsed = formsSubmissionsBulkResponseSchema.safeParse(body)
+    const parsed = decodeSafe(formsSubmissionsBulkResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
-    return { _tag: 'Ok', body: { items: parsed.data.items } }
-  })
+    return { _tag: 'Ok', body: { items: parsed.data.items } } as const
+  }).pipe(Effect.withSpan('admin.build-submissions-bulk'))
 
 /* eslint-enable unicorn/no-null */
-
-/**
- * Application layer for the admin-forms use cases.
- */
-export const AdminFormsLayer = Layer.mergeAll(AdminFormsRepositoryLive)

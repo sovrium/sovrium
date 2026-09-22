@@ -31,9 +31,9 @@
 
 import { stat } from 'node:fs/promises'
 import { isAbsolute, resolve } from 'node:path'
-import { splitFrontmatter } from '@/domain/services/markdown/markdown-renderer'
-import { matchesContentDirFilter } from '@/domain/utils/content-dir/content-dir-filter'
-import { deriveContentDirIndexBasePath } from '@/domain/utils/content-dir/content-dir-index-base-path'
+import { splitFrontmatter } from '@/domain/kernel/markdown/markdown-renderer'
+import { matchesContentDirFilter } from '@/domain/models/app/pages/content-dir-filter'
+import { deriveContentDirIndexBasePath } from '@/domain/models/app/pages/content-dir-index-base-path'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
 
 /**

@@ -40,7 +40,7 @@ Your docs are now served at `http://localhost:3000`, with this very page at
 my-docs/
 ├── app.yaml                 # entry point
 ├── config/
-│   ├── theme.yaml           # colors, fonts, codeBlock (Shiki) theme
+│   ├── design.yaml          # colors, type, codeBlock (Shiki) theme
 │   └── pages/
 │       ├── home.yaml        # inline-markdown landing
 │       └── docs.yaml        # contentDir collection

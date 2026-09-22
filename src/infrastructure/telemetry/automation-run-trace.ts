@@ -21,8 +21,11 @@
  *      under whatever span is current on the running fiber — so when the run
  *      executes under `runRequestEffect` (the request-edge root `http.server`
  *      span, e.g. a manual trigger), the run span chains under the request root,
- *      giving free request↔run correlation. Off-request runs (cron, no active
- *      OTLP tracer) make `withSpan` a no-op, so this stays zero-cost.
+ *      giving free request↔run correlation. Off-request runs (cron) still
+ *      CREATE the span: `Tracer.Tracer` is a `Context.Reference` whose
+ *      `defaultValue` is a NATIVE tracer minting real `NativeSpan`s
+ *      (`effect/Tracer.js`), so `withSpan` is never a no-op — with no collector
+ *      listening it is one in-memory allocation, dropped unreferenced.
  *   2. `automation.run.duration` (histogram, labeled `{ automation }`) +
  *      `automation.run.count` (sum, labeled `{ automation, status }`)
  *      observations (see `recordAutomationRun` in `metrics.ts`), timed over the

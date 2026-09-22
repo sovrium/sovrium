@@ -62,8 +62,8 @@ import {
   type AuthDatabaseError,
 } from '@/application/ports/repositories/auth/auth-repository'
 import { isAssignableRole } from '@/domain/models/app/auth/roles'
-import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
-import { stringProp } from './shared'
+import { logError } from '@/infrastructure/logging/logger'
+import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'effect'
@@ -77,7 +77,10 @@ const userExists = (userId: string): Effect.Effect<boolean, never, AuthRepositor
   Effect.gen(function* () {
     const repo = yield* AuthRepository
     return yield* repo.userExists(userId)
-  }).pipe(Effect.orElseSucceed(() => false))
+  }).pipe(
+    // effect-swallow: stated in the doc comment above — "cannot tell" answers as "user not found", which is the conservative direction: the caller refuses the action rather than performing it against a user it could not confirm.
+    Effect.orElseSucceed(() => false)
+  )
 
 /**
  * Shared preamble for the `assignRole` / `banUser` handlers: validate that
@@ -127,7 +130,18 @@ const mutateUser = (
   Effect.gen(function* () {
     const repo = yield* AuthRepository
     yield* run(repo)
-  }).pipe(Effect.ignore)
+  }).pipe(
+    // These are the `assignRole` and `banUser` handlers. The automation run is
+    // deliberately not failed by them — but a role that was never assigned or a
+    // ban that never landed is a SECURITY-relevant no-op, and it left no trace
+    // at all before this.
+    Effect.tapCause((cause) =>
+      Effect.sync(() => {
+        logError('[automations] auth mutation did not apply', cause)
+      })
+    ),
+    Effect.ignore
+  )
 
 /**
  * `auth/assignRole` — assign a role to an existing user.
@@ -158,7 +172,9 @@ export const handleAuthAssignRole: ActionHandler = (action, app, _automation) =>
       status: 'success',
       output: { userId, role },
     } as const satisfies ActionOutcome
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-auth-assign-role', { attributes: actionAttributes(action) })
+  )
 
 /**
  * `auth/banUser` — ban an existing user account.
@@ -183,7 +199,9 @@ export const handleAuthBanUser: ActionHandler = (action, _app, _automation) =>
       status: 'success',
       output: reason === undefined ? { userId } : { userId, reason },
     } as const satisfies ActionOutcome
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-auth-ban-user', { attributes: actionAttributes(action) })
+  )
 
 /**
  * `auth/unbanUser` — re-enable a previously banned user account.
@@ -208,7 +226,9 @@ export const handleAuthUnbanUser: ActionHandler = (action, _app, _automation) =>
       status: 'success',
       output: { userId },
     } as const satisfies ActionOutcome
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-auth-unban-user', { attributes: actionAttributes(action) })
+  )
 
 /**
  * Tagged error for the Better Auth `createUser` call. Wrapping the unknown
@@ -249,7 +269,14 @@ const provisionUser = (
 ): Effect.Effect<string, AuthCreateUserError> =>
   Effect.gen(function* () {
     const result = yield* Effect.tryPromise({
-      try: () => {
+      try: async () => {
+        // Loaded lazily: this module is reachable from `registerCronAutomations`
+        // at BOOT (via the action-handler barrel), so a static import made every
+        // server — including the ~3 in 4 that declare no `auth:` block — pay for
+        // the Better Auth graph. An app without auth can never reach
+        // `auth/createUser`, and one with auth has already loaded the package
+        // through its own auth layer, so this resolves from cache.
+        const { createAuthInstance } = await import('@/infrastructure/auth/better-auth/auth')
         const authInstance = createAuthInstance(app.auth)
         // Better Auth's admin createUser requires a password; generate a
         // strong throwaway when the action omitted one (the schema marks
@@ -332,4 +359,6 @@ export const handleAuthCreateUser: ActionHandler = (action, app, _automation) =>
       status: 'success',
       output: { userId: created.success, email, name },
     } as const satisfies ActionOutcome
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-auth-create-user', { attributes: actionAttributes(action) })
+  )

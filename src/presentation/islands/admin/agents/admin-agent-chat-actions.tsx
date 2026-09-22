@@ -37,27 +37,47 @@ export interface ChatTurnAction {
   readonly duration?: number
 }
 
-/** Monochrome inline glyphs — one per action type. No emoji, no icon font. */
+/**
+ * Monochrome inline glyphs — one per action type. No emoji, no icon font.
+ *
+ * Drawn on the SAME 16-unit grid and at the SAME 1.5 stroke as every other icon
+ * in the product, including the lucide set the renderers resolve. They were on a
+ * 24 grid at 1.6, rendered down into a 16px box: a glyph a shade heavier than
+ * its neighbours and aligned to a different lattice, which is exactly the kind
+ * of difference that reads as sloppiness without being nameable.
+ *
+ * `query` is the reference's own search mark, so it is two shapes rather than
+ * one path — hence a fragment per type instead of a path table.
+ */
 function ActionIcon({ type }: { readonly type: ChatTurnAction['type'] }): ReactElement {
-  const paths: Readonly<Record<ChatTurnAction['type'], string>> = {
-    query: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM20 20l-4-4',
-    create: 'M12 5v14M5 12h14',
-    update: 'M4 20h4L19 9a2 2 0 0 0-3-3L5 17v3Z',
-    delete: 'M5 7h14M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V5h6v2',
-    automation: 'M13 3 5 13h6l-2 8 8-10h-6l2-8Z',
+  const shapes: Readonly<Record<ChatTurnAction['type'], ReactElement>> = {
+    query: (
+      <>
+        <circle
+          cx="7"
+          cy="7"
+          r="4.2"
+        />
+        <path d="m10.3 10.3 3.2 3.2" />
+      </>
+    ),
+    create: <path d="M8 3.5v9M3.5 8h9" />,
+    update: <path d="M3.5 13.5H6L14 5.5a1.4 1.4 0 0 0-2-2L4 11.5v2Z" />,
+    delete: <path d="M3 4.5h10M6.5 7.5v4M9.5 7.5v4M4.2 4.5l.7 8.5h6.2l.7-8.5M6 4.5V3h4v1.5" />,
+    automation: <path d="M8.5 2 3.5 9h4l-.5 5 5-7h-4l.5-5Z" />,
   }
   return (
     <svg
       aria-hidden="true"
-      viewBox="0 0 24 24"
+      viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.6"
+      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
       className="h-4 w-4 shrink-0"
     >
-      <path d={paths[type]} />
+      {shapes[type]}
     </svg>
   )
 }
@@ -106,7 +126,7 @@ function AutomationStatus({
   const tone = failed ? 'text-foreground font-medium' : 'text-foreground-muted'
   const duration = typeof action.duration === 'number' ? ` · ${action.duration}s` : ''
   return (
-    <p className={`flex flex-wrap items-center gap-2 text-xs ${tone}`}>
+    <p className={`flex flex-wrap items-center gap-2 text-sm ${tone}`}>
       <span>
         {RUN_STATUS_LABEL[action.status]}
         {duration}
@@ -129,8 +149,8 @@ function ActionCard({ action }: { readonly action: ChatTurnAction }): ReactEleme
         <ActionIcon type={action.type} />
       </span>
       <div className="flex min-w-0 flex-col gap-1">
-        <p className="text-foreground text-xs font-medium">{actionTitle(action)}</p>
-        <p className="text-foreground-muted text-xs leading-relaxed">{action.description}</p>
+        <p className="text-foreground text-sm font-medium">{actionTitle(action)}</p>
+        <p className="text-foreground-muted text-sm leading-relaxed">{action.description}</p>
         <AutomationStatus action={action} />
       </div>
     </li>

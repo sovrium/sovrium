@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { optionValue } from '@/domain/utils/select-option'
+import { optionValue } from '@/domain/models/app/tables/select-option'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { escapeSqlString } from './sql-utils'
 import type { Fields } from '@/domain/models/app/tables/fields'
@@ -308,7 +308,7 @@ export const generateColorConstraints = (fields: readonly Fields[number][]): rea
  *   - records API create / update — `presentation/api/validation/rules/
  *     multi-select-rules.ts`
  *   - batch create / update / upsert and bulk HTML-form update —
- *     `validateBulkMultiSelectOptions` / `validateUpdateFieldValues` in
+ *     `validateBulkFieldValues` / `validateUpdateFieldValues` in
  *     `presentation/api/routes/tables/batch/`
  *   - MCP `_create` / `_update` tools — `findFirstMultiSelectViolation` in
  *     `infrastructure/server/route-setup/mcp/tool-call.ts`

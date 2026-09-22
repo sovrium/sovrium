@@ -6,16 +6,16 @@
  */
 
 import { Effect } from 'effect'
+import { deleteRecordProgram } from '@/application/use-cases/tables/record-lifecycle-programs'
 import {
   createRecordProgram,
-  deleteRecordProgram,
   updateRecordProgram,
-} from '@/application/use-cases/tables/programs'
+} from '@/application/use-cases/tables/write-record-programs'
+import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import {
   buildCreateAuthorshipOverrides,
   buildUpdateAuthorshipOverrides,
-} from '@/domain/services/authorship-fields'
-import { SYSTEM_USER_ID } from '@/domain/services/guest-session'
+} from '@/domain/models/app/tables/authorship-fields'
 import { buildSystemSession } from '../build-guest-session'
 import { failed, batchOutcome, runBatchItems } from './record-batch-loop'
 import {
@@ -30,7 +30,7 @@ import {
   rawActionProps,
   resolveRunContextValue,
 } from './run-context-resolution'
-import { findMultiSelectViolationMessage, numberProp, stringProp } from './shared'
+import { actionAttributes, findMultiSelectViolationMessage, numberProp, stringProp } from './shared'
 import type { ItemResult } from './record-batch-loop'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
@@ -177,7 +177,11 @@ export const handleRecordBatchCreate: ActionHandler = (action, app, _automation,
       continueOnItemError,
       fallbackError: 'batch create failed',
     })
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-record-batch-create', {
+      attributes: actionAttributes(action),
+    })
+  )
 
 // ---------------------------------------------------------------------------
 // record/batchUpdate
@@ -270,7 +274,11 @@ export const handleRecordBatchUpdate: ActionHandler = (action, app, _automation,
       continueOnItemError,
       fallbackError: 'record.batchUpdate failed',
     })
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-record-batch-update', {
+      attributes: actionAttributes(action),
+    })
+  )
 
 // ---------------------------------------------------------------------------
 // record/batchUpsert
@@ -391,7 +399,11 @@ export const handleRecordBatchUpsert: ActionHandler = (action, app, _automation,
       continueOnItemError,
       fallbackError: 'record.batchUpsert failed',
     })
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-record-batch-upsert', {
+      attributes: actionAttributes(action),
+    })
+  )
 
 // ---------------------------------------------------------------------------
 // record/batchDelete
@@ -580,7 +592,11 @@ export const handleRecordBatchDelete: ActionHandler = (action, app, _automation,
     return tally.error === undefined
       ? ({ status: 'success', output } as const)
       : ({ status: 'failure', error: tally.error, output } as const)
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-record-batch-delete', {
+      attributes: actionAttributes(action),
+    })
+  )
 
 /** True when a filter carries no condition the repository could compile. */
 const unusableFilter = (filter: unknown): boolean =>

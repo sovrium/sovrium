@@ -34,7 +34,7 @@
  *    would be a second decision function.
  *
  * @see src/infrastructure/database/drizzle/schema/links.ts — the table
- * @see src/domain/utils/matching/link-resolver.ts — the single state decision
+ * @see src/domain/models/app/links/link-resolver.ts — the single state decision
  */
 
 import { Context, Data } from 'effect'

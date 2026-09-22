@@ -49,4 +49,4 @@ export const queryReferrers = (
     })
 
     return { referrers, total: referrers.length }
-  })
+  }).pipe(Effect.withSpan('analytics.query-referrers'))

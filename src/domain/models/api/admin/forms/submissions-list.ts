@@ -5,13 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { adminEnvelopeSchema } from '@/domain/models/api/admin/envelope/admin-envelope'
+import { coercedBoolean } from '@/domain/models/api/combinators/coerce'
 import {
   cursorPaginationQuerySchema,
   cursorPaginationResponseSchema,
-} from '@/domain/models/api/_shared/cursor-pagination'
-import { appliedQuerySchema, searchTermSchema } from '@/domain/models/api/_shared/search'
-import { adminEnvelopeSchema } from '@/domain/models/api/admin/_shared/admin-envelope'
+} from '@/domain/models/api/combinators/cursor-pagination'
+import { looseIsoDateTime, uuid } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { appliedQuerySchema, searchTermSchema } from '@/domain/models/api/combinators/search'
+import { withDefault } from '../../combinators/schema-defaults'
 
 /**
  * Form submission list endpoint shapes.
@@ -50,9 +54,13 @@ import { adminEnvelopeSchema } from '@/domain/models/api/admin/_shared/admin-env
  * - `failed`     — ledger row preserved with `status_reason`; non-recoverable
  * - `spam`       — caught by honeypot or rate limiter; never reached automation/table
  */
-export const formSubmissionStatusSchema = z
-  .enum(['received', 'processing', 'done', 'failed', 'spam'])
-  .describe('Form submission lifecycle status')
+export const formSubmissionStatusSchema = Schema.Literals([
+  'received',
+  'processing',
+  'done',
+  'failed',
+  'spam',
+]).annotate({ description: 'Form submission lifecycle status' })
 
 /**
  * Canonical form submission shape.
@@ -62,30 +70,24 @@ export const formSubmissionStatusSchema = z
  * AND the caller passes `?reveal=true` AND has admin role. List shapes never
  * include `body`; detail without `?reveal=true` never includes `body`.
  */
-export const formSubmissionSchema = z
-  .object({
-    id: z.string().uuid().describe('Stable submission identifier (UUID)'),
-    formName: z
-      .string()
-      .regex(/^[a-z0-9-]+$/)
-      .describe(
-        'Slug of the parent form (lowercase, kebab-case). Matches the `name` field of the `app.forms[]` entry that received this submission.'
-      ),
-    submittedAt: z
-      .string()
-      .datetime()
-      .describe(
-        'ISO 8601 UTC timestamp recorded when the public submit endpoint accepted the form'
-      ),
-    status: formSubmissionStatusSchema,
-    body: z
-      .record(z.string(), z.unknown())
-      .optional()
-      .describe(
-        'Field values submitted by the form. Present ONLY when the detail endpoint is called with `?reveal=true` AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND the caller has admin role. Absent on list responses, on detail without reveal, on operator reveals, and when the env var is unset/false.'
-      ),
-  })
-  .openapi('FormSubmission')
+export const formSubmissionSchema = Schema.Struct({
+  id: uuid({ description: 'Stable submission identifier (UUID)' }),
+  formName: Schema.String.annotate({
+    description:
+      'Slug of the parent form (lowercase, kebab-case). Matches the `name` field of the `app.forms[]` entry that received this submission.',
+  }).pipe(Schema.check(Schema.isPattern(/^[a-z0-9-]+$/))),
+  submittedAt: looseIsoDateTime({
+    description:
+      'ISO 8601 UTC timestamp recorded when the public submit endpoint accepted the form',
+  }),
+  status: formSubmissionStatusSchema,
+  body: optionalField(
+    Schema.Record(Schema.String, Schema.Unknown).annotate({
+      description:
+        'Field values submitted by the form. Present ONLY when the detail endpoint is called with `?reveal=true` AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND the caller has admin role. Absent on list responses, on detail without reveal, on operator reveals, and when the env var is unset/false.',
+    })
+  ),
+}).annotate({ identifier: 'FormSubmission' })
 
 /**
  * Admin-envelope-extended submission item.
@@ -100,21 +102,26 @@ export const formSubmissionSchema = z
  * `recentAuditTrail` is OPTIONAL: present only when the detail endpoint is
  * called with `?audit=N` (D6 opt-in). The list endpoint never populates it.
  */
-export const formSubmissionAdminItemSchema = formSubmissionSchema
-  .extend({
-    _admin: adminEnvelopeSchema
-      .extend({
-        recentAuditTrail: z
-          .array(z.unknown())
-          .max(50)
-          .optional()
-          .describe(
-            'Up to N recent audit-log entries scoped to this submission resource. Present ONLY when the detail endpoint is called with `?audit=N` (max 50). Absent on list responses and on detail without the `?audit` query parameter.'
-          ),
-      })
-      .describe('Operator-grade admin envelope for this submission'),
-  })
-  .openapi('FormSubmissionAdminItem')
+export const formSubmissionAdminItemSchema = Schema.Struct({
+  ...formSubmissionSchema.fields,
+  _admin: Schema.Struct({
+    ...adminEnvelopeSchema.fields,
+    recentAuditTrail: optionalField(
+      Schema.Array(Schema.Unknown)
+        .annotate({
+          description:
+            'Up to N recent audit-log entries scoped to this submission resource. Present ONLY when the detail endpoint is called with `?audit=N` (max 50). Absent on list responses and on detail without the `?audit` query parameter.',
+        })
+        .pipe(Schema.check(Schema.isMaxLength(50)))
+    ),
+  }).annotate({
+    title: 'sovrium:extends=AdminEnvelope|own=recentAuditTrail',
+    description: 'Operator-grade admin envelope for this submission',
+  }),
+}).annotate({
+  title: 'sovrium:extends=FormSubmission|own=_admin',
+  identifier: 'FormSubmissionAdminItem',
+})
 
 /**
  * Query parameters for `GET /api/admin/forms/:formName/submissions`.
@@ -163,29 +170,29 @@ export const formSubmissionAdminItemSchema = formSubmissionSchema
  * e-mail address will not surface the anonymous rows that merely CONTAIN that
  * address in their (unsearched) body.
  *
- * @see ../../_shared/search.ts — the shared `?q=` / `appliedQuery` contract
+ * @see ../../combinators/search.ts — the shared `?q=` / `appliedQuery` contract
  */
-export const formsSubmissionsListQuerySchema = cursorPaginationQuerySchema.extend({
-  status: formSubmissionStatusSchema.optional().describe('Filter to one lifecycle state'),
-  from: z
-    .string()
-    .datetime()
-    .optional()
-    .describe('Inclusive lower bound on `submittedAt` (ISO 8601 UTC)'),
-  to: z
-    .string()
-    .datetime()
-    .optional()
-    .describe('Exclusive upper bound on `submittedAt` (ISO 8601 UTC)'),
-  include_deleted: z.coerce
-    .boolean()
-    .default(false)
-    .describe(
-      'When true, include soft-deleted submissions (`deletedAt` non-null) in the response. Default false.'
-    ),
-  q: searchTermSchema.describe(
-    'Optional free-text search over the SUBMITTER identity (the account `email` and `name` behind `submitter_user_id`) and the submission `id`, as a case-insensitive literal substring. Composes with `status` / `from` / `to` / the cursor (AND), so a page is a page of MATCHES. The submitted `body` is NEVER searched — the D7 redaction lock; searching it would make this list an oracle over content the caller may not be permitted to reveal. Empty / whitespace-only means "no search".'
+export const formsSubmissionsListQuerySchema = Schema.Struct({
+  ...cursorPaginationQuerySchema.fields,
+  status: optionalField(
+    formSubmissionStatusSchema.annotate({ description: 'Filter to one lifecycle state' })
   ),
+  from: optionalField(
+    looseIsoDateTime({ description: 'Inclusive lower bound on `submittedAt` (ISO 8601 UTC)' })
+  ),
+  to: optionalField(
+    looseIsoDateTime({ description: 'Exclusive upper bound on `submittedAt` (ISO 8601 UTC)' })
+  ),
+  include_deleted: coercedBoolean
+    .annotate({
+      description:
+        'When true, include soft-deleted submissions (`deletedAt` non-null) in the response. Default false.',
+    })
+    .pipe(withDefault(false)),
+  q: searchTermSchema.annotate({
+    description:
+      'Optional free-text search over the SUBMITTER identity (the account `email` and `name` behind `submitter_user_id`) and the submission `id`, as a case-insensitive literal substring. Composes with `status` / `from` / `to` / the cursor (AND), so a page is a page of MATCHES. The submitted `body` is NEVER searched — the D7 redaction lock; searching it would make this list an oracle over content the caller may not be permitted to reveal. Empty / whitespace-only means "no search".',
+  }),
 })
 
 /**
@@ -194,19 +201,18 @@ export const formsSubmissionsListQuerySchema = cursorPaginationQuerySchema.exten
  * Cursor-paginated array of admin-envelope-extended submission items. The
  * `nextCursor` field is opaque base64; callers must not parse it.
  */
-export const formsSubmissionsListResponseSchema = cursorPaginationResponseSchema(
-  formSubmissionAdminItemSchema
-)
-  .extend({ appliedQuery: appliedQuerySchema })
-  .openapi('FormsSubmissionsListResponse')
+export const formsSubmissionsListResponseSchema = Schema.Struct({
+  ...cursorPaginationResponseSchema(formSubmissionAdminItemSchema).fields,
+  appliedQuery: appliedQuerySchema,
+}).annotate({ identifier: 'FormsSubmissionsListResponse' })
 
 /** @public */
-export type FormSubmissionStatus = z.infer<typeof formSubmissionStatusSchema>
+export type FormSubmissionStatus = typeof formSubmissionStatusSchema.Type
 /** @public */
-export type FormSubmission = z.infer<typeof formSubmissionSchema>
+export type FormSubmission = typeof formSubmissionSchema.Type
 /** @public */
-export type FormSubmissionAdminItem = z.infer<typeof formSubmissionAdminItemSchema>
+export type FormSubmissionAdminItem = typeof formSubmissionAdminItemSchema.Type
 /** @public */
-export type FormsSubmissionsListQuery = z.infer<typeof formsSubmissionsListQuerySchema>
+export type FormsSubmissionsListQuery = typeof formsSubmissionsListQuerySchema.Type
 /** @public */
-export type FormsSubmissionsListResponse = z.infer<typeof formsSubmissionsListResponseSchema>
+export type FormsSubmissionsListResponse = typeof formsSubmissionsListResponseSchema.Type

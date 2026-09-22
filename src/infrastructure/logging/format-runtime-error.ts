@@ -103,8 +103,58 @@ const ERROR_SHADOWED_FIELDS = ['message', 'cause'] as const
 const renderValue = (value: unknown): unknown => (value instanceof Error ? value.message : value)
 
 /**
- * Render a generic `Data.TaggedError`-shaped object as `[Tag] {fields…}`.
+ * The descriptive sentence of a tagged error, and which field it came from.
+ *
+ * `message` is preferred over `cause` because it is the field an error DECLARES
+ * as its diagnostic; `cause` is a fallback for the many errors built by
+ * `createTaggedError`, whose entire payload is a single `cause`.
+ */
+type Lead = { readonly key: string; readonly text: string }
+
+/**
+ * Does this entry hold `key`, carrying a non-empty string? Only such a field
+ * can be printed as prose; anything else needs its key name to be legible.
+ */
+const isSentence =
+  (key: string) =>
+  (entry: readonly [string, unknown]): boolean =>
+    entry[0] === key && typeof entry[1] === 'string' && entry[1] !== ''
+
+/**
+ * Pick the field whose value reads as a sentence, so it can be printed as prose
+ * instead of being run through `JSON.stringify`.
+ */
+const pickLead = (entries: readonly (readonly [string, unknown])[]): Lead | undefined => {
+  const fromMessage = entries.find(isSentence('message'))
+  if (fromMessage !== undefined) return { key: 'message', text: fromMessage[1] as string }
+
+  const fromCause = entries.find(isSentence('cause'))
+  if (fromCause !== undefined) return { key: 'cause', text: fromCause[1] as string }
+
+  return undefined
+}
+
+/**
+ * Render a generic `Data.TaggedError`-shaped object as `[Tag] sentence {fields…}`.
  * Skips function-typed fields so methods like `toJSON` don't pollute output.
+ *
+ * THE DESCRIPTIVE TEXT IS PROSE, NOT JSON. This is the last thing an operator
+ * sees before the process exits, so it has to be readable. Putting the sentence
+ * through `JSON.stringify` backslash-escaped every quote inside it, and a
+ * refusal like
+ *
+ *     [EcoEnvError] {"message":"Invalid ECO_LOW_DATA_DEFAULT: expected \"on\",
+ *     \"off\" or \"respect-client\", got \"aggressive\"","cause":"Invalid …"}
+ *
+ * buries a one-line instruction in a wall of escaped punctuation — and then
+ * prints it twice, because these errors are constructed as
+ * `{ message: cause.message, cause }`, so both fields carry the same string.
+ * `cause` is therefore dropped when it merely restates the lead; it is kept
+ * whenever it says something the lead does not.
+ *
+ * Only `message`/`cause` are eligible for prose. Every other payload key stays
+ * in the JSON object, where a key name is what makes the value legible at all
+ * (`{"port":5432}` reads; a bare `5432` does not).
  *
  * EFFECT 4 — THE PAYLOAD IS NO LONGER FULLY ENUMERABLE. v3's `Data.Error` did
  * `Object.assign(this, args)`, making every payload field own-enumerable, so
@@ -135,11 +185,18 @@ const formatGenericTaggedError = (
     (key) => [key, tagged[key]] as readonly [string, unknown]
   ).filter(([, value]) => value !== undefined && value !== '' && typeof value !== 'function')
 
-  const props = Object.fromEntries(
-    [...enumerableEntries, ...shadowedEntries].map(
-      ([key, value]) => [key, renderValue(value)] as const
-    )
+  const rendered = [...enumerableEntries, ...shadowedEntries].map(
+    ([key, value]) => [key, renderValue(value)] as const
   )
+
+  const lead = pickLead(rendered)
+  const remaining = rendered.filter(
+    ([key, value]) =>
+      key !== lead?.key && !(key === 'cause' && typeof value === 'string' && value === lead?.text)
+  )
+
+  const props = Object.fromEntries(remaining)
   const propsStr = Object.keys(props).length > 0 ? ` ${JSON.stringify(props)}` : ''
-  return `[${tagged._tag}]${propsStr}`
+  const leadStr = lead === undefined ? '' : ` ${lead.text}`
+  return `[${tagged._tag}]${leadStr}${propsStr}`
 }

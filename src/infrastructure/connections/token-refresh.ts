@@ -5,9 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { OAUTH_CALLBACK_TIMEOUT_MS } from '@/domain/utils/timeouts'
-import { validateOutboundUrl } from '@/infrastructure/utils/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/utils/with-fetch-timeout'
+import { Effect } from 'effect'
+import { OAUTH_CALLBACK_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
+import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
+import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 
 /**
  * OAuth2 refresh-token exchange (C-2).
@@ -275,6 +276,40 @@ const refreshKey = (input: {
  * pre-refresh token in the database between A's response and A's
  * upsert and trigger a redundant second refresh.
  */
+/**
+ * The Effect spelling of {@link withRefreshLock}.
+ *
+ * Coalescing needs an in-flight PROMISE — the second arrival awaits the same
+ * one the first created — so a Promise boundary is inherent to the lock rather
+ * than incidental to its caller. This bridge therefore lives HERE, beside the
+ * lock it serves, and not inside the use case that reaches for it: standing
+ * rule E1 puts the run at the composition root, and for this primitive the
+ * lock IS the root.
+ *
+ * `program` runs on the services the CALLING fiber already holds, captured
+ * through `Effect.context`. Nothing is rebuilt, so two automations refreshing
+ * the same connection share one repository as well as one upstream POST — the
+ * per-call `Effect.provide` this replaced built a second one for every arrival
+ * that lost the race.
+ *
+ * A rejection from the lock (which is the only thing that can reach this catch,
+ * since `program` cannot fail) is mapped by the caller, so the error stays the
+ * caller's tagged type rather than a bare `UnknownException`.
+ */
+export const withRefreshLockEffect = <A, E, R>(
+  input: { readonly connectionId: string; readonly userId: string | undefined },
+  program: Effect.Effect<A, never, R>,
+  onRejection: (cause: unknown) => E
+): Effect.Effect<A, E, R> =>
+  Effect.context<R>().pipe(
+    Effect.flatMap((services) =>
+      Effect.tryPromise({
+        try: () => withRefreshLock(input, () => Effect.runPromiseWith(services)(program)),
+        catch: onRejection,
+      })
+    )
+  )
+
 export const withRefreshLock = async <T>(
   input: { readonly connectionId: string; readonly userId: string | undefined },
   exec: () => Promise<T>

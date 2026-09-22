@@ -9,7 +9,6 @@ import { Data, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
 import { purgeExpiredActivityLogs } from '@/infrastructure/database/activity-log-retention'
 import { logError } from '@/infrastructure/logging/logger'
-import { CronSchedulerLive } from './cron-scheduler-live'
 
 /**
  * Activity-log retention scheduler registration.
@@ -59,36 +58,39 @@ const RETENTION_JOB_ID = 'activity-log-retention'
  * Yields the scheduled job id, or `undefined` when the scheduler could not be
  * armed (logged, non-fatal).
  */
-export const registerActivityLogRetentionScheduler: Effect.Effect<string | undefined, never> =
-  Effect.gen(function* () {
-    const scheduler = yield* CronScheduler
-    return yield* scheduler
-      .schedule(
-        RETENTION_CRON_EXPRESSION,
-        () =>
-          // `purgeExpiredActivityLogs` resolves to a count; the scheduler
-          // callback signature is `void`. Any DB error is caught and logged so
-          // the timer re-arms for the next daily tick.
-          Effect.tryPromise({
-            try: () => purgeExpiredActivityLogs(),
-            catch: (cause) => new ActivityLogRetentionSweepError({ cause }),
-          }).pipe(
-            Effect.tapError((error) =>
-              Effect.sync(() => {
-                logError('[activity-log-retention] scheduled retention sweep failed', error.cause)
-              })
-            ),
-            Effect.catch(() => Effect.void),
-            Effect.asVoid
+export const registerActivityLogRetentionScheduler: Effect.Effect<
+  string | undefined,
+  never,
+  CronScheduler
+> = Effect.gen(function* () {
+  const scheduler = yield* CronScheduler
+  return yield* scheduler
+    .schedule(
+      RETENTION_CRON_EXPRESSION,
+      () =>
+        // `purgeExpiredActivityLogs` resolves to a count; the scheduler
+        // callback signature is `void`. Any DB error is caught and logged so
+        // the timer re-arms for the next daily tick.
+        Effect.tryPromise({
+          try: () => purgeExpiredActivityLogs(),
+          catch: (cause) => new ActivityLogRetentionSweepError({ cause }),
+        }).pipe(
+          Effect.tapError((error) =>
+            Effect.sync(() => {
+              logError('[activity-log-retention] scheduled retention sweep failed', error.cause)
+            })
           ),
-        { jobId: RETENTION_JOB_ID, timezone: 'UTC' }
+          Effect.catch(() => Effect.void),
+          Effect.asVoid
+        ),
+      { jobId: RETENTION_JOB_ID, timezone: 'UTC' }
+    )
+    .pipe(
+      Effect.catch((err) =>
+        Effect.sync(() => {
+          logError('[activity-log-retention] failed to arm retention scheduler', err)
+          return undefined
+        })
       )
-      .pipe(
-        Effect.catch((err) =>
-          Effect.sync(() => {
-            logError('[activity-log-retention] failed to arm retention scheduler', err)
-            return undefined
-          })
-        )
-      )
-  }).pipe(Effect.provide(CronSchedulerLive))
+    )
+})

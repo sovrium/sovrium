@@ -7,13 +7,18 @@
 
 // Better Auth schema barrel.
 //
-// The actual table and relation definitions live in sibling files to keep
-// each module under the project-wide ESLint max-lines limit:
-//   - `schema-tables.ts`    — pgSchema + table definitions (consumed by Drizzle)
-//   - `schema-relations.ts` — Drizzle relations for the relational query builder
+// The actual table definitions live in sibling files to keep each module under
+// the project-wide ESLint max-lines limit:
+//   - `schema-tables.ts`                — pgSchema + table definitions (consumed by Drizzle)
+//   - `schema-oauth-resource-tables.ts` — the Better Auth 1.7 OAuth resource tables
 //
 // All existing imports of `@/infrastructure/auth/better-auth/schema` keep
-// working unchanged (tables, relations, and inferred types are re-exported).
+// working unchanged (tables and inferred types are re-exported).
+//
+// There is no relation graph. Drizzle's relational query builder was never used
+// (zero `db.query.*` call sites), and drizzle v1 removed the `relations()`
+// export that declared it — so the two former `*-relations.ts` modules were 26
+// dead symbols, not a surface anyone could consume.
 
 // Inferred types (kept here so they live alongside the public surface)
 import type {
@@ -37,7 +42,6 @@ import type {
 
 export * from './schema-tables'
 export * from './schema-oauth-resource-tables'
-export * from './schema-relations'
 
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert

@@ -45,6 +45,7 @@ import type { App } from '@/domain/models/app'
 import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 import type { FileCopyError } from '@/infrastructure/filesystem/copy-directory'
 
 /**
@@ -273,6 +274,11 @@ export const generateStatic = (
   | FileCopyError
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
+  // Raised when `IMAGE_TRANSFORM_PRESETS` is malformed, reached through the
+  // server factory. It was MISSING from this union and the assertion at the end
+  // of the function hid that: the generator could fail with an error its own
+  // signature said it could not produce.
+  | TransformPresetError
   | Error,
   ServerFactoryService | PageRendererService | CSSCompilerService | StaticSiteGeneratorService
 > => {
@@ -333,17 +339,7 @@ export const generateStatic = (
     }
   })
 
-  return program as Effect.Effect<
-    GenerateStaticResult,
-    | AppValidationError
-    | StaticGenerationError
-    | SSGGenerationError
-    | CSSCompilationError
-    | ServerCreationError
-    | FileCopyError
-    | AuthConfigRequiredForUserFields
-    | SchemaInitializationError
-    | Error,
-    ServerFactoryService | PageRendererService | CSSCompilerService | StaticSiteGeneratorService
-  >
+  // The declared return type above is the check; restating it as an assertion
+  // here only made a mismatch invisible.
+  return program.pipe(Effect.withSpan('server.generate-static'))
 }

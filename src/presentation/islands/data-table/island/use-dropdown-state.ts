@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { computeTableToolbarButtonClasses } from '@/presentation/design/table-default-classes'
 
 /**
  * Shared open/close + outside-click + optional Escape state for the
@@ -94,9 +95,20 @@ export function useDropdownState(options: DropdownStateOptions = {}): DropdownSt
 }
 
 /**
- * Tailwind class string shared by all plain-`<div>` dropdown trigger buttons in
- * the data-table toolbar. Co-located with {@link useDropdownState} so a future
- * pass adding a new dropdown picks up both the behaviour and the visual
- * consistency in one import.
+ * The class string every plain-`<div>` dropdown trigger in the grid's toolbar
+ * carries — now ONE line delegating to the recipe, not a second definition.
+ *
+ * It used to be its own literal, which made the toolbar's most-used control the
+ * one place the grid's button vocabulary was written down twice: a
+ * `rounded border px-3 py-1 text-md` that resolved 32px tall at 14px, beside a
+ * shared button recipe whose `sm` size is 28px at 12px. The two were never
+ * reconciled because nothing forced them to meet.
+ *
+ * Kept as a named constant rather than deleted because eleven call sites spend
+ * it verbatim — including three dialogs outside this bar — and a re-export is
+ * strictly fewer indirections than eleven edits plus eleven new imports. A call
+ * site that needs `active` or `disabled` calls
+ * {@link computeTableToolbarButtonClasses} directly instead; this alias is the
+ * no-argument case.
  */
-export const DROPDOWN_TRIGGER_CLASS = 'hover:bg-background-subtle rounded border px-3 py-1 text-sm'
+export const DROPDOWN_TRIGGER_CLASS = computeTableToolbarButtonClasses()

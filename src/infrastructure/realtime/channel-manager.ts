@@ -22,14 +22,26 @@
 // Subscription bookkeeping (which users are on which channel)
 // ---------------------------------------------------------------------------
 
+// The three exports in this section have exactly one consumer,
+// `realtime-service-live.ts`, which is itself unreachable — see the realtime
+// orphan cluster baselined in `knip.config.ts` (2026-09-03). They surfaced the
+// moment the barrel entry glob stopped making that file a reachability root.
+// They are tagged rather than deleted only because deleting them belongs with
+// the rest of the cluster, in one `[internal ref]` pass.
+//
+// TODO(audit): delete these three with the realtime orphan cluster. Untag the
+// moment a live consumer appears — a tag that outlives its reason is exactly
+// the blindness the knip fix was about.
 const subscriptions = new Map<string, Set<string>>()
 
+/** @public TODO(audit): dead with the realtime orphan cluster. */
 export const addSubscription = (channel: string, userId: string): void => {
   const subs = subscriptions.get(channel) ?? new Set()
   subs.add(userId)
   subscriptions.set(channel, subs)
 }
 
+/** @public TODO(audit): dead with the realtime orphan cluster. */
 export const removeSubscription = (channel: string, userId: string): void => {
   const subs = subscriptions.get(channel)
   if (subs) {
@@ -42,6 +54,7 @@ export const removeSubscription = (channel: string, userId: string): void => {
   }
 }
 
+/** @public TODO(audit): dead with the realtime orphan cluster. */
 export const getSubscribers = (channel: string): readonly string[] => [
   ...(subscriptions.get(channel) ?? []),
 ]

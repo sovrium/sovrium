@@ -9,6 +9,7 @@
    Cell-level editor input: mounted per open cell, and its onChange closes over
    the parent's term setter. */
 
+import { computeTableAddRowInputClasses } from '@/presentation/design/table-default-classes'
 import type { ReactElement } from 'react'
 
 /**
@@ -44,7 +45,7 @@ export function PickerSearchBox({
       placeholder={placeholder}
       value={term}
       onChange={(e) => onTermChange(e.target.value)}
-      className="border-primary focus:ring-focus-ring w-full rounded border px-1 py-0.5 text-sm focus:ring-1 focus:outline-none"
+      className={computeTableAddRowInputClasses()}
     />
   )
 }

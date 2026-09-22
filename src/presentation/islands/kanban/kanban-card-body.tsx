@@ -5,9 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  KANBAN_CARD_BODY_CLASSES,
+  KANBAN_CARD_DEFAULT_TITLE_CLASSES,
+  computeKanbanCardCoverClasses,
+  computeKanbanCardFooterClasses,
+} from '@/presentation/design/kanban-default-classes'
 import { renderCardChild } from './card-template'
 import { renderFooterItem } from './footer-formatters'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { ReactElement } from 'react'
 
@@ -18,7 +24,7 @@ export function KanbanCardDefault({ record }: { readonly record: TableRecord }):
     (record.name as string | undefined) ??
     (record.label as string | undefined) ??
     String(record.id ?? '')
-  return <p className="text-foreground text-sm font-medium">{title}</p>
+  return <p className={KANBAN_CARD_DEFAULT_TITLE_CLASSES}>{title}</p>
 }
 
 export function KanbanCardBody({
@@ -36,20 +42,25 @@ export function KanbanCardBody({
         <img
           src={coverImageSrc}
           alt=""
-          className="h-24 w-full object-cover"
+          className={computeKanbanCardCoverClasses()}
         />
       )}
-      <div className="flex flex-col gap-1 p-3">
+      <div className={KANBAN_CARD_BODY_CLASSES}>
         {card.children?.map((child, index) => renderCardChild(child, record, index))}
-        {card.footer && card.footer.length > 0 && (
-          <div className="border-border mt-2 flex flex-wrap items-center gap-2 border-t pt-2">
-            {card.footer.map((item, index) => {
-              const node = renderFooterItem(item, record)
-              return node ? <span key={`footer-${String(index)}`}>{node}</span> : undefined
-            })}
-          </div>
-        )}
       </div>
+      {/* The footer sits OUTSIDE the body's padding box so its top rule runs
+          edge to edge — which is what makes it read as a division of the card
+          rather than as a boxed-in strip inside it. Its own `px-2` restores the
+          horizontal inset for the chips. `mt-2` is gone with the move: the
+          body's gap owned that space and a margin on top of it double-counted. */}
+      {card.footer && card.footer.length > 0 && (
+        <div className={computeKanbanCardFooterClasses()}>
+          {card.footer.map((item, index) => {
+            const node = renderFooterItem(item, record)
+            return node ? <span key={`footer-${String(index)}`}>{node}</span> : undefined
+          })}
+        </div>
+      )}
     </>
   )
 }

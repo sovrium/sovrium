@@ -26,7 +26,7 @@
 
 import { Effect } from 'effect'
 import { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
-import { isFormAnalyticsEnabled } from '@/infrastructure/utils/env'
+import { isFormAnalyticsEnabled } from '@/infrastructure/process/env'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
@@ -86,5 +86,8 @@ export const emitFormSubmissionAnalyticsEvent = (
         sessionHash: visitorHash,
         properties,
       })
-      .pipe(Effect.ignore)
-  })
+      .pipe(
+        // effect-swallow: an analytics row about a submission that has already succeeded. Failing here would turn a completed form submission into an error the user sees, to record that it happened.
+        Effect.ignore
+      )
+  }).pipe(Effect.withSpan('forms.emit-form-submission-analytics-event'))

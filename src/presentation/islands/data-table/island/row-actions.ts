@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { dispatch as dispatchIslandEvent } from '../../_shared/event-bus'
-import { executeFetchAction } from '../../shared/action-executor'
+import { executeFetchAction } from '../../runtime/action-executor'
+import { dispatch as dispatchIslandEvent } from '../../runtime/event-bus'
 import { renderToast } from './toast'
 import type { RowActionHandler } from '../formatting'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'

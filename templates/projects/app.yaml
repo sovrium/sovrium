@@ -8,8 +8,8 @@ description: >-
 auth:
   $ref: ./config/auth.yaml
 
-theme:
-  $ref: ./config/theme.yaml
+design:
+  $ref: ./config/design.yaml
 
 tables:
   - $ref: ./config/tables/projects.yaml

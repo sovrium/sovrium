@@ -182,7 +182,7 @@ export const rewriteBasePathInHtml = (
         }),
       { concurrency: 'unbounded' }
     )
-  })
+  }).pipe(Effect.withSpan('server.rewrite-base-path-in-html'))
 
 /**
  * Inject client-side hydration script into HTML files
@@ -234,4 +234,4 @@ export const injectHydrationScript = (
         }),
       { concurrency: 'unbounded' }
     )
-  })
+  }).pipe(Effect.withSpan('server.inject-hydration-script'))

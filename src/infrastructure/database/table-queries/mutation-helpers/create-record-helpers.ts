@@ -7,11 +7,11 @@
 
 import { sql } from 'drizzle-orm'
 import { findConstraintViolation } from '@/domain/errors/driver-failure'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { type DrizzleTransaction } from '@/infrastructure/database'
 import { getBaseTableName } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { validateColumnName } from '../shared/validation'
+import { validateColumnName } from '../statement/validation'
 import { encodeColumnValue } from './column-value-encoding'
 
 /**

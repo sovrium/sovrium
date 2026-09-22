@@ -5,57 +5,26 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Context, Effect, Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import { AuthError } from '../../errors/auth-error'
 import { createAuthInstance } from './auth'
+import { Auth } from './auth-service'
 import type { Auth as AuthConfig } from '@/domain/models/app/auth'
 
 // Re-export AuthError for convenience
 export { AuthError }
 
 /**
- * The shape `betterAuth` hands back.
+ * Re-exported so `import { Auth, createAuthLayer } from './layer'` keeps
+ * working for the callers that need both.
  *
- * Derived from the factory rather than from a module-level default instance:
- * that instance was deleted because evaluating it at import time made a keyless
- * `sovrium init --help` provision a root secret. A type alias costs nothing at
- * runtime and expresses the same thing.
+ * The tag itself now lives in `./auth-service`, which is loadable WITHOUT the
+ * `better-auth` package. Importing THIS module pulls `./auth` and with it the
+ * entire Better Auth graph, so anything that needs only the tag — the app
+ * layer, the bootstrap use-cases — must import it from `./auth-service`
+ * instead. See `NoAuthLayer` there for why the split exists.
  */
-type AuthInstance = ReturnType<typeof createAuthInstance>
-
-/**
- * Auth Effect Context
- *
- * Provides authentication service for dependency injection in Effect programs.
- * Use this in Application layer to access authentication without direct imports.
- *
- * Implementation uses Better Auth library internally.
- *
- * @example
- * ```typescript
- * const protectedProgram = Effect.gen(function* () {
- *   const authService = yield* Auth
- *   const session = yield* authService.requireSession(headers)
- *   return { userId: session.user.id, email: session.user.email }
- * })
- * ```
- */
-export class Auth extends Context.Service<
-  Auth,
-  {
-    readonly api: AuthInstance['api']
-    readonly handler: AuthInstance['handler']
-    readonly getSession: (
-      headers: Headers
-    ) => Effect.Effect<Awaited<ReturnType<AuthInstance['api']['getSession']>>, AuthError>
-    readonly requireSession: (
-      headers: Headers
-    ) => Effect.Effect<
-      NonNullable<Awaited<ReturnType<AuthInstance['api']['getSession']>>>,
-      AuthError
-    >
-  }
->()('Auth') {}
+export { Auth }
 
 /**
  * Create an Auth Layer with a specific auth configuration

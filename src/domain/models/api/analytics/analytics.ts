@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { withDefault } from '../combinators/schema-defaults'
 
 // ============================================================================
 // Collection Schema (POST /api/analytics/collect)
@@ -17,30 +19,40 @@ import { z } from '@hono/zod-openapi'
  * Minimal payload sent by the tracking script.
  * Single-letter keys to minimize bandwidth usage.
  */
-export const analyticsCollectSchema = z.object({
+export const analyticsCollectSchema = Schema.Struct({
   /** Page path (required) */
-  p: z.string().min(1).describe('Page path being viewed'),
+  p: Schema.String.annotate({ description: 'Page path being viewed' }).pipe(
+    Schema.check(Schema.isMinLength(1))
+  ),
   /** Page title (optional) */
-  t: z.string().optional().describe('Page title'),
+  t: optionalField(Schema.String.annotate({ description: 'Page title' })),
   /** Referrer URL (optional) */
-  r: z.string().optional().describe('Full referrer URL'),
+  r: optionalField(Schema.String.annotate({ description: 'Full referrer URL' })),
   /** Screen width (optional) */
-  sw: z.number().int().positive().optional().describe('Screen width in pixels'),
+  sw: optionalField(
+    Schema.Int.annotate({ description: 'Screen width in pixels' }).pipe(
+      Schema.check(Schema.isGreaterThan(0))
+    )
+  ),
   /** Screen height (optional) */
-  sh: z.number().int().positive().optional().describe('Screen height in pixels'),
+  sh: optionalField(
+    Schema.Int.annotate({ description: 'Screen height in pixels' }).pipe(
+      Schema.check(Schema.isGreaterThan(0))
+    )
+  ),
   /** UTM source (optional) */
-  us: z.string().optional().describe('UTM source parameter'),
+  us: optionalField(Schema.String.annotate({ description: 'UTM source parameter' })),
   /** UTM medium (optional) */
-  um: z.string().optional().describe('UTM medium parameter'),
+  um: optionalField(Schema.String.annotate({ description: 'UTM medium parameter' })),
   /** UTM campaign (optional) */
-  uc: z.string().optional().describe('UTM campaign parameter'),
+  uc: optionalField(Schema.String.annotate({ description: 'UTM campaign parameter' })),
   /** UTM content (optional) */
-  ux: z.string().optional().describe('UTM content parameter'),
+  ux: optionalField(Schema.String.annotate({ description: 'UTM content parameter' })),
   /** UTM term (optional) */
-  ut: z.string().optional().describe('UTM term parameter'),
+  ut: optionalField(Schema.String.annotate({ description: 'UTM term parameter' })),
 })
 
-export type AnalyticsCollectPayload = z.infer<typeof analyticsCollectSchema>
+export type AnalyticsCollectPayload = typeof analyticsCollectSchema.Type
 
 // ============================================================================
 // Outbound Click Collection Schema
@@ -61,16 +73,22 @@ export type AnalyticsCollectPayload = z.infer<typeof analyticsCollectSchema>
  * excluding a page means "do not measure activity here", and a click is activity
  * here.
  */
-export const analyticsClickSchema = z.object({
+export const analyticsClickSchema = Schema.Struct({
   /** Absolute destination URL of the clicked anchor */
-  href: z.string().min(1).describe('Absolute destination URL of the clicked anchor'),
+  href: Schema.String.annotate({
+    description: 'Absolute destination URL of the clicked anchor',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
   /** Destination hostname — recorded as the event name so grouping needs no extraction */
-  hostname: z.string().min(1).describe('Destination hostname — recorded as the event name'),
+  hostname: Schema.String.annotate({
+    description: 'Destination hostname — recorded as the event name',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
   /** Path of the page the click happened on */
-  pagePath: z.string().min(1).describe('Path of the page the click happened on'),
+  pagePath: Schema.String.annotate({ description: 'Path of the page the click happened on' }).pipe(
+    Schema.check(Schema.isMinLength(1))
+  ),
 })
 
-export type AnalyticsClickPayload = z.infer<typeof analyticsClickSchema>
+export type AnalyticsClickPayload = typeof analyticsClickSchema.Type
 
 // ============================================================================
 // Query Parameters Schema (shared across query endpoints)
@@ -81,19 +99,18 @@ export type AnalyticsClickPayload = z.infer<typeof analyticsClickSchema>
  *
  * Shared query parameters for all analytics query endpoints.
  */
-export const analyticsQuerySchema = z.object({
+export const analyticsQuerySchema = Schema.Struct({
   /** Start of date range (ISO 8601) */
-  from: z.string().describe('Start of date range (ISO 8601 datetime)'),
+  from: Schema.String.annotate({ description: 'Start of date range (ISO 8601 datetime)' }),
   /** End of date range (ISO 8601) */
-  to: z.string().describe('End of date range (ISO 8601 datetime)'),
+  to: Schema.String.annotate({ description: 'End of date range (ISO 8601 datetime)' }),
   /** Time series granularity */
-  granularity: z
-    .enum(['hour', 'day', 'week', 'month'])
-    .default('day')
-    .describe('Time series granularity'),
+  granularity: Schema.Literals(['hour', 'day', 'week', 'month'])
+    .annotate({ description: 'Time series granularity' })
+    .pipe(withDefault('day')),
 })
 
-export type AnalyticsQueryParams = z.infer<typeof analyticsQuerySchema>
+export type AnalyticsQueryParams = typeof analyticsQuerySchema.Type
 
 // ============================================================================
 // Response Schemas
@@ -102,76 +119,78 @@ export type AnalyticsQueryParams = z.infer<typeof analyticsQuerySchema>
 /**
  * Time series data point
  */
-export const timeSeriesPointSchema = z
-  .object({
-    period: z.string().describe('Time period start (ISO 8601)'),
-    pageViews: z.number().int().describe('Total page views in period'),
-    uniqueVisitors: z.number().int().describe('Unique visitors in period'),
-    sessions: z.number().int().describe('Unique sessions in period'),
-  })
-  .openapi('TimeSeriesPoint')
+export const timeSeriesPointSchema = Schema.Struct({
+  period: Schema.String.annotate({ description: 'Time period start (ISO 8601)' }),
+  pageViews: Schema.Int.annotate({ description: 'Total page views in period' }),
+  uniqueVisitors: Schema.Int.annotate({ description: 'Unique visitors in period' }),
+  sessions: Schema.Int.annotate({ description: 'Unique sessions in period' }),
+}).annotate({ identifier: 'TimeSeriesPoint' })
 
-export type TimeSeriesPoint = z.infer<typeof timeSeriesPointSchema>
+export type TimeSeriesPoint = typeof timeSeriesPointSchema.Type
 
 /**
  * Analytics overview response schema
  *
  * GET /api/analytics/overview
  */
-export const analyticsOverviewResponseSchema = z.object({
-  summary: z.object({
-    pageViews: z.number().int().describe('Total page views'),
-    uniqueVisitors: z.number().int().describe('Total unique visitors'),
-    sessions: z.number().int().describe('Total sessions'),
+export const analyticsOverviewResponseSchema = Schema.Struct({
+  summary: Schema.Struct({
+    pageViews: Schema.Int.annotate({ description: 'Total page views' }),
+    uniqueVisitors: Schema.Int.annotate({ description: 'Total unique visitors' }),
+    sessions: Schema.Int.annotate({ description: 'Total sessions' }),
   }),
-  timeSeries: z.array(timeSeriesPointSchema).describe('Time series data points'),
+  timeSeries: Schema.Array(timeSeriesPointSchema).annotate({
+    description: 'Time series data points',
+  }),
 })
 
-export type AnalyticsOverviewResponse = z.infer<typeof analyticsOverviewResponseSchema>
+export type AnalyticsOverviewResponse = typeof analyticsOverviewResponseSchema.Type
 
 /**
  * Top pages response schema
  *
  * GET /api/analytics/pages
  */
-export const analyticsTopPagesResponseSchema = z.object({
-  pages: z.array(
-    z.object({
-      path: z.string().describe('Page path'),
-      pageViews: z.number().int().describe('Total page views'),
-      uniqueVisitors: z.number().int().describe('Unique visitors'),
+export const analyticsTopPagesResponseSchema = Schema.Struct({
+  pages: Schema.Array(
+    Schema.Struct({
+      path: Schema.String.annotate({ description: 'Page path' }),
+      pageViews: Schema.Int.annotate({ description: 'Total page views' }),
+      uniqueVisitors: Schema.Int.annotate({ description: 'Unique visitors' }),
     })
   ),
-  total: z.number().int().describe('Total number of pages'),
+  total: Schema.Int.annotate({ description: 'Total number of pages' }),
 })
 
-export type AnalyticsTopPagesResponse = z.infer<typeof analyticsTopPagesResponseSchema>
+export type AnalyticsTopPagesResponse = typeof analyticsTopPagesResponseSchema.Type
 
 /**
  * Top referrers response schema
  *
  * GET /api/analytics/referrers
  */
-export const analyticsTopReferrersResponseSchema = z.object({
-  referrers: z.array(
-    z.object({
-      domain: z.string().nullable().describe('Referrer domain (null for direct traffic)'),
-      pageViews: z.number().int().describe('Total page views from this referrer'),
-      uniqueVisitors: z.number().int().describe('Unique visitors from this referrer'),
+export const analyticsTopReferrersResponseSchema = Schema.Struct({
+  referrers: Schema.Array(
+    Schema.Struct({
+      domain: Schema.NullOr(
+        Schema.String.annotate({ description: 'Referrer domain (null for direct traffic)' })
+      ),
+      pageViews: Schema.Int.annotate({ description: 'Total page views from this referrer' }),
+      uniqueVisitors: Schema.Int.annotate({ description: 'Unique visitors from this referrer' }),
     })
   ),
-  total: z.number().int().describe('Total referrer entries'),
+  total: Schema.Int.annotate({ description: 'Total referrer entries' }),
 })
 
-export type AnalyticsTopReferrersResponse = z.infer<typeof analyticsTopReferrersResponseSchema>
+export type AnalyticsTopReferrersResponse = typeof analyticsTopReferrersResponseSchema.Type
 
 /**
  * Device breakdown entry schema
  */
-const breakdownEntrySchema = z.object({
-  name: z.string().describe('Category name'),
-  count: z.number().int().describe('Number of page views'),
-  percentage: z.number().describe('Percentage of total (0-100)'),
+const breakdownEntrySchema = Schema.Struct({
+  name: Schema.String.annotate({ description: 'Category name' }),
+  count: Schema.Int.annotate({ description: 'Number of page views' }),
+  percentage: Schema.Finite.annotate({ description: 'Percentage of total (0-100)' }),
 })
 
 /**
@@ -179,13 +198,17 @@ const breakdownEntrySchema = z.object({
  *
  * GET /api/analytics/devices
  */
-export const analyticsDevicesResponseSchema = z.object({
-  deviceTypes: z.array(breakdownEntrySchema).describe('Device type breakdown'),
-  browsers: z.array(breakdownEntrySchema).describe('Browser name breakdown'),
-  operatingSystems: z.array(breakdownEntrySchema).describe('OS name breakdown'),
+export const analyticsDevicesResponseSchema = Schema.Struct({
+  deviceTypes: Schema.Array(breakdownEntrySchema).annotate({
+    description: 'Device type breakdown',
+  }),
+  browsers: Schema.Array(breakdownEntrySchema).annotate({ description: 'Browser name breakdown' }),
+  operatingSystems: Schema.Array(breakdownEntrySchema).annotate({
+    description: 'OS name breakdown',
+  }),
 })
 
-export type AnalyticsDevicesResponse = z.infer<typeof analyticsDevicesResponseSchema>
+export type AnalyticsDevicesResponse = typeof analyticsDevicesResponseSchema.Type
 
 /**
  * Target-split response schema
@@ -207,43 +230,40 @@ export type AnalyticsDevicesResponse = z.infer<typeof analyticsDevicesResponseSc
  * Narrowed by `?event_type=link_click&event_name={slug}` like every other reader,
  * so it answers "how did this link's targets split?" without knowing what a link is.
  */
-export const analyticsTargetsResponseSchema = z.object({
-  targets: z
-    .array(
-      z.object({
-        name: z
-          .string()
-          .describe(
-            "The target's index as recorded on the click event, stringified — `targetIndex` is written from the first click of every link, including single-destination ones, so a split is readable back through data that predates the experiment."
-          ),
-        count: z.number().int().describe('Clicks attributed to this target'),
-        percentage: z.number().describe('Share of this link’s clicks (0-100)'),
-        destination: z
-          .string()
-          .nullable()
-          .describe(
-            'The destination that index currently resolves to, or null when the link has since been re-pointed and the index no longer maps. Null rather than omitted, so a stale split still renders a row instead of silently losing its clicks.'
-          ),
-      })
-    )
-    .describe('Per-target click split for one link'),
-  total: z.number().int().describe('Total clicks across all targets in the window'),
+export const analyticsTargetsResponseSchema = Schema.Struct({
+  targets: Schema.Array(
+    Schema.Struct({
+      name: Schema.String.annotate({
+        description:
+          "The target's index as recorded on the click event, stringified — `targetIndex` is written from the first click of every link, including single-destination ones, so a split is readable back through data that predates the experiment.",
+      }),
+      count: Schema.Int.annotate({ description: 'Clicks attributed to this target' }),
+      percentage: Schema.Finite.annotate({ description: 'Share of this link’s clicks (0-100)' }),
+      destination: Schema.NullOr(
+        Schema.String.annotate({
+          description:
+            'The destination that index currently resolves to, or null when the link has since been re-pointed and the index no longer maps. Null rather than omitted, so a stale split still renders a row instead of silently losing its clicks.',
+        })
+      ),
+    })
+  ).annotate({ description: 'Per-target click split for one link' }),
+  total: Schema.Int.annotate({ description: 'Total clicks across all targets in the window' }),
 })
 
 /**
  * @public
  */
-export type AnalyticsTargetsResponse = z.infer<typeof analyticsTargetsResponseSchema>
+export type AnalyticsTargetsResponse = typeof analyticsTargetsResponseSchema.Type
 
 /**
  * Campaign entry schema
  */
-const campaignEntrySchema = z.object({
-  source: z.string().nullable().describe('UTM source'),
-  medium: z.string().nullable().describe('UTM medium'),
-  campaign: z.string().nullable().describe('UTM campaign'),
-  pageViews: z.number().int().describe('Total page views'),
-  uniqueVisitors: z.number().int().describe('Unique visitors'),
+const campaignEntrySchema = Schema.Struct({
+  source: Schema.NullOr(Schema.String.annotate({ description: 'UTM source' })),
+  medium: Schema.NullOr(Schema.String.annotate({ description: 'UTM medium' })),
+  campaign: Schema.NullOr(Schema.String.annotate({ description: 'UTM campaign' })),
+  pageViews: Schema.Int.annotate({ description: 'Total page views' }),
+  uniqueVisitors: Schema.Int.annotate({ description: 'Unique visitors' }),
 })
 
 /**
@@ -251,9 +271,9 @@ const campaignEntrySchema = z.object({
  *
  * GET /api/analytics/campaigns
  */
-export const analyticsCampaignsResponseSchema = z.object({
-  campaigns: z.array(campaignEntrySchema).describe('UTM campaign breakdown'),
-  total: z.number().int().describe('Total campaign entries'),
+export const analyticsCampaignsResponseSchema = Schema.Struct({
+  campaigns: Schema.Array(campaignEntrySchema).annotate({ description: 'UTM campaign breakdown' }),
+  total: Schema.Int.annotate({ description: 'Total campaign entries' }),
 })
 
-export type AnalyticsCampaignsResponse = z.infer<typeof analyticsCampaignsResponseSchema>
+export type AnalyticsCampaignsResponse = typeof analyticsCampaignsResponseSchema.Type

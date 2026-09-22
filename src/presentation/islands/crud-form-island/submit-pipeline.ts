@@ -5,13 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isSafeRedirectPath } from '@/domain/utils/redirect-safety'
-import { substituteRecordVars } from '@/domain/utils/substitute-record-vars'
-import { omitsEmptyValue } from '@/presentation/utils/field-type-behavior'
-import { dispatch as dispatchIslandEvent } from '../_shared/event-bus'
-import { evaluateCondition, isFieldVisible } from '../components/crud-form/conditions'
-import { type FieldDef } from '../components/crud-form/fields'
-import { showSuccessToast } from '../components/crud-form/toast'
+import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
+import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import { omitsEmptyValue } from '@/presentation/design/field-type-behavior'
+import { evaluateCondition, isFieldVisible } from '../parts/crud-form/conditions'
+import { type FieldDef } from '../parts/crud-form/fields'
+import { showSuccessToast } from '../parts/crud-form/toast'
+import { dispatch as dispatchIslandEvent } from '../runtime/event-bus'
 import { type SubmitContext } from './types'
 
 export function findMissingRequiredFields(
@@ -171,9 +171,10 @@ function handleSuccessPage(ctx: SubmitContext, result: MutationResult): void {
   // passes any leading-slash test on its own, yet a record field holding
   // `/evil.com` would expand it to the protocol-relative `//evil.com`. The
   // string actually handed to the browser is the one that must be checked.
-  if (isSafeRedirectPath(resolved)) {
+  const target = toSafeRedirectPath(resolved)
+  if (target !== undefined) {
     // Delay redirect so the success page is visible and DB writes propagate.
-    setTimeout(() => globalThis.location.assign(resolved), 800)
+    setTimeout(() => globalThis.location.assign(target), 800)
   }
 }
 
@@ -192,10 +193,10 @@ function handleDefaultSuccess(ctx: SubmitContext): void {
     ctx.resetValues()
     ctx.afterReset?.()
   }
-  const { redirectUrl } = ctx
-  if (isSafeRedirectPath(redirectUrl)) {
+  const target = toSafeRedirectPath(ctx.redirectUrl)
+  if (target !== undefined) {
     // Delay redirect to allow DB writes to propagate before external queries
-    setTimeout(() => globalThis.location.assign(redirectUrl), 500)
+    setTimeout(() => globalThis.location.assign(target), 500)
   }
 }
 

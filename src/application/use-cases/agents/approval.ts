@@ -36,7 +36,7 @@ export const MirrorApprovalCreate = (
   Effect.gen(function* () {
     const repo = yield* ApprovalRepository
     yield* repo.insertApprovalRow(record)
-  })
+  }).pipe(Effect.withSpan('agents.mirror-approval-create'))
 
 /** Mirror an updated agent-approval record into the DB table. */
 export const MirrorApprovalUpdate = (
@@ -45,7 +45,7 @@ export const MirrorApprovalUpdate = (
   Effect.gen(function* () {
     const repo = yield* ApprovalRepository
     yield* repo.updateApprovalRow(record)
-  })
+  }).pipe(Effect.withSpan('agents.mirror-approval-update'))
 
 /** Resolve an approving user's email address by id (the read-side lookup). */
 export const LookupApproverEmail = (
@@ -54,7 +54,7 @@ export const LookupApproverEmail = (
   Effect.gen(function* () {
     const repo = yield* ApprovalRepository
     return yield* repo.lookupUserEmail(userId)
-  })
+  }).pipe(Effect.withSpan('agents.lookup-approver-email'))
 
 /**
  * Application layer for the agent-approval mirror use cases.

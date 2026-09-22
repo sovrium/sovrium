@@ -28,8 +28,9 @@
  * nothing else.
  */
 
-import { Console, Effect } from 'effect'
-import { formatDiscoveredConfigNotice } from '@/domain/utils'
+import { Effect } from 'effect'
+import { formatDiscoveredConfigNotice } from '@/domain/kernel/config-parsing/default-config-files'
+import { printStderr } from '@/infrastructure/logging/cli-output'
 import { lazyImportSchema } from './utils'
 import type { App } from '@/domain/models/app'
 
@@ -44,7 +45,7 @@ export const DEFAULT_CONFIG_FILE = './app.yaml'
 
 /** Print to stderr and exit 1. There is no partial-success exit code. */
 export const refuse = (message: string): never => {
-  Effect.runSync(Console.error(message))
+  printStderr(message)
   // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
 }
@@ -60,7 +61,7 @@ export const discoverConfigFile = async (): Promise<string> => {
   const discovered = await discoverDefaultConfigFile(process.cwd())
   if (discovered === undefined) return DEFAULT_CONFIG_FILE
 
-  Effect.runSync(Console.error(formatDiscoveredConfigNotice(discovered)))
+  printStderr(formatDiscoveredConfigNotice(discovered))
   return discovered
 }
 
@@ -77,7 +78,7 @@ export const requireApp = async (configFile: string): Promise<App> => {
     )
   )
 
-  const { decodeAppConfigObject } = await import('@/application/use-cases/schema/decode-app-config')
+  const { decodeAppConfigObject } = await import('@/application/use-cases/config/decode-app-config')
   const decoded = decodeAppConfigObject(parsed)
   return decoded.valid
     ? decoded.app
@@ -100,7 +101,7 @@ export const requireApp = async (configFile: string): Promise<App> => {
  */
 export const applyDatabaseMigrations = async (app: App): Promise<void> => {
   const { parseDatabaseDialectConfig } =
-    await import('@/domain/models/env/database/database-dialect')
+    await import('@/domain/models/process-env/database/database-dialect')
   const { runMigrations } = await import('@/infrastructure/database/drizzle/migrate')
   const { initializeSchema } = await import('@/infrastructure/database/schema/schema-initializer')
   return Effect.runPromise(

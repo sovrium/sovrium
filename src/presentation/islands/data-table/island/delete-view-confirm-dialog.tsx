@@ -7,6 +7,15 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useState } from 'react'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  computeTableDialogBodyClasses,
+  computeTableDialogPanelClasses,
+  computeTableDialogPositionerClasses,
+  computeTableDialogTitleClasses,
+  computeTableEditorFooterClasses,
+} from '@/presentation/design/table-default-classes'
+import { computeOverlayBackdropClasses } from '../../overlays/overlay-default-classes'
 import { DROPDOWN_TRIGGER_CLASS } from './use-dropdown-state'
 
 /**
@@ -74,8 +83,8 @@ export function DeleteViewConfirmDialog({
       onOpenChange={handleOpenChange}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="bg-scrim/50 fixed inset-0 z-50" />
-        <Dialog.Popup className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <Dialog.Backdrop className={computeOverlayBackdropClasses()} />
+        <Dialog.Popup className={computeTableDialogPositionerClasses()}>
           <DeleteViewBody
             viewName={viewName}
             error={error}
@@ -103,9 +112,9 @@ interface DeleteViewBodyProps {
  */
 function DeleteViewBody({ viewName, error, pending, onConfirm }: DeleteViewBodyProps) {
   return (
-    <div className="bg-background-overlay border-border w-full max-w-sm rounded-lg border p-6 shadow-xl">
-      <Dialog.Title className="text-foreground text-lg font-semibold">Delete view?</Dialog.Title>
-      <Dialog.Description className="text-foreground-muted mt-2 text-sm">
+    <div className={computeTableDialogPanelClasses()}>
+      <Dialog.Title className={computeTableDialogTitleClasses()}>Delete view?</Dialog.Title>
+      <Dialog.Description className={computeTableDialogBodyClasses()}>
         Are you sure you want to delete <span className="font-medium">{viewName}</span>? This action
         cannot be undone.
       </Dialog.Description>
@@ -117,7 +126,7 @@ function DeleteViewBody({ viewName, error, pending, onConfirm }: DeleteViewBodyP
           {error}
         </p>
       )}
-      <div className="mt-4 flex justify-end gap-2">
+      <div className={computeTableEditorFooterClasses()}>
         <Dialog.Close
           type="button"
           className={DROPDOWN_TRIGGER_CLASS}
@@ -128,7 +137,7 @@ function DeleteViewBody({ viewName, error, pending, onConfirm }: DeleteViewBodyP
           type="button"
           disabled={pending}
           onClick={onConfirm}
-          className="bg-error-fg hover:bg-error-fg/90 text-on-primary rounded px-3 py-1 text-sm disabled:opacity-60"
+          className={computeButtonDefaultClasses({ variant: 'destructive', size: 'sm' })}
         >
           {pending ? 'Deleting…' : 'Confirm'}
         </button>

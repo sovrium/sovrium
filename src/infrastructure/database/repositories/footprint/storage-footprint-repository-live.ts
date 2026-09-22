@@ -57,11 +57,11 @@ import {
   type DatabaseFootprint,
   type TableSizeRow,
 } from '@/application/ports/repositories/footprint/storage-footprint-repository'
-import { parseDatabaseDialectConfig } from '@/domain/models/env/database/database-dialect'
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { db } from '@/infrastructure/database'
 import { executeRawTyped, type RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
-import type { DatabaseDialect } from '@/domain/models/env/database/database-dialect'
+import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 
 /** Projection shared by both dialects' catalog queries. */
 interface CatalogSizeRow {

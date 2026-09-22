@@ -49,4 +49,4 @@ export const queryPages = (
     })
 
     return { pages, total: pages.length }
-  })
+  }).pipe(Effect.withSpan('analytics.query-pages'))

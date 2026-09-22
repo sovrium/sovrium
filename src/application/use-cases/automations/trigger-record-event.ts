@@ -8,7 +8,7 @@
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
+import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { logError } from '@/infrastructure/logging/logger'
 import { buildSyntheticSession } from './build-guest-session'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
@@ -535,5 +535,6 @@ export const triggerRecordEventAutomations = (
       Effect.sync(() => {
         logError('[automation:record-event] dispatch failure', cause)
       })
-    )
+    ),
+    Effect.withSpan('automations.trigger-record-event-automations')
   )

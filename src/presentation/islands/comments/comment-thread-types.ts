@@ -75,7 +75,6 @@ export interface CommentThreadIslandProps {
    * parent. Single-level only — replies themselves never expose Reply.
    */
   readonly threading?: boolean
-  readonly id?: string
   readonly 'data-testid'?: string
 }
 

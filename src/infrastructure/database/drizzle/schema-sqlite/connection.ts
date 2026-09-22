@@ -123,7 +123,3 @@ export const connectionAppTokens = systemTable(
 )
 
 // Type inference
-export type Connection = typeof connections.$inferSelect
-export type NewConnection = typeof connections.$inferInsert
-export type ConnectionToken = typeof connectionTokens.$inferSelect
-export type ConnectionAppToken = typeof connectionAppTokens.$inferSelect

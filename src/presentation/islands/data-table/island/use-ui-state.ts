@@ -7,7 +7,7 @@
 
 import { useCallback, useState } from 'react'
 import type { RowDensity } from '../../hooks/use-table-preferences'
-import type { DataTableViewType } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+import type { DataTableViewType } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 export interface ActiveFilter {
   readonly field: string

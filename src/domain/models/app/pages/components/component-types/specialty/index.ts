@@ -10,9 +10,7 @@ export { NumberInputTypeLiteral, numberInputFields } from './number-input'
 export { TimePickerTypeLiteral, timePickerFields } from './time-picker'
 export { ReorderableListTypeLiteral, reorderableListFields } from './reorderable-list'
 export { LanguageSwitcherTypeLiteral, languageSwitcherFields } from './language-switcher'
-export {
-  CommentsTypeLiteral,
-  commentsFields,
-  CommentCountTypeLiteral,
-  commentCountFields,
-} from './comments'
+export { CommentsTypeLiteral, commentsFields } from './comments'
+export { SpecimenTypeLiteral, specimenFields } from './specimen'
+export { FieldSpecimenTypeLiteral, fieldSpecimenFields } from './field-specimen'
+export { PreviewTypeLiteral, previewFields } from './preview'

@@ -11,7 +11,7 @@ import {
   AnalyticsRepository,
   AnalyticsDatabaseError,
 } from '@/application/ports/repositories/analytics/analytics-repository'
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { analyticsEvents as analyticsEventsPg } from '@/infrastructure/database/drizzle/schema/analytics-events'

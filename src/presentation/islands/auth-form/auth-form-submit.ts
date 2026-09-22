@@ -5,10 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isSafeRedirectPath } from '@/domain/utils/redirect-safety'
-import { type AuthMethod } from '@/presentation/utils/auth-form-types'
-import { showSuccessToast } from '../components/crud-form/toast'
-import { authClient } from '../shared/auth-client'
+import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
+import { type AuthMethod } from '@/presentation/design/auth-form-types'
+import { resolveMountBasePath } from '@/presentation/islands/runtime/mount-base-path'
+import { showSuccessToast } from '../parts/crud-form/toast'
+import { authClient } from '../runtime/auth-client'
 import { type AuthFormField } from './auth-form-validation'
 
 // Re-exported so existing importers of `auth-form-submit` keep working.
@@ -69,14 +70,21 @@ async function handleLogout(): Promise<string | undefined> {
  * which redirects here with `?token=…`. So this path must be one the running
  * app actually serves.
  *
- * It points at the Native Admin Dashboard because that console is auto-mounted
- * at `/_admin` in EVERY booted app — so `/_admin/reset-password`
- * always resolves, whatever the operator's config contains. The previous value,
- * `/auth/reset-password`, resolved nowhere: no Sovrium app serves that path, so
- * every password-reset email in the product pointed at a 404 and the (complete)
- * Better Auth backend was unreachable.
+ * It points at the Native Admin Dashboard because that console is mounted in
+ * EVERY booted app, so the path always resolves whatever the
+ * operator's config contains. The previous value, `/auth/reset-password`,
+ * resolved nowhere: no Sovrium app serves that path, so every password-reset
+ * email in the product pointed at a 404 and the (complete) Better Auth backend
+ * was unreachable.
+ *
+ * RESOLVED AT SUBMIT TIME, not baked in, and this value ESCAPES the process:
+ * it is what the emailed link points at. So it is taken from the document the
+ * server actually rendered rather than from a `/_admin` literal compiled into
+ * the bundle — the two agree today, and only one of them is guaranteed to. A
+ * link that does not resolve is a dead end an operator cannot diagnose, in the
+ * one flow they reach precisely because they are locked out.
  */
-const RESET_PASSWORD_CALLBACK_PATH = '/_admin/reset-password'
+const resetPasswordCallbackPath = (): string => `${resolveMountBasePath()}/reset-password`
 
 /** English fallback when the form declares no `onSuccess.toast.message`. */
 const RESET_PASSWORD_SENT_MESSAGE = 'Check your email — a reset link has been sent'
@@ -84,7 +92,7 @@ const RESET_PASSWORD_SENT_MESSAGE = 'Check your email — a reset link has been 
 async function handleResetPasswordRequest(email: string): Promise<string | undefined> {
   const result = await authClient.requestPasswordReset({
     email,
-    redirectTo: RESET_PASSWORD_CALLBACK_PATH,
+    redirectTo: resetPasswordCallbackPath(),
   })
   return result.error ? (result.error.message ?? 'Password reset request failed') : undefined
 }
@@ -162,8 +170,8 @@ function fireToast(toast: ToastConfig | undefined): void {
  */
 function handleAuthSuccess(ctx: SubmitContext): void {
   fireToast(ctx.successToast)
-  const target = ctx.redirectUrl
-  if (isSafeRedirectPath(target)) {
+  const target = toSafeRedirectPath(ctx.redirectUrl)
+  if (target !== undefined) {
     // Delay the redirect so the success toast is observable before the page
     // unloads — mirrors the crud-form submit-pipeline navigation pattern.
     setTimeout(() => globalThis.location.assign(target), 500)
@@ -206,4 +214,44 @@ export async function submitAuthForm(ctx: SubmitContext): Promise<void> {
       isPending: false,
     })
   }
+}
+
+/**
+ * Starts Better Auth's social (OAuth) sign-in for `provider`.
+ *
+ * ─── WHY THIS IS A POST FROM JAVASCRIPT AND NOT A LINK ─────────────────────
+ *
+ * A social sign-in ends in a navigation, so an `<a href>` is the intuitive
+ * choice — and it is the wrong one twice over. Better Auth declares no
+ * `/sign-in/:provider` route (every `/sign-in/*` endpoint it exposes is a
+ * literal path), so the URL a link would carry answers 404. And the endpoint
+ * that does exist, `POST /sign-in/social`, answers with JSON — a body carrying
+ * the provider's authorize URL — rather than a 3xx, so a native form POST would
+ * render that JSON instead of following it. Whatever starts the flow has to be
+ * able to read a response, which means JavaScript.
+ *
+ * The navigation itself is Better Auth's: its client ships a default
+ * `redirectPlugin` fetch hook that assigns `window.location.href` when the
+ * response carries `{ url, redirect: true }`. That is why nothing here touches
+ * a navigation sink — and why nothing here needs to, which also keeps the
+ * `sovrium/no-unguarded-navigation` sink count at zero for this path.
+ *
+ * `callbackURL` is where the reader lands once the provider comes back. It is
+ * author-supplied config (`onSuccess.navigate`), so it goes through
+ * `toSafeRedirectPath` before being handed over: Better Auth stores it against
+ * the OAuth state cookie and redirects to it after the callback, which makes it
+ * a redirect target that must be proven same-origin exactly like the email
+ * path's. An unsafe value is DROPPED rather than substituted, leaving Better
+ * Auth to fall back to its own default.
+ */
+export async function startSocialSignIn(input: {
+  readonly provider: string
+  readonly callbackURL: string | undefined
+}): Promise<string | undefined> {
+  const callbackURL = toSafeRedirectPath(input.callbackURL)
+  const result = await authClient.signIn.social({
+    provider: input.provider,
+    ...(callbackURL !== undefined && { callbackURL }),
+  })
+  return result.error ? (result.error.message ?? 'Sign in failed') : undefined
 }

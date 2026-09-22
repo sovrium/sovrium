@@ -38,7 +38,7 @@ export const countDynamicRecords = (
   Effect.gen(function* () {
     const repo = yield* DynamicRecordRepository
     return yield* repo.count(input)
-  })
+  }).pipe(Effect.withSpan('ai.count-dynamic-records'))
 
 /** Run an `AVG`/`SUM` aggregate over a numeric column of a dynamic table. */
 export const aggregateDynamicRecords = (
@@ -47,7 +47,7 @@ export const aggregateDynamicRecords = (
   Effect.gen(function* () {
     const repo = yield* DynamicRecordRepository
     return yield* repo.aggregate(input)
-  })
+  }).pipe(Effect.withSpan('ai.aggregate-dynamic-records'))
 
 /** List rows of a dynamic table with an optional sort and a row cap. */
 export const listDynamicRecords = (
@@ -60,7 +60,7 @@ export const listDynamicRecords = (
   Effect.gen(function* () {
     const repo = yield* DynamicRecordRepository
     return yield* repo.list(input)
-  })
+  }).pipe(Effect.withSpan('ai.list-dynamic-records'))
 
 /** Insert one row into a dynamic table; resolves the generated id. */
 export const insertDynamicRecord = (
@@ -69,7 +69,7 @@ export const insertDynamicRecord = (
   Effect.gen(function* () {
     const repo = yield* DynamicRecordRepository
     return yield* repo.insert(input)
-  })
+  }).pipe(Effect.withSpan('ai.insert-dynamic-record'))
 
 /** Update a single row of a dynamic table by its `id`. */
 export const updateDynamicRecordById = (
@@ -78,7 +78,7 @@ export const updateDynamicRecordById = (
   Effect.gen(function* () {
     const repo = yield* DynamicRecordRepository
     return yield* repo.updateById(input)
-  })
+  }).pipe(Effect.withSpan('ai.update-dynamic-record-by-id'))
 
 /** Update every row of a dynamic table; resolves the affected ids. */
 export const updateAllDynamicRecords = (
@@ -87,7 +87,7 @@ export const updateAllDynamicRecords = (
   Effect.gen(function* () {
     const repo = yield* DynamicRecordRepository
     return yield* repo.updateAll(input)
-  })
+  }).pipe(Effect.withSpan('ai.update-all-dynamic-records'))
 
 /** Hard-delete rows from a dynamic table; resolves the deleted ids. */
 export const deleteDynamicRecords = (
@@ -97,4 +97,4 @@ export const deleteDynamicRecords = (
     const repo = yield* DynamicRecordRepository
     // eslint-disable-next-line drizzle/enforce-delete-with-where -- `repo` is the DynamicRecordRepository port, not a Drizzle table; the WHERE filter lives in `input.filter`
     return yield* repo.delete(input)
-  })
+  }).pipe(Effect.withSpan('ai.delete-dynamic-records'))

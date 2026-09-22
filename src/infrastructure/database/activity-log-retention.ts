@@ -6,7 +6,7 @@
  */
 
 import { lt } from 'drizzle-orm'
-import { activityLogRetentionCutoff } from '@/domain/services/activity-log-retention'
+import { activityLogRetentionCutoff } from '@/domain/models/app/admin/activity-log-retention'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'

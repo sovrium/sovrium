@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeTablePagerClasses,
+  computeTableToolbarButtonClasses,
+} from '@/presentation/design/table-default-classes'
+
 interface LoadMoreControlProps {
   /**
    * Whether the endpoint reported more rows behind the ones on screen. Derived
@@ -40,14 +45,17 @@ export function LoadMoreControl({ hasMore, isLoading, onLoadMore }: LoadMoreCont
   return (
     <div
       data-load-more
-      className="border-border flex items-center justify-center border-t px-2 py-3"
+      // The same footer chrome the page-number pager wears — it stands in the
+      // same place and answers the same question — with its single button
+      // centred rather than the summary and steps pushed apart.
+      className={`${computeTablePagerClasses({ position: 'bottom' })} justify-center`}
     >
       <button
         type="button"
         onClick={onLoadMore}
         disabled={isLoading}
         aria-busy={isLoading}
-        className="border-border hover:bg-background-raised rounded border px-3 py-1 text-sm disabled:opacity-50"
+        className={computeTableToolbarButtonClasses({ disabled: isLoading })}
       >
         Load more
       </button>

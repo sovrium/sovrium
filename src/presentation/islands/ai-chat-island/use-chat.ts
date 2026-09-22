@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { READ_ONCE_QUERY_OPTIONS } from '../runtime/query-client'
 import type { AiChatIslandProps, ChatMessage, ChatStatus, ConversationMessageDto } from './types'
 
 /**
@@ -189,12 +191,23 @@ export function useChat(props: AiChatIslandProps): UseChatResult {
   const lastMessageRef = useRef<string>('')
 
   // History replay on mount when `showHistory` is enabled.
+  //
+  // The read is a query; the SEEDING stays an effect, and the split is the point.
+  // `messages` is not a mirror of the server's list — the moment a turn is sent
+  // it is a live local log that `runChatTurn` appends to and patches as the
+  // reply types out. Rendering straight from the query would put the transcript
+  // back under a cache that knows nothing about the turn in flight.
+  const historyQuery = useQuery({
+    queryKey: ['ai-chat', 'history'],
+    queryFn: loadHistory,
+    enabled: props.showHistory === true,
+    ...READ_ONCE_QUERY_OPTIONS,
+  })
+
+  const history = historyQuery.data
   useEffect(() => {
-    if (props.showHistory !== true) return
-    void loadHistory().then((history) => {
-      if (history.length > 0) setMessages(history)
-    })
-  }, [props.showHistory])
+    if (history !== undefined && history.length > 0) setMessages(history)
+  }, [history])
 
   const runTurn = useCallback(
     (text: string): Promise<void> =>

@@ -6,85 +6,39 @@
  */
 
 import { Tabs } from '@base-ui/react/tabs'
-import { useCallback, useEffect, useId, useRef, type ReactElement } from 'react'
-import { cn } from '@/presentation/utils/design/class-merge'
+import { useCallback, useEffect, useId, useMemo, useRef, type ReactElement } from 'react'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
-  computeTabClasses,
-  computeTabDescriptionClasses,
-  computeTabIndicatorClasses,
-  computeTabLabelClasses,
+  computeTabsFillPanelClasses,
+  computeTabsFillShellClasses,
+  type TabsLayout,
+} from '@/presentation/design/tabs-fill-default-classes'
+import {
   computeTabPanelClasses,
   computeTabsListClasses,
   computeTabsRootClasses,
 } from './disclosure-default-classes'
-
-interface TabItem {
-  readonly id: string
-  readonly label: string
-  readonly content: string
-  readonly disabled?: boolean
-  /**
-   * Optional second line rendered beneath the label on the trigger, for tab
-   * sets that name a feature and then say what it does. Never part of the
-   * trigger's accessible name — see {@link TabTrigger}.
-   */
-  readonly description?: string
-}
+import { useLazyTabPanels, type LazyTabPanels } from './tabs-lazy-panels'
+import { TabPanels, TabStrip, type TabItem } from './tabs-parts'
 
 /**
- * A single `<Tabs.Tab>` trigger.
- *
- * A trigger WITHOUT a description renders exactly what it always did — the
- * bare label text, no wrapper element — so no existing tab set grows a node,
- * an empty element, or extra height because this capability shipped.
- *
- * A trigger WITH one renders two block lines AND pins its accessible name to
- * the LABEL ALONE. Letting the description fall into the name instead would
- * silently break every `getByRole('tab', { name })` in the suite and in every
- * consumer config the moment an author adds a subtitle — and a substring
- * matcher would not even notice ("Projects" still matches "Projects Plan the
- * work…"). The description reaches assistive tech through `aria-describedby`,
- * which is where a subtitle belongs.
+ * The `items` default, hoisted out of the destructuring: a literal there is a
+ * fresh array on every render, which makes `items` a new prop for `TabStrip`
+ * and `TabPanels` on every render (`react-perf/jsx-no-new-array-as-prop`).
  */
-function TabTrigger({
-  tab,
-  orientation,
-  descriptionId,
-}: {
-  readonly tab: TabItem
-  readonly orientation: 'horizontal' | 'vertical'
-  readonly descriptionId: string
-}): ReactElement {
-  const described = tab.description !== undefined && tab.description.length > 0
-  return (
-    <Tabs.Tab
-      value={tab.id}
-      disabled={tab.disabled}
-      className={computeTabClasses({ orientation })}
-      aria-label={described ? tab.label : undefined}
-      aria-describedby={described ? descriptionId : undefined}
-    >
-      {described ? (
-        <>
-          <span className={computeTabLabelClasses()}>{tab.label}</span>
-          <span
-            id={descriptionId}
-            className={computeTabDescriptionClasses()}
-          >
-            {tab.description}
-          </span>
-        </>
-      ) : (
-        tab.label
-      )}
-    </Tabs.Tab>
-  )
-}
+const NO_ITEMS: readonly TabItem[] = []
 
 interface TabsIslandProps {
   readonly items?: readonly TabItem[]
   readonly defaultTab?: string
   readonly tabsOrientation?: 'horizontal' | 'vertical'
+  /**
+   * How the tab set occupies its parent — `tabs.layout`.
+   *
+   * Absent unless the author declared it, so the serialised props of every tab
+   * set that says nothing are unchanged and `flow` resolves to no extra class.
+   */
+  readonly layout?: TabsLayout
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
@@ -95,6 +49,73 @@ interface TabsIslandProps {
    * per-domain tab bar named "Onglets du domaine".
    */
   readonly ariaLabel?: string
+  /**
+   * `data-component-type` from the SSR wrapper this island REPLACES.
+   *
+   * The wrapper is not kept — `createRoot` renders `Tabs.Root` in its place —
+   * so an attribute that only lived on it would vanish on mount. Carrying it
+   * across is what makes `[data-component-type="tabs"]` name the same element
+   * before and after hydration, which is how a spec can assert that a class
+   * survived the client re-render rather than merely that it was emitted.
+   */
+  readonly componentType?: string
+  /**
+   * `design.components.tabs.parts`, minus `root`.
+   *
+   * The root part is already inside `className`; these are the parts that land
+   * on elements this island builds itself, which no `className` can reach.
+   * Absent unless the operator declared one, so the serialised island props of
+   * an app that declares nothing are unchanged.
+   */
+  readonly designClasses?: Readonly<Record<string, string>>
+  /**
+   * This host's server-rendered subtree, captured by `island-client.tsx` before
+   * `createRoot` discarded it — the host opts in with `data-island-ssr="true"`.
+   *
+   * It carries the panel the URL addressed, which is the one panel no longer
+   * serialised into the island props. Absent on a tab set whose addressed panel
+   * had no body to render, where the SSR half was a skeleton and there is
+   * nothing to adopt.
+   */
+  readonly ssrHtml?: string
+  /**
+   * The DECLARED `page.query` property this tab set's `defaultTab` binds to —
+   * present only on a tab set the author made an ADDRESS.
+   *
+   * Its presence is what turns fetch-on-activation on: the server has dropped
+   * every panel's markup from {@link TabItem.content}, so opening one asks the
+   * page for it at that address. Absent on every other
+   * tab set, where all the markup travels as it always did and switching stays
+   * instant and offline-safe.
+   */
+  readonly lazyParam?: string
+}
+
+/**
+ * The markup of each panel the SERVER rendered into this host, keyed by panel id.
+ *
+ * Parsed from the captured subtree rather than read live: by the time any island
+ * code runs, `createRoot` has already discarded those nodes. Assigning to a
+ * detached element's `innerHTML` never executes a `<script>` in it, and nothing
+ * here adopts a parsed node into the live tree — the strings go back through the
+ * same `dangerouslySetInnerHTML` path the props always took.
+ *
+ * SECURITY (standing rule S2): these bytes are this page's own server render,
+ * produced moments ago for this request — the same markup the document was built
+ * from, taking a shorter route back into it. Record values inside were escaped
+ * by the server exactly as on first load, so no second sanitiser is introduced.
+ */
+function parseSsrPanels(ssrHtml: string | undefined): Readonly<Record<string, string>> {
+  if (ssrHtml === undefined || typeof document === 'undefined') return {}
+  const holder = document.createElement('div')
+  // eslint-disable-next-line functional/immutable-data -- filling a detached parse buffer IS the point of creating it
+  holder.innerHTML = ssrHtml
+  return Object.fromEntries(
+    Array.from(holder.querySelectorAll<HTMLElement>('[data-tab-panel-id]')).map((panel) => [
+      panel.dataset.tabPanelId ?? '',
+      panel.innerHTML,
+    ])
+  )
 }
 
 /**
@@ -108,28 +129,60 @@ interface TabsIslandProps {
  * this is safe to run on every tab change as well as on mount. Dynamically
  * imported to keep the static import graph free of an island-client ↔ registry
  * cycle.
+ *
+ * The preload runs first for the same reason it does on first load: a panel can
+ * contain a priority island (a split-pane, a crud-form), and resolving it before
+ * the mount pass is what lets `flushSync` commit the real component rather than
+ * leaving the panel's SSR skeleton owning events behind a Suspense boundary.
  */
 function useNestedIslandMount(rootRef: React.RefObject<HTMLDivElement | null>): () => void {
   const scan = useCallback(() => {
     const root = rootRef.current
     if (!root) return
-    void import('@/presentation/islands/island-client').then(({ mountIslandsWithin }) => {
-      mountIslandsWithin(root)
-    })
+    void import('@/presentation/islands/island-client').then(
+      async ({ mountIslandsWithin, preloadIslandsWithin }) => {
+        await preloadIslandsWithin(root)
+        mountIslandsWithin(root)
+      }
+    )
   }, [rootRef])
   useEffect(scan, [scan])
   return scan
 }
 
 /**
- * `data-scrollable` marker for a horizontal tab strip: the list is
- * `overflow-x-auto`, so on a narrow viewport it reflows by horizontal scroll
- * rather than wrapping/clipping. Vertical
- * strips are not horizontally scrollable, so the attribute is omitted there.
+ * The class lists for the parts no `className` can reach.
+ *
+ * `design.components.tabs.parts.root` arrives already merged into `className`
+ * — `buildFinalClassName` folded it in server-side — so only the list and the
+ * panels need resolving here, from the `designClasses` map the SSR renderer
+ * serialises alongside it.
  */
-function isHorizontalTabList(orientation: 'horizontal' | 'vertical'): 'true' | undefined {
-  return orientation === 'horizontal' ? 'true' : undefined
-}
+const partClasses = (
+  orientation: 'horizontal' | 'vertical',
+  designClasses: Readonly<Record<string, string>> | undefined,
+  layout: TabsLayout | undefined
+): { readonly root: string; readonly list: string; readonly panel: string } => ({
+  // The fill shell is the tab set's half of the bounded chain: the mount host
+  // above is the bounded column, and this root is the item that claims its
+  // height. Empty under `flow`, so a tab set declaring no layout resolves to the
+  // class list it always had.
+  root: resolveClasses(
+    computeTabsRootClasses({ orientation }),
+    computeTabsFillShellClasses(layout, orientation) || undefined
+  ),
+  list: resolveClasses(computeTabsListClasses({ orientation }), designClasses?.['list']),
+  // The fill classes go in as the FLOOR, above an operator's `parts.panel`: the
+  // bound is what the author asked for with `layout: 'fill'`, and a panel that
+  // silently stopped being a bounded column would leave the grid inside it at
+  // its natural height with nothing in the config to read.
+  panel: resolveClasses(
+    computeTabPanelClasses({ orientation }),
+    designClasses?.['panel'],
+    undefined,
+    computeTabsFillPanelClasses(layout) || undefined
+  ),
+})
 
 /**
  * Tabs island — wraps Base UI Tabs for tabbed content panels.
@@ -139,63 +192,109 @@ function isHorizontalTabList(orientation: 'horizontal' | 'vertical'): 'true' | u
  *
  * `useId` gives each instance its own description-id prefix, so two tab sets on
  * one page cannot mint the same id — `aria-describedby` resolves document-wide.
+ *
+ * `ssrPanels` is parsed ONCE per mount: the captured subtree is a string of a
+ * size the page has already paid for, and re-parsing it on every tab switch
+ * would buy nothing. Each panel then takes the props' copy of its markup when
+ * there is one, and the document's otherwise — which is where the panel the URL
+ * addressed now lives, and nowhere else.
  */
-export default function TabsIsland({
-  items = [],
-  defaultTab,
-  tabsOrientation = 'horizontal',
-  className,
-  id,
-  'data-testid': testId,
-  ariaLabel,
-}: TabsIslandProps): ReactElement {
+
+/**
+ * Everything `TabsIsland` derives before it renders anything.
+ *
+ * Its own function because the component is at its per-function line cap and
+ * a prop threaded through it costs a line there; nothing about the split is
+ * semantic.
+ */
+function useTabsIslandModel(props: TabsIslandProps): {
+  readonly items: readonly TabItem[]
+  readonly defaultValue: string | undefined
+  readonly rootRef: React.RefObject<HTMLDivElement | null>
+  readonly uid: string
+  readonly parts: { readonly root: string; readonly list: string; readonly panel: string }
+  readonly ssrPanels: Readonly<Record<string, string>>
+  readonly lazy: LazyTabPanels
+} {
+  const { items = NO_ITEMS, defaultTab, ssrHtml, lazyParam } = props
+  const orientation = props.tabsOrientation ?? 'horizontal'
   const defaultValue = defaultTab ?? items[0]?.id
   const rootRef = useRef<HTMLDivElement>(null)
   const rescanNestedIslands = useNestedIslandMount(rootRef)
-  const uid = useId()
+  const panelIds = useMemo(() => items.map((tab) => tab.id), [items])
+  const ssrPanels = useMemo(() => parseSsrPanels(ssrHtml), [ssrHtml])
+  // The panels whose markup the page already carries — in the props, or in the
+  // document this host's `ssrHtml` capture read back. Asking the server for one
+  // of these would be a round trip for bytes already on the machine.
+  const resolvedIds = useMemo(
+    () => [
+      ...items.filter((tab) => tab.content !== undefined).map((tab) => tab.id),
+      ...Object.keys(ssrPanels),
+    ],
+    [items, ssrPanels]
+  )
+  return {
+    items,
+    defaultValue,
+    rootRef,
+    ssrPanels,
+    uid: useId(),
+    parts: partClasses(orientation, props.designClasses, props.layout),
+    lazy: useLazyTabPanels({
+      lazyParam,
+      initial: defaultValue,
+      panelIds,
+      resolvedIds,
+      rootRef,
+      onPanelReady: rescanNestedIslands,
+    }),
+  }
+}
+
+export default function TabsIsland(props: TabsIslandProps): ReactElement {
+  const {
+    tabsOrientation = 'horizontal',
+    className,
+    id,
+    'data-testid': testId,
+    ariaLabel,
+    componentType,
+    lazyParam,
+  } = props
+  const { items, defaultValue, rootRef, uid, parts, ssrPanels, lazy } = useTabsIslandModel(props)
 
   return (
     <Tabs.Root
       ref={rootRef}
-      defaultValue={defaultValue}
+      // CONTROLLED only when the tab set is an address: the open panel is then
+      // a fact about the URL, which Back and Forward can change underneath the
+      // component. Every other tab set stays uncontrolled, exactly as it was.
+      {...(lazyParam === undefined ? { defaultValue } : { value: lazy.active })}
       orientation={tabsOrientation}
-      className={cn(computeTabsRootClasses({ orientation: tabsOrientation }), className)}
+      className={resolveClasses(parts.root, undefined, className)}
       id={id}
       data-testid={testId}
+      data-component-type={componentType}
       // Re-scan on every tab activation: Base UI mounts the newly-selected
       // panel's DOM (and its nested `data-island` markers) only on activation,
-      // so a marker in an initially-inactive panel must be mounted then.
-      onValueChange={rescanNestedIslands}
+      // so a marker in an initially-inactive panel must be mounted then. On an
+      // addressed tab set this is also where the panel is asked for.
+      onValueChange={lazy.onValueChange}
     >
-      <Tabs.List
-        className={computeTabsListClasses({ orientation: tabsOrientation })}
-        aria-label={ariaLabel}
-        data-scrollable={isHorizontalTabList(tabsOrientation)}
-      >
-        {items.map((tab) => (
-          <TabTrigger
-            key={tab.id}
-            tab={tab}
-            orientation={tabsOrientation}
-            descriptionId={`${uid}tab-description-${tab.id}`}
-          />
-        ))}
-        <Tabs.Indicator className={computeTabIndicatorClasses()} />
-      </Tabs.List>
-      {items.map((tab) => (
-        <Tabs.Panel
-          key={tab.id}
-          value={tab.id}
-          className={computeTabPanelClasses({ orientation: tabsOrientation })}
-          // PG-04 (PATTERN-REGRESSION): tab content is pre-rendered SSR HTML —
-          // either a plain string body or the static markup of a child React
-          // component subtree (form, data-table). Injected via
-          // dangerouslySetInnerHTML so embedded `data-island` markers survive
-          // and the SSR skeleton is visible inside the active tab.
-          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-shot per-tab SSR HTML; tabs island re-renders dominated by tab-switching cost
-          dangerouslySetInnerHTML={{ __html: tab.content }}
-        />
-      ))}
+      <TabStrip
+        items={items}
+        orientation={tabsOrientation}
+        ariaLabel={ariaLabel}
+        uid={uid}
+        className={parts.list}
+      />
+      <TabPanels
+        items={items}
+        ssrPanels={ssrPanels}
+        fetched={lazy.fetched}
+        lazyParam={lazyParam}
+        className={parts.panel}
+      />
     </Tabs.Root>
   )
 }

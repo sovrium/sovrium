@@ -47,14 +47,14 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
-import { sanitizeTableName } from '@/domain/utils/database/table-naming'
 import { db } from '@/infrastructure/database'
 import { logError, logInfo } from '@/infrastructure/logging/logger'
 import { getBaseTableName, shouldUseView } from './lookup/lookup-view-generators'
 import { executeRaw } from './sql/dialect-execute'
+import { shouldCreateDatabaseColumn } from './sql/sql-field-predicates'
 import { jsonbLiteral } from './sql/sql-utils'
-import { shouldCreateDatabaseColumn } from './table-queries/shared/field-utils'
 import type { App, Table } from '@/domain/models/app'
 
 /**

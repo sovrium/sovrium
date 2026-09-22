@@ -81,7 +81,3 @@ export const userTablePreferences = systemTable(
 )
 
 // Type inference
-export type UserSavedView = typeof userSavedViews.$inferSelect
-export type NewUserSavedView = typeof userSavedViews.$inferInsert
-export type UserTablePreferences = typeof userTablePreferences.$inferSelect
-export type NewUserTablePreferences = typeof userTablePreferences.$inferInsert

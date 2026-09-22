@@ -13,7 +13,7 @@ import type { Context as HonoContext } from 'hono'
 /**
  * One entry of the accumulated `errors` array a validation rejection carries.
  *
- * Deliberately the shape of `fieldErrorSchema` (`domain/models/api/_shared/error.ts`)
+ * Deliberately the shape of `fieldErrorSchema` (`domain/models/api/combinators/error.ts`)
  * — the `errors` member of `validationErrorResponseSchema`, itself a member of
  * the sanctioned `apiErrorSchema` union that `api/utils/validate-request.ts`
  * already serves in production for Zod body rejections. A client that decodes
@@ -70,6 +70,32 @@ export class FieldFormatError {
 }
 
 /**
+ * A storage operation the write path needed in order to honour a field's
+ * contract, and could not complete.
+ *
+ * This is NOT a verdict about the caller's payload, which is why it carries no
+ * accumulated `errors` list and renders as 503 rather than 400/422: the server
+ * never managed to look, so it has nothing to say about the value. Fail closed
+ * — the alternative every one of these sites used to take was to substitute a
+ * fabricated value for the one it could not obtain (a zero-byte download, an
+ * ignored upload) and answer 201, which reports an outage as a successful
+ * write and persists the fabrication.
+ *
+ * `cause` is the originating `StorageError` and stays SERVER-SIDE: the envelope
+ * emits only `message` + `code`, because a lost object, rotated credentials, a
+ * revoked policy and an object store that is simply down are indistinguishable
+ * at this seam and none of them is the client's business (S4).
+ */
+export class FieldStorageError {
+  readonly _tag = 'FieldStorageError'
+  constructor(
+    readonly message: string,
+    readonly field: string | undefined,
+    readonly cause: unknown
+  ) {}
+}
+
+/**
  * Validation context - provides app configuration and request context
  */
 export class ValidationContext extends Context.Service<
@@ -87,7 +113,8 @@ export class ValidationContext extends Context.Service<
  * adding a member here is a compile error in `VALIDATION_ERROR_ENVELOPES` until
  * its envelope is declared.
  */
-export type ValidationError = FieldValidationError | FieldPermissionError | FieldFormatError
+export type ValidationError =
+  FieldValidationError | FieldPermissionError | FieldFormatError | FieldStorageError
 
 /**
  * Validation result type
@@ -114,7 +141,7 @@ type ValidationErrorShape = {
 }
 
 type ValidationErrorEnvelope = {
-  readonly status: 400 | 404 | 422
+  readonly status: 400 | 404 | 422 | 503
   readonly body: Record<string, unknown>
 }
 
@@ -200,6 +227,26 @@ const VALIDATION_ERROR_ENVELOPES = {
       success: false,
       message: 'Resource not found',
       code: 'NOT_FOUND',
+    },
+  }),
+
+  /**
+   * A storage read or write the field's own contract depended on did not
+   * complete, so the server cannot honour the contract and must not pretend it
+   * did. 503 + `SERVICE_UNAVAILABLE` is the truthful answer — "I could not
+   * verify this, try again" — and it is the one status in this map that says
+   * nothing about the caller's payload, which is why the envelope carries
+   * neither `field` nor `errors`: naming a field here would read as a verdict
+   * on that field's value, and no value was ever inspected.
+   *
+   * The originating `StorageError` stays server-side (S4).
+   */
+  FieldStorageError: (error) => ({
+    status: 503,
+    body: {
+      success: false,
+      message: error.message,
+      code: 'SERVICE_UNAVAILABLE',
     },
   }),
 } satisfies Record<

@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { escapeSqlString } from '@/domain/utils/database/sql-formatting'
+import { escapeSqlString } from '@/domain/kernel/sql/sql-formatting'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 
 // Re-export from domain layer — these are pure string transformations
@@ -14,7 +14,7 @@ export {
   escapeSqlString,
   formatSqlValue,
   formatLikePattern,
-} from '@/domain/utils/database/sql-formatting'
+} from '@/domain/kernel/sql/sql-formatting'
 
 /**
  * Inline a JS value as a JSONB literal in a Drizzle SQL fragment, working

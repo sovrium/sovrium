@@ -16,12 +16,12 @@ components:
           - type: text
             element: h1
             props:
-              className: text-3xl font-bold mb-2 text-foreground text-center
+              className: text-4xl font-bold mb-2 text-foreground text-center
             content: Create account
           - type: text
             element: p
             props:
-              className: text-sm mb-8 text-muted-foreground text-center
+              className: text-md mb-8 text-muted-foreground text-center
             content: The first account created becomes the site admin. Later sign-ups are editors.
 
           - type: container
@@ -41,5 +41,5 @@ components:
           - type: link
             props:
               href: /admin/login
-              className: block text-sm mt-6 text-primary hover:underline text-center
+              className: block text-md mt-6 text-primary hover:underline text-center
             content: ← Back to sign in

@@ -63,6 +63,20 @@ function TriggerButton({
  * `maxDate` constraints. We intentionally roll a small grid rather than
  * pull in `react-day-picker` (not installed in `package.json` despite being
  * documented as a stack member) — keeping the island dependency-free.
+ *
+ * ─── THE ROOT IS A FULL-WIDTH BLOCK, AND IT CARRIES THE REF ────────────────
+ *
+ * `block w-full`, not `inline-block`. The trigger already asks for `w-full`,
+ * and against a shrink-to-fit root that resolved against the caption's own
+ * text — so the control took whatever width its label happened to need, plus a
+ * floor, and never the width of the column it was dropped into. Founder, on a
+ * form of stacked fields: _"pour qu'on ait vraiment le même rythme entre chaque
+ * input"_. A form control fills the box it is given, like every other one on
+ * the page.
+ *
+ * The same element carries the ref that decides what counts as pressing the
+ * control rather than leaving it: the calendar is a child of it, so the
+ * calendar is inside and the rest of the page is outside.
  */
 export default function DatePickerIsland({
   id,
@@ -87,7 +101,8 @@ export default function DatePickerIsland({
 
   return (
     <span
-      className="relative inline-block"
+      ref={state.containerRef}
+      className="relative block w-full"
       data-component="date-picker-island"
     >
       <TriggerButton

@@ -6,28 +6,34 @@
  */
 
 import { Data, Effect } from 'effect'
-import { parseEcoDesignLayer } from '@/domain/models/env/eco/eco-design-layer'
-import { parseEcoFormAnalytics } from '@/domain/models/env/eco/eco-form-analytics'
-import { parseEcoIndexHeader } from '@/domain/models/env/eco/eco-index-header'
-import { parseEcoLowDataDefault } from '@/domain/models/env/eco/eco-low-data-default'
-import { parseEcoMode } from '@/domain/models/env/eco/eco-mode'
-import { parseEcoPageCache } from '@/domain/models/env/eco/eco-page-cache'
-import { parseEcoPageCacheMaxMb } from '@/domain/models/env/eco/eco-page-cache-max-mb'
+import { parseEcoDesignLayer } from '@/domain/models/process-env/eco/eco-design-layer'
+import { parseEcoFormAnalytics } from '@/domain/models/process-env/eco/eco-form-analytics'
+import { parseEcoIndexHeader } from '@/domain/models/process-env/eco/eco-index-header'
+import { parseEcoLowDataDefault } from '@/domain/models/process-env/eco/eco-low-data-default'
+import { parseEcoMode } from '@/domain/models/process-env/eco/eco-mode'
+import { parseEcoPageCache } from '@/domain/models/process-env/eco/eco-page-cache'
+import { parseEcoPageCacheMaxMb } from '@/domain/models/process-env/eco/eco-page-cache-max-mb'
 
 /**
  * Raised when any `ECO_*` env var is set to a value its parser does not
  * recognise.
  *
- * `message` is carried EXPLICITLY, not just `cause`. A `Data.TaggedError` whose
- * payload is `{ cause }` alone renders as the literal string
- * `EcoEnvError: An error has occurred` — the parser's descriptive text
- * ("Invalid ECO_MODE: expected …") stays buried in `cause` and never reaches
- * the operator's terminal. A refusal that does not name the variable it
- * refused is barely better than the silent fallback it replaced: the operator
- * knows only that something about eco config is wrong, which is the one thing
- * they could already guess.
+ * `message` is carried EXPLICITLY alongside `cause`, and it is the field
+ * `formatRuntimeError` prints as prose — so the parser's descriptive text
+ * ("Invalid ECO_MODE: expected …") is what reaches the operator's terminal,
+ * whatever `cause` happens to hold. A refusal that does not name the variable
+ * it refused is barely better than the silent fallback it replaced: the
+ * operator knows only that something about eco config is wrong, which is the
+ * one thing they could already guess.
+ *
+ * The two fields carry the same sentence here (`cause` is the `Error` the
+ * parser threw); the formatter drops `cause` rather than printing it twice.
+ *
+ * Exported for one reason only: `validateOperatorEnv` names this tag in its
+ * declared error channel, and a `.d.ts` cannot reference a name its declaring
+ * module keeps to itself. No caller catches it by tag — an operator reads it.
  */
-class EcoEnvError extends Data.TaggedError('EcoEnvError')<{
+export class EcoEnvError extends Data.TaggedError('EcoEnvError')<{
   readonly message: string
   readonly cause: unknown
 }> {}

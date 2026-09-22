@@ -39,14 +39,24 @@ import {
   executeAutomationRun,
   resolveAutomationId,
   type ExecuteAutomationRunRequirements,
+  type RunAutomationError,
   type RunAutomationResult,
 } from './run-automation'
 import type { TriggerData } from './resolve-trigger-data'
+import type { AutomationApprovalDatabaseError } from '@/application/ports/repositories/automations/automation-approval-repository'
+import type { AutomationRunDatabaseError } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { App } from '@/domain/models/app'
 
 /**
  * Error tags surfaced by the approval-resolution flow. Mapped to HTTP
  * responses by the route handler.
+ *
+ * The two repository failures are members in their own right, NOT folded into
+ * `ApprovalNotFound` / `AutomationRunNotFound`. A `mapError(() => NotFound)`
+ * over a repository call answers "no such approval" when the truth is "the
+ * store did not answer" — a 404 for a row the caller can see, and a
+ * non-alerting one for the operator. Absence is decided HERE, from an
+ * `undefined` row; a failure stays a failure and reaches the route as a 5xx.
  */
 export type ResolveApprovalError =
   | { readonly _tag: 'ApprovalNotFound'; readonly approvalId: string }
@@ -58,6 +68,9 @@ export type ResolveApprovalError =
     }
   | { readonly _tag: 'AutomationRunNotFound'; readonly runId: string }
   | { readonly _tag: 'AutomationNotFound'; readonly name: string }
+  | AutomationApprovalDatabaseError
+  | AutomationRunDatabaseError
+  | RunAutomationError
 
 /**
  * Result of resolving an approval. `decision` echoes the action taken;
@@ -131,9 +144,9 @@ const loadResolutionTarget = (input: {
   Effect.gen(function* () {
     const { runId, approvalId, app } = input
     const approvalRepo = yield* AutomationApprovalRepository
-    const approval = yield* approvalRepo
-      .findById(approvalId)
-      .pipe(Effect.mapError(() => ({ _tag: 'ApprovalNotFound' as const, approvalId })))
+    // No `mapError` here: a read that FAILED is not a read that found nothing.
+    // Absence is the `undefined` below, and only that becomes `ApprovalNotFound`.
+    const approval = yield* approvalRepo.findById(approvalId)
     if (approval === undefined) {
       return yield* Effect.fail({ _tag: 'ApprovalNotFound' as const, approvalId })
     }
@@ -149,9 +162,7 @@ const loadResolutionTarget = (input: {
     }
 
     const runRepo = yield* AutomationRunRepository
-    const run = yield* runRepo
-      .findById(runId)
-      .pipe(Effect.mapError(() => ({ _tag: 'AutomationRunNotFound' as const, runId })))
+    const run = yield* runRepo.findById(runId)
     if (run === undefined) {
       return yield* Effect.fail({ _tag: 'AutomationRunNotFound' as const, runId })
     }
@@ -184,25 +195,22 @@ export const resolveAutomationApproval = (
     if (decision === 'reject') {
       // Terminate: stamp the row rejected and mark the paused run failed.
       // No re-run — the downstream actions never execute.
-      yield* approvalRepo
-        .updateStatus({ id: approvalId, status: 'rejected' })
-        .pipe(Effect.mapError(() => ({ _tag: 'ApprovalNotFound' as const, approvalId })))
+      yield* approvalRepo.updateStatus({ id: approvalId, status: 'rejected' })
       const runRepo = yield* AutomationRunRepository
-      yield* runRepo
-        .updateStatus({ id: runId, status: 'rejected' })
-        .pipe(Effect.mapError(() => ({ _tag: 'AutomationRunNotFound' as const, runId })))
+      yield* runRepo.updateStatus({ id: runId, status: 'rejected' })
       return { decision: 'rejected', runId, approvalId } as const
     }
 
     // Approve: stamp the row approved, then resume by re-running the tail.
-    yield* approvalRepo
-      .updateStatus({ id: approvalId, status: 'approved' })
-      .pipe(Effect.mapError(() => ({ _tag: 'ApprovalNotFound' as const, approvalId })))
+    yield* approvalRepo.updateStatus({ id: approvalId, status: 'approved' })
 
+    // The automation itself was already resolved from `app.automations` in
+    // `loadResolutionTarget`, so `resolveAutomationId` cannot report it missing:
+    // it looks the registry row up and CREATES it when absent, and every way it
+    // fails is an `AutomationRegistrySeedError` carrying its cause. Re-labelling
+    // that as `AutomationNotFound` answered 404 for a registry write that failed.
     const { name } = target.automation
-    const automationId = yield* resolveAutomationId(name, target.automation).pipe(
-      Effect.mapError(() => ({ _tag: 'AutomationNotFound' as const, name }))
-    )
+    const automationId = yield* resolveAutomationId(name, target.automation)
     const skipActionNames = collectActionsUpToIndex(
       target.automation.actions as readonly { readonly name?: unknown }[],
       target.stepIndex
@@ -221,4 +229,4 @@ export const resolveAutomationApproval = (
       skipActionNames,
     })
     return { decision: 'approved', runId, approvalId, result } as const
-  })
+  }).pipe(Effect.withSpan('automations.resolve-automation-approval'))

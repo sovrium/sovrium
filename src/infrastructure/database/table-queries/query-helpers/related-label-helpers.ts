@@ -9,8 +9,8 @@ import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { db, type DatabaseError } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { wrapDatabaseError } from '../shared/error-handling'
-import { validateColumnName, validateTableName } from '../shared/validation'
+import { wrapDatabaseError } from '../statement/error-handling'
+import { validateColumnName, validateTableName } from '../statement/validation'
 
 /**
  * Reading the human label behind a relationship's stored key.

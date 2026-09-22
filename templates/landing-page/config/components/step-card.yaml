@@ -6,7 +6,7 @@ props:
 children:
   - type: container
     props:
-      className: w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold mx-auto mb-4
+      className: w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-3xl font-bold mx-auto mb-4
       style:
         backgroundColor: var(--color-primary)
         color: '#ffffff'
@@ -20,7 +20,7 @@ children:
   - type: text
     element: h3
     props:
-      className: text-xl font-semibold mb-2
+      className: text-2xl font-semibold mb-2
     content: $title
   - type: text
     element: p

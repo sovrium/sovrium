@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { PathBranchActionSchema } from './branch'
-
-export const PathActionSchema = PathBranchActionSchema
+export * from './path-action'
 
 export * from './branch'

@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
+import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
 
 // ─── Connection User Status ──────────────────────────────────────────────────
 
@@ -21,13 +22,16 @@ import { z } from 'zod'
  * status for users without a token row (consumers iterating over a user list
  * may render this status for users they expect to see).
  */
-export const connectionUserStatusSchema = z
-  .enum(['connected', 'disconnected', 'expired'])
-  .describe(
-    'Per-user connection status. `connected` = active token; `expired` = token past its expiry; `disconnected` = no token or explicitly cleared.'
-  )
+export const connectionUserStatusSchema = Schema.Literals([
+  'connected',
+  'disconnected',
+  'expired',
+]).annotate({
+  description:
+    'Per-user connection status. `connected` = active token; `expired` = token past its expiry; `disconnected` = no token or explicitly cleared.',
+})
 
-export type ConnectionUserStatus = z.infer<typeof connectionUserStatusSchema>
+export type ConnectionUserStatus = typeof connectionUserStatusSchema.Type
 
 // ─── Connection User Entry ───────────────────────────────────────────────────
 
@@ -46,25 +50,21 @@ export type ConnectionUserStatus = z.infer<typeof connectionUserStatusSchema>
  * against the route's response: any extra key (especially a token field) will
  * trigger a clear failure rather than leak silently.
  */
-export const connectionUserEntrySchema = z
-  .object({
-    userId: z
-      .string()
-      .describe(
-        'Subject identifier of the user who authorized this connection. Matches `auth.users.id`.'
-      ),
-    status: connectionUserStatusSchema,
-    expiresAt: z
-      .string()
-      .datetime()
-      .nullable()
-      .describe(
-        'ISO 8601 timestamp when the access token expires. `null` when no expiry was recorded by the provider (long-lived tokens).'
-      ),
-  })
-  .strict()
+export const connectionUserEntrySchema = Schema.Struct({
+  userId: Schema.String.annotate({
+    description:
+      'Subject identifier of the user who authorized this connection. Matches `auth.users.id`.',
+  }),
+  status: connectionUserStatusSchema,
+  expiresAt: Schema.NullOr(
+    looseIsoDateTime({
+      description:
+        'ISO 8601 timestamp when the access token expires. `null` when no expiry was recorded by the provider (long-lived tokens).',
+    })
+  ),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys' })
 
-export type ConnectionUserEntry = z.infer<typeof connectionUserEntrySchema>
+export type ConnectionUserEntry = typeof connectionUserEntrySchema.Type
 
 // ─── List Connection Users Response ──────────────────────────────────────────
 
@@ -87,17 +87,14 @@ export type ConnectionUserEntry = z.infer<typeof connectionUserEntrySchema>
  * [internal ref] (Wave-2 audit, 2026-05-01): currently a documentation contract
  * only — the route does not validate against this schema. When OpenAPI
  * wiring lands for connection routes, switch the route to
- * `Effect.try(() => connectionUsersResponseSchema.parse(payload))` so
+ * `Effect.try(() => decodeOrThrow(connectionUsersResponseSchema)(payload))` so
  * accidental token-field emission is caught at the boundary.
  */
-export const connectionUsersResponseSchema = z
-  .object({
-    users: z
-      .array(connectionUserEntrySchema)
-      .describe(
-        'Members who have completed OAuth authorization for this connection. Admin users are excluded — their token rows are auth-only artifacts (see `dropAdminUsers` in users-handler).'
-      ),
-  })
-  .strict()
+export const connectionUsersResponseSchema = Schema.Struct({
+  users: Schema.Array(connectionUserEntrySchema).annotate({
+    description:
+      'Members who have completed OAuth authorization for this connection. Admin users are excluded — their token rows are auth-only artifacts (see `dropAdminUsers` in users-handler).',
+  }),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys' })
 
-export type ConnectionUsersResponse = z.infer<typeof connectionUsersResponseSchema>
+export type ConnectionUsersResponse = typeof connectionUsersResponseSchema.Type

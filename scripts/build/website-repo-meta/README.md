@@ -24,14 +24,14 @@ not out of unfriendliness, but because the next sync would overwrite them.
 
 ## What's here
 
-| Path | What it is |
-| --- | --- |
-| `app.ts` | The whole site: pages, tables, forms, auth, analytics, LLM feeds |
-| `config/pages/` | Every route, as data |
-| `config/languages.ts` | The full EN/FR translation catalog |
-| `config/tables/`, `config/forms/` | Newsletter + waitlist capture |
-| `content/docs/{en,fr}/` | The documentation corpus, ~120 articles per locale |
-| `content/changelog/` | Release notes |
+| Path                              | What it is                                                                   |
+| --------------------------------- | ---------------------------------------------------------------------------- |
+| `app.ts`                          | The whole site: pages, tables, forms, auth, analytics, LLM feeds             |
+| `config/pages/`                   | Every route, as data                                                         |
+| `config/languages.ts`             | The full EN/FR translation catalog                                           |
+| `config/tables/`, `config/forms/` | Newsletter + waitlist capture                                                |
+| `content/docs/{en,fr}/`           | The documentation corpus — one file per slug per locale, at exact 1:1 parity |
+| `content/changelog/`              | Release notes                                                                |
 
 ## What has been removed
 

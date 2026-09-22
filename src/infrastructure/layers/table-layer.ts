@@ -5,77 +5,40 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Layer, type Result } from 'effect'
-import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
-import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
+import { Effect, type Layer, type Result } from 'effect'
+import { AutomationRuntimeLayer } from '@/infrastructure/automations/runtime-layer'
 import { UserAccessRepositoryLive } from '@/infrastructure/database/repositories/auth/user-access-repository-live'
-import { AutomationDigestRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-digest-repository-live'
-import { AutomationPauseRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-pause-repository-live'
-import { AutomationRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-repository-live'
-import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-repository-live'
-import { AutomationStateRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-state-repository-live'
-import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
-import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
-import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links/link-repository-live'
-import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/tables/data-source-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
-import { ServerOriginLive } from '@/infrastructure/server/server-origin-live'
+
+/**
+ * The services `TableLive` builds — `TableRepository`, `BatchRepository`,
+ * `CommentRepository`, `ActivityRepository`.
+ *
+ * Exported so a caller that RUNS a provided program can pin its requirement
+ * channel to exactly this set instead of asserting it away.
+ */
+export type TableServices = Layer.Success<typeof TableLive>
 
 // Re-export infrastructure queries used by table route handlers
 export { checkForExistingRecords } from '@/infrastructure/database/table-queries/query-helpers/check-existing-records'
 
 /**
- * Composite layer for table routes that also dispatch record-event
- * automations. Provides TableLive plus the automation repositories
- * required by the engine's run loop:
- *   - AutomationRepository (lazy seed of `system.automation_definitions`)
- *   - AutomationRunRepository (persist runs + steps)
- *   - AutomationStateRepository, AutomationDigestRepository (action handlers)
- *   - ConnectionRepository, ConnectionTokenRepository (http/oauth handlers)
- *   - DataSourceRepository (GAP-J1: hydrate many-to-one relationship fields in
- *     the record-event trigger envelope by fetching the related row by id)
- *   - AutomationPauseRepository (the operational-pause read
- *     `triggerRecordEventAutomations` performs before matching, so a paused
- *     automation is filtered out of the dispatch set)
- *   - LinkRepository + ServerOrigin (the `link/*` handlers, which mint through
- *     the same use-cases the admin console does and hand back an absolute
- *     address)
+ * The composite layer for table routes that also dispatch record-event
+ * automations — now simply the automation runtime itself.
  *
- * ── This is a SECOND composition of the automation runtime, and the
- *    divergence is load-bearing to know about ────────────────────────────────
- *
- * `AutomationRuntimeLayer` (infrastructure/automations/runtime-layer.ts) is the
- * other one, and it is strictly larger — it additionally carries
- * `AuthRepository`, `AutomationApprovalRepository`, `AiService`,
- * `StorageService` and `ImageTransformService`. A handler needing one of those
- * therefore works from a webhook or cron trigger and fails from a RECORD
- * trigger, which is a difference no type catches: `provideTableWithAutomations
- * Live` casts its result to `Effect<A, E, never>`, asserting that every
- * requirement is met rather than proving it, and `triggerRecordEventAutomations`
- * catches the resulting missing-service defect into a single log line. The two
- * lists want unifying; doing so is a refactor with its own blast radius, not a
- * line to add while passing through.
- *
- * Used by the record-create handler so a record write can fire matching
- * record-triggered automations in the same request without leaking
- * Effect.provide calls into the route layer.
+ * It used to be a SECOND, smaller composition maintained beside
+ * `AutomationRuntimeLayer`, and the divergence was a live bug: the twin left
+ * out `AuthRepository`, `AutomationApprovalRepository`, `AiService`,
+ * `StorageService` and `ImageTransformService`, so an automation step reaching
+ * for one of those ran from a webhook or cron trigger and failed from a RECORD
+ * trigger. Nothing caught it, because this module asserted the provided program
+ * had no requirements left rather than proving it, and
+ * `triggerRecordEventAutomations` folded the resulting missing-service defect
+ * into one log line. With the assertion removed the compiler reports the gap,
+ * and the fix is to stop maintaining two lists: a record write now carries
+ * exactly the services a cron or webhook run carries.
  */
-const TableWithAutomationsLive = Layer.mergeAll(
-  TableLive,
-  AutomationRepositoryLive,
-  AutomationRunRepositoryLive,
-  AutomationStateRepositoryLive,
-  AutomationDigestRepositoryLive,
-  ConnectionRepositoryLive,
-  ConnectionTokenRepositoryLive,
-  AnalyticsRepositoryLive,
-  DataSourceRepositoryLive,
-  AutomationPauseRepositoryLive,
-  ServerOriginLive,
-  // Built from `Database`, so provided rather than merged bare — the admin
-  // route and `AutomationRuntimeLayer` compose it the same way.
-  Layer.provide(LinkRepositoryLive, DatabaseLive)
-)
+const TableWithAutomationsLive = AutomationRuntimeLayer
 
 /**
  * Composite layer for the user_access (Z-2) endpoints. The route is
@@ -102,11 +65,15 @@ const UserAccessLive = UserAccessRepositoryLive
  * }
  * return c.json(result.success, 201)
  */
-export async function runTableProgram<A, E, R>(
-  program: Effect.Effect<A, E, R>
+export async function runTableProgram<A, E>(
+  program: Effect.Effect<A, E, TableServices>
 ): Promise<Result.Result<A, E>> {
-  // Type assertion: TableLive provides all required repositories, so remaining requirements are never
-  const provided = Effect.provide(program, TableLive) as Effect.Effect<A, E, never>
+  // The requirement channel is PINNED to what `TableLive` builds rather than
+  // being generic and then asserted away. Effect's R channel is covariant, so a
+  // program needing a SUBSET of these services still fits, while one reaching
+  // for a service this layer does not build fails to compile at the call site
+  // instead of dying as a missing-service defect at runtime.
+  const provided = Effect.provide(program, TableLive)
   return Effect.runPromise(Effect.result(provided))
 }
 
@@ -115,10 +82,10 @@ export async function runTableProgram<A, E, R>(
  * junction). Used by the user-access route handlers, which are mounted
  * outside the regular table-route middleware chain.
  */
-export async function runUserAccessProgram<A, E, R>(
-  program: Effect.Effect<A, E, R>
+export async function runUserAccessProgram<A, E>(
+  program: Effect.Effect<A, E, Layer.Success<typeof UserAccessLive>>
 ): Promise<Result.Result<A, E>> {
-  const provided = Effect.provide(program, UserAccessLive) as Effect.Effect<A, E, never>
+  const provided = Effect.provide(program, UserAccessLive)
   return Effect.runPromise(Effect.result(provided))
 }
 
@@ -136,11 +103,9 @@ export async function runUserAccessProgram<A, E, R>(
  * @example
  * return runEffect(c, provideTableLive(batchCreateProgram({ ... })), responseSchema, 201)
  */
-export function provideTableLive<A, E, R>(
-  program: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, never> {
+export function provideTableLive<A, E, R>(program: Effect.Effect<A, E, R>) {
   // Type assertion: TableLive provides all required repositories, so remaining requirements are never
-  return Effect.provide(program, TableLive) as Effect.Effect<A, E, never>
+  return Effect.provide(program, TableLive)
 }
 
 /**
@@ -149,8 +114,6 @@ export function provideTableLive<A, E, R>(
  * (`triggerRecordEventAutomations`) — the record write and automation engine
  * run inside the same Effect request scope.
  */
-export function provideTableWithAutomationsLive<A, E, R>(
-  program: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, never> {
-  return Effect.provide(program, TableWithAutomationsLive) as Effect.Effect<A, E, never>
+export function provideTableWithAutomationsLive<A, E, R>(program: Effect.Effect<A, E, R>) {
+  return Effect.provide(program, TableWithAutomationsLive)
 }

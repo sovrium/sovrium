@@ -46,9 +46,11 @@
  * `loading="lazy"`, never inline base64.
  */
 
-import { formatDurationValue } from '@/domain/utils/duration-format'
-import { isHexColor } from '@/domain/utils/option-chip-color'
+import { isHexColor } from '@/domain/kernel/color/option-chip-color'
+import { formatDurationValue } from '@/domain/kernel/format/duration-format'
 import {
+  computeAttachmentEntryClasses,
+  computeAttachmentGlyphClasses,
   computeAttachmentLinkClasses,
   computeAttachmentListClasses,
   computeBarcodeClasses,
@@ -61,9 +63,9 @@ import {
   computeProgressTrackClasses,
   computeRatingGlyphClasses,
   computeRatingRowClasses,
-} from '../recipes/cell-affordances-default-classes'
-import { DEFAULT_RATING_MAX, ratingGlyphsFor, readsAsTrue } from '../shared/cell-value-semantics'
-import { richTextPreview } from '../shared/rich-text-preview'
+} from '../../design/cell-affordances-default-classes'
+import { DEFAULT_RATING_MAX, ratingGlyphsFor, readsAsTrue } from '../runtime/cell-value-semantics'
+import { richTextPreview } from '../runtime/rich-text-preview'
 import { EMPTY_VALUE, isMissing } from './cell-empty'
 import type { CellFieldOptions } from './cell-renderers'
 
@@ -304,19 +306,41 @@ const toAttachmentEntry = (value: unknown): AttachmentEntry | undefined => {
   return { name: baseName(label), ...(href !== undefined ? { href } : {}) }
 }
 
+/**
+ * The page glyph that precedes a file's name.
+ *
+ * `aria-hidden` and empty: it carries no information a screen reader needs —
+ * the link's accessible name is already the file name — and duplicating "file"
+ * into the announcement would make every attachment read twice.
+ */
+const ATTACHMENT_GLYPH = (
+  <span
+    aria-hidden="true"
+    className={computeAttachmentGlyphClasses()}
+  />
+)
+
 function AttachmentLink({ entry }: { entry: AttachmentEntry }): React.ReactNode {
   if (entry.href === undefined) {
-    return <span className={computeAttachmentLinkClasses()}>{entry.name}</span>
+    return (
+      <span className={computeAttachmentEntryClasses()}>
+        {ATTACHMENT_GLYPH}
+        <span className={computeAttachmentLinkClasses()}>{entry.name}</span>
+      </span>
+    )
   }
   return (
-    <a
-      href={entry.href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={computeAttachmentLinkClasses()}
-    >
-      {entry.name}
-    </a>
+    <span className={computeAttachmentEntryClasses()}>
+      {ATTACHMENT_GLYPH}
+      <a
+        href={entry.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={computeAttachmentLinkClasses()}
+      >
+        {entry.name}
+      </a>
+    </span>
   )
 }
 

@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { HttpUrlSchema } from '@/domain/types/url'
+import { HttpUrlSchema } from '@/domain/kernel/url/url'
 
 // ============================================================================
 // DNS Prefetch

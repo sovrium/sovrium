@@ -6,8 +6,22 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { optionLabel, optionValue } from '@/domain/utils/select-option'
-import { getOperatorsForType, isSelectValueField } from './filter-operators'
+import { optionLabel, optionValue } from '@/domain/models/app/tables/select-option'
+import {
+  computeTableChipClasses,
+  computeTableChipValueClasses,
+  computeTablePanelCaptionClasses,
+  computeTablePanelClasses,
+  computeTablePanelControlClasses,
+  computeTablePanelLinkClasses,
+  computeTablePanelRemoveClasses,
+  computeTableToolbarPrimaryButtonClasses,
+} from '@/presentation/design/table-default-classes'
+import {
+  DEFAULT_FILTER_OPERATOR,
+  getOperatorsForType,
+  isSelectValueField,
+} from './filter-operators'
 import type { FilterConjunction, FilterRow } from './use-ui-state'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 
@@ -61,17 +75,21 @@ function ActiveFilterChip({ row, onRemove }: ActiveFilterChipProps) {
   return (
     <span
       data-testid="filter-row"
-      className="bg-background-subtle border-border inline-flex items-center gap-2 rounded border px-2 py-1 text-sm"
+      className={computeTableChipClasses()}
     >
+      {/* Field and operator are grammar the reader already chose; the VALUE is
+          what distinguishes one committed filter from the next, so it takes the
+          chip's full ink and the rest recedes behind it. */}
       <span>
-        {row.field} {row.operator} {row.value}
+        {row.field} {row.operator}{' '}
+        <span className={computeTableChipValueClasses()}>{row.value}</span>
       </span>
       <button
         type="button"
         aria-label="Remove filter"
         title="Remove filter"
         onClick={handleClick}
-        className="text-foreground-muted hover:text-foreground"
+        className={computeTablePanelRemoveClasses()}
       >
         ×
       </button>
@@ -113,7 +131,7 @@ export function FilterOverlay({
   const initialField = tableFields[0] ?? ''
   const [field, setField] = useState<string>(initialField)
   const initialOps = getOperatorsForType(fieldMeta?.[initialField]?.type)
-  const initialOp = initialOps[0]?.value ?? 'is'
+  const initialOp = initialOps[0]?.value ?? DEFAULT_FILTER_OPERATOR
   const [operator, setOperator] = useState<string>(initialOp)
   const [value, setValue] = useState<string>('')
 
@@ -129,7 +147,7 @@ export function FilterOverlay({
       // Re-default the operator + value when the field type changes so the
       // panel never carries a number-only operator into a text field.
       const newOps = getOperatorsForType(fieldMeta?.[newField]?.type)
-      setOperator(newOps[0]?.value ?? 'is')
+      setOperator(newOps[0]?.value ?? DEFAULT_FILTER_OPERATOR)
       setValue('')
     },
     [fieldMeta]
@@ -158,15 +176,17 @@ export function FilterOverlay({
       data-testid="filter-panel"
       role="dialog"
       aria-label="Filter"
-      className="border-border bg-background-raised border-b p-4"
+      className={computeTablePanelClasses()}
     >
-      <div className="mb-3 flex items-center gap-3">
-        <span className="text-foreground-muted text-sm">Combine filters with</span>
+      {/* The panel is a flex COLUMN with its own gap now, so the rows no longer
+          carry per-row bottom margins that had to agree with each other. */}
+      <div className="flex items-center gap-3">
+        <span className={computeTablePanelCaptionClasses()}>Combine filters with</span>
         <button
           type="button"
           onClick={onToggleConjunction}
           aria-label={filterConjunction === 'AND' ? 'AND' : 'OR'}
-          className="border-border hover:bg-background-subtle rounded border px-2 py-1 text-xs font-medium"
+          className={`${computeTablePanelControlClasses()} font-medium`}
         >
           {filterConjunction}
         </button>
@@ -176,7 +196,7 @@ export function FilterOverlay({
               type="button"
               aria-label="Clear all filters"
               onClick={onClearAll}
-              className="text-foreground-muted hover:text-foreground text-xs underline"
+              className={computeTablePanelLinkClasses()}
             >
               Clear all
             </button>
@@ -185,14 +205,14 @@ export function FilterOverlay({
             type="button"
             aria-label="Close filter panel"
             onClick={onClose}
-            className="text-foreground-muted hover:text-foreground text-xs underline"
+            className={computeTablePanelLinkClasses()}
           >
             Close
           </button>
         </div>
       </div>
       {activeFilters.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           {activeFilters.map((row) => (
             <ActiveFilterChip
               key={row.id}
@@ -214,7 +234,7 @@ export function FilterOverlay({
           aria-label="Field"
           value={field}
           onChange={handleFieldChange}
-          className="border-border rounded border px-2 py-1 text-sm"
+          className={computeTablePanelControlClasses()}
         >
           {tableFields.map((f) => (
             <option
@@ -240,7 +260,7 @@ export function FilterOverlay({
           aria-label="Operator"
           value={operator}
           onChange={handleOperatorChange}
-          className="border-border rounded border px-2 py-1 text-sm"
+          className={computeTablePanelControlClasses()}
         >
           {operators.map((op) => (
             <option
@@ -264,7 +284,7 @@ export function FilterOverlay({
               aria-label="Value"
               value={value}
               onChange={handleValueSelectChange}
-              className="border-border rounded border px-2 py-1 text-sm"
+              className={computeTablePanelControlClasses()}
             >
               <option value="">Select…</option>
               {fieldOptions?.map((opt) => (
@@ -292,7 +312,7 @@ export function FilterOverlay({
               value={value}
               onChange={handleValueInputChange}
               placeholder="Value"
-              className="border-border rounded border px-2 py-1 text-sm"
+              className={computeTablePanelControlClasses()}
             />
           </>
         )}
@@ -300,7 +320,14 @@ export function FilterOverlay({
           type="button"
           onClick={handleAddFilter}
           aria-label="Add filter"
-          className="border-border bg-primary text-primary-foreground hover:bg-primary-hover rounded border px-3 py-1 text-sm"
+          // PRIMARY, and that is a specified contract rather than drift. The
+          // canvas draws a panel's commit as a secondary button, but
+          // `[internal ref]` pins this control as the
+          // panel's canonical author-`primary` surface and reads its resolved
+          // pixel against the author token. Retoning it to secondary would
+          // break the assertion that proves an author's `primary` reaches
+          // inside the grid at all.
+          className={computeTableToolbarPrimaryButtonClasses()}
         >
           Add filter
         </button>

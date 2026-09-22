@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
+import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 // ---------------------------------------------------------------------------
 // Conversation summary schema
@@ -14,16 +16,23 @@ import { z } from 'zod'
 /**
  * Summary of a conversation thread for list views.
  */
-export const conversationSummarySchema = z.object({
-  sessionId: z.string().describe('Unique session identifier for the conversation'),
-  title: z.string().nullable().describe('Auto-generated title from the first user message'),
-  agentName: z
-    .string()
-    .nullable()
-    .describe('Agent name if conversation is with a specific agent (null for default AI)'),
-  messageCount: z.number().int().min(0).describe('Total number of messages in the conversation'),
-  createdAt: z.string().datetime().describe('ISO 8601 timestamp when the conversation started'),
-  updatedAt: z.string().datetime().describe('ISO 8601 timestamp of the most recent message'),
+export const conversationSummarySchema = Schema.Struct({
+  sessionId: Schema.String.annotate({
+    description: 'Unique session identifier for the conversation',
+  }),
+  title: Schema.NullOr(
+    Schema.String.annotate({ description: 'Auto-generated title from the first user message' })
+  ),
+  agentName: Schema.NullOr(
+    Schema.String.annotate({
+      description: 'Agent name if conversation is with a specific agent (null for default AI)',
+    })
+  ),
+  messageCount: Schema.Int.annotate({
+    description: 'Total number of messages in the conversation',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  createdAt: looseIsoDateTime({ description: 'ISO 8601 timestamp when the conversation started' }),
+  updatedAt: looseIsoDateTime({ description: 'ISO 8601 timestamp of the most recent message' }),
 })
 
 // ---------------------------------------------------------------------------
@@ -33,22 +42,23 @@ export const conversationSummarySchema = z.object({
 /**
  * A single message within a conversation thread.
  */
-export const conversationMessageSchema = z.object({
-  id: z.number().int().describe('Message identifier'),
-  role: z.enum(['user', 'assistant', 'system']).describe('Role of the message sender'),
-  content: z.string().describe('Message text content'),
-  actions: z
-    .array(z.record(z.string(), z.unknown()))
-    .describe('Actions taken by the AI during this message'),
-  tokenUsage: z
-    .object({
-      prompt: z.number().int().describe('Prompt tokens consumed'),
-      completion: z.number().int().describe('Completion tokens consumed'),
-      total: z.number().int().describe('Total tokens consumed'),
-    })
-    .optional()
-    .describe('Token usage for assistant messages'),
-  createdAt: z.string().datetime().describe('ISO 8601 timestamp when the message was created'),
+export const conversationMessageSchema = Schema.Struct({
+  id: Schema.Int.annotate({ description: 'Message identifier' }),
+  role: Schema.Literals(['user', 'assistant', 'system']).annotate({
+    description: 'Role of the message sender',
+  }),
+  content: Schema.String.annotate({ description: 'Message text content' }),
+  actions: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)).annotate({
+    description: 'Actions taken by the AI during this message',
+  }),
+  tokenUsage: optionalField(
+    Schema.Struct({
+      prompt: Schema.Int.annotate({ description: 'Prompt tokens consumed' }),
+      completion: Schema.Int.annotate({ description: 'Completion tokens consumed' }),
+      total: Schema.Int.annotate({ description: 'Total tokens consumed' }),
+    }).annotate({ description: 'Token usage for assistant messages' })
+  ),
+  createdAt: looseIsoDateTime({ description: 'ISO 8601 timestamp when the message was created' }),
 })
 
 // ---------------------------------------------------------------------------
@@ -58,11 +68,13 @@ export const conversationMessageSchema = z.object({
 /**
  * Response schema for listing conversation threads.
  */
-export const conversationListResponseSchema = z.object({
-  conversations: z
-    .array(conversationSummarySchema)
-    .describe('List of conversation thread summaries'),
-  total: z.number().int().min(0).describe('Total number of conversations'),
+export const conversationListResponseSchema = Schema.Struct({
+  conversations: Schema.Array(conversationSummarySchema).annotate({
+    description: 'List of conversation thread summaries',
+  }),
+  total: Schema.Int.annotate({ description: 'Total number of conversations' }).pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(0))
+  ),
 })
 
 // ---------------------------------------------------------------------------
@@ -72,18 +84,18 @@ export const conversationListResponseSchema = z.object({
 /**
  * Response schema for retrieving a single conversation with its messages.
  */
-export const conversationDetailResponseSchema = z.object({
-  conversation: conversationSummarySchema.describe('Conversation thread metadata'),
-  messages: z
-    .array(conversationMessageSchema)
-    .describe('Ordered list of messages in the conversation'),
+export const conversationDetailResponseSchema = Schema.Struct({
+  conversation: conversationSummarySchema.annotate({ description: 'Conversation thread metadata' }),
+  messages: Schema.Array(conversationMessageSchema).annotate({
+    description: 'Ordered list of messages in the conversation',
+  }),
 })
 
 // ---------------------------------------------------------------------------
 // Type exports
 // ---------------------------------------------------------------------------
 
-export type ConversationSummary = z.infer<typeof conversationSummarySchema>
-export type ConversationMessage = z.infer<typeof conversationMessageSchema>
-export type ConversationListResponse = z.infer<typeof conversationListResponseSchema>
-export type ConversationDetailResponse = z.infer<typeof conversationDetailResponseSchema>
+export type ConversationSummary = typeof conversationSummarySchema.Type
+export type ConversationMessage = typeof conversationMessageSchema.Type
+export type ConversationListResponse = typeof conversationListResponseSchema.Type
+export type ConversationDetailResponse = typeof conversationDetailResponseSchema.Type

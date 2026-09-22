@@ -26,16 +26,16 @@
  *      non-existent "audit-log story §305" — see the catalog's historical note.)
  */
 
-import { resolveAiEcoRouting } from '@/domain/models/env/ai/ai-eco-routing'
-import { parseEcoIndexHeader } from '@/domain/models/env/eco/eco-index-header'
-import { resolveEcoLevers } from '@/domain/models/env/eco/eco-levers'
-import { resolveEffectiveLowDataDefault } from '@/domain/models/env/eco/eco-low-data-default'
-import { parseEcoMode } from '@/domain/models/env/eco/eco-mode'
+import { resolveAiEcoRouting } from '@/domain/models/process-env/ai/ai-eco-routing'
+import { parseEcoIndexHeader } from '@/domain/models/process-env/eco/eco-index-header'
+import { resolveEcoLevers } from '@/domain/models/process-env/eco/eco-levers'
+import { resolveEffectiveLowDataDefault } from '@/domain/models/process-env/eco/eco-low-data-default'
+import { parseEcoMode } from '@/domain/models/process-env/eco/eco-mode'
 import type {
   FootprintOverviewResponse,
   StorageMeasurementSource,
 } from '@/domain/models/api/admin/footprint/overview'
-import type { EcoIndexTrackerSnapshot } from '@/infrastructure/utils/eco-index-tracker'
+import type { EcoIndexTrackerSnapshot } from '@/infrastructure/process/eco-index-tracker'
 
 /**
  * Storage consumer row sourced from the caller (table size from
@@ -128,7 +128,6 @@ const rankStorageConsumers = (
 const buildEcoIndexPanel = (
   tracker: EcoIndexTrackerSnapshot,
   enabled: boolean
-  // eslint-disable-next-line functional/prefer-immutable-types -- return is Zod-inferred for the API contract (the histogram infers as a mutable Record); it is validated and serialised, never mutated
 ): FootprintOverviewResponse['ecoIndexHeader'] => ({
   enabled,
   // eslint-disable-next-line unicorn/no-null -- `null` is the contract's "nothing graded" sentinel
@@ -154,7 +153,6 @@ const buildEcoIndexPanel = (
  */
 export const buildFootprintOverview = (
   inputs: GetFootprintOverviewInputs
-  // eslint-disable-next-line functional/prefer-immutable-types -- return is Zod-inferred for the API contract; the response is treated as immutable by every downstream consumer (validated then serialised)
 ): FootprintOverviewResponse => {
   const {
     env,

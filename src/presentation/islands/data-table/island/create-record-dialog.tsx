@@ -35,11 +35,20 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useState, type ReactElement } from 'react'
-import { optionLabel, optionValue, type SelectOptionLike } from '@/domain/utils/select-option'
+import {
+  optionLabel,
+  optionValue,
+  type SelectOptionLike,
+} from '@/domain/models/app/tables/select-option'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  computeTableDialogTitleClasses,
+  computeTableAddRowInputClasses,
+  computeTableEditorLabelClasses,
+} from '@/presentation/design/table-default-classes'
 import { type FieldMetaMap } from '../../hooks/use-inline-editing'
 import {
   computeDialogPopupClasses,
-  computeDialogTitleClasses,
   computeOverlayBackdropClasses,
 } from '../../overlays/overlay-default-classes'
 import { isNumericFieldType } from './create-record-data'
@@ -88,7 +97,7 @@ function CreateFieldLabel({
 }): ReactElement {
   return (
     <label className="flex flex-col gap-1 text-sm">
-      <span className="text-foreground-muted">{name}</span>
+      <span className={computeTableEditorLabelClasses()}>{name}</span>
       {children}
     </label>
   )
@@ -114,7 +123,7 @@ function CreateSelectField({
         aria-label={field.name}
         value={value}
         onChange={handleChange}
-        className="border-border rounded border px-2 py-1"
+        className={computeTableAddRowInputClasses()}
         {...(field.required && { required: true })}
       >
         <option value="">— Choisir —</option>
@@ -158,7 +167,7 @@ function CreateInputField({
         aria-label={field.name}
         value={value}
         onChange={handleChange}
-        className="border-border rounded border px-2 py-1"
+        className={computeTableAddRowInputClasses()}
         {...(field.required && { required: true })}
         {...(inputType === 'number' && { inputMode: 'decimal' })}
       />
@@ -241,9 +250,9 @@ function CreateRecordDialogBody({
     <Dialog.Popup
       role="dialog"
       aria-label={title}
-      className={`${computeDialogPopupClasses()} flex max-h-[80vh] flex-col gap-3`}
+      className={`${computeDialogPopupClasses()} flex max-h-dvh flex-col gap-3`}
     >
-      <Dialog.Title className={computeDialogTitleClasses()}>{title}</Dialog.Title>
+      <Dialog.Title className={computeTableDialogTitleClasses()}>{title}</Dialog.Title>
       {/* Scroll the field list (not the whole popup) so the title stays pinned
           and the actions stay reachable on a wide, many-field table. */}
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto">
@@ -259,7 +268,7 @@ function CreateRecordDialogBody({
       <div className="border-border mt-1 flex items-center justify-end gap-2 border-t pt-3">
         <Dialog.Close
           aria-label={cancelLabel}
-          className="border-border text-foreground-muted hover:bg-background-subtle rounded-md border px-4 py-2 text-sm font-medium transition-colors"
+          className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
         >
           {cancelLabel}
         </Dialog.Close>
@@ -267,7 +276,7 @@ function CreateRecordDialogBody({
           type="button"
           aria-label={saveLabel}
           onClick={onSave}
-          className="bg-primary text-primary-fg hover:bg-primary-hover rounded-md px-4 py-2 text-sm font-medium transition-colors"
+          className={computeButtonDefaultClasses({ variant: 'default', size: 'sm' })}
         >
           {saveLabel}
         </button>

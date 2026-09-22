@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { VisibleWhenSchema } from '../../../shared/visible-when'
+import { VisibleWhenSchema } from '../visible-when'
 
 /**
  * Section field — visual divider with an optional label and description.

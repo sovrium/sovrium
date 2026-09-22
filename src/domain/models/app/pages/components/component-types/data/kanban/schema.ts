@@ -37,6 +37,105 @@ export const KanbanGroupBySchema = Schema.Struct({
 })
 
 // ---------------------------------------------------------------------------
+// KanbanSwimlanesSchema
+// ---------------------------------------------------------------------------
+
+/**
+ * Kanban swimlane configuration — the board's SECOND grouping axis.
+ *
+ * `kanbanGroupBy` places a card horizontally (which column); `swimlanes` places
+ * it vertically (which lane). Declaring both turns the board from a row of
+ * columns into a grid: one lane per distinct value of the lane field, and inside
+ * every lane the full column set. A card sits at the intersection of its two
+ * field values.
+ *
+ * ─── WHY THIS MIRRORS `kanbanGroupBy` AND NOT `timeline`'s `groupBy` ───────
+ *
+ * The timeline component also draws swimlanes, and reaching for it as the model
+ * is the obvious move — it is where the word `swimlane` already appears in this
+ * codebase. It is the wrong model twice over. Its TYPED declaration
+ * (`display/timeline/schema.ts`) is dead code: nothing outside its own test
+ * imports it, as `component-field-references.ts` records. What the live timeline
+ * actually reads is an untyped `props.groupBy` string, whose island groups lanes
+ * by FIRST-APPEARANCE order and can express nothing else — no empty lane, no
+ * collapse, no declared order.
+ *
+ * So the model here is the board's own first axis, one file up. `kanbanGroupBy`
+ * is a `Struct` rather than a bare string precisely because an axis accumulates
+ * options, and the second axis inherits the first's semantics wholesale: lane
+ * order is the lane field's DECLARED option order (not first-appearance), a lane
+ * value present in the data but undeclared is appended rather than dropped, and
+ * records whose lane field is null/empty collect in one `Uncategorized` lane.
+ * An author who has learned how columns behave has learned how lanes behave.
+ *
+ * ─── WHAT IS DELIBERATELY ABSENT ──────────────────────────────────────────
+ *
+ * There is no `sort` key. Lane order follows the field's option order, which is
+ * exactly the rule the column axis already runs, and `kanbanGroupBy` exposes no
+ * `sort` of its own. Giving the second axis an ordering vocabulary the first
+ * lacks would make the same concept configurable in one direction and fixed in
+ * the other — the asymmetry `component-field-references.ts` was written to end.
+ * Ordering belongs to a later change that gives it to BOTH axes at once.
+ *
+ * @example
+ * ```yaml
+ * kanbanGroupBy:
+ *   field: status      # → columns
+ * swimlanes:
+ *   field: team        # → lanes
+ *   showEmpty: false
+ *   collapsed: [Archive]
+ * ```
+ */
+export const KanbanSwimlanesSchema = Schema.Struct({
+  /** Field name whose distinct values become the board's lanes */
+  field: Schema.String.annotate({
+    description:
+      'Field name whose distinct values create kanban swimlanes — the board’s second grouping axis, crossing the columns (typically a select/status field)',
+    examples: ['team', 'priority', 'category'],
+  }),
+  /**
+   * Whether a declared lane option holding no records still renders.
+   *
+   * Default `true`, matching the column axis: a declared option renders its
+   * column even when empty, which is what makes `emptyColumnMessage` reachable.
+   * Set `false` on a lane field with many options to draw only the lanes the
+   * data actually populates.
+   */
+  showEmpty: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Render a declared lane option that holds no records (default: true, matching the column axis)',
+    })
+  ),
+  /**
+   * Lane values drawn collapsed on first render.
+   *
+   * Collapsing is always AVAILABLE — every lane header carries its disclosure
+   * control — so this names a starting state rather than granting a capability.
+   * That is why there is no companion `collapsible` boolean: a `collapsible:
+   * false` plus a non-empty `collapsed` list would declare a lane that can
+   * never be opened, and a shape with no valid reading is better not expressible
+   * than refused by a `Schema.check` (which, on a Struct carrying an
+   * `identifier`, silently deletes that identifier).
+   */
+  collapsed: Schema.optional(
+    Schema.Array(Schema.String).pipe(
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
+        description: 'Lane values that render collapsed on first load; the reader can expand them',
+        examples: [['Archive'], ['Done', 'Cancelled']],
+      })
+    )
+  ),
+}).annotate({
+  identifier: 'KanbanSwimlanes',
+  title: 'Kanban Swimlanes',
+  description:
+    'Second grouping axis for a kanban board: one horizontal lane per distinct value of a field, crossing the columns',
+})
+
+// ---------------------------------------------------------------------------
 // KanbanCardFooterItemSchema
 // ---------------------------------------------------------------------------
 
@@ -183,6 +282,7 @@ export const KanbanDragSchema = Schema.Struct({
 // ---------------------------------------------------------------------------
 
 export type KanbanGroupBy = Schema.Schema.Type<typeof KanbanGroupBySchema>
+export type KanbanSwimlanes = Schema.Schema.Type<typeof KanbanSwimlanesSchema>
 export type KanbanCardFooterItem = Schema.Schema.Type<typeof KanbanCardFooterItemSchema>
 export type KanbanCard = Schema.Schema.Type<typeof KanbanCardSchema>
 export type KanbanDrag = Schema.Schema.Type<typeof KanbanDragSchema>

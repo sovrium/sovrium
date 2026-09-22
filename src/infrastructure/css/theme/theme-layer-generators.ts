@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { Theme } from '@/domain/models/app/theme'
+import type { Design } from '@/domain/models/app/design'
 
 /**
- * Theme font flags extracted from theme configuration
+ * Design font flags extracted from design configuration
  */
 export interface ThemeFontFlags {
   readonly hasTitleFont: boolean
@@ -25,39 +25,39 @@ export interface TitleFontConfig {
 }
 
 /**
- * Extract font availability flags from theme
- * Returns flags indicating which fonts are defined in the theme
+ * Extract font availability flags from design
+ * Returns flags indicating which fonts are defined in the design
  *
- * @param theme - Optional theme configuration
+ * @param design - Optional design configuration
  * @returns Object with font availability flags
  */
-export function extractThemeFontFlags(theme?: Theme): ThemeFontFlags {
+export function extractThemeFontFlags(design?: Design): ThemeFontFlags {
   return {
-    hasTitleFont: Boolean(theme?.fonts?.title),
-    hasBodyFont: Boolean(theme?.fonts?.body),
+    hasTitleFont: Boolean(design?.typeScale?.families?.title),
+    hasBodyFont: Boolean(design?.typeScale?.families?.body),
   }
 }
 
 /**
- * Extract title font properties from theme fonts config
+ * Extract title font properties from design fonts config
  * Returns undefined if no title font is configured
  *
- * @param theme - Optional theme configuration
+ * @param design - Optional design configuration
  * @returns Title font configuration or undefined
  */
-export function extractTitleFontProperties(theme?: Theme): TitleFontConfig | undefined {
-  if (!theme?.fonts?.title || typeof theme.fonts.title !== 'object') {
+export function extractTitleFontProperties(design?: Design): TitleFontConfig | undefined {
+  if (!design?.typeScale?.families?.title || typeof design.typeScale?.families.title !== 'object') {
     return undefined
   }
 
-  return theme.fonts.title as TitleFontConfig
+  return design.typeScale?.families.title as TitleFontConfig
 }
 
 /**
  * Build body classes — canonical `fg` text token (always present via the
  * default layer); the font class still tracks the author's body-font token.
  *
- * @param hasBodyFont - Whether theme defines body font
+ * @param hasBodyFont - Whether design defines body font
  * @returns Array of CSS class names for body element
  */
 export function buildBodyClasses(hasBodyFont: boolean): readonly string[] {
@@ -69,7 +69,7 @@ export function buildBodyClasses(hasBodyFont: boolean): readonly string[] {
  * Build heading classes — canonical `fg` text token (always present); the font
  * class still tracks the author's title-font token.
  *
- * @param hasTitleFont - Whether theme defines title font
+ * @param hasTitleFont - Whether design defines title font
  * @returns Array of CSS class names for heading elements
  */
 export function buildHeadingClasses(hasTitleFont: boolean): readonly string[] {
@@ -79,7 +79,7 @@ export function buildHeadingClasses(hasTitleFont: boolean): readonly string[] {
 
 /**
  * Build link classes — canonical `primary` tokens (always present via the
- * default layer; author `theme.colors.primary` recolors them via the bridge).
+ * default layer; author `design.colors.primary` recolors them via the bridge).
  *
  * @returns Array of CSS class names for link elements
  */
@@ -93,10 +93,17 @@ export function buildLinkClasses(): readonly string[] {
  * elements (button, anchor, role=button) so accessibility focus indicators
  * are visible by default without per-component opt-in.
  *
+ * `ring-offset-background` is load-bearing and was missing. A ring offset with
+ * no colour falls back to Tailwind's literal `#fff`, so on a dark page every
+ * element reaching THIS rule — rather than a component recipe that sets its own
+ * offset — drew a white halo. The button and input recipes both set one, which
+ * is what kept this hidden; the element it was not hidden on is the
+ * skip-to-main-content link, the first thing a keyboard user ever focuses.
+ *
  * @returns Array of CSS class names for focus-visible rings
  */
 export function buildFocusVisibleClasses(): readonly string[] {
-  return ['ring-2', 'ring-focus-ring', 'ring-offset-2', 'outline-none']
+  return ['ring-2', 'ring-focus-ring', 'ring-offset-2', 'ring-offset-background', 'outline-none']
 }
 
 /**
@@ -108,13 +115,21 @@ export function buildFocusVisibleClasses(): readonly string[] {
  * @returns Object keyed by heading element name with size utility class
  */
 export function buildHeadingSizeClasses(): Readonly<Record<string, string>> {
+  // The SAME ladder `HEADING_LEVEL_TYPE` gives the `heading` component:
+  // 30 · 24 · 20 · 16 · 13 · 12. A bare `<h4>` and a `heading` component must
+  // render alike, or which one an author reached for becomes a visual decision
+  // they did not make.
+  //
+  // h1–h3 needed no edit: the platform ladder moved under these class names and
+  // landed them on exactly the drawings' first three steps. h4–h6 did not, and
+  // are re-pointed here rather than left one rung apart from their component.
   return {
     h1: 'text-4xl',
     h2: 'text-3xl',
     h3: 'text-2xl',
-    h4: 'text-xl',
-    h5: 'text-lg',
-    h6: 'text-base',
+    h4: 'text-lg',
+    h5: 'text-base',
+    h6: 'text-sm',
   }
 }
 
@@ -126,7 +141,14 @@ export function buildHeadingSizeClasses(): Readonly<Record<string, string>> {
  * @returns Array of CSS class names for paragraph elements
  */
 export function buildParagraphClasses(): readonly string[] {
-  return ['text-base', 'text-foreground', 'leading-relaxed']
+  // The body rung, 14px — the same step `computeBodyClasses()` gives a `text`
+  // component's default paragraph. A bare `<p>` and a body paragraph rendering
+  // at two different sizes is the drift this pass exists to remove.
+  //
+  // No `leading-*`: the rung emits its own line-height, and a leading class
+  // WINS the merge and replaces it. `leading-relaxed` (1.625) was sitting on a
+  // step whose own leading is 1.57.
+  return ['text-md', 'text-foreground']
 }
 
 /**
@@ -178,18 +200,18 @@ export function generateHeadingStyles(
 }
 
 /**
- * Generate base layer styles with theme color and font applications
- * Applies theme colors and fonts to base HTML elements if theme defines those tokens
+ * Generate base layer styles with design color and font applications
+ * Applies design colors and fonts to base HTML elements if design defines those tokens
  *
- * @param theme - Optional theme configuration
+ * @param design - Optional design configuration
  * @returns CSS @layer base rule as string
  *
  * @example
- * generateBaseLayer(theme)
+ * generateBaseLayer(design)
  * // => '@layer base { body { ... } h1, h2, ... { ... } a { ... } }'
  */
-export function generateBaseLayer(theme?: Theme): string {
-  const fontFlags = extractThemeFontFlags(theme)
+export function generateBaseLayer(design?: Design): string {
+  const fontFlags = extractThemeFontFlags(design)
 
   const bodyClasses = buildBodyClasses(fontFlags.hasBodyFont)
   const headingClasses = buildHeadingClasses(fontFlags.hasTitleFont)
@@ -198,7 +220,7 @@ export function generateBaseLayer(theme?: Theme): string {
   const paragraphClasses = buildParagraphClasses()
   const headingSizes = buildHeadingSizeClasses()
 
-  const titleFont = extractTitleFontProperties(theme)
+  const titleFont = extractTitleFontProperties(design)
   const headingStyleProps = buildHeadingStyleProperties(titleFont)
   const headingStyles = generateHeadingStyles(headingClasses, headingStyleProps)
 

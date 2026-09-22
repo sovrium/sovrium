@@ -5,6 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeTableChipClasses,
+  computeTableChipValueClasses,
+  computeTableDialogBodyClasses,
+  computeTableEditorLabelClasses,
+  computeTableEditorPopoverClasses,
+} from '@/presentation/design/table-default-classes'
 import { ColumnMappingSelect } from './column-mapping-select'
 import type { ColumnMapping, CsvPreview } from './types'
 
@@ -32,13 +39,13 @@ function MappingRow({
   return (
     <div
       data-column={mapping.csvColumn}
-      className="border-border relative flex items-center gap-2 rounded border px-3 py-2"
+      className={`${computeTableChipClasses()} relative w-full`}
       // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- per-row hover handler closes over loop-variable `index`; useCallback inside.map has equivalent allocation cost. React Compiler will memoize this once enabled in Bun.
       onMouseEnter={() => onMouseEnter(index)}
       onMouseLeave={onMouseLeave}
     >
-      <span className="text-foreground text-sm font-medium">{mapping.csvColumn}</span>
-      {mapping.tableField !== undefined && <span className="text-foreground-subtle">→</span>}
+      <span className={computeTableChipValueClasses()}>{mapping.csvColumn}</span>
+      {mapping.tableField !== undefined && <span aria-hidden="true">→</span>}
       <ColumnMappingSelect
         value={mapping.tableField}
         tableFields={tableFields}
@@ -48,13 +55,13 @@ function MappingRow({
       {hovered && sampleValues.length > 0 && (
         <div
           role="tooltip"
-          className="border-border bg-background-overlay absolute top-0 left-full z-20 ml-2 min-w-max rounded border p-2 shadow-lg"
+          className={`${computeTableEditorPopoverClasses()} top-0 left-full ml-2 min-w-max`}
         >
-          <p className="text-foreground-muted mb-1 text-xs font-medium">Sample values:</p>
+          <p className={computeTableEditorLabelClasses()}>Sample values:</p>
           {sampleValues.slice(0, 3).map((val, vi) => (
             <p
               key={vi}
-              className="text-foreground text-xs"
+              className="text-sm"
             >
               {val}
             </p>
@@ -88,7 +95,7 @@ export function MappingStep({
 }: MappingStepProps) {
   return (
     <div className="space-y-2">
-      <p className="text-foreground-muted mb-4 text-sm">Column mapping</p>
+      <p className={computeTableDialogBodyClasses()}>Column mapping</p>
       {editableMappings.map((mapping, i) => {
         const sampleValues = (preview?.rows ?? [])
           .map((row) => row[i])

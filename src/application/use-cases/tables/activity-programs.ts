@@ -8,8 +8,8 @@
 import { Effect } from 'effect'
 import { ActivityRepository } from '@/application/ports/repositories/analytics/activity-repository'
 import { NotFoundError } from '@/domain/errors'
-import type { UserMetadataWithImage } from '@/application/ports/models/user-metadata'
-import type { UserSession } from '@/application/ports/models/user-session'
+import type { UserMetadataWithImage } from '@/application/ports/contracts/user-metadata'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { ActivityHistoryEntry } from '@/application/ports/repositories/analytics/activity-repository'
 import type { DatabaseError } from '@/domain/errors'
 
@@ -115,5 +115,5 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
         total,
       },
     }
-  })
+  }).pipe(Effect.withSpan('tables.get-record-history-program'))
 }

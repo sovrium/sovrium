@@ -22,10 +22,15 @@
  * The fallback only paints when `--sv-fg-muted` is absent (it is defined by the
  * default theme layer), so this is a latent divergence rather than a live
  * defect — but it is one definition of one placeholder either way.
+ *
+ * That definition now lives in the grid's recipe rather than here, so the
+ * placeholder's tone moves with every other tone the grid paints.
  */
 
+import { computeTableEmptyValueClasses } from '@/presentation/design/table-default-classes'
+
 /** Shown wherever a cell's value is absent. */
-export const EMPTY_VALUE = <span className="text-[var(--sv-fg-muted,oklch(0.445_0_0))]">—</span>
+export const EMPTY_VALUE = <span className={computeTableEmptyValueClasses()}>—</span>
 
 /**
  * Whether a cell value names nothing at all.

@@ -34,4 +34,4 @@ export const updateUserView = (
   Effect.gen(function* () {
     const repo = yield* UserViewRepository
     return yield* repo.update(input)
-  })
+  }).pipe(Effect.withSpan('tables.update-user-view'))

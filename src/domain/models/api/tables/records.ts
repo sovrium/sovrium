@@ -5,7 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { preprocessed } from '@/domain/models/api/combinators/preprocess'
+import { transformed } from '@/domain/models/api/combinators/transform'
+import { withDefault } from '../combinators/schema-defaults'
 import { fieldValueSchema } from './tables'
 
 // ============================================================================
@@ -22,7 +26,15 @@ import { fieldValueSchema } from './tables'
  */
 const wrapFlatFieldsBody = (input: unknown): unknown => {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) return input
-  const obj = input as Record<string, unknown>
+  const raw = input as Record<string, unknown>
+  // An explicit `undefined` counts as ABSENT. Zod's `.default()` fired on
+  // both; `Schema.withDecodingDefaultKey` fires only on a MISSING key, and
+  // the difference is invisible over HTTP (JSON has no `undefined`) but real
+  // for an in-process caller building the body by hand.
+  const obj =
+    'fields' in raw && raw['fields'] === undefined
+      ? Object.fromEntries(Object.entries(raw).filter(([key]) => key !== 'fields'))
+      : raw
   if ('fields' in obj) return obj
   const keys = Object.keys(obj)
   if (keys.length === 0) return obj
@@ -36,10 +48,10 @@ const wrapFlatFieldsBody = (input: unknown): unknown => {
  * - Canonical: `{ fields: { name: 'value' } }`
  * - Flat: `{ name: 'value' }` (preprocessed into the canonical shape)
  */
-export const createRecordRequestSchema = z.preprocess(
+export const createRecordRequestSchema = preprocessed(
   wrapFlatFieldsBody,
-  z.object({
-    fields: z.record(z.string(), fieldValueSchema).optional().default({}),
+  Schema.Struct({
+    fields: Schema.Record(Schema.String, fieldValueSchema).pipe(withDefault({})),
   })
 )
 
@@ -54,7 +66,15 @@ export const createRecordRequestSchema = z.preprocess(
  */
 const wrapUpdateBody = (input: unknown): unknown => {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) return input
-  const obj = input as Record<string, unknown>
+  const raw = input as Record<string, unknown>
+  // An explicit `undefined` counts as ABSENT. Zod's `.default()` fired on
+  // both; `Schema.withDecodingDefaultKey` fires only on a MISSING key, and
+  // the difference is invisible over HTTP (JSON has no `undefined`) but real
+  // for an in-process caller building the body by hand.
+  const obj =
+    'fields' in raw && raw['fields'] === undefined
+      ? Object.fromEntries(Object.entries(raw).filter(([key]) => key !== 'fields'))
+      : raw
   if ('fields' in obj) return obj
   const { updatedAt, ...rest } = obj
   if (Object.keys(rest).length === 0) {
@@ -74,11 +94,11 @@ const wrapUpdateBody = (input: unknown): unknown => {
  * the API compares it against the stored record's `updated_at` and rejects
  * the write with 409 Conflict if they diverge (stale write detection).
  */
-export const updateRecordRequestSchema = z.preprocess(
+export const updateRecordRequestSchema = preprocessed(
   wrapUpdateBody,
-  z.object({
-    fields: z.record(z.string(), fieldValueSchema).optional().default({}),
-    updatedAt: z.string().optional(),
+  Schema.Struct({
+    fields: Schema.Record(Schema.String, fieldValueSchema).pipe(withDefault({})),
+    updatedAt: optionalField(Schema.String),
   })
 )
 
@@ -100,19 +120,21 @@ export const updateRecordRequestSchema = z.preprocess(
  * who learned the flat shape from `POST /records` had no way to discover the
  * batch endpoint was discarding it.
  */
-export const batchCreateRecordsRequestSchema = z.object({
-  records: z
-    .array(
-      z.preprocess(
-        wrapFlatFieldsBody,
-        z.object({
-          fields: z.record(z.string(), fieldValueSchema).optional().default({}),
-        })
-      )
+export const batchCreateRecordsRequestSchema = Schema.Struct({
+  records: Schema.Array(
+    preprocessed(
+      wrapFlatFieldsBody,
+      Schema.Struct({
+        fields: Schema.Record(Schema.String, fieldValueSchema).pipe(withDefault({})),
+      })
     )
-    .min(1, 'At least one record is required')
-    .max(1000, 'Maximum 1000 records per batch'),
-  returnRecords: z.boolean().optional().default(false),
+  ).pipe(
+    Schema.check(
+      Schema.isMinLength(1).annotate({ message: 'At least one record is required' }),
+      Schema.isMaxLength(1000).annotate({ message: 'Maximum 1000 records per batch' })
+    )
+  ),
+  returnRecords: Schema.Boolean.pipe(withDefault(false)),
 })
 
 /**
@@ -120,19 +142,28 @@ export const batchCreateRecordsRequestSchema = z.object({
  *
  * Requires nested format: { id: string, fields: {...} }
  */
-export const batchUpdateRecordsRequestSchema = z.object({
-  records: z
-    .array(
-      z.object({
-        id: z
-          .union([z.string().min(1, 'Record ID is required'), z.number()])
-          .transform((val) => String(val)),
-        fields: z.record(z.string(), fieldValueSchema).optional().default({}),
-      })
+export const batchUpdateRecordsRequestSchema = Schema.Struct({
+  records: Schema.Array(
+    Schema.Struct({
+      id: transformed(
+        Schema.Union([
+          Schema.String.pipe(
+            Schema.check(Schema.isMinLength(1).annotate({ message: 'Record ID is required' }))
+          ),
+          Schema.Finite,
+        ]),
+        Schema.String,
+        (val) => String(val)
+      ),
+      fields: Schema.Record(Schema.String, fieldValueSchema).pipe(withDefault({})),
+    })
+  ).pipe(
+    Schema.check(
+      Schema.isMinLength(1).annotate({ message: 'At least one record is required' }),
+      Schema.isMaxLength(100).annotate({ message: 'Maximum 100 records per batch' })
     )
-    .min(1, 'At least one record is required')
-    .max(100, 'Maximum 100 records per batch'),
-  returnRecords: z.boolean().optional().default(false),
+  ),
+  returnRecords: Schema.Boolean.pipe(withDefault(false)),
 })
 
 /**
@@ -143,30 +174,48 @@ export const batchUpdateRecordsRequestSchema = z.object({
  * (preferred) and as the `?permanent=true` query string for route variants that
  * keep the legacy query parameter contract.
  */
-export const batchDeleteRecordsRequestSchema = z.object({
-  ids: z
-    .array(
-      z
-        .union([z.string().min(1, 'Record ID cannot be empty'), z.number()])
-        .transform((val) => String(val))
+export const batchDeleteRecordsRequestSchema = Schema.Struct({
+  ids: Schema.Array(
+    transformed(
+      Schema.Union([
+        Schema.String.pipe(
+          Schema.check(Schema.isMinLength(1).annotate({ message: 'Record ID cannot be empty' }))
+        ),
+        Schema.Finite,
+      ]),
+      Schema.String,
+      (val) => String(val)
     )
-    .min(1, 'At least one ID is required')
-    .max(100, 'Maximum 100 IDs per batch'),
-  permanent: z.boolean().optional(),
+  ).pipe(
+    Schema.check(
+      Schema.isMinLength(1).annotate({ message: 'At least one ID is required' }),
+      Schema.isMaxLength(100).annotate({ message: 'Maximum 100 IDs per batch' })
+    )
+  ),
+  permanent: optionalField(Schema.Boolean),
 })
 
 /**
  * Batch restore records request schema
  */
-export const batchRestoreRecordsRequestSchema = z.object({
-  ids: z
-    .array(
-      z
-        .union([z.string().min(1, 'Record ID cannot be empty'), z.number()])
-        .transform((val) => String(val))
+export const batchRestoreRecordsRequestSchema = Schema.Struct({
+  ids: Schema.Array(
+    transformed(
+      Schema.Union([
+        Schema.String.pipe(
+          Schema.check(Schema.isMinLength(1).annotate({ message: 'Record ID cannot be empty' }))
+        ),
+        Schema.Finite,
+      ]),
+      Schema.String,
+      (val) => String(val)
     )
-    .min(1, 'At least one ID is required')
-    .max(100, 'Maximum 100 IDs per batch'),
+  ).pipe(
+    Schema.check(
+      Schema.isMinLength(1).annotate({ message: 'At least one ID is required' }),
+      Schema.isMaxLength(100).annotate({ message: 'Maximum 100 IDs per batch' })
+    )
+  ),
 })
 
 /**
@@ -175,7 +224,7 @@ export const batchRestoreRecordsRequestSchema = z.object({
  * Requires nested format: { fields: {...} }
  * Accepts both `fieldsToMergeOn` and `matchFields` as aliases for the merge fields array.
  */
-export const upsertRecordsRequestSchema = z.preprocess(
+export const upsertRecordsRequestSchema = preprocessed(
   (input: unknown) => {
     if (
       input !== null &&
@@ -188,17 +237,23 @@ export const upsertRecordsRequestSchema = z.preprocess(
     }
     return input
   },
-  z.object({
-    records: z
-      .array(
-        z.object({
-          fields: z.record(z.string(), fieldValueSchema).optional().default({}),
-        })
+  Schema.Struct({
+    records: Schema.Array(
+      Schema.Struct({
+        fields: Schema.Record(Schema.String, fieldValueSchema).pipe(withDefault({})),
+      })
+    ).pipe(
+      Schema.check(
+        Schema.isMinLength(1).annotate({ message: 'At least one record is required' }),
+        Schema.isMaxLength(100).annotate({ message: 'Maximum 100 records per batch' })
       )
-      .min(1, 'At least one record is required')
-      .max(100, 'Maximum 100 records per batch'),
-    fieldsToMergeOn: z.array(z.string()).min(1, 'At least one merge field is required'),
-    returnRecords: z.boolean().optional().default(false),
+    ),
+    fieldsToMergeOn: Schema.Array(Schema.String).pipe(
+      Schema.check(
+        Schema.isMinLength(1).annotate({ message: 'At least one merge field is required' })
+      )
+    ),
+    returnRecords: Schema.Boolean.pipe(withDefault(false)),
   })
 )
 
@@ -206,10 +261,10 @@ export const upsertRecordsRequestSchema = z.preprocess(
 // TypeScript Types
 // ============================================================================
 
-export type CreateRecordRequest = z.infer<typeof createRecordRequestSchema>
-export type UpdateRecordRequest = z.infer<typeof updateRecordRequestSchema>
-export type BatchCreateRecordsRequest = z.infer<typeof batchCreateRecordsRequestSchema>
-export type BatchUpdateRecordsRequest = z.infer<typeof batchUpdateRecordsRequestSchema>
-export type BatchDeleteRecordsRequest = z.infer<typeof batchDeleteRecordsRequestSchema>
-export type BatchRestoreRecordsRequest = z.infer<typeof batchRestoreRecordsRequestSchema>
-export type UpsertRecordsRequest = z.infer<typeof upsertRecordsRequestSchema>
+export type CreateRecordRequest = typeof createRecordRequestSchema.Type
+export type UpdateRecordRequest = typeof updateRecordRequestSchema.Type
+export type BatchCreateRecordsRequest = typeof batchCreateRecordsRequestSchema.Type
+export type BatchUpdateRecordsRequest = typeof batchUpdateRecordsRequestSchema.Type
+export type BatchDeleteRecordsRequest = typeof batchDeleteRecordsRequestSchema.Type
+export type BatchRestoreRecordsRequest = typeof batchRestoreRecordsRequestSchema.Type
+export type UpsertRecordsRequest = typeof upsertRecordsRequestSchema.Type

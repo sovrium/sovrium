@@ -53,7 +53,7 @@
  */
 
 import { Effect } from 'effect'
-import { quoteSqlIdentifier } from '@/domain/utils/database/sql-formatting'
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { mapFieldTypeToPostgres } from '../sql/sql-type-mappings'
 import type { SQLExecutionError } from '../sql/sql-execution'
 import type { Table } from '@/domain/models/app/tables'

@@ -15,11 +15,11 @@ children:
           - type: text
             element: span
             props:
-              className: text-base font-semibold
+              className: text-lg font-semibold
             content: Automation Recipes
           - type: container
             props:
-              className: flex items-center gap-1 text-sm
+              className: flex items-center gap-1 text-md
             children:
               - type: link
                 props:
@@ -33,10 +33,10 @@ children:
                 content: Activity
       - type: button
         props:
-          className: px-3 py-1.5 rounded-md border text-sm font-medium
+          className: px-3 py-1.5 rounded-md border text-md font-medium
           # The `button` component paints its own filled-primary variant, and the
           # classes appended above do not undo it. That was survivable while
-          # `primary` was the platform's neutral near-black; once config/theme.yaml
+          # `primary` was the platform's neutral near-black; once config/design.yaml
           # declared an accent it made Sign out the loudest, most saturated element
           # on every page — louder than whatever the page was actually asking the
           # operator to do. Signing out is an escape hatch, not a call to action.

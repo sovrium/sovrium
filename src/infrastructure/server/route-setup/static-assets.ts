@@ -5,31 +5,41 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { realpath } from 'node:fs/promises'
+import { readdir, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
-import { inferMimeFromKey } from '@/domain/utils/mime-types'
+import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import { generateTrackingScript } from '@/infrastructure/analytics/tracking-script'
 import { codemirrorDedupePlugin } from '@/infrastructure/assets/codemirror-dedupe-plugin'
 import { getRuntimeAssets } from '@/infrastructure/assets/embedded-runtime-assets'
+import {
+  readEmbeddedBrandMark,
+  readEmbeddedSample,
+  type EmbeddedAsset,
+} from '@/infrastructure/assets/embedded-static-assets'
+import {
+  computeIslandPreloadManifest,
+  type IslandChunkReader,
+  type IslandPreloadManifest,
+} from '@/infrastructure/assets/island-preload-manifest'
 import { compileCSS } from '@/infrastructure/css/compiler'
 import {
+  consoleCssHash,
   getVersionedCssHash,
-  OPERATOR_CONSOLE_CSS_HASH,
   parseVersionedCssHash,
   VERSIONED_CSS_FILE_PATTERN,
 } from '@/infrastructure/css/versioned-css-path'
 import { logError, logDebug } from '@/infrastructure/logging/logger'
-import { isDevCacheDisabled, isProduction as isProductionEnv } from '@/infrastructure/utils/env'
+import { isDevCacheDisabled, isProduction as isProductionEnv } from '@/infrastructure/process/env'
 import {
   clientScriptPath,
   isBundled,
   isCompiled,
   resolvePackagePath,
-} from '@/infrastructure/utils/package-paths'
-import { resolveDashboardApp } from './admin-dashboard-routes'
+} from '@/infrastructure/process/package-paths'
+import { adminMountsFor, scopedAppForMount } from '../admin-mounts'
 import { islandDirName, sweepStaleIslandDirs } from './island-dir-sweep'
 import type { App } from '@/domain/models/app'
 
@@ -49,10 +59,17 @@ export function getCacheControlHeader(): string {
  * Resolve WHICH app a versioned stylesheet request is asking for.
  *
  * The server hosts two apps, not one: the operator's, and Sovrium's own
- * `/_admin` console (a separate embedded config that declares no theme). Each
- * links its own hash, so the hash is the request's statement of which
- * stylesheet it wants — and honouring it is the whole reason a tenant theme
- * stops at the tenant's pages instead of repainting the console chrome.
+ * `/_admin` console (a separate embedded config). Each links its own hash, so
+ * the hash is the request's statement of which stylesheet it wants.
+ *
+ * That USED to be described here as the reason a tenant theme stopped at the
+ * tenant's pages. It is not, and has not been since the operator's `design`
+ * began cascading onto the console chrome: the two stylesheets now
+ * carry the SAME operator tokens, and differ because the console's is compiled
+ * from the console's own pages, its own single-zone map, its own preset
+ * classes, and the scoped design-system layer no operator page carries. So the
+ * hash still selects genuinely different content — it just no longer selects
+ * between "themed" and "unthemed".
  *
  * Anything else — an unknown hash, or HTML cached from a previous deploy —
  * falls back to the operator app. That fallback is load-bearing: resolving by
@@ -60,9 +77,18 @@ export function getCacheControlHeader(): string {
  * visitor still holding old HTML staring at an unstyled page. Serving working
  * CSS under a short cache header is always the better answer.
  */
-const resolveCssApp = async (requestedHash: string, operatorApp: App): Promise<App> => {
-  if (requestedHash !== OPERATOR_CONSOLE_CSS_HASH) return operatorApp
-  return (await resolveDashboardApp()) ?? operatorApp
+const resolveCssApp = (requestedHash: string, operatorApp: App): App => {
+  // Rebuilt rather than compared against a constant: the console's stylesheet
+  // stopped being theme-independent when the design-system section began
+  // drawing the operator's system FLAT in the console document. Its hash now
+  // folds in that scoped layer, so recognising it means reconstructing the same
+  // console app the rendered page linked — which is exactly what
+  // `resolveScopedMountApp` memoizes, from the operator app this route
+  // already holds.
+  const consoleApp = adminMountsFor(operatorApp)
+    .map((mount) => scopedAppForMount(mount, operatorApp))
+    .find((candidate) => requestedHash === consoleCssHash(candidate))
+  return consoleApp ?? operatorApp
 }
 
 /**
@@ -109,7 +135,7 @@ export function setupCSSRoute(honoApp: Readonly<Hono>, app: App): Readonly<Hono>
         // header — never a 404 and never an unstyled page.
         try {
           const requestedHash = parseVersionedCssHash(c.req.param('file'))
-          const cssApp = await resolveCssApp(requestedHash, app)
+          const cssApp = resolveCssApp(requestedHash, app)
           const result = await Effect.runPromise(compileCSS(cssApp))
           const isCurrent = requestedHash === getVersionedCssHash(cssApp)
           return c.text(result.css, 200, {
@@ -216,7 +242,7 @@ const memoizeUnlessDev = <T>(build: () => Promise<T>): (() => Promise<T>) => {
 /**
  * Creates a lazy-cached client bundle provider.
  *
- * In development: builds src/presentation/client.ts at runtime via Bun.build()
+ * In development: builds src/presentation/islands/client.ts at runtime via Bun.build()
  * In bundled mode (npm package): reads pre-built dist/client-bundle.js
  *
  * The result is cached via promise memoization (bypassed on dev live-edit runs).
@@ -235,7 +261,7 @@ const getClientBundle = (() => {
     }
 
     // In development, build from source at runtime
-    const entrypoint = resolvePackagePath('src', 'presentation', 'client.ts')
+    const entrypoint = resolvePackagePath('src', 'presentation', 'islands', 'client.ts')
     const result = await Bun.build({
       entrypoints: [entrypoint],
       target: 'browser',
@@ -265,7 +291,7 @@ const getClientBundle = (() => {
  * Setup client runtime bundle route
  *
  * Serves the bundled client-side runtime at /assets/client.js
- * The bundle is built from src/presentation/client.ts using Bun.build()
+ * The bundle is built from src/presentation/islands/client.ts using Bun.build()
  * and cached in memory.
  *
  * @param honoApp - Hono application instance
@@ -390,7 +416,6 @@ export async function setupPublicDirRoute(
 
     // 1) Blocklist match → 404 fall-through. Silent (anti-enumeration).
     if (PUBLIC_DIR_SECRET_BLOCKLIST.test(path)) {
-      // eslint-disable-next-line functional/no-expression-statements
       await next()
       return
     }
@@ -404,7 +429,6 @@ export async function setupPublicDirRoute(
       targetRealpath === undefined ||
       (targetRealpath !== rootRealpath && !targetRealpath.startsWith(rootPrefix))
     ) {
-      // eslint-disable-next-line functional/no-expression-statements
       await next()
       return
     }
@@ -429,7 +453,6 @@ export async function setupPublicDirRoute(
       })
     }
 
-    // eslint-disable-next-line functional/no-expression-statements
     await next()
   })
 }
@@ -475,6 +498,47 @@ const ISLAND_OUT_DIR = isBundled
 export interface IslandBuildResult {
   /** Relative path of the entry file (e.g., "island-client-a7f3b2.js" or "island-entry.js") */
   readonly entryFile: string
+  /**
+   * Island type -> the chunk paths a page mounting it must already have when the
+   * entry evaluates, so the document can declare them as `modulepreload`.
+   *
+   * An empty map is a valid answer (nothing resolved, or nothing left after
+   * subtracting the entry's own closure) and degrades to the pre-2026-09-02
+   * behaviour. See `@/infrastructure/assets/island-preload-manifest`.
+   */
+  readonly preloads: IslandPreloadManifest
+}
+
+/**
+ * Reader over an on-disk island build directory — the dev per-process tmpdir
+ * and the bundled `dist/island-chunks`, which differ only in path.
+ *
+ * `recursive` is load-bearing: the dev build emits the entry at the root and
+ * every chunk under `chunks/`, so a flat listing would find nothing to preload
+ * and return an empty manifest that looks like a legitimate "nothing to do".
+ */
+function diskChunkReader(root: string): IslandChunkReader {
+  return {
+    list: async () => {
+      const names = await readdir(root, { recursive: true }).catch(() => [] as string[])
+      return names.map((name) => name.split(sep).join('/')).filter((name) => name.endsWith('.js'))
+    },
+    read: (relativePath) => Bun.file(join(root, relativePath)).text(),
+  }
+}
+
+/** Reader over the compiled binary's embedded island assets. */
+async function embeddedChunkReader(): Promise<IslandChunkReader> {
+  const assets = await getRuntimeAssets()
+  return {
+    list: async () => Object.keys(assets.islands).filter((name) => name.endsWith('.js')),
+    read: (relativePath) => {
+      const embedded = assets.islands[relativePath]
+      return embedded === undefined
+        ? Promise.reject(new Error(`No embedded island chunk "${relativePath}"`))
+        : Bun.file(embedded).text()
+    },
+  }
 }
 
 /**
@@ -497,7 +561,9 @@ export const buildIslands = (() => {
     // early return keeps the sweep out of those paths entirely.
     if (isCompiled || isBundled) {
       logDebug('[ISLANDS] Using pre-built island entry')
-      return { entryFile: 'island-entry.js' }
+      const reader = isCompiled ? await embeddedChunkReader() : diskChunkReader(ISLAND_OUT_DIR)
+      const preloads = await computeIslandPreloadManifest(reader, 'island-entry.js')
+      return { entryFile: 'island-entry.js', preloads }
     }
 
     // Reclaim the build directories of servers that have since exited. Started
@@ -553,7 +619,9 @@ export const buildIslands = (() => {
     const entryFile = entry.path.replace(ISLAND_OUT_DIR + '/', '')
     logDebug(`[ISLANDS] Built entry: ${entryFile} (${result.outputs.length} outputs)`)
 
-    return { entryFile }
+    const preloads = await computeIslandPreloadManifest(diskChunkReader(ISLAND_OUT_DIR), entryFile)
+
+    return { entryFile, preloads }
   }
 
   return memoizeUnlessDev(build)
@@ -641,6 +709,98 @@ export function setupIslandRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
   })
 }
 
+/** Route prefix the design-system console's media specimens link. */
+const DESIGN_SYSTEM_SAMPLE_PREFIX = '/assets/design-system/'
+
+/**
+ * Build a `GET`/`HEAD` route serving one embedded asset family off `prefix`.
+ *
+ * THE LOOKUP KEY IS THE WHOLE REMAINDER of the path, never its last segment,
+ * and the family's reader is a property read on a frozen map. Together those
+ * two facts are what make this fail CLOSED: there is no path join anywhere in
+ * the handler, so a nested or traversing spelling (`../../.env`,
+ * `nested/sample-still.avif`) is an ordinary miss answering 404 rather than a
+ * read that has to be defended against. A key the family does not hold is the
+ * same miss, which is how files deliberately left out of a family — the
+ * live-text brand marks, say — stay unreachable rather than merely unused.
+ *
+ * `GET` and `HEAD`, because a reader weighing an asset should not have to
+ * download it to learn its size; `Content-Length` is explicit so the HEAD
+ * answer carries it with no body to derive it from.
+ *
+ * Shared by both families rather than written twice, so the two cannot drift
+ * apart on the property that matters — an asset route that started answering
+ * 500 on an unknown key, or resolving one, would be a security regression in
+ * whichever copy was edited second.
+ */
+const embeddedAssetRoute =
+  (prefix: string, read: (key: string) => Promise<EmbeddedAsset | undefined>) =>
+  (honoApp: Readonly<Hono>): Readonly<Hono> =>
+    honoApp.on(['GET', 'HEAD'], `${prefix}*`, async (c) => {
+      const asset = await read(c.req.path.slice(prefix.length))
+      if (asset === undefined) return c.notFound()
+      return new Response(asset.bytes, {
+        headers: {
+          'Content-Type': asset.contentType,
+          'Content-Length': String(asset.bytes.byteLength),
+          'Cache-Control': getCacheControlHeader(),
+        },
+      })
+    })
+
+/**
+ * Serve the design-system console's sample media at `/assets/design-system/*`.
+ *
+ * The console's `audio`, `video` and `image` specimens draw a real file rather
+ * than an empty transport or a `data:` rectangle, and these are the three
+ * bytes-on-the-wire that make that true. They are embedded in the binary, so
+ * this route answers identically from a checkout and from a compiled
+ * executable — see `readEmbeddedSample`.
+ *
+ * MOUNTED AT THE ROOT, NOT UNDER `/_admin`, and that is load-bearing rather
+ * than incidental: the admin mount serves PAGE routes only, so a console page
+ * reaches every asset — its own stylesheet included — by absolute root path.
+ * A sample served under the mount would 404 for exactly the reader it exists
+ * for.
+ *
+ * Fail-closed lookup and the GET/HEAD contract come from
+ * {@link embeddedAssetRoute}, which both asset families share.
+ */
+export const setupDesignSystemSampleRoute = embeddedAssetRoute(
+  DESIGN_SYSTEM_SAMPLE_PREFIX,
+  readEmbeddedSample
+)
+
+/** Route prefix the console's own brand mark is served from. */
+const BRAND_MARK_PREFIX = '/assets/brand/'
+
+/**
+ * Serve Sovrium's own brand marks at `/assets/brand/<unit>/<file>`.
+ *
+ * WHY THE ENGINE HAS TO SERVE THESE AT ALL. `design.logo` resolves its `src`
+ * against the HOSTING app's `public/` directory, and the operator console is
+ * mounted inside somebody else's app — so a config path to a Sovrium asset
+ * resolves into Acme's `public/` and 404s in every real deployment. The `icon`
+ * component-type renders lucide nodes only, and this mark is not one. Embedding
+ * the bytes is what lets the console look like itself on a machine with no
+ * network, no CDN, and no cooperation from the app hosting it.
+ *
+ * MOUNTED AT THE ROOT, NOT UNDER `/_admin`, for the same load-bearing reason
+ * {@link setupDesignSystemSampleRoute} is: the admin mount serves PAGE routes
+ * only, so a console page reaches every asset by absolute root path, and a mark
+ * served under the mount would 404 for exactly the page it exists for. The
+ * console's sign-in card therefore names the absolute path deliberately, where
+ * every other link on that page is mount-relative.
+ *
+ * The shared lookup key is the WHOLE remainder of the path — here `<unit>/<file>`,
+ * because all four business units hold marks of the same filename and the
+ * directory is what distinguishes them. Names outside the family miss like any
+ * other, the live-text `mark-light.svg` among them: it is excluded on purpose,
+ * since an `<img>`-loaded SVG reaches no webfont and would draw the mark in a
+ * fallback typeface.
+ */
+export const setupBrandMarkRoute = embeddedAssetRoute(BRAND_MARK_PREFIX, readEmbeddedBrandMark)
+
 /**
  * Setup static asset routes (CSS, JavaScript, islands, and optional public directory)
  *
@@ -656,10 +816,14 @@ export async function setupStaticAssets(
   app: App,
   publicDir?: string
 ): Promise<Readonly<Hono>> {
-  const withAssets = setupIslandRoutes(
-    setupAnalyticsScriptRoute(
-      setupClientBundleRoute(setupJavaScriptRoutes(setupCSSRoute(honoApp, app))),
-      app
+  const withAssets = setupBrandMarkRoute(
+    setupDesignSystemSampleRoute(
+      setupIslandRoutes(
+        setupAnalyticsScriptRoute(
+          setupClientBundleRoute(setupJavaScriptRoutes(setupCSSRoute(honoApp, app))),
+          app
+        )
+      )
     )
   )
   // `setupPublicDirRoute` is async because it realpath()s the directory once

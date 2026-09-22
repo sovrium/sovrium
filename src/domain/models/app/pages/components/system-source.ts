@@ -18,7 +18,7 @@ import { SharedFilterBindingSchema } from './data-source'
  * declared DB table.
  *
  * This is the shared, generalized "rows-envelope" shape that was first proven on
- * `data-table` (`DataTableSystemSourceSchema`). It is the canonical READ-source
+ * `table` (`DataTableSystemSourceSchema`). It is the canonical READ-source
  * binding for the rows-oriented data-bound components (data-table + the list
  * family: kanban / calendar / gallery / list / data-timeline). It is reused —
  * not re-copied — so every rows-oriented component speaks the same envelope.
@@ -48,6 +48,20 @@ import { SharedFilterBindingSchema } from './data-source'
  *     query:                # optional STATIC params merged into every request
  *       status: failed
  * ```
+ *
+ * @example Route-parameter binding — one page, a different collection per URL
+ * ```yaml
+ * pages:
+ *   - name: browse
+ *     path: /items/:group          # declares the :group segment
+ *     components:
+ *       - type: table
+ *         dataSource:
+ *           system:
+ *             endpoint: /api/tables/:group/records
+ *             param: group         # :group in the endpoint ← the matched segment
+ *             rowsKey: records
+ * ```
  */
 export const SystemSourceSchema = Schema.Struct({
   /** The named read endpoint to fetch rows from (required) */
@@ -63,6 +77,36 @@ export const SystemSourceSchema = Schema.Struct({
     Schema.String.annotate({
       description: "Key of the rows array in the response envelope (default: 'items')",
     })
+  ),
+  /**
+   * ROUTE parameter whose matched value is substituted into the endpoint's
+   * `:param` placeholder — the rows-envelope counterpart of
+   * `SystemDetailSourceSchema.param`.
+   *
+   * Where the detail source's `param` is dual-purpose (a clicked row's id key
+   * for a record drawer, a route parameter for a page-level `mode: single`),
+   * this one is unambiguously a ROUTE parameter: a rows source has no bound
+   * record to take an id from. So `/items/:group` + `endpoint:
+   * /api/tables/:group/records` + `param: group` is ONE page definition that
+   * lists a different collection per URL.
+   *
+   * Omitting it leaves the endpoint entirely static — every existing system
+   * source keeps working untouched.
+   *
+   * The named parameter MUST be declared by the host page's `path`; a name with
+   * no matching `:segment` is a decode error naming both, so `sovrium validate`
+   * rejects the typo offline instead of the page requesting a literal
+   * `/api/tables/:group/records`.
+   */
+  param: Schema.optional(
+    Schema.String.pipe(
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
+        description:
+          "Route parameter substituted into the endpoint's :param placeholder. Must be declared by the host page's path.",
+        examples: ['group', 'table', 'link'],
+      })
+    )
   ),
   /** Row id key used to identify rows (default: 'id') */
   idKey: Schema.optional(

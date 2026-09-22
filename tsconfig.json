@@ -58,20 +58,34 @@
       "@/*": ["src/*"],
       "@/specs/*": ["specs/*"],
       "@apps/*": ["apps/*"],
-      // Resolve the `sovrium` config-types specifier to its source. Outside
-      // this repo that specifier is satisfied by the `sovrium.d.ts` that
-      // `sovrium types` generates; in-repo there is no generated declaration to
-      // pick up, so the alias points at the same source the generator reads.
-      // Without it a clean checkout fails typecheck with TS2307 the moment
-      // anything in the program imports it — e.g. the apps/* configs. Matches
-      // the @apps/* / @/* source-alias pattern above.
-      "sovrium": ["packages/types/src/index.ts"]
+      // Resolve the `sovrium` config-types specifier to its source. Outside this
+      // repo that specifier is satisfied by the `sovrium.d.ts` that `sovrium types`
+      // generates; in-repo there is no generated declaration to pick up, so the
+      // alias points at the same file the generator READS — `src/index.ts`, whose
+      // TYPE_EXPORTS block scripts/build/build-types.ts extracts.
+      //
+      // Pointing it at the emitter's own input is the whole design. The alias used
+      // to target a second, hand-maintained surface (packages/types/src/index.ts)
+      // that exported 34 names against the 16 the binary shipped; four apps/partner
+      // configs imported two of the extras and typechecked green here while failing
+      // with TS2305 for every author outside this repo. One surface cannot drift
+      // from itself.
+      //
+      // It is still WIDER than the shipped declaration in one direction: src/index.ts
+      // is the internal entry point, so it also exports four runtime VALUES that a
+      // declaration cannot carry. scripts/drift/check-sovrium-specifier-surface.ts is what
+      // stops a config importing one — ESLint cannot, because apps/** and
+      // templates/** are in the global ignores.
+      //
+      // Without this alias a clean checkout fails typecheck with TS2307 the moment
+      // anything in the program imports it. Matches the @apps/* / @/* pattern above.
+      "sovrium": ["src/index.ts"]
     }
   },
-  // Bound the typecheck program to the three source roots only. Without an
-  // explicit `include`, tsc defaults to "every .ts under the project root minus
-  // exclude", silently pulling in stray files (templates/, packages/types — which
-  // has its own tsconfig + build:types). Dependents that override `include`
+  // Bound the typecheck program to the four source roots only. Without an explicit
+  // `include`, tsc defaults to "every .ts under the project root minus exclude",
+  // silently pulling in stray files (templates/, and historically packages/types,
+  // which carried its own tsconfig). Dependents that override `include`
   // (tsconfig.build.json → ["src"], tsconfig.eslint.json → []) are unaffected.
   "include": ["src", "specs", "scripts", "apps"],
   "exclude": ["node_modules", "dist", "tmp", "vendor", "docs"]

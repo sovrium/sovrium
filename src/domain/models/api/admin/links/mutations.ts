@@ -28,7 +28,9 @@
  * Source story: [internal ref]
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * The slug a mutation targets.
@@ -38,14 +40,16 @@ import { z } from '@hono/zod-openapi'
  * Effect Schema on the other side of the layer line. The two must agree, and the
  * E2E specs assert they do.
  */
-const mutationSlugSchema = z
-  .string()
-  .min(1)
-  .max(64)
-  .regex(/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/)
-  .describe(
-    "The path segment after /l/. Lowercase alphanumeric with single '-' or '_' separators. Dot-free, so the .svg QR suffix stays an exact discriminator."
+const mutationSlugSchema = Schema.String.annotate({
+  description:
+    "The path segment after /l/. Lowercase alphanumeric with single '-' or '_' separators. Dot-free, so the .svg QR suffix stays an exact discriminator.",
+}).pipe(
+  Schema.check(
+    Schema.isMinLength(1),
+    Schema.isMaxLength(64),
+    Schema.isPattern(/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/)
   )
+)
 
 /**
  * The lifecycle fields a mutation may set.
@@ -56,42 +60,74 @@ const mutationSlugSchema = z
  * makes when a campaign is extended.
  */
 const lifecycleFields = {
-  validFrom: z.iso
-    .datetime()
-    .nullable()
-    .optional()
-    .describe('ISO 8601 activation start. null clears it; omit to leave unchanged.'),
-  validUntil: z.iso
-    .datetime()
-    .nullable()
-    .optional()
-    .describe('ISO 8601 activation end. null clears it; omit to leave unchanged.'),
-  maxClicks: z
-    .number()
-    .int()
-    .positive()
-    .nullable()
-    .optional()
-    .describe('Click cap. null clears it; omit to leave unchanged.'),
-  expiredTo: z
-    .string()
-    .nullable()
-    .optional()
-    .describe('Where a dead link redirects instead of answering 410. null means answer 410.'),
+  validFrom: optionalField(
+    Schema.NullOr(
+      looseIsoDateTime({
+        description: 'ISO 8601 activation start. null clears it; omit to leave unchanged.',
+      })
+    )
+  ),
+  validUntil: optionalField(
+    Schema.NullOr(
+      looseIsoDateTime({
+        description: 'ISO 8601 activation end. null clears it; omit to leave unchanged.',
+      })
+    )
+  ),
+  maxClicks: optionalField(
+    Schema.NullOr(
+      Schema.Int.annotate({
+        description: 'Click cap. null clears it; omit to leave unchanged.',
+      }).pipe(Schema.check(Schema.isGreaterThan(0)))
+    )
+  ),
+  expiredTo: optionalField(
+    Schema.NullOr(
+      Schema.String.annotate({
+        description: 'Where a dead link redirects instead of answering 410. null means answer 410.',
+      })
+    )
+  ),
 }
 
 const organisationFields = {
-  title: z.string().min(1).max(200).nullable().optional().describe('Operator-facing name.'),
-  tags: z.array(z.string()).max(20).optional().describe('Filing tags.'),
-  notes: z.string().max(2000).nullable().optional().describe('Operator notes. Never public.'),
+  title: optionalField(
+    Schema.NullOr(
+      Schema.String.annotate({ description: 'Operator-facing name.' }).pipe(
+        Schema.check(Schema.isMinLength(1), Schema.isMaxLength(200))
+      )
+    )
+  ),
+  tags: optionalField(
+    Schema.Array(Schema.String)
+      .annotate({ description: 'Filing tags.' })
+      .pipe(Schema.check(Schema.isMaxLength(20)))
+  ),
+  notes: optionalField(
+    Schema.NullOr(
+      Schema.String.annotate({ description: 'Operator notes. Never public.' }).pipe(
+        Schema.check(Schema.isMaxLength(2000))
+      )
+    )
+  ),
 }
 
 const utmFields = {
-  utmSource: z.string().nullable().optional().describe('Appended as utm_source.'),
-  utmMedium: z.string().nullable().optional().describe('Appended as utm_medium.'),
-  utmCampaign: z.string().nullable().optional().describe('Appended as utm_campaign.'),
-  utmContent: z.string().nullable().optional().describe('Appended as utm_content.'),
-  utmTerm: z.string().nullable().optional().describe('Appended as utm_term.'),
+  utmSource: optionalField(
+    Schema.NullOr(Schema.String.annotate({ description: 'Appended as utm_source.' }))
+  ),
+  utmMedium: optionalField(
+    Schema.NullOr(Schema.String.annotate({ description: 'Appended as utm_medium.' }))
+  ),
+  utmCampaign: optionalField(
+    Schema.NullOr(Schema.String.annotate({ description: 'Appended as utm_campaign.' }))
+  ),
+  utmContent: optionalField(
+    Schema.NullOr(Schema.String.annotate({ description: 'Appended as utm_content.' }))
+  ),
+  utmTerm: optionalField(
+    Schema.NullOr(Schema.String.annotate({ description: 'Appended as utm_term.' }))
+  ),
 }
 
 /**
@@ -103,19 +139,17 @@ const utmFields = {
  * operator could see an A/B split but never create one, which makes variant
  * analytics unreachable for exactly the links they would experiment on.
  */
-const mutationTargetSchema = z
-  .object({
-    to: z.string().min(1).describe('Destination URL or app-relative path.'),
-    weight: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .describe(
-        'Relative share of traffic. Defaults to 1; a zero would silently leave the rotation.'
-      ),
-  })
-  .openapi('LinkMutationTarget')
+const mutationTargetSchema = Schema.Struct({
+  to: Schema.String.annotate({ description: 'Destination URL or app-relative path.' }).pipe(
+    Schema.check(Schema.isMinLength(1))
+  ),
+  weight: optionalField(
+    Schema.Int.annotate({
+      description:
+        'Relative share of traffic. Defaults to 1; a zero would silently leave the rotation.',
+    }).pipe(Schema.check(Schema.isGreaterThan(0)))
+  ),
+}).annotate({ identifier: 'LinkMutationTarget' })
 
 /**
  * Request schema for `POST /api/admin/links`.
@@ -123,32 +157,41 @@ const mutationTargetSchema = z
  * `slug` and `destination` are the only required fields — the minimum a link
  * needs to resolve. Everything else has a sensible absence.
  */
-export const createLinkRequestSchema = z
-  .object({
-    slug: mutationSlugSchema,
-    destination: z
-      .string()
-      .min(1)
-      .optional()
-      .describe('Single destination. Mutually exclusive with `targets` — exactly one is required.'),
-    targets: z
-      .array(mutationTargetSchema)
-      .min(1)
-      .optional()
-      .describe(
-        'Candidate destinations for a weighted rotation. Mutually exclusive with `destination`.'
-      ),
-    enabled: z.boolean().optional().describe('Whether the link resolves. Defaults to true.'),
-    ...lifecycleFields,
-    ...organisationFields,
-    ...utmFields,
-  })
-  .refine((request) => (request.destination === undefined) !== (request.targets === undefined), {
-    message:
-      'Provide exactly one of `destination` or `targets` — `destination` is single-destination shorthand for a one-element target list, so declaring both is ambiguous and declaring neither leaves the link with nowhere to resolve.',
-    path: ['destination'],
-  })
-  .openapi('CreateLinkRequest')
+export const createLinkRequestSchema = Schema.Struct({
+  slug: mutationSlugSchema,
+  destination: optionalField(
+    Schema.String.annotate({
+      description:
+        'Single destination. Mutually exclusive with `targets` — exactly one is required.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  targets: optionalField(
+    Schema.Array(mutationTargetSchema)
+      .annotate({
+        description:
+          'Candidate destinations for a weighted rotation. Mutually exclusive with `destination`.',
+      })
+      .pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  enabled: optionalField(
+    Schema.Boolean.annotate({ description: 'Whether the link resolves. Defaults to true.' })
+  ),
+  ...lifecycleFields,
+  ...organisationFields,
+  ...utmFields,
+})
+  .annotate({ identifier: 'CreateLinkRequest' })
+  .pipe(
+    Schema.check(
+      Schema.makeFilter((value) =>
+        ((request) => (request.destination === undefined) !== (request.targets === undefined))(
+          value
+        )
+          ? undefined
+          : 'Provide exactly one of `destination` or `targets` — `destination` is single-destination shorthand for a one-element target list, so declaring both is ambiguous and declaring neither leaves the link with nowhere to resolve.'
+      )
+    )
+  )
 
 /**
  * Request schema for `PATCH /api/admin/links/:slug`.
@@ -157,24 +200,24 @@ export const createLinkRequestSchema = z
  * A slug rename would silently break every share of the old address and orphan
  * its click history, which is keyed on the slug. Retire and re-mint instead.
  */
-export const updateLinkRequestSchema = z
-  .object({
-    destination: z
-      .string()
-      .min(1)
-      .optional()
-      .describe('New single destination. Replaces any existing target list.'),
-    targets: z
-      .array(mutationTargetSchema)
-      .min(1)
-      .optional()
-      .describe('New candidate destinations. Replaces any existing single destination.'),
-    enabled: z.boolean().optional().describe('Whether the link resolves.'),
-    ...lifecycleFields,
-    ...organisationFields,
-    ...utmFields,
-  })
-  .openapi('UpdateLinkRequest')
+export const updateLinkRequestSchema = Schema.Struct({
+  destination: optionalField(
+    Schema.String.annotate({
+      description: 'New single destination. Replaces any existing target list.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  targets: optionalField(
+    Schema.Array(mutationTargetSchema)
+      .annotate({
+        description: 'New candidate destinations. Replaces any existing single destination.',
+      })
+      .pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  enabled: optionalField(Schema.Boolean.annotate({ description: 'Whether the link resolves.' })),
+  ...lifecycleFields,
+  ...organisationFields,
+  ...utmFields,
+}).annotate({ identifier: 'UpdateLinkRequest' })
 
 /**
  * Response body for a refused mutation.
@@ -183,30 +226,34 @@ export const updateLinkRequestSchema = z
  * two refusals apart without parsing prose: `LINK_IS_CONFIG_DECLARED` means "edit
  * the file", `LINK_SLUG_TAKEN` means "pick another name".
  */
-export const linkMutationConflictSchema = z
-  .object({
-    success: z.literal(false),
-    code: z
-      .enum(['LINK_IS_CONFIG_DECLARED', 'LINK_SLUG_TAKEN', 'LINK_RESERVED_SLUG'])
-      .describe('Stable discriminant for the refusal, so the console need not parse the message.'),
-    message: z.string().describe('Human-readable explanation naming the offending slug.'),
-  })
-  .openapi('LinkMutationConflict')
+export const linkMutationConflictSchema = Schema.Struct({
+  success: Schema.Literal(false),
+  code: Schema.Literals([
+    'LINK_IS_CONFIG_DECLARED',
+    'LINK_SLUG_TAKEN',
+    'LINK_RESERVED_SLUG',
+  ]).annotate({
+    description: 'Stable discriminant for the refusal, so the console need not parse the message.',
+  }),
+  message: Schema.String.annotate({
+    description: 'Human-readable explanation naming the offending slug.',
+  }),
+}).annotate({ identifier: 'LinkMutationConflict' })
 
 /**
  * TypeScript type for a create request
  * @public
  */
-export type CreateLinkRequest = z.infer<typeof createLinkRequestSchema>
+export type CreateLinkRequest = typeof createLinkRequestSchema.Type
 
 /**
  * TypeScript type for an update request
  * @public
  */
-export type UpdateLinkRequest = z.infer<typeof updateLinkRequestSchema>
+export type UpdateLinkRequest = typeof updateLinkRequestSchema.Type
 
 /**
  * TypeScript type for a refused mutation
  * @public
  */
-export type LinkMutationConflict = z.infer<typeof linkMutationConflictSchema>
+export type LinkMutationConflict = typeof linkMutationConflictSchema.Type

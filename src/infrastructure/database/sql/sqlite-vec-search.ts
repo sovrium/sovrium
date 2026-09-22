@@ -44,12 +44,13 @@
  * rebuild/write path instead of rebuilt at search time.
  */
 
-import { resolveRagAcceleration } from '@/domain/services/rag/rag-acceleration'
+import { resolveRagAcceleration } from '@/domain/models/app/agents/rag-acceleration'
 import {
   cosineSimilarity,
   deserializeEmbedding,
 } from '@/infrastructure/database/sql/ai-embedding-vector-math'
 import { getSqliteVecClient } from '@/infrastructure/database/sql/sqlite-vec-extension'
+import { recordDbQueryIssued } from '@/infrastructure/telemetry/db-query-counter'
 import type { EmbeddingSearchResult } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { Database as BunSqlite } from 'bun:sqlite'
 
@@ -91,6 +92,13 @@ const loadCandidateRows = (
       : 'WHERE embedding IS NOT NULL'
   const sql = `SELECT rowid, agent_name, source_ref, content, embedding FROM system_ai_embeddings ${where}`
   const stmt = client.query(sql)
+  // This runs on the separate raw sqlite-vec handle, invisible to the Drizzle
+  // countingLogger — record the statement against the per-request query-count
+  // seam explicitly (index-build DDL/inserts are deliberately NOT counted:
+  // they are index mechanics, not data queries, and per-row inserts would make
+  // the count corpus-size-dependent).
+
+  recordDbQueryIssued()
   return (agentName !== undefined ? stmt.all(agentName) : stmt.all()) as ReadonlyArray<CandidateRow>
 }
 
@@ -126,6 +134,9 @@ const denseCandidateRowids = (
   })
 
   const k = Math.min(rows.length, Math.max(input.maxResults * CANDIDATE_FANOUT, input.maxResults))
+  // Raw-handle statement — see the note in loadCandidateRows.
+
+  recordDbQueryIssued()
   const knn = client
     .query('SELECT rowid FROM temp.rag_vec_idx WHERE embedding MATCH ? AND k = ? ORDER BY distance')
     .all(toVecLiteral(input.embedding), k) as ReadonlyArray<{ readonly rowid: number }>
@@ -168,6 +179,9 @@ const lexicalCandidateRowids = (
 
   const hits = (() => {
     try {
+      // Raw-handle statement — see the note in loadCandidateRows.
+
+      recordDbQueryIssued()
       return client
         .query('SELECT rowid FROM temp.rag_fts_idx WHERE rag_fts_idx MATCH ? ORDER BY rank')
         .all(matchExpr) as ReadonlyArray<{ readonly rowid: number }>

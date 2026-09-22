@@ -31,7 +31,7 @@ import type { BunPlugin } from 'bun'
  *
  * Applied in BOTH island-bundle build paths:
  *   - dev/runtime build   → `server/route-setup/static-assets.ts`
- *   - packaging/binary    → `scripts/build/lib/runtime-assets.ts`
+ * - packaging/binary → `[internal ref]`
  */
 // eslint-disable-next-line functional/prefer-immutable-types
 export const codemirrorDedupePlugin: BunPlugin = {

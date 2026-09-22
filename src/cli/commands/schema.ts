@@ -8,7 +8,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { Effect, Console } from 'effect'
-import { generateAppJsonSchema } from '@/domain/services/json-schema'
+import { generateAppJsonSchema } from '@/domain/models/app/app-json-schema'
 
 /**
  * Handle the 'schema' command - print JSON Schema to stdout or file
@@ -21,7 +21,6 @@ export const handleSchemaCommand = async (outputPath?: string): Promise<void> =>
   if (outputPath) {
     // eslint-disable-next-line functional/no-expression-statements
     await mkdir(dirname(outputPath), { recursive: true })
-    // eslint-disable-next-line functional/no-expression-statements
     await writeFile(outputPath, json)
     Effect.runSync(Console.log(`Schema written to ${outputPath}.`))
   } else {

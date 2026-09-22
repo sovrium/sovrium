@@ -15,7 +15,16 @@
    Cell-level controls: one per editable cell, and each handler closes over that
    cell's current value and commit callback. */
 
-import { DEFAULT_RATING_MAX, ratingGlyphsFor, readsAsTrue } from '../../shared/cell-value-semantics'
+import { computeTableCheckboxControlClasses } from '@/presentation/design/table-default-classes'
+import {
+  computeRatingGlyphClasses,
+  computeRatingRowClasses,
+} from '../../../design/cell-affordances-default-classes'
+import {
+  DEFAULT_RATING_MAX,
+  ratingGlyphsFor,
+  readsAsTrue,
+} from '../../runtime/cell-value-semantics'
 import type { FieldMeta, FieldWriteValue } from '../../hooks/use-inline-editing'
 import type { ReactElement } from 'react'
 
@@ -50,7 +59,7 @@ export function CheckboxCellControl({
       aria-label={label}
       checked={checked}
       onChange={() => commit(!checked)}
-      className="accent-primary h-4 w-4 cursor-pointer"
+      className={computeTableCheckboxControlClasses({ interactive: true })}
     />
   )
 }
@@ -68,6 +77,30 @@ export function CheckboxCellControl({
  * ([internal ref] A7). A multi-select chip carries the author's declared colour
  * because that vocabulary is the author's; a rating scale has no such
  * vocabulary to carry.
+ *
+ * Monochrome is not the same as untoned, and this control used to confuse the
+ * two. It carried no tone at all, so an unearned point painted at full ink and
+ * the scale said its score in the GLYPH alone — where the read-only renderer
+ * next door says it twice, in the glyph and in the tone. A reader who cannot
+ * separate a solid star from a hollow one at 11px got no second signal, and the
+ * same rating drew differently depending only on whether its column happened to
+ * be editable. Both paths now take their glyph tone from
+ * {@link computeRatingGlyphClasses}, so there is one place the empty arm is
+ * decided.
+ *
+ * The same divergence survived one step up, in the ROW, and the tone fix made
+ * it easier to see rather than harder: measured, the read path's glyphs were
+ * 11px on 1px of tracking while these inherited the cell's 12px at
+ * `letter-spacing: normal`. So an editable rating was a type step larger and a
+ * hair tighter than the identical value one column over — a difference that
+ * says something about the column's writability, which is not a thing a SCORE
+ * should be reporting. The row now delegates to
+ * {@link computeRatingRowClasses} too, and the two paths differ in exactly one
+ * class.
+ *
+ * That one class is `w-fit`, and it is load-bearing: without it the radiogroup
+ * stretches to the cell and swallows clicks across its whole width, so a reader
+ * aiming at nothing in particular still writes a score.
  */
 export function RatingCellControl({
   value,
@@ -89,7 +122,7 @@ export function RatingCellControl({
     <span
       role="radiogroup"
       aria-label={label}
-      className="inline-flex w-fit items-center gap-0.5"
+      className={`${computeRatingRowClasses()} w-fit`}
     >
       {Array.from({ length: max }, (_unused, index) => {
         const rank = index + 1
@@ -103,7 +136,7 @@ export function RatingCellControl({
             tabIndex={-1}
             data-rating-glyph
             data-filled={isFilled}
-            className="cursor-pointer leading-none"
+            className={`cursor-pointer leading-none ${computeRatingGlyphClasses({ filled: isFilled })}`}
             onClick={() => commit(rank === current ? null : rank)}
             onKeyDown={(e) => {
               if (e.key !== 'Enter' && e.key !== ' ') return

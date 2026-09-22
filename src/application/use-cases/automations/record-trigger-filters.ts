@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { COMPARATORS } from '@/domain/services/automations/comparison-operators'
+import { COMPARATORS } from '@/domain/models/app/automations/comparison-operators'
 import { resolveTriggerInString } from './resolve-trigger-data'
 import type { ConditionGroup } from '@/domain/models/app/automations/conditions'
 

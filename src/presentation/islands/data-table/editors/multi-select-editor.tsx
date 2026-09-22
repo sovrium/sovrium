@@ -11,11 +11,12 @@
    re-render work, because toggling an option IS the state change. */
 
 import { useState } from 'react'
-import { optionColor, optionLabel, optionValue } from '@/domain/utils/select-option'
-import { readsAsList } from '../../shared/cell-value-semantics'
+import { optionColor, optionLabel, optionValue } from '@/domain/models/app/tables/select-option'
+import { computeTableEditorPopoverClasses } from '@/presentation/design/table-default-classes'
+import { OptionListbox, type ListboxCandidate } from '../../parts/option-listbox'
+import { readsAsList } from '../../runtime/cell-value-semantics'
 import { editMetaOf, optionsOf, type CellEditorProps } from './editor-contract'
 import { EditorPopover } from './editor-popover'
-import { OptionListbox, type ListboxCandidate } from './option-listbox'
 import type { ReactElement } from 'react'
 
 /**
@@ -65,7 +66,7 @@ export function MultiSelectEditor(props: CellEditorProps): ReactElement {
       tabValue={() => selected}
       {...(tabNext && { tabNext })}
     >
-      <div className="absolute top-0 left-0 z-20">
+      <div className={`${computeTableEditorPopoverClasses()} top-0 left-0`}>
         <OptionListbox
           candidates={candidates}
           selected={selected}

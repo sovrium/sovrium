@@ -21,7 +21,7 @@
  * `data-[starting-style]:opacity-0`, `transition-all duration-200`) stay as raw
  * Tailwind utilities — they encode the popup behavior, not color — while every
  * color / border / shadow / radius class goes through {@link withVarFallback}
- * so `app.theme.*` overrides still win at the CSS cascade layer (`var(--sv-X)`
+ * so `app.design.*` overrides still win at the CSS cascade layer (`var(--sv-X)`
  * resolves the override first, falling back to the inline OKLCH literal).
  *
  * Subparts covered (matches the existing DOM layering across the 8 overlay
@@ -37,6 +37,7 @@
  *   - HOVER-CARD POPUP — popover variant for hover-triggered link previews
  *   - MENU POPUP   — anchored menu container holding items + separators
  *   - MENU ITEM    — single row inside a menu (`variant`: default | destructive)
+ *   - MENU ITEM TOGGLE — the switch a `toggle` row draws at its right edge
  *   - MENU TRIGGER — menubar trigger pill (top-level menubar entries)
  *   - MENU SEPARATOR — divider between menu sections
  *
@@ -48,13 +49,13 @@
  * `numeric-default-classes.ts`, and `date-default-classes.ts`.
  */
 
-import { TOKENS as T, withVarFallback as v } from '@/presentation/utils/design/css-var'
+import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 // The nav-menu trigger recipe now lives in the cross-boundary navbar recipe (so
 // the navigation-menu SSR host in `ui/sections/` can render the SAME trigger
 // chrome — [internal ref]). Re-exported below so `nav-menu-island.tsx` and
 // the overlay-default-classes unit test keep importing it from here.
-import { computeNavMenuTriggerClasses } from '@/presentation/utils/recipes/navbar-default-classes'
-import { POPUP_SURFACE, RADIUS_MD } from '../recipes/shared-tokens-default-classes'
+import { computeNavMenuTriggerClasses } from '@/presentation/design/navbar-default-classes'
+import { POPUP_SURFACE, RADIUS_BASE, RADIUS_MD } from '../../design/shared-tokens-default-classes'
 
 export { computeNavMenuTriggerClasses }
 
@@ -73,10 +74,45 @@ type MenuItemVariant = 'default' | 'destructive'
  */
 type MenuSurface = 'default' | 'inverted'
 
-const RADIUS_LG = `rounded-[${v('sv-radius-lg', T.radiusLg)}]`
+/**
+ * ─── WHICH RADIUS A FLOATING SURFACE TAKES ─────────────────────────────────
+ *
+ * The scale has three working steps and the reference assigns them by KIND, not
+ * by size: `base` (4px) for controls — a button, a field, a menu item, a tooltip
+ * chip; `md` (6px) for popups — a menu, a popover, a dialog, a drawer; `lg`
+ * (8px) for regions, meaning a card or a section of a page.
+ *
+ * Nothing in this file is a region, so `lg` does not appear in it. A dialog is a
+ * popup that happens to be large; at 8px it read as a region that had come
+ * loose from the page rather than as a surface floating above one.
+ */
 
-const POPUP_SHADOW_LG = `shadow-[${v('sv-shadow-lg', T.shadowLg)}]`
-const POPUP_SHADOW_XL = `shadow-[${v('sv-shadow-xl', T.shadowXl)}]`
+/**
+ * The DEEPER of two floating planes: a dialog or a drawer, which is detached
+ * from the page and dims what is behind it.
+ *
+ * There are two planes, not one. Menus and popovers moved down to
+ * `POPUP_SHADOW_MD` because they are ANCHORED — each points at the control that
+ * opened it, so it sits a short distance off the page rather than on a plane of
+ * its own. A dialog points at nothing, which is what earns it this step.
+ *
+ * The plane above this one stays retired: nothing in the system renders above a
+ * dialog, and a depth scale is only readable when something occupies each step.
+ * A depth scale is only readable when something occupies each step; a top
+ * step with no neighbour above it conveys no ordering, it just casts a
+ * heavier shadow. One plane, one shadow.
+ */
+const POPUP_SHADOW_LG = `shadow-[${v('shadow-lg', T.shadowLg)}]`
+
+/**
+ * The step below it, for a surface anchored to the control that opened it.
+ *
+ * A popover is not a dialog: it points at something, so it sits a short
+ * distance off the page rather than on a plane of its own. The drawings put
+ * menus and popovers here and reserve `lg` for a dialog or a drawer, which is
+ * detached from everything and dims what is behind it.
+ */
+const POPUP_SHADOW_MD = `shadow-[${v('shadow-md', T.shadowMd)}]`
 
 const ENTER_EXIT_FADE_ZOOM = [
   'transition-all',
@@ -142,9 +178,9 @@ export const computeDialogPopupClasses = ({
   [
     DIALOG_LAYOUT_BASE,
     DIALOG_SIZE_MAP[size],
-    RADIUS_LG,
+    RADIUS_MD,
     POPUP_SURFACE,
-    POPUP_SHADOW_XL,
+    POPUP_SHADOW_LG,
     ENTER_EXIT_FADE_ZOOM,
   ].join(' ')
 
@@ -167,9 +203,9 @@ export const computeAlertDialogPopupClasses = ({
   [
     DIALOG_LAYOUT_BASE,
     DIALOG_SIZE_MAP[size],
-    RADIUS_LG,
+    RADIUS_MD,
     POPUP_SURFACE.replace(`border-[${v('sv-border', T.border)}]`, ALERT_DIALOG_DESTRUCTIVE_ACCENT),
-    POPUP_SHADOW_XL,
+    POPUP_SHADOW_LG,
     ENTER_EXIT_FADE_ZOOM,
   ].join(' ')
 
@@ -182,7 +218,7 @@ const DIALOG_TITLE = ['mb-2 text-lg font-semibold', `text-[${v('sv-fg', T.fg)}]`
  */
 export const computeDialogTitleClasses = (): string => DIALOG_TITLE
 
-const DIALOG_DESCRIPTION = ['mb-4 text-sm', `text-[${v('sv-fg-muted', T.fgMuted)}]`].join(' ')
+const DIALOG_DESCRIPTION = ['mb-4 text-base', `text-[${v('sv-fg-muted', T.fgMuted)}]`].join(' ')
 
 /**
  * Compute the default className for the `<Dialog.Description>` supporting
@@ -229,7 +265,7 @@ export const computeDrawerPopupClasses = ({
 }: {
   side?: DrawerSide
 } = {}): string =>
-  [DRAWER_LAYOUT_BASE, DRAWER_SIDE_MAP[side], POPUP_SURFACE, POPUP_SHADOW_XL, DRAWER_MOTION].join(
+  [DRAWER_LAYOUT_BASE, DRAWER_SIDE_MAP[side], POPUP_SURFACE, POPUP_SHADOW_LG, DRAWER_MOTION].join(
     ' '
   )
 
@@ -247,7 +283,7 @@ export const computeDrawerHeaderClasses = (): string => DRAWER_HEADER
 // POPOVER POPUP (anchored floating rich content)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const POPOVER_LAYOUT = 'z-50 w-72 p-4 outline-none'
+const POPOVER_LAYOUT = 'z-50 w-72 p-2 outline-none'
 
 /**
  * Compute the default className for the anchored popover `<Popover.Popup>`
@@ -256,9 +292,9 @@ const POPOVER_LAYOUT = 'z-50 w-72 p-4 outline-none'
  * since popovers anchor to a trigger and shouldn't dominate the viewport.
  */
 export const computePopoverPopupClasses = (): string =>
-  [POPOVER_LAYOUT, RADIUS_LG, POPUP_SURFACE, POPUP_SHADOW_LG, ENTER_EXIT_FADE_ZOOM].join(' ')
+  [POPOVER_LAYOUT, RADIUS_MD, POPUP_SURFACE, POPUP_SHADOW_MD, ENTER_EXIT_FADE_ZOOM].join(' ')
 
-const POPOVER_TITLE = ['mb-1 text-sm font-semibold', `text-[${v('sv-fg', T.fg)}]`].join(' ')
+const POPOVER_TITLE = ['mb-1 px-1 text-base font-semibold', `text-[${v('sv-fg', T.fg)}]`].join(' ')
 
 /**
  * Compute the default className for the `<Popover.Title>` heading. Slightly
@@ -267,7 +303,7 @@ const POPOVER_TITLE = ['mb-1 text-sm font-semibold', `text-[${v('sv-fg', T.fg)}]
  */
 export const computePopoverTitleClasses = (): string => POPOVER_TITLE
 
-const POPOVER_DESCRIPTION = ['mb-3 text-sm', `text-[${v('sv-fg-muted', T.fgMuted)}]`].join(' ')
+const POPOVER_DESCRIPTION = ['mb-2 px-1 text-sm', `text-[${v('sv-fg-muted', T.fgMuted)}]`].join(' ')
 
 /**
  * Compute the default className for the `<Popover.Description>` supporting
@@ -279,11 +315,17 @@ export const computePopoverDescriptionClasses = (): string => POPOVER_DESCRIPTIO
 // TOOLTIP POPUP (small inverted-tone label)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const TOOLTIP_LAYOUT = 'z-50 px-3 py-1.5 text-xs'
+// A chip at the control step: 4px, not the 6px a panel takes, and padded like a
+// badge rather than like a button. It is the smallest surface in the system and
+// was rendering a third larger than the reference draws it.
+const TOOLTIP_LAYOUT = 'z-50 px-2 py-1 text-xs'
 
 const TOOLTIP_SURFACE = [`bg-[${v('sv-fg', T.fg)}]`, `text-[${v('sv-bg', T.bg)}]`].join(' ')
 
-const TOOLTIP_SHADOW = `shadow-[${v('sv-shadow-md', T.shadowMd)}]`
+// A tooltip is an INK CHIP, not a panel. It reads as floating because it is
+// the inverse of everything around it; a shadow under a near-black chip is
+// invisible work. The drawings give it none.
+const TOOLTIP_SHADOW = ''
 
 /**
  * Compute the default className for the `<Tooltip.Popup>` floating label.
@@ -293,7 +335,7 @@ const TOOLTIP_SHADOW = `shadow-[${v('sv-shadow-md', T.shadowMd)}]`
  * unobtrusive.
  */
 export const computeTooltipPopupClasses = (): string =>
-  [TOOLTIP_LAYOUT, RADIUS_MD, TOOLTIP_SURFACE, TOOLTIP_SHADOW, ENTER_EXIT_FADE].join(' ')
+  [TOOLTIP_LAYOUT, RADIUS_BASE, TOOLTIP_SURFACE, TOOLTIP_SHADOW, ENTER_EXIT_FADE].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // HOVER-CARD POPUP (popover-like, hover-triggered)
@@ -312,7 +354,7 @@ export const computeHoverCardPopupClasses = (): string => computePopoverPopupCla
 // MENU POPUP + ITEMS (anchored dropdown menu)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const MENU_POPUP_LAYOUT = 'z-50 min-w-48 py-1 outline-none'
+const MENU_POPUP_LAYOUT = 'z-50 min-w-48 p-1 outline-none'
 
 /**
  * Inverted popup surface — near-black primary tone with light text, so a menu
@@ -328,9 +370,10 @@ const MENU_POPUP_INVERTED_SURFACE = [
 
 /**
  * Compute the default className for the `<Menu.Popup>` floating container —
- * the rounded panel that houses menu items + separators. Tighter padding
- * (`py-1`) than a popover since menu items carry their own padding row by
- * row, and `min-w-48` ensures menu items have room for labels + shortcuts
+ * the rounded panel that houses menu items + separators. A uniform `p-1`
+ * inset on all four sides, so each row's own 4px radius has somewhere to show
+ * — a row clipped flush to the panel edge reads as a selected table row rather
+ * than a pointer target. `min-w-48` ensures menu items have room for labels
  * even when the trigger is narrow. The `variant` axis flips the surface tone:
  * `default` keeps the raised light overlay; `inverted` paints the near-black
  * primary tone so the popup matches a near-black CTA trigger.
@@ -341,10 +384,15 @@ export const computeMenuPopupClasses = ({
   variant?: MenuSurface
 } = {}): string => {
   const surface = variant === 'inverted' ? MENU_POPUP_INVERTED_SURFACE : POPUP_SURFACE
-  return [MENU_POPUP_LAYOUT, RADIUS_MD, surface, POPUP_SHADOW_LG, ENTER_EXIT_FADE_ZOOM].join(' ')
+  return [MENU_POPUP_LAYOUT, RADIUS_MD, surface, POPUP_SHADOW_MD, ENTER_EXIT_FADE_ZOOM].join(' ')
 }
 
-const MENU_ITEM_LAYOUT = 'flex cursor-pointer items-center px-3 py-2 text-sm outline-none'
+const MENU_ITEM_RADIUS = `rounded-[${v('radius-base', T.radiusBase)}]`
+
+// 12px on 5px/8px padding inside a 4px-padded panel, each row clipped to its
+// own 4px corner — the drawings' menu. A full-bleed highlighted row reads as a
+// selected table row rather than as a pointer target.
+const MENU_ITEM_LAYOUT = `flex cursor-pointer items-center gap-2 px-2 py-[5px] text-sm outline-none ${MENU_ITEM_RADIUS}`
 
 const MENU_ITEM_DEFAULT_BASE = `text-[${v('sv-fg', T.fg)}]`
 
@@ -399,6 +447,64 @@ export const computeMenuItemClasses = ({
   return [MENU_ITEM_LAYOUT, base, highlighted, MENU_ITEM_DISABLED].join(' ')
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// MENU ITEM TOGGLE (the switch a `toggle` row draws at its right edge)
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * ─── ONE RECIPE, TWO CALLERS, AND WHY IT IS ATTRIBUTE-DRIVEN ────────────────
+ *
+ * A toggle row is drawn twice: LIVE by `Menu.CheckboxItem` in the islands, and
+ * STILL by `MenuPopupBody` in a design-system specimen. Those two cannot share
+ * an element — `Menu.CheckboxItem` outside a `Menu.Root` throws — so the one
+ * thing they CAN share is this class string, and it only serves both if the
+ * on/off state is read off a data attribute rather than passed as a prop. Base
+ * UI writes `data-checked` / `data-unchecked` onto
+ * `Menu.CheckboxItemIndicator`; the drawing writes the same attribute by hand.
+ * The paint then follows from one source in both places.
+ *
+ * The thumb carries no state of its own, so it reads the track's through a
+ * NAMED group. `group/menu-toggle` rather than a bare `group`: the menu trigger
+ * already carries an unnamed one for its chevron, and a bare variant here would
+ * be one refactor away from resolving against it.
+ *
+ * The metrics are the `sm` Switch's, deliberately — `h-4 w-7` track, `h-3 w-3`
+ * thumb, `translate-x-3` of travel (`toggle-default-classes.ts`). A reader who
+ * met the switch on its own kit page meets the same control in a menu row, one
+ * step smaller because it sits inside a text row rather than a form field.
+ */
+const MENU_TOGGLE_TRACK = [
+  'group/menu-toggle',
+  'relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border-2 border-transparent',
+  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
+  'data-[checked]:bg-primary',
+  'transition-colors duration-150',
+].join(' ')
+
+/**
+ * Compute the default className for the switch TRACK of a `menuitemcheckbox`
+ * row — the rounded pill at the right edge. Off state takes the muted subtle
+ * surface, on state fills with the canonical `bg-primary` role utility: the
+ * same pair the standalone Switch uses, so the two read as one control.
+ */
+export const computeMenuItemToggleTrackClasses = (): string => MENU_TOGGLE_TRACK
+
+const MENU_TOGGLE_THUMB = [
+  'pointer-events-none block h-3 w-3 rounded-full',
+  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
+  `shadow-[${v('shadow-sm', T.shadowSm)}]`,
+  'transition-transform duration-150',
+  'group-data-[checked]/menu-toggle:translate-x-3',
+].join(' ')
+
+/**
+ * Compute the default className for the switch THUMB — the circle that slides
+ * inside the track. Its travel is keyed on the track's own `data-checked`
+ * through the named group, which is what lets one class string serve both the
+ * live row and the drawn one.
+ */
+export const computeMenuItemToggleThumbClasses = (): string => MENU_TOGGLE_THUMB
+
 const MENU_SEPARATOR = [`bg-[${v('sv-border', T.border)}]`, 'my-1 h-px'].join(' ')
 
 /**
@@ -408,7 +514,7 @@ const MENU_SEPARATOR = [`bg-[${v('sv-border', T.border)}]`, 'my-1 h-px'].join(' 
  */
 export const computeMenuSeparatorClasses = (): string => MENU_SEPARATOR
 
-const MENU_TRIGGER_LAYOUT = 'px-3 py-1.5 text-sm font-medium transition-colors'
+const MENU_TRIGGER_LAYOUT = 'px-3 py-1.5 text-base font-medium transition-colors'
 
 const MENU_TRIGGER_SURFACE = [
   `text-[${v('sv-fg', T.fg)}]`,

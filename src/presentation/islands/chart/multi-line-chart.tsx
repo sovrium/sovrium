@@ -6,32 +6,57 @@
  */
 
 import { Group } from '@visx/group'
-import { scalePoint, scaleLinear } from '@visx/scale'
+import { scalePoint } from '@visx/scale'
 import { LinePath } from '@visx/shape'
 import { useCallback, useState } from 'react'
+import {
+  CHART_LINE_STROKE_WIDTH,
+  CHART_POINT_FILL,
+  CHART_POINT_RADIUS,
+  CHART_POINT_STROKE_WIDTH,
+} from '@/presentation/design/chart-default-classes'
 import { PointScaleAxes } from './chart-axes'
 import {
+  buildValueScale,
   CHART_MARGIN,
   maxAcrossSeries,
+  minPositiveAcrossSeries,
   numericValue,
   seriesColor,
   xKeys,
+  type ChartAxisDisplay,
   type ChartSeriesConfig,
+  type ChartValueScale,
   type LegendPosition,
 } from './chart-series-shared'
 import { ChartShell } from './chart-shell'
 import { ChartTooltip, type TooltipState } from './chart-tooltip'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 import type { ReactElement } from 'react'
+
+/**
+ * Which mark each series is drawn as.
+ *
+ * `line` joins its vertices; `scatter` plots the same vertices and joins
+ * nothing. The two share this canvas because everything else about them is
+ * identical — the scales, the axes, the legend, the hover tooltip and the
+ * hidden-series toggle — so the only real difference is whether the connecting
+ * path is drawn at all.
+ */
+export type SeriesMarkVariant = 'line' | 'scatter'
 
 interface MultiLineChartProps {
   readonly records: readonly TableRecord[]
   readonly xField: string
   readonly series: readonly ChartSeriesConfig[]
+  /** Value-axis display configuration forwarded from the chart's `yAxis`. */
+  readonly yAxis?: ChartAxisDisplay
   readonly legendPosition?: LegendPosition
   readonly legendVisible?: boolean
   readonly tooltipFormat?: string
-  /** Operator-set `<svg role="img">` name; falls back to the "Line chart" default. */
+  /** Mark drawn per series; defaults to the joined `line`. */
+  readonly variant?: SeriesMarkVariant
+  /** Operator-set `<svg role="img">` name; falls back to the per-variant default. */
   readonly accessibleName?: string
 }
 
@@ -53,13 +78,13 @@ function plotSeries(args: {
   readonly xField: string
   readonly field: string
   readonly xScale: ReturnType<typeof scalePoint<string>>
-  readonly yScale: ReturnType<typeof scaleLinear<number>>
+  readonly yScale: ChartValueScale
 }): PlottedPoint[] {
   const { records, keys, xField, field, xScale, yScale } = args
   return keys.map((k) => {
     const record = records.find((r) => String(r[xField]) === k)
     const value = record ? numericValue(record[field]) : 0
-    return { key: k, x: xScale(k) ?? 0, y: yScale(value), value }
+    return { key: k, x: xScale(k) ?? 0, y: yScale.toY(value), value }
   })
 }
 
@@ -86,8 +111,10 @@ function HoverPoint({
     <circle
       cx={point.x}
       cy={point.y}
-      r={4}
-      fill={color}
+      r={CHART_POINT_RADIUS}
+      fill={CHART_POINT_FILL}
+      stroke={color}
+      strokeWidth={CHART_POINT_STROKE_WIDTH}
       data-point-key={point.key}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
@@ -161,7 +188,7 @@ function SeriesPaths({
         x={accessX}
         y={accessY}
         stroke={color}
-        strokeWidth={2}
+        strokeWidth={CHART_LINE_STROKE_WIDTH}
         fill="none"
         pointerEvents="none"
       />
@@ -175,12 +202,14 @@ function SeriesLine({
   index,
   points,
   tooltipFormat,
+  variant,
   onHover,
 }: {
   readonly config: ChartSeriesConfig
   readonly index: number
   readonly points: PlottedPoint[]
   readonly tooltipFormat: string | undefined
+  readonly variant: SeriesMarkVariant
   readonly onHover: (state: TooltipState | undefined) => void
 }): ReactElement {
   const color = seriesColor(config, index)
@@ -200,12 +229,14 @@ function SeriesLine({
   const handleLineLeave = useCallback(() => onHover(undefined), [onHover])
   return (
     <g data-series-field={config.field}>
-      <SeriesPaths
-        points={points}
-        color={color}
-        onEnter={handleLineEnter}
-        onLeave={handleLineLeave}
-      />
+      {variant === 'scatter' ? undefined : (
+        <SeriesPaths
+          points={points}
+          color={color}
+          onEnter={handleLineEnter}
+          onLeave={handleLineLeave}
+        />
+      )}
       <SeriesPoints
         points={points}
         field={config.field}
@@ -224,43 +255,53 @@ interface SvgChartProps {
   readonly records: readonly TableRecord[]
   readonly xField: string
   readonly series: readonly ChartSeriesConfig[]
+  readonly yAxis: ChartAxisDisplay | undefined
   readonly hidden: ReadonlySet<string>
   readonly tooltip: TooltipState | undefined
   readonly tooltipFormat: string | undefined
+  readonly variant: SeriesMarkVariant
   readonly accessibleName?: string
   readonly onHover: (state: TooltipState | undefined) => void
 }
 
-function MultiLineSvg({
-  width,
-  height,
-  records,
-  xField,
-  series,
-  hidden,
-  tooltip,
-  tooltipFormat,
-  accessibleName,
-  onHover,
-}: SvgChartProps): ReactElement {
+/** The measured inner viewport, shared X keys, visible series, and X/Y scales. */
+interface LineLayout {
+  readonly innerWidth: number
+  readonly innerHeight: number
+  readonly keys: readonly string[]
+  readonly visibleSeries: readonly ChartSeriesConfig[]
+  readonly xScale: ReturnType<typeof scalePoint<string>>
+  readonly yScale: ChartValueScale
+}
+
+/** Builds the point (X) and value (Y) scales for the chart's inner area. */
+function buildLineLayout(args: SvgChartProps): LineLayout {
+  const { width, height, records, xField, series, yAxis, hidden } = args
   const innerWidth = Math.max(0, width - CHART_MARGIN.left - CHART_MARGIN.right)
   const innerHeight = Math.max(0, height - CHART_MARGIN.top - CHART_MARGIN.bottom)
   const keys = xKeys(records, xField)
   const visibleSeries = series.filter((s) => !hidden.has(s.field))
   const xScale = scalePoint<string>({ domain: [...keys], range: [0, innerWidth], padding: 0.5 })
-  const maxY = maxAcrossSeries(records, visibleSeries)
-  const yScale = scaleLinear<number>({
-    domain: [0, maxY === 0 ? 1 : maxY],
-    range: [innerHeight, 0],
-    nice: true,
+  const yScale = buildValueScale({
+    maxValue: maxAcrossSeries(records, visibleSeries),
+    minPositiveValue: minPositiveAcrossSeries(records, visibleSeries),
+    innerHeight,
+    scale: yAxis?.scale,
   })
+  return { innerWidth, innerHeight, keys, visibleSeries, xScale, yScale }
+}
+
+function MultiLineSvg(props: SvgChartProps): ReactElement {
+  const { width, height, records, xField, series, yAxis, tooltip, tooltipFormat } = props
+  const { variant, accessibleName, onHover } = props
+  const { innerWidth, innerHeight, keys, visibleSeries, xScale, yScale } = buildLineLayout(props)
 
   return (
     <svg
       width={width}
       height={height}
       role="img"
-      aria-label={accessibleName ?? 'Line chart'}
+      aria-label={accessibleName ?? (variant === 'scatter' ? 'Scatter chart' : 'Line chart')}
     >
       <Group
         left={CHART_MARGIN.left}
@@ -271,14 +312,24 @@ function MultiLineSvg({
           xScale={xScale}
           innerWidth={innerWidth}
           innerHeight={innerHeight}
+          valueScale={yScale}
+          valueAxis={yAxis}
         />
         {visibleSeries.map((s) => (
           <SeriesLine
             key={`series-${s.field}`}
             config={s}
             index={series.indexOf(s)}
-            points={plotSeries({ records, keys, xField, field: s.field, xScale, yScale })}
+            points={plotSeries({
+              records,
+              keys,
+              xField,
+              field: s.field,
+              xScale,
+              yScale,
+            })}
             tooltipFormat={tooltipFormat}
+            variant={variant}
             onHover={onHover}
           />
         ))}
@@ -289,22 +340,27 @@ function MultiLineSvg({
 }
 
 /**
- * Multi-series line chart with an interactive legend and hover tooltip.
+ * Multi-series line or scatter chart with an interactive legend and hover
+ * tooltip.
  *
- * Each `series` entry renders its own `<LinePath>`; the legend lists every
- * series label and clicking a legend item toggles that series' visibility.
- * Hovering a data-point vertex surfaces a `{label}: {value}` tooltip.
+ * Each `series` entry renders its own vertex circles, joined by a `<LinePath>`
+ * under the default `line` variant and left unjoined under `scatter`. The
+ * legend lists every series label and clicking a legend item toggles that
+ * series' visibility. Hovering a data-point vertex surfaces a
+ * `{label}: {value}` tooltip.
  *
- * Tooltip state lives here (not in `ChartShell`) because the line chart is
- * the only multi-series variant with a hover tooltip.
+ * Tooltip state lives here (not in `ChartShell`) because this is the only
+ * multi-series canvas with a hover tooltip.
  */
 export function MultiLineChart({
   records,
   xField,
   series,
+  yAxis,
   legendPosition,
   legendVisible,
   tooltipFormat,
+  variant = 'line',
   accessibleName,
 }: MultiLineChartProps): ReactElement {
   const [tooltip, setTooltip] = useState<TooltipState | undefined>(undefined)
@@ -322,9 +378,11 @@ export function MultiLineChart({
           records={records}
           xField={xField}
           series={series}
+          yAxis={yAxis}
           hidden={hidden}
           tooltip={tooltip}
           tooltipFormat={tooltipFormat}
+          variant={variant}
           accessibleName={accessibleName}
           onHover={setTooltip}
         />

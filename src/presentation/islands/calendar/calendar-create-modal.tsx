@@ -84,13 +84,13 @@ function CalendarCreateForm({
       onSubmit={handleSubmit}
       className="space-y-4"
     >
-      <label className="text-foreground block text-sm font-medium">
+      <label className="text-foreground text-md block font-medium">
         <span>Title</span>
         <input
           type="text"
           name="title"
           required
-          className="border-border bg-background-raised text-foreground focus:border-focus-ring focus:ring-focus-ring mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:ring-1 focus:outline-none"
+          className="border-border bg-background-raised text-foreground focus:border-focus-ring focus:ring-focus-ring text-md mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:ring-1 focus:outline-none"
         />
       </label>
       {dateField && clickedDate && (
@@ -104,13 +104,13 @@ function CalendarCreateForm({
         <button
           type="button"
           onClick={onClose}
-          className="border-border text-foreground hover:bg-background-subtle rounded border px-3 py-2 text-sm font-medium"
+          className="border-border text-foreground hover:bg-background-subtle text-md rounded border px-3 py-2 font-medium"
         >
           Cancel
         </button>
         <button
           type="submit"
-          className="bg-primary text-primary-fg hover:bg-primary-hover rounded px-3 py-2 text-sm font-medium"
+          className="bg-primary text-primary-fg hover:bg-primary-hover text-md rounded px-3 py-2 font-medium"
         >
           Create
         </button>
@@ -159,7 +159,7 @@ export function CalendarCreateModal({
         <div className="bg-background-raised w-full max-w-md rounded-lg p-6 shadow-xl">
           <h2
             id="calendar-create-modal-title"
-            className="text-foreground mb-4 text-lg font-semibold"
+            className="text-foreground mb-4 text-xl font-semibold"
           >
             Create {tableName}
           </h2>

@@ -5,11 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveRecordColor } from '@/domain/utils/record-color'
+import { resolveRecordColor } from '@/domain/kernel/color/record-color'
 import { substitute } from './card-template'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
+import type { OptionChipColors } from '@/domain/kernel/color/option-chip-color'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
-import type { OptionChipColors } from '@/domain/utils/option-chip-color'
 
 /**
  * Pull the navigate path out of a card.onClick action and substitute

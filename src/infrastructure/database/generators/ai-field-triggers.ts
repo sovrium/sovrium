@@ -13,38 +13,32 @@
  *
  * This module is intentionally generator-free: it holds only the SQL-literal
  * helpers, the `source_content` / `source-changed` expression builders, the
- * trigger-timing resolver, the standard 3-statement trigger bundle, and the
- * `AI_COMPUTE_FIELD_TYPES` registry consulted by callers that need to know
- * whether an app schema has *any* ai-compute field (e.g. the server deciding
- * whether to start the `AiComputeListener`). The kind-specific PL/pgSQL lives
- * next to its `generateAi<Kind>Triggers` export in the sibling files above.
+ * trigger-timing resolver, the standard 3-statement trigger bundle, and a
+ * re-export of the domain's `AI_COMPUTE_FIELD_TYPES` registry consulted by
+ * callers that need to know whether an app schema has *any* ai-compute field
+ * (e.g. the server deciding whether to start the `AiComputeListener`). The
+ * kind-specific PL/pgSQL lives next to its `generateAi<Kind>Triggers` export in
+ * the sibling files above.
  */
 
-import { escapeSqlString } from '@/domain/utils/database/sql-formatting'
-
-/**
- * Field `type` literals that produce a PL/pgSQL compute trigger emitting on the
- * `sovrium_ai_compute` NOTIFY channel. Callers that need to know whether an app
- * schema has *any* such field (e.g. to decide whether to start the
- * `AiComputeListener`) should use {@link isAiComputeFieldType} rather than
- * inlining a growing literal disjunction. Extend this list when a new ai-* kind
- * gains a generator.
- */
-export const AI_COMPUTE_FIELD_TYPES = [
-  'ai-categorize',
-  'ai-summary',
-  'ai-tag',
-  'ai-translate',
-  'ai-extract',
-  'ai-sentiment',
-  'ai-generate',
-] as const
+import { escapeSqlString } from '@/domain/kernel/sql/sql-formatting'
 
 /**
- * True when `type` is one of the ai-* field types backed by a compute trigger.
+ * The `ai-*` field-type registry, re-exported so every existing importer keeps
+ * its specifier.
+ *
+ * The list itself now lives in the DOMAIN, at
+ * `@/domain/models/app/tables/fields/field-types/ai/ai-field-types`. It had to
+ * move: pure config predicates need the same list — `appRequiresAi`, and
+ * through it the AI-disabled startup warning and the `local-only` eco-routing
+ * gate — and a domain module may not import infrastructure
+ *. Extend it there when a new ai-* kind gains a
+ * generator.
  */
-export const isAiComputeFieldType = (type: string): boolean =>
-  (AI_COMPUTE_FIELD_TYPES as readonly string[]).includes(type)
+export {
+  AI_COMPUTE_FIELD_TYPES,
+  isAiComputeFieldType,
+} from '@/domain/models/app/tables/fields/field-types/ai/ai-field-types'
 
 /**
  * Re-export the canonical DDL single-quote escaper so the sibling ai-*-trigger

@@ -6,7 +6,13 @@
  */
 
 import { Context, Effect, Layer } from 'effect'
-import { emitTelemetryLog, type LogAttributes } from '@/infrastructure/telemetry/telemetry-sink'
+import {
+  emitTelemetryLog,
+  type LogAttributes,
+  type LogEmitContext,
+  type TelemetryLogLevel,
+} from '@/infrastructure/telemetry/telemetry-sink'
+import type { Tracer } from 'effect'
 
 /**
  * Sovrium logging convention (unified observability runtime)
@@ -76,17 +82,75 @@ export class Logger extends Context.Service<
  * origin therefore reached neither stderr nor journald, and an incident's root
  * cause was unrecoverable. Both sinks now walk the chain via
  * `infrastructure/telemetry/error-chain`.
+ *
+ * ### Why every method reads the current span first
+ *
+ * `emitTelemetryLog` crosses onto the observability runtime, and that crossing
+ * starts a FRESH fiber. `OtlpLogger` stamps a record's `traceId`/`spanId` from
+ * `fiber.currentSpan`, so a fresh fiber has none — which meant that until this
+ * was threaded through, NO log line written by application code could be
+ * correlated to the request that produced it, however deep inside a span it was
+ * written. The one correlated line in the whole system was the request log in
+ * `run-request-effect.ts`, which is emitted as an `Effect.logDebug` on the
+ * traced fiber itself and so never crosses.
+ *
+ * Reading the span here and handing it over is what closes that gap for the
+ * SERVICE path. The plain-function helpers at the bottom of this file cannot do
+ * it — a `catch` block in an async helper has no fiber to read — and that is
+ * exactly the line between the two: use the service from inside an Effect, the
+ * helpers only where there is genuinely no Effect to be inside of.
  */
-export const LoggerLive = Layer.succeed(Logger, {
-  debug: (message, attributes) =>
-    Effect.sync(() => emitTelemetryLog('debug', message, undefined, attributes)),
-  info: (message, attributes) =>
-    Effect.sync(() => emitTelemetryLog('info', message, undefined, attributes)),
-  warn: (message, attributes) =>
-    Effect.sync(() => emitTelemetryLog('warn', message, undefined, attributes)),
-  error: (message, cause, attributes) =>
-    Effect.sync(() => emitTelemetryLog('error', message, cause, attributes)),
-})
+
+/** The ambient span, or `undefined` outside one. Never fails. */
+const currentSpanOrNone: Effect.Effect<Tracer.Span | undefined> = Effect.currentSpan.pipe(
+  // Not a swallowed failure: `Effect.currentSpan` fails with `NoSuchElementError`
+  // to mean "there is no span here", which is an ordinary, expected answer for
+  // anything running outside a request.
+  // effect-swallow: "no span here" is the answer, not a failure — anything outside a request has none, and the log line is emitted either way.
+  Effect.orElseSucceed<Tracer.Span | undefined>(() => undefined)
+)
+
+/** Where a `Logger` service line goes. The live sink is `emitTelemetryLog`. */
+export type TelemetrySink = (
+  level: TelemetryLogLevel,
+  message: string,
+  cause: unknown,
+  context: LogEmitContext
+) => void
+
+/**
+ * Build a `Logger` layer over a sink.
+ *
+ * The sink is a parameter so the span-reading behaviour above is testable by
+ * dependency injection — `mock.module()` contaminates Bun's module cache for
+ * every later test file in the process, which is why this codebase bans it
+ * outright. {@link LoggerLive} is this function applied to the real sink.
+ */
+export const makeLoggerLayer = (emit: TelemetrySink): Layer.Layer<Logger> => {
+  /** One method body, shared by all four levels. */
+  const emitCorrelated = (
+    level: TelemetryLogLevel,
+    message: string,
+    cause: unknown,
+    attributes: LogAttributes | undefined
+  ): Effect.Effect<void> =>
+    currentSpanOrNone.pipe(
+      Effect.flatMap((span) =>
+        Effect.sync(() => {
+          emit(level, message, cause, { attributes, parentSpan: span })
+        })
+      )
+    )
+
+  return Layer.succeed(Logger, {
+    debug: (message, attributes) => emitCorrelated('debug', message, undefined, attributes),
+    info: (message, attributes) => emitCorrelated('info', message, undefined, attributes),
+    warn: (message, attributes) => emitCorrelated('warn', message, undefined, attributes),
+    error: (message, cause, attributes) => emitCorrelated('error', message, cause, attributes),
+  })
+}
+
+export const LoggerLive = makeLoggerLayer(emitTelemetryLog)
 
 /**
  * Silent logger for testing
@@ -141,7 +205,7 @@ export const LoggerSilent = Layer.succeed(Logger, {
  * @param cause - Optional error cause for stack trace + Sentry forwarding
  */
 export const logError = (message: string, cause?: unknown, attributes?: LogAttributes): void =>
-  emitTelemetryLog('error', message, cause, attributes)
+  emitTelemetryLog('error', message, cause, { attributes })
 
 /**
  * Log a warning message
@@ -152,7 +216,7 @@ export const logError = (message: string, cause?: unknown, attributes?: LogAttri
  * @param message - Warning message
  */
 export const logWarning = (message: string, attributes?: LogAttributes): void =>
-  emitTelemetryLog('warn', message, undefined, attributes)
+  emitTelemetryLog('warn', message, undefined, { attributes })
 
 /**
  * Log an info message
@@ -162,7 +226,7 @@ export const logWarning = (message: string, attributes?: LogAttributes): void =>
  * @param message - Info message
  */
 export const logInfo = (message: string, attributes?: LogAttributes): void =>
-  emitTelemetryLog('info', message, undefined, attributes)
+  emitTelemetryLog('info', message, undefined, { attributes })
 
 /**
  * Log a debug message
@@ -173,4 +237,4 @@ export const logInfo = (message: string, attributes?: LogAttributes): void =>
  * @param message - Debug message
  */
 export const logDebug = (message: string, attributes?: LogAttributes): void =>
-  emitTelemetryLog('debug', message, undefined, attributes)
+  emitTelemetryLog('debug', message, undefined, { attributes })

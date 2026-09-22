@@ -21,7 +21,7 @@ components:
           - type: text
             element: p
             props:
-              className: text-lg mb-8
+              className: text-xl mb-8
             content: Send us a ticket and a real person will get back to you — usually within one business day.
           - type: container
             props:

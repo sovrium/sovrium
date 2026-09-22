@@ -34,9 +34,13 @@
  * @see ./overview.ts — sibling reshape of `/quota` → `/overview`
  */
 
-import { z } from '@hono/zod-openapi'
-import { cursorPaginationQuerySchema, cursorPaginationResponseSchema } from '../../_shared'
-import { adminEnvelopeSchema } from '../_shared/admin-envelope'
+import { Schema } from 'effect'
+import { coercedBoolean } from '@/domain/models/api/combinators/coerce'
+import { looseIsoDateTime, uuid } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { cursorPaginationQuerySchema, cursorPaginationResponseSchema } from '../../combinators'
+import { withDefault } from '../../combinators/schema-defaults'
+import { adminEnvelopeSchema } from '../envelope/admin-envelope'
 
 /**
  * Storage provider literal — mirrors the env-var-driven provider selection
@@ -46,9 +50,9 @@ import { adminEnvelopeSchema } from '../_shared/admin-envelope'
  * configured (no provider = empty list, never a row with `provider:
  * disabled`).
  */
-export const bucketProviderSchema = z
-  .enum(['s3', 'local', 'bytea'])
-  .describe('Active storage provider backing this bucket. Mirrors env-var-driven selection.')
+export const bucketProviderSchema = Schema.Literals(['s3', 'local', 'bytea']).annotate({
+  description: 'Active storage provider backing this bucket. Mirrors env-var-driven selection.',
+})
 
 /**
  * Public-grade bucket schema. This is what a non-admin reader would
@@ -64,33 +68,31 @@ export const bucketProviderSchema = z
  * live in `_admin.metadata` because they are admin-only and computed (not
  * persisted on the bucket row).
  */
-export const bucketSchema = z
-  .object({
-    id: z.string().uuid().describe('Stable identifier for this bucket. UUIDv4.'),
-    name: z
-      .string()
-      .min(1)
-      .max(63)
-      .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/)
-      .describe(
-        'URL-safe bucket slug. 1-63 chars, lowercase alphanumeric + hyphens, must start and end with an alphanumeric. Matches the path segment used in `/api/buckets/:name/files`.'
-      ),
-    provider: bucketProviderSchema,
-    region: z
-      .string()
-      .nullable()
-      .describe(
-        'AWS region (S3 buckets only — for local and bytea providers this field is `null`).'
-      ),
-    createdAt: z.string().datetime().describe('ISO 8601 UTC timestamp of bucket creation.'),
-    updatedAt: z
-      .string()
-      .datetime()
-      .describe(
-        'ISO 8601 UTC timestamp of the last bucket-level mutation (config change, region change, soft-delete). Independent of file uploads.'
-      ),
-  })
-  .openapi('Bucket')
+export const bucketSchema = Schema.Struct({
+  id: uuid({ description: 'Stable identifier for this bucket. UUIDv4.' }),
+  name: Schema.String.annotate({
+    description:
+      'URL-safe bucket slug. 1-63 chars, lowercase alphanumeric + hyphens, must start and end with an alphanumeric. Matches the path segment used in `/api/buckets/:name/files`.',
+  }).pipe(
+    Schema.check(
+      Schema.isMinLength(1),
+      Schema.isMaxLength(63),
+      Schema.isPattern(/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/)
+    )
+  ),
+  provider: bucketProviderSchema,
+  region: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'AWS region (S3 buckets only — for local and bytea providers this field is `null`).',
+    })
+  ),
+  createdAt: looseIsoDateTime({ description: 'ISO 8601 UTC timestamp of bucket creation.' }),
+  updatedAt: looseIsoDateTime({
+    description:
+      'ISO 8601 UTC timestamp of the last bucket-level mutation (config change, region change, soft-delete). Independent of file uploads.',
+  }),
+}).annotate({ identifier: 'Bucket' })
 
 /**
  * Admin list-item schema: `bucketSchema` extended with the canonical
@@ -107,34 +109,31 @@ export const bucketSchema = z
  * the bucket list without `metadata` and that is still schema-valid (the
  * dashboard would degrade by hiding the badges).
  */
-export const bucketAdminItemSchema = bucketSchema
-  .extend({
-    _admin: adminEnvelopeSchema
-      .extend({
-        metadata: z
-          .object({
-            fileCount: z
-              .number()
-              .int()
-              .nonnegative()
-              .describe(
-                'Total number of stored files in this bucket (computed at projection time; not denormalised on the bucket row).'
-              ),
-            totalBytes: z
-              .number()
-              .int()
-              .nonnegative()
-              .describe(
-                'Sum of stored file sizes in bytes for this bucket. Mirrors the retired `/api/admin/buckets/quota.totalBytes` but per-bucket instead of global.'
-              ),
-          })
-          .describe(
-            'Bucket-specific admin-only extras. Always populated for this domain; nested under `_admin.metadata` to avoid collision with the public schema.'
-          ),
-      })
-      .describe('Canonical `_admin` envelope for the bucket list.'),
-  })
-  .openapi('BucketAdminItem')
+export const bucketAdminItemSchema = Schema.Struct({
+  ...bucketSchema.fields,
+  _admin: Schema.Struct({
+    ...adminEnvelopeSchema.fields,
+    metadata: Schema.Struct({
+      fileCount: Schema.Int.annotate({
+        description:
+          'Total number of stored files in this bucket (computed at projection time; not denormalised on the bucket row).',
+      }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+      totalBytes: Schema.Int.annotate({
+        description:
+          'Sum of stored file sizes in bytes for this bucket. Mirrors the retired `/api/admin/buckets/quota.totalBytes` but per-bucket instead of global.',
+      }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+    }).annotate({
+      description:
+        'Bucket-specific admin-only extras. Always populated for this domain; nested under `_admin.metadata` to avoid collision with the public schema.',
+    }),
+  }).annotate({
+    title: 'sovrium:extends=AdminEnvelope|own=metadata,fileCount,totalBytes',
+    description: 'Canonical `_admin` envelope for the bucket list.',
+  }),
+}).annotate({
+  title: 'sovrium:extends=Bucket|own=_admin,fileCount,totalBytes',
+  identifier: 'BucketAdminItem',
+})
 
 /**
  * Query schema for `GET /api/admin/buckets`.
@@ -154,34 +153,38 @@ export const bucketAdminItemSchema = bucketSchema
  * coercion rules — handlers should validate via this schema rather than
  * hand-parsing.
  */
-export const bucketsListQuerySchema = cursorPaginationQuerySchema.extend({
-  provider: bucketProviderSchema
-    .optional()
-    .describe('Optional provider filter. Omit for "all providers".'),
-  include_deleted: z.coerce
-    .boolean()
-    .default(false)
-    .describe(
-      'When `true`, soft-deleted buckets are included in the response (with `_admin.deletedAt` populated). Default `false`.'
-    ),
+export const bucketsListQuerySchema = Schema.Struct({
+  ...cursorPaginationQuerySchema.fields,
+  provider: optionalField(
+    bucketProviderSchema.annotate({
+      description: 'Optional provider filter. Omit for "all providers".',
+    })
+  ),
+  include_deleted: coercedBoolean
+    .annotate({
+      description:
+        'When `true`, soft-deleted buckets are included in the response (with `_admin.deletedAt` populated). Default `false`.',
+    })
+    .pipe(withDefault(false)),
 })
 
 /**
  * Response schema for `GET /api/admin/buckets`. Cursor-paginated list of
  * `bucketAdminItemSchema`.
  */
-export const bucketsListResponseSchema =
-  cursorPaginationResponseSchema(bucketAdminItemSchema).openapi('BucketsListResponse')
+export const bucketsListResponseSchema = cursorPaginationResponseSchema(
+  bucketAdminItemSchema
+).annotate({ identifier: 'BucketsListResponse' })
 
 /**
  * TypeScript types inferred from the schemas.
  * @public
  */
-export type BucketProvider = z.infer<typeof bucketProviderSchema>
+export type BucketProvider = typeof bucketProviderSchema.Type
 /** @public */
-export type Bucket = z.infer<typeof bucketSchema>
-export type BucketAdminItem = z.infer<typeof bucketAdminItemSchema>
+export type Bucket = typeof bucketSchema.Type
+export type BucketAdminItem = typeof bucketAdminItemSchema.Type
 /** @public */
-export type BucketsListQuery = z.infer<typeof bucketsListQuerySchema>
+export type BucketsListQuery = typeof bucketsListQuerySchema.Type
 /** @public */
-export type BucketsListResponse = z.infer<typeof bucketsListResponseSchema>
+export type BucketsListResponse = typeof bucketsListResponseSchema.Type

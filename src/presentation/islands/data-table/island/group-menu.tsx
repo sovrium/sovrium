@@ -6,6 +6,10 @@
  */
 
 import { useCallback } from 'react'
+import {
+  computeTableMenuClasses,
+  computeTableMenuItemClasses,
+} from '@/presentation/design/table-default-classes'
 import { DROPDOWN_TRIGGER_CLASS, useDropdownState } from './use-dropdown-state'
 
 /**
@@ -76,7 +80,7 @@ export function GroupMenu({ fields, current, onSelect }: GroupMenuProps) {
         <div
           role="menu"
           aria-label="Group by"
-          className="border-border bg-background-overlay absolute right-0 z-50 mt-1 rounded border py-1 shadow-lg"
+          className={`${computeTableMenuClasses()} absolute right-0 mt-1`}
         >
           <GroupMenuItem
             // eslint-disable-next-line unicorn/no-null -- `null` is the "clear grouping" sentinel for the `string | null` runtimeGroupBy state contract (setRuntimeGroupBy(null) restores the schema default)
@@ -114,7 +118,7 @@ function GroupMenuItem({ field, label, current, onSelect }: GroupMenuItemProps) 
       type="button"
       role="menuitem"
       onClick={handleClick}
-      className={`hover:bg-background-subtle block w-full px-4 py-2 text-left text-sm ${
+      className={`${computeTableMenuItemClasses({ active: current === field })} ${
         current === field ? 'font-medium' : ''
       }`}
     >

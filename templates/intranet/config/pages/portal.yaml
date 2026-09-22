@@ -28,7 +28,7 @@ components:
           - type: text
             element: p
             props:
-              className: text-lg mb-8
+              className: text-xl mb-8
               style:
                 color: var(--color-foreground-muted)
             content: Catch up on announcements, find colleagues, and reach the tools you use every day.
@@ -46,7 +46,7 @@ components:
               - type: text
                 element: h2
                 props:
-                  className: text-xl font-semibold mb-3
+                  className: text-2xl font-semibold mb-3
                 content: Latest announcements
               - type: text
                 element: p
@@ -55,7 +55,7 @@ components:
                   style:
                     color: var(--color-foreground-muted)
                 content: What has been published across the company.
-              - type: data-table
+              - type: table
                 dataSource:
                   table: posts
                   sort:
@@ -86,7 +86,7 @@ components:
               - type: text
                 element: h2
                 props:
-                  className: text-xl font-semibold mb-3
+                  className: text-2xl font-semibold mb-3
                 content: Shared resources
               - type: text
                 element: p
@@ -95,7 +95,7 @@ components:
                   style:
                     color: var(--color-foreground-muted)
                 content: Tools, policies, and guides — one bookmark for everything.
-              - type: data-table
+              - type: table
                 dataSource:
                   table: resources
                   sort:
@@ -128,7 +128,7 @@ components:
               - type: text
                 element: h2
                 props:
-                  className: text-xl font-semibold mb-3
+                  className: text-2xl font-semibold mb-3
                 content: Manager tools
               - type: text
                 element: p
@@ -137,7 +137,7 @@ components:
                   style:
                     color: var(--color-warning-strong)
                 content: Publish announcements, manage the directory, and curate resources. Only managers and admins see this section.
-              - type: data-table
+              - type: table
                 dataSource:
                   table: members
                   sort:
@@ -164,7 +164,7 @@ components:
             children:
               - type: button
                 props:
-                  className: px-4 py-2 rounded-md border text-sm font-medium
+                  className: px-4 py-2 rounded-md border text-md font-medium
                   style:
                     color: var(--color-foreground)
                     borderColor: var(--color-border)

@@ -58,7 +58,7 @@
  *   would too)
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
 import { bucketFileItemSchema } from './files'
 
 /**
@@ -72,21 +72,19 @@ import { bucketFileItemSchema } from './files'
  * because the upload registered it in `system.file_storage_metadata`, which the
  * list reads).
  */
-export const bucketFileUploadResponseSchema = z
-  .object({
-    success: z
-      .literal(true)
-      .describe(
-        'Discriminant — always `true` on the 201 success response. Lets the admin dialog branch on outcome the same way it does for the public upload route.'
-      ),
-    file: bucketFileItemSchema.describe(
-      'The created file, as the SAME flat projection a `GET /api/admin/buckets/:bucketName/files` row carries (`{ key, filename, size, mimeType, createdAt }`). Sourced from the just-written `system.file_storage_metadata` row so the browser sees the canonical, list-consistent shape.'
-    ),
-  })
-  .openapi('BucketFileUploadResponse')
+export const bucketFileUploadResponseSchema = Schema.Struct({
+  success: Schema.Literal(true).annotate({
+    description:
+      'Discriminant — always `true` on the 201 success response. Lets the admin dialog branch on outcome the same way it does for the public upload route.',
+  }),
+  file: bucketFileItemSchema.annotate({
+    description:
+      'The created file, as the SAME flat projection a `GET /api/admin/buckets/:bucketName/files` row carries (`{ key, filename, size, mimeType, createdAt }`). Sourced from the just-written `system.file_storage_metadata` row so the browser sees the canonical, list-consistent shape.',
+  }),
+}).annotate({ identifier: 'BucketFileUploadResponse' })
 
 /**
  * TypeScript type inferred from the response schema.
  * @public
  */
-export type BucketFileUploadResponse = z.infer<typeof bucketFileUploadResponseSchema>
+export type BucketFileUploadResponse = typeof bucketFileUploadResponseSchema.Type

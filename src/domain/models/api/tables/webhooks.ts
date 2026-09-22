@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
+import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 // ---------------------------------------------------------------------------
 // Shared enums
@@ -14,16 +16,22 @@ import { z } from 'zod'
 /**
  * Webhook event types that trigger deliveries.
  */
-export const webhookEventSchema = z
-  .enum(['record.create', 'record.update', 'record.delete', 'webhook.test'])
-  .describe('Event type that triggered the webhook delivery')
+export const webhookEventSchema = Schema.Literals([
+  'record.create',
+  'record.update',
+  'record.delete',
+  'webhook.test',
+]).annotate({ description: 'Event type that triggered the webhook delivery' })
 
 /**
  * Delivery status for webhook attempts.
  */
-export const webhookDeliveryStatusSchema = z
-  .enum(['success', 'failed', 'pending', 'retrying'])
-  .describe('Current delivery status')
+export const webhookDeliveryStatusSchema = Schema.Literals([
+  'success',
+  'failed',
+  'pending',
+  'retrying',
+]).annotate({ description: 'Current delivery status' })
 
 // ---------------------------------------------------------------------------
 // Delivery log schemas
@@ -36,29 +44,33 @@ export const webhookDeliveryStatusSchema = z
  * - GET /api/tables/:tableName/webhooks/:webhookName/deliveries (list view)
  * - OpenAPI documentation generation
  */
-export const webhookDeliverySchema = z.object({
-  id: z.string().describe('Unique delivery identifier'),
-  webhookName: z.string().describe('Name of the webhook that was triggered'),
+export const webhookDeliverySchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Unique delivery identifier' }),
+  webhookName: Schema.String.annotate({ description: 'Name of the webhook that was triggered' }),
   event: webhookEventSchema,
   status: webhookDeliveryStatusSchema,
-  httpStatus: z
-    .number()
-    .int()
-    .nullable()
-    .describe('HTTP response status code (null if no response)'),
-  attemptCount: z.number().int().min(1).describe('Number of delivery attempts'),
-  requestedAt: z.string().datetime().describe('ISO 8601 timestamp when the delivery was initiated'),
-  completedAt: z
-    .string()
-    .datetime()
-    .nullable()
-    .describe('ISO 8601 timestamp when the delivery completed (null if still pending)'),
-  duration: z
-    .number()
-    .min(0)
-    .nullable()
-    .describe('Response time in milliseconds (null if no response received)'),
-  error: z.string().nullable().describe('Error message if the delivery failed'),
+  httpStatus: Schema.NullOr(
+    Schema.Int.annotate({ description: 'HTTP response status code (null if no response)' })
+  ),
+  attemptCount: Schema.Int.annotate({ description: 'Number of delivery attempts' }).pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(1))
+  ),
+  requestedAt: looseIsoDateTime({
+    description: 'ISO 8601 timestamp when the delivery was initiated',
+  }),
+  completedAt: Schema.NullOr(
+    looseIsoDateTime({
+      description: 'ISO 8601 timestamp when the delivery completed (null if still pending)',
+    })
+  ),
+  duration: Schema.NullOr(
+    Schema.Finite.annotate({
+      description: 'Response time in milliseconds (null if no response received)',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
+  ),
+  error: Schema.NullOr(
+    Schema.String.annotate({ description: 'Error message if the delivery failed' })
+  ),
 })
 
 /**
@@ -67,19 +79,22 @@ export const webhookDeliverySchema = z.object({
  * Used for:
  * - GET /api/tables/:tableName/webhooks/:webhookName/deliveries/:deliveryId
  */
-export const webhookDeliveryDetailSchema = webhookDeliverySchema.extend({
-  requestHeaders: z
-    .record(z.string(), z.string())
-    .describe('HTTP headers sent with the webhook request'),
-  requestBody: z.string().describe('JSON payload sent to the webhook endpoint'),
-  responseHeaders: z
-    .record(z.string(), z.string())
-    .nullable()
-    .describe('HTTP response headers (null if no response)'),
-  responseBody: z
-    .string()
-    .nullable()
-    .describe('Response body from the webhook endpoint (null if no response)'),
+export const webhookDeliveryDetailSchema = Schema.Struct({
+  ...webhookDeliverySchema.fields,
+  requestHeaders: Schema.Record(Schema.String, Schema.String).annotate({
+    description: 'HTTP headers sent with the webhook request',
+  }),
+  requestBody: Schema.String.annotate({ description: 'JSON payload sent to the webhook endpoint' }),
+  responseHeaders: Schema.NullOr(
+    Schema.Record(Schema.String, Schema.String).annotate({
+      description: 'HTTP response headers (null if no response)',
+    })
+  ),
+  responseBody: Schema.NullOr(
+    Schema.String.annotate({
+      description: 'Response body from the webhook endpoint (null if no response)',
+    })
+  ),
 })
 
 // ---------------------------------------------------------------------------
@@ -89,22 +104,33 @@ export const webhookDeliveryDetailSchema = webhookDeliverySchema.extend({
 /**
  * Query parameters for listing webhook deliveries.
  */
-export const listDeliveriesQuerySchema = z.object({
-  status: z
-    .enum(['all', 'success', 'failed'])
-    .optional()
-    .describe('Filter deliveries by status (defaults to all)'),
-  limit: z.string().optional().describe('Maximum number of deliveries to return'),
-  cursor: z.string().optional().describe('Cursor for pagination (delivery ID to start after)'),
+export const listDeliveriesQuerySchema = Schema.Struct({
+  status: optionalField(
+    Schema.Literals(['all', 'success', 'failed']).annotate({
+      description: 'Filter deliveries by status (defaults to all)',
+    })
+  ),
+  limit: optionalField(
+    Schema.String.annotate({ description: 'Maximum number of deliveries to return' })
+  ),
+  cursor: optionalField(
+    Schema.String.annotate({ description: 'Cursor for pagination (delivery ID to start after)' })
+  ),
 })
 
 /**
  * Paginated response for webhook delivery logs.
  */
-export const listDeliveriesResponseSchema = z.object({
-  deliveries: z.array(webhookDeliverySchema).describe('List of delivery log entries'),
-  nextCursor: z.string().nullable().describe('Cursor for the next page (null if no more results)'),
-  totalCount: z.number().int().min(0).describe('Total number of matching deliveries'),
+export const listDeliveriesResponseSchema = Schema.Struct({
+  deliveries: Schema.Array(webhookDeliverySchema).annotate({
+    description: 'List of delivery log entries',
+  }),
+  nextCursor: Schema.NullOr(
+    Schema.String.annotate({ description: 'Cursor for the next page (null if no more results)' })
+  ),
+  totalCount: Schema.Int.annotate({ description: 'Total number of matching deliveries' }).pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(0))
+  ),
 })
 
 // ---------------------------------------------------------------------------
@@ -117,9 +143,13 @@ export const listDeliveriesResponseSchema = z.object({
  * Used for:
  * - POST /api/tables/:tableName/webhooks/:webhookName/deliveries/:deliveryId/retry
  */
-export const retryDeliveryResponseSchema = z.object({
-  deliveryId: z.string().describe('ID of the new delivery log entry created for the retry'),
-  status: z.literal('pending').describe('Initial status of the retry delivery'),
+export const retryDeliveryResponseSchema = Schema.Struct({
+  deliveryId: Schema.String.annotate({
+    description: 'ID of the new delivery log entry created for the retry',
+  }),
+  status: Schema.Literal('pending').annotate({
+    description: 'Initial status of the retry delivery',
+  }),
 })
 
 // ---------------------------------------------------------------------------
@@ -132,30 +162,37 @@ export const retryDeliveryResponseSchema = z.object({
  * Used for:
  * - POST /api/tables/:tableName/webhooks/:webhookName/test
  */
-export const testWebhookResponseSchema = z.object({
-  success: z.boolean().describe('Whether the test payload was delivered successfully'),
-  httpStatus: z
-    .number()
-    .int()
-    .nullable()
-    .describe('HTTP response status code from the endpoint (null if unreachable)'),
-  duration: z.number().min(0).describe('Round-trip time in milliseconds'),
-  responseBody: z
-    .string()
-    .nullable()
-    .describe('Response body from the webhook endpoint (null if unreachable)'),
-  error: z.string().nullable().describe('Error message if the test delivery failed'),
+export const testWebhookResponseSchema = Schema.Struct({
+  success: Schema.Boolean.annotate({
+    description: 'Whether the test payload was delivered successfully',
+  }),
+  httpStatus: Schema.NullOr(
+    Schema.Int.annotate({
+      description: 'HTTP response status code from the endpoint (null if unreachable)',
+    })
+  ),
+  duration: Schema.Finite.annotate({ description: 'Round-trip time in milliseconds' }).pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(0))
+  ),
+  responseBody: Schema.NullOr(
+    Schema.String.annotate({
+      description: 'Response body from the webhook endpoint (null if unreachable)',
+    })
+  ),
+  error: Schema.NullOr(
+    Schema.String.annotate({ description: 'Error message if the test delivery failed' })
+  ),
 })
 
 // ---------------------------------------------------------------------------
 // Type exports
 // ---------------------------------------------------------------------------
 
-export type WebhookEvent = z.infer<typeof webhookEventSchema>
-export type WebhookDeliveryStatus = z.infer<typeof webhookDeliveryStatusSchema>
-export type WebhookDelivery = z.infer<typeof webhookDeliverySchema>
-export type WebhookDeliveryDetail = z.infer<typeof webhookDeliveryDetailSchema>
-export type ListDeliveriesQuery = z.infer<typeof listDeliveriesQuerySchema>
-export type ListDeliveriesResponse = z.infer<typeof listDeliveriesResponseSchema>
-export type RetryDeliveryResponse = z.infer<typeof retryDeliveryResponseSchema>
-export type TestWebhookResponse = z.infer<typeof testWebhookResponseSchema>
+export type WebhookEvent = typeof webhookEventSchema.Type
+export type WebhookDeliveryStatus = typeof webhookDeliveryStatusSchema.Type
+export type WebhookDelivery = typeof webhookDeliverySchema.Type
+export type WebhookDeliveryDetail = typeof webhookDeliveryDetailSchema.Type
+export type ListDeliveriesQuery = typeof listDeliveriesQuerySchema.Type
+export type ListDeliveriesResponse = typeof listDeliveriesResponseSchema.Type
+export type RetryDeliveryResponse = typeof retryDeliveryResponseSchema.Type
+export type TestWebhookResponse = typeof testWebhookResponseSchema.Type

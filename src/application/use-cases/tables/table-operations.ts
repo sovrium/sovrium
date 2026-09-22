@@ -14,14 +14,14 @@ import {
   evaluatePermission,
   permits,
   toPermissionValue,
-} from '@/domain/models/shared/permission-evaluation'
-import { isAdminRole, hasPermission } from '@/domain/models/shared/permissions'
+} from '@/domain/models/app/auth/permission-evaluation'
 import {
   evaluateTablePermissions,
   evaluateFieldPermissions,
-} from '@/domain/validators/permission-evaluators'
-import { processRecords } from './utils/list-helpers'
-import type { UserSession } from '@/application/ports/models/user-session'
+} from '@/domain/models/app/auth/permission-evaluator-service'
+import { isAdminRole, hasPermission } from '@/domain/models/app/auth/permissions'
+import { processRecords } from './list-helpers'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { DatabaseError } from '@/domain/errors'
 import type { GetTableResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
@@ -89,7 +89,7 @@ export function createListTablesProgram(
     updatedAt: new Date().toISOString(),
   }))
 
-  return Effect.succeed(result)
+  return Effect.succeed(result).pipe(Effect.withSpan('tables.create-list-tables-program'))
 }
 
 export function createGetTableProgram(
@@ -154,7 +154,7 @@ export function createGetTableProgram(
         updatedAt: new Date().toISOString(),
       },
     }
-  })
+  }).pipe(Effect.withSpan('tables.create-get-table-program'))
 }
 
 /**
@@ -191,7 +191,7 @@ export function createGetPermissionsProgram(
       table: evaluateTablePermissions(table.permissions, userRole, isAdmin),
       fields: evaluateFieldPermissions(table.permissions?.fields, userRole, isAdmin),
     }
-  })
+  }).pipe(Effect.withSpan('tables.create-get-permissions-program'))
 }
 
 /**
@@ -305,7 +305,7 @@ export function listViewsProgram(
     // Filter views based on read permissions and map to response format
     const accessibleViews = views.filter((view) => isViewAccessible(view, userRole))
     return accessibleViews.map(mapViewToResponse)
-  })
+  }).pipe(Effect.withSpan('tables.list-views-program'))
 }
 
 export function getViewProgram(
@@ -344,7 +344,7 @@ export function getViewProgram(
     // the shape of a view, and one of them having its own copy of the five
     // optional-key spreads is how they would stop agreeing.
     return mapViewToResponse(view)
-  })
+  }).pipe(Effect.withSpan('tables.get-view-program'))
 }
 
 /**
@@ -446,5 +446,5 @@ export function getViewRecordsProgram(config: {
     return {
       records: [...processedRecords],
     }
-  })
+  }).pipe(Effect.withSpan('tables.get-view-records-program'))
 }

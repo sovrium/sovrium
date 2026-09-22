@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { evaluateGroup } from '@/domain/services/automations/condition-eval'
+import { evaluateGroup } from '@/domain/models/app/automations/condition-eval'
 import type { ActionHandler, ActionOutcome } from './shared'
 
 /**
@@ -44,12 +44,11 @@ export const handleFilterContinue: ActionHandler = (action, _app, _automation) =
 
   const passed = evaluateGroup(condition)
 
-  if (passed) return Effect.succeed({ status: 'success' } as const satisfies ActionOutcome)
+  // A false condition halts only when `onFalse` says `stop`; `continue` reports
+  // the same success a passing condition does, so the two share one outcome.
+  const status = passed || onFalse !== 'stop' ? 'success' : 'filtered'
 
-  if (onFalse === 'stop') {
-    return Effect.succeed({ status: 'filtered' } as const satisfies ActionOutcome)
-  }
-
-  // onFalse: 'continue' — log the false outcome but don't halt.
-  return Effect.succeed({ status: 'success' } as const satisfies ActionOutcome)
+  return Effect.succeed({ status } as const satisfies ActionOutcome).pipe(
+    Effect.withSpan('automations.handle-filter-continue')
+  )
 }

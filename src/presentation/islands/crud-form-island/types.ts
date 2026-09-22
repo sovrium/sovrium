@@ -5,14 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { type FieldDef } from '../components/crud-form/fields'
-import { type FieldGroup, type FormBodyState } from '../components/crud-form/layout'
-import { type SuccessToast } from '../components/crud-form/toast'
 import {
   type useCreateRecord,
   type useUpdateRecord,
   type useDeleteRecord,
 } from '../hooks/use-table-mutations'
+import { type FieldDef } from '../parts/crud-form/fields'
+import { type FieldGroup, type FormBodyState } from '../parts/crud-form/layout'
+import { type SuccessToast } from '../parts/crud-form/toast'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 
 export type CrudOperation = 'create' | 'update' | 'delete' | 'automation'

@@ -40,6 +40,10 @@ import { users } from './auth-tables'
  * pg-core sibling's placement in the `public` schema (which under SQLite
  * becomes the unprefixed default). Using `sqliteTable` directly (not
  * `systemTable`) reflects that.
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 export const auditLog = sqliteTable(
   'audit_log',
@@ -84,6 +88,3 @@ export const auditLog = sqliteTable(
     index('audit_log_transport_idx').on(table.transport),
   ]
 )
-
-export type AuditLogRow = typeof auditLog.$inferSelect
-export type NewAuditLogRow = typeof auditLog.$inferInsert

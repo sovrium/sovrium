@@ -43,40 +43,49 @@ jobs:
           # the start line too, and `## [0.15.2]` matches both, collapsing the range
           # to a single line. Hence the explicit flag form, which also removes the
           # fragile `head -n -1 | tail -n +2` trimming.
-          NOTES=$(awk -v v="$VERSION" '
+          #
+          # The section goes to a FILE and is passed with `--notes-file`, never as
+          # `--notes "$NOTES"`. Linux caps ONE argv entry at MAX_ARG_STRLEN =
+          # 131072 bytes, so an argument-borne release body stops working the day a
+          # single version's public changelog crosses 128 KiB — and it would fail
+          # with E2BIG after the tag is already public, which is the worst possible
+          # moment to discover it. The same class of defect blocked release 0.25.0
+          # on the Forgejo side, where the INTERNAL changelog reached 310 048 bytes.
+          # This file sees only the public one — 27 736 bytes for that same 4392-commit
+          # window, comfortable today, and not a reason to leave the hazard armed.
+          NOTES_FILE="${RUNNER_TEMP:-/tmp}/release-notes.md"
+          awk -v v="$VERSION" '
             $0 ~ "^## \\[?" v "\\]" { found = 1; next }
             found && /^## \[?[0-9]/  { exit }
             found                     { print }
-          ' CHANGELOG.md)
-          if [ -z "$NOTES" ]; then
-            NOTES="Release ${TAG}"
+          ' CHANGELOG.md > "$NOTES_FILE"
+          if [ ! -s "$NOTES_FILE" ]; then
+            printf 'Release %s\n' "$TAG" > "$NOTES_FILE"
           fi
           # Created as a draft so binary jobs can append .tar.gz assets —
           # immutable releases reject asset uploads once published. The
           # publish-release job flips --draft=false after all assets land.
           gh release create "${TAG}" \
             --title "${TAG}" \
-            --notes "$NOTES" \
+            --notes-file "$NOTES_FILE" \
             --verify-tag \
             --draft
 
-  # ── @sovrium/types npm publish: RETIRED ─────────────────────
-  # The package is no longer published. TypeScript config types now ship INSIDE
-  # the binary and are written out by `sovrium types` — see
-  # `scripts/build/generate-embedded-config-types.ts`.
+  # ── npm publish: RETIRED, and it is not coming back ─────────
+  # Nothing is published to npm. TypeScript config types ship INSIDE the binary and
+  # are written out by `sovrium types` (scripts/build/generate-embedded-config-types.ts).
+  # The @sovrium/types package that used to be published here has been deleted from
+  # the tree entirely.
   #
-  # Why this had to change: an app must be authorable in TypeScript with zero
-  # npm, and a published types package cannot deliver that. It needs a
-  # package.json, a node_modules and an install step in a directory that is
-  # supposed to contain only `app.ts`. Worse, the package's `defineConfig` helper
-  # was a VALUE, and the binary leaves bare-package specifiers unresolved — so
-  # `import { defineConfig } from '@sovrium/types'` type-checked clean and then
-  # failed at boot. The ambient `declare module 'sovrium'` the binary emits is
-  # type-only and erased at transpile time, so it cannot reproduce that trap.
+  # The full argument for why a published types package CANNOT deliver zero-npm
+  # TypeScript authoring — and why its `defineConfig` value export type-checked clean
+  # and then failed at boot — is recorded in
+  # docs/user-stories/as-developer/infrastructure/binary-packaging-tier.md. Read it
+  # before proposing to republish.
   #
   # The existing npm versions are NOT unpublished: 36 versions with live weekly
   # downloads, and unpublishing hard-breaks every lockfile naming the package.
-  # Deprecation is a deliberate manual step, run by hand — not from CI.
+  # Deprecation is a deliberate manual step, run by hand — never from CI.
 
   # ── Build macOS binaries on native runners ──────────────────
   build-binary-macos:

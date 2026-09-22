@@ -5,6 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  CHART_TOOLTIP_CHAR_WIDTH,
+  CHART_TOOLTIP_FILL,
+  CHART_TOOLTIP_FONT_SIZE,
+  CHART_TOOLTIP_HEIGHT,
+  CHART_TOOLTIP_MIN_WIDTH,
+  CHART_TOOLTIP_POINT_GAP,
+  CHART_TOOLTIP_RADIUS,
+  CHART_TOOLTIP_STROKE,
+  CHART_TOOLTIP_TEXT_BASELINE_Y,
+  CHART_TOOLTIP_TEXT_FILL,
+  CHART_TOOLTIP_TEXT_INSET_X,
+} from '@/presentation/design/chart-default-classes'
 import type { ReactElement } from 'react'
 
 /** Active hover state — the data point currently under the cursor. */
@@ -28,9 +41,17 @@ function formatTooltipText(state: TooltipState): string {
   return `${state.label}: ${value}`
 }
 
-/** Approximate pixel width for the tooltip background rect. */
+/**
+ * Approximate pixel width for the tooltip background rect: the text's estimated
+ * run plus the same inset on both sides. The per-character estimate is
+ * calibrated for {@link CHART_TOOLTIP_FONT_SIZE} and moves with it, which is
+ * why it lives in the recipe beside the font size rather than here.
+ */
 function tooltipWidth(text: string): number {
-  return Math.max(40, text.length * 6.5 + 12)
+  return Math.max(
+    CHART_TOOLTIP_MIN_WIDTH,
+    text.length * CHART_TOOLTIP_CHAR_WIDTH + CHART_TOOLTIP_TEXT_INSET_X * 2
+  )
 }
 
 /**
@@ -48,7 +69,10 @@ export function ChartTooltip({
   if (!state) return undefined
   const text = formatTooltipText(state)
   const w = tooltipWidth(text)
-  const h = 22
+  // The rect is CENTRED on the hovered point; the text is then start-anchored
+  // from the rect's own left edge, exactly as the canvas draws it.
+  const rectX = state.x - w / 2
+  const rectY = state.y - CHART_TOOLTIP_HEIGHT - CHART_TOOLTIP_POINT_GAP
   return (
     <g
       className="chart-tooltip"
@@ -57,20 +81,19 @@ export function ChartTooltip({
       pointerEvents="none"
     >
       <rect
-        x={state.x - w / 2}
-        y={state.y - h - 8}
+        x={rectX}
+        y={rectY}
         width={w}
-        height={h}
-        rx={3}
-        fill="var(--color-foreground)"
+        height={CHART_TOOLTIP_HEIGHT}
+        rx={CHART_TOOLTIP_RADIUS}
+        fill={CHART_TOOLTIP_FILL}
+        stroke={CHART_TOOLTIP_STROKE}
       />
       <text
-        x={state.x}
-        y={state.y - h / 2 - 8}
-        fontSize={11}
-        fill="var(--color-background)"
-        textAnchor="middle"
-        dominantBaseline="central"
+        x={rectX + CHART_TOOLTIP_TEXT_INSET_X}
+        y={rectY + CHART_TOOLTIP_TEXT_BASELINE_Y}
+        fontSize={CHART_TOOLTIP_FONT_SIZE}
+        fill={CHART_TOOLTIP_TEXT_FILL}
       >
         {text}
       </text>

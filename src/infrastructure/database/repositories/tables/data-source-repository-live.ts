@@ -11,8 +11,8 @@ import {
   DataSourceRepository,
   DataSourceDatabaseError,
 } from '@/application/ports/repositories/tables/data-source-repository'
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
-import { sanitizeTableName } from '@/domain/utils/database/table-naming'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { db } from '@/infrastructure/database/drizzle/db-bun'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'

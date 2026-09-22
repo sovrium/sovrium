@@ -38,7 +38,7 @@ export const persistChatTurn = (input: {
   Effect.gen(function* () {
     const repo = yield* AiMemoryRepository
     yield* repo.recordTurn(input)
-  })
+  }).pipe(Effect.withSpan('ai.persist-chat-turn'))
 
 /**
  * Load the persisted message history for a `(userId, sessionId)` thread, in
@@ -53,7 +53,7 @@ export const loadChatHistory = (input: {
   Effect.gen(function* () {
     const repo = yield* AiMemoryRepository
     return yield* repo.getHistory(input)
-  })
+  }).pipe(Effect.withSpan('ai.load-chat-history'))
 
 /**
  * List the conversation threads owned by a user, most-recently-updated
@@ -69,7 +69,7 @@ export const listUserConversations = (input: {
   Effect.gen(function* () {
     const repo = yield* AiMemoryRepository
     return yield* repo.listConversations(input)
-  })
+  }).pipe(Effect.withSpan('ai.list-user-conversations'))
 
 /**
  * Delete a conversation thread and (by ON DELETE CASCADE) all its messages
@@ -82,7 +82,7 @@ export const deleteUserConversation = (input: {
   Effect.gen(function* () {
     const repo = yield* AiMemoryRepository
     yield* repo.deleteConversation(input)
-  })
+  }).pipe(Effect.withSpan('ai.delete-user-conversation'))
 
 /**
  * Apply the retention policy: delete every conversation owned by `userId`
@@ -96,4 +96,4 @@ export const enforceRetentionPolicy = (input: {
   Effect.gen(function* () {
     const repo = yield* AiMemoryRepository
     return yield* repo.purgeExpired(input)
-  })
+  }).pipe(Effect.withSpan('ai.enforce-retention-policy'))

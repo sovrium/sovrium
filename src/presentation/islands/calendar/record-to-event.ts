@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveRecordColor } from '@/domain/utils/record-color'
-import type { TableRecord } from '../shared/types'
+import { resolveRecordColor } from '@/domain/kernel/color/record-color'
+import type { TableRecord } from '../runtime/types'
 
 /**
  * FullCalendar event shape consumed by the calendar component's `events` prop.
@@ -45,22 +45,28 @@ export interface CalendarEvent {
 }
 
 /**
- * Fallback palette for a `colorField` whose options declare no colour.
+ * Fallback palette for a `colorField` whose options declare no colour — the
+ * platform chart series, so a calendar and a chart of the same data categorise
+ * it in the same hues instead of two unrelated sets.
  *
  * A distinct value gets a distinct hue so users can visually group events by
  * category/status. The value is HASHED onto it (see `resolveRecordColor`), so
  * the mapping is stable across renders and independent of which other records
  * happen to be in view.
+ *
+ * These are LITERAL hexes rather than `var(--sv-chart-N)`, and that is forced
+ * rather than chosen: every entry is fed to `deriveOptionChipColors`, which
+ * computes a WCAG-AA foreground and a border by parsing the value as
+ * `#RRGGBB`. It returns `undefined` for anything it cannot parse, so a `var()`
+ * here would not fall back to the token — it would silently drop the colour
+ * from every event. Keep these in step with `--sv-chart-1..5`.
  */
 const COLOR_PALETTE: readonly string[] = [
-  '#3b82f6', // blue
-  '#ef4444', // red
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#14b8a6', // teal
-  '#f97316', // orange
+  '#398ad6', // blue
+  '#cd5f62', // red
+  '#479c4d', // green
+  '#b67700', // amber
+  '#9470cd', // violet
 ] as const
 
 /**

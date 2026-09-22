@@ -7,9 +7,8 @@
 
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { useCallback } from 'react'
-import { UI_TO_API_OPERATOR } from '../data-table/island/operator-vocabulary'
 import type { RowDensity } from './use-table-preferences'
-import type { DataTableViewType } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+import type { DataTableViewType } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
 
 /**
@@ -81,31 +80,21 @@ const EMPTY_VIEWS: readonly SavedView[] = []
  * `assignee equals "Alice"` predicate stored in a view actually narrows the
  * server-side query.
  *
- * Cross-reference (Cycle 5: save-views) — the runtime filter-builder
- * (`src/presentation/islands/data-table/island/filter-operators.ts`) uses a
- * THIRD vocabulary (spaced English, e.g. `'greater than'`, `'starts with'`)
- * for human-readable `<option>` labels. When serialising a `FilterRow[]` from
- * the panel into a saved view, the call site MUST translate UI → API first
- * (e.g. `'greater than'` → `'greaterThan'`) before this map can do its job;
- * otherwise the fallback below passes the spaced-English string verbatim and
- * the records API silently drops the predicate. See the VOCABULARY CONTRACT
- * comment in `filter-operators.ts` for the full three-vocabulary picture.
+ * This is the ONLY operator translation left on the saved-view path, and it
+ * is a translation between two genuinely different contracts — the saved-view
+ * wire format and `FilterOperatorSchema`'s domain codes — not between two
+ * spellings of the same one.
  *
- * Phase 7 Cycle 2 — multi-value bridge closed: `is-any-of` / `is-none-of`
- * filtering happens entirely client-side in `evaluatePredicate`, which now
- * recognizes all three vocabulary forms. The single-value path (this map)
- * still bridges UI → API for save persistence; the multi-value path no
- * longer needs an API → domain entry below because the records endpoint
- * doesn't apply these operators server-side — they only matter to the
- * runtime row-narrowing in `applyClientFilters`.
+ * The runtime filter-builder used to speak a THIRD vocabulary (spaced English,
+ * `'greater than'`), renamed onto the wire form on save and never renamed
+ * back, which is what made a reloaded view match nothing. The builder now
+ * emits the wire spelling directly; see the ONE VOCABULARY block in
+ * `filter-operators.ts`. There is no UI → API step to perform here any more,
+ * and reintroducing one would recreate that defect.
  *
- * Phase 7 Cycle 2 audit — single-value bridge generalised: `evaluatePredicate`
- * now also recognises every API-vocabulary single-value operator (e.g.
- * `'startsWith'`, `'doesNotContain'`, `'isBefore'`) via its internal
- * `API_TO_UI_OPERATOR` map. Previously, loading a saved view authored with
- * those operators silently no-op'd the predicate during client-side row
- * narrowing because `toFilterRows` in `use-saved-views-orchestration.ts`
- * passes the persisted API-vocabulary string straight into `FilterRow.operator`.
+ * `isAnyOf` / `isNoneOf` deliberately have no entry: the records endpoint does
+ * not apply them server-side, so they only matter to the client-side row
+ * narrowing in `applyClientFilters`.
  */
 const API_TO_DOMAIN_OPERATOR: Record<string, DataFilter['operator']> = {
   equals: 'eq',
@@ -142,24 +131,6 @@ export function savedViewFiltersToDataFilters(
 export interface UseSavedViewsResult {
   readonly views: readonly SavedView[]
   readonly isLoading: boolean
-}
-
-// ---------------------------------------------------------------------------
-// UI → API operator translator (Cycle 5)
-// ---------------------------------------------------------------------------
-
-/**
- * Translate a UI-vocabulary operator (e.g. `'greater than'`) into the
- * API-vocabulary form persisted in a saved view's `config.filters[]`. Pass-
- * through for operators with no rename (e.g. `'contains'`, `'equals'`).
- *
- * The `UI_TO_API_OPERATOR` table is the canonical forward map in
- * `operator-vocabulary.ts`; its reverse (used when a saved view is loaded back
- * into the filter builder) is derived from the same table, so the two
- * directions can never drift.
- */
-export function translateUiToApiOperator(uiOperator: string): string {
-  return UI_TO_API_OPERATOR[uiOperator] ?? uiOperator
 }
 
 // ---------------------------------------------------------------------------
@@ -207,21 +178,22 @@ interface UpdateSavedViewInput {
 }
 
 /**
- * Serialise the UI-shaped config into the wire format the
- * `POST /api/tables/:tableId/user-views` route expects. Filter operators are
- * translated to API vocabulary before transmission (see the VOCABULARY CONTRACT
- * comment above), so a `'greater than'` predicate authored in the filter panel
- * lands as `'greaterThan'` in the JSONB column and round-trips correctly
- * through `API_TO_DOMAIN_OPERATOR` on read.
+ * Serialise the config into the wire format the
+ * `POST /api/tables/:tableId/user-views` route expects.
+ *
+ * Filter operators cross UNTRANSLATED: the filter builder already emits the
+ * canonical wire spelling, so what the panel holds is what the JSONB column
+ * stores and what comes back on load. The rename that used to happen here is
+ * exactly what broke the round trip — it had no counterpart on the read side.
  */
 function configToWirePayload(config: SavedViewConfigPayload): Record<string, unknown> {
-  const translatedFilters = config.filters?.map((f) => ({
+  const filters = config.filters?.map((f) => ({
     field: f.field,
-    operator: translateUiToApiOperator(f.operator),
+    operator: f.operator,
     value: f.value,
   }))
   return {
-    ...(translatedFilters !== undefined ? { filters: translatedFilters } : {}),
+    ...(filters !== undefined ? { filters } : {}),
     ...(config.sorts !== undefined ? { sorts: config.sorts } : {}),
     ...(config.fields !== undefined ? { fields: config.fields } : {}),
     ...(config.groupBy !== undefined ? { groupBy: config.groupBy } : {}),

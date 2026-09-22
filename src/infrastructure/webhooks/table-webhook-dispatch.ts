@@ -429,7 +429,6 @@ const dispatchOne = async (input: {
 }): Promise<void> => {
   const { webhook, tableName, event, record, previousRecord } = input
   const payload = buildPayload({ webhook, table: tableName, event, record, previousRecord })
-  // eslint-disable-next-line functional/no-expression-statements -- DB side effect: deliver with retry + log
   await deliverWithRetryAndLog({ webhook, tableName, payload })
 }
 

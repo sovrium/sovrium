@@ -5,14 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Data, Effect, Exit, Cause } from 'effect'
+import { Data, Effect } from 'effect'
 import {
   type DatabaseError,
   type ValidationError,
   type DrizzleTransaction,
 } from '@/infrastructure/database'
 import { buildInsertClauses, insertAndResolveRow } from '../mutation-helpers/create-record-helpers'
-import { wrapWriteStatementError } from '../shared/error-handling'
+import { wrapWriteStatementError } from '../statement/error-handling'
 
 /**
  * Batch validation error - returned when batch validation fails
@@ -53,21 +53,6 @@ export class BatchValidationError extends Data.TaggedError('BatchValidationError
  * @public
  */
 export const BATCH_FANOUT_CONCURRENCY = 2
-
-/**
- * Run an Effect inside a database transaction, properly unwrapping errors.
- *
- * Unlike Effect.runPromise which wraps errors in FiberFailure (breaking instanceof checks
- * in outer catch handlers), this helper extracts the original error via Cause.squash
- * and re-throws it directly. This ensures DatabaseError, ValidationError, etc.
- * are properly detected by instanceof in Effect.tryPromise catch handlers.
- */
-export async function runEffectInTx<A, E>(effect: Effect.Effect<A, E, never>): Promise<A> {
-  const exit = await Effect.runPromiseExit(effect)
-  if (Exit.isSuccess(exit)) return exit.value
-  // eslint-disable-next-line functional/no-throw-statements -- Required to propagate Effect errors in async transaction context
-  throw Cause.squash(exit.cause)
-}
 
 /**
  * Build INSERT SQL clauses from a fields object, or `undefined` when empty.

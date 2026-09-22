@@ -33,9 +33,10 @@
  *                             `active` (NOT `expiring-soon` / `expired`)
  *
  * RESILIENCE + LATENCY: the overview is a TILE, never an operator error. Every
- * domain source is computed in its own scoped Effect that provides its own Live
- * layer AND catches every failure down to that domain's ZERO block
- * (`records.total: 0`, `storage.totalBytes: 0`, …). `catchAll` rescues FAILURE
+ * domain source is computed in its own scoped Effect that DECLARES the port it
+ * reads AND catches every failure down to that domain's ZERO block
+ * (`records.total: 0`, `storage.totalBytes: 0`, …), MARKED `degraded: true` and
+ * with its cause logged — see {@link asDegraded}. `catchAll` rescues FAILURE
  * but not slowness, so each block is ADDITIONALLY wrapped in `withBlockTimeout`
  * (see `overview-block-timeout.ts`): a source that is merely slow-in-production
  * degrades to its zero block via the timeout instead of pushing the whole
@@ -43,39 +44,44 @@
  * (observed on the live Partner deployment right after admin login). The nested
  * per-domain fan-outs (records + submissions) are bounded (`concurrency: 2`) so
  * the six concurrent blocks cannot exhaust bun:sql's small default pool. The
- * composed program therefore requires no environment and cannot fail
- * (`never`/`never`) AND now cannot hang.
+ * composed program therefore cannot fail (`never`) AND cannot hang.
  *
- * Each block provides its own infrastructure / application Live layer directly
- * (the application-layer dependency-inversion seam) — never a presentation-layer
- * effect-runner — so the use case stays within the application→infrastructure
- * boundary.
+ * WHAT THE BLOCKS NO LONGER CATCH. Each block used to bind its own Live layer,
+ * so a layer that failed to BUILD degraded that tile to zero. The ports are now
+ * declared and resolved once at boot by the runtime `createServer` owns, which
+ * means a build failure is a boot failure — loudly, before the listener binds —
+ * rather than a permanently grey tile on a server that came up. Everything the
+ * blocks were actually catching (a query that fails, a source that is slow) is
+ * unchanged, and so is the `degraded: true` marker on both axes.
  */
 
-import { Effect, Semaphore } from 'effect'
+import { Cause, Effect, Semaphore } from 'effect'
 import { AdminFormsRepository } from '@/application/ports/repositories/forms/admin-forms-repository'
 import { TablesOverviewRepository } from '@/application/ports/repositories/tables/tables-overview-repository'
 import { StorageService } from '@/application/ports/services/storage-service'
-import {
-  AdminAutomationsLayer,
-  BuildAutomationsOverview,
-} from '@/application/use-cases/admin/automations-overview'
-import {
-  AdminConnectionsLayer,
-  BuildConnectionsList,
-} from '@/application/use-cases/admin/connections'
+import { BuildAutomationsOverview } from '@/application/use-cases/admin/automations-overview'
+import { BuildConnectionsList } from '@/application/use-cases/admin/connections'
 import { withBlockTimeout } from '@/application/use-cases/admin/overview-block-timeout'
 import { sumSubmissionCounts } from '@/application/use-cases/admin/overview-projections'
-import {
-  BuildUsersOverview,
-  UsersOverviewLayer,
-} from '@/application/use-cases/admin/users-overview'
-import { deriveConnectionStatus } from '@/domain/services/admin/connection-status'
-import { sanitizeTableName } from '@/domain/utils/database/table-naming'
-import { AdminFormsRepositoryLive } from '@/infrastructure/database/repositories/forms/admin-forms-repository-live'
-import { TablesOverviewRepositoryLive } from '@/infrastructure/database/repositories/tables/tables-overview-repository-live'
-import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
-import type { AdminOverviewResponse } from '@/domain/models/api/admin/overview/overview'
+import { BuildUsersOverview } from '@/application/use-cases/admin/users-overview'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import { deriveConnectionStatus } from '@/domain/models/app/admin/connection-status'
+import { Logger } from '@/infrastructure/logging/logger'
+import type { AdminAutomationsRepository } from '@/application/ports/repositories/automations/admin-automations-repository'
+import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
+import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
+import type { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
+import type { UsersOverviewRepository } from '@/application/ports/repositories/tables/users-overview-repository'
+import type { OAuthStateStore } from '@/application/ports/services/oauth-state-store'
+import type {
+  AdminOverviewConnections,
+  AdminOverviewRecords,
+  AdminOverviewResponse,
+  AdminOverviewRuns,
+  AdminOverviewStorage,
+  AdminOverviewSubmissions,
+  AdminOverviewUsers,
+} from '@/domain/models/api/admin/overview/overview'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -84,6 +90,29 @@ import type { App } from '@/domain/models/app'
  * wrapper in `buildAdminOverview` (latency → zero), so the two axes degrade to
  * the exact same literal and the value is defined once per domain.
  */
+/**
+ * Every port the six blocks read, as one name.
+ *
+ * Stated once rather than repeated on `buildAdminOverview`'s signature: the
+ * roll-up's requirement IS the union of its blocks', and writing it out twice
+ * is how the two drift. All of them are carried by the server runtime, so the
+ * route discharges the whole set with a single `provideDomain`.
+ */
+export type AdminOverviewServices =
+  // The blocks log their own degradation, through the service rather than the
+  // bare sink, so a test can assert on the reason a tile went grey instead of
+  // reading stdout.
+  | Logger
+  | TablesOverviewRepository
+  | UsersOverviewRepository
+  | AdminAutomationsRepository
+  | AutomationRunRepository
+  | AdminFormsRepository
+  | StorageService
+  | ConnectionRepository
+  | ConnectionTokenRepository
+  | OAuthStateStore
+
 const RECORDS_ZERO: { readonly total: number } = { total: 0 }
 const SUBMISSIONS_ZERO: { readonly total: number } = { total: 0 }
 const USERS_ZERO: { readonly total: number } = { total: 0 }
@@ -96,6 +125,53 @@ const CONNECTIONS_ZERO: { readonly total: number; readonly healthy: number } = {
   total: 0,
   healthy: 0,
 }
+
+/**
+ * The same zero block, marked as a FALLBACK rather than a measurement.
+ *
+ * A zero block on its own is a lie by omission: "0 submissions" and "the
+ * submissions ledger is unreachable" reach the operator as the same pixel, so a
+ * dashboard looks calm precisely when its sources are not — which is the
+ * 2026-07-25 incident read from the operator's end. `degraded: true` is what
+ * separates "there is nothing" from "nobody could look", and it rides on the
+ * block rather than the response so one tile can warn while the other five keep
+ * reporting real numbers.
+ *
+ * Applied on BOTH degradation axes, because both produce a fallback: the
+ * block's own `orElseSucceed` (the source failed) and `withBlockTimeout` (the
+ * source did not answer in time). A marker present on only one of them would
+ * make the honesty of the tile depend on which way the source happened to
+ * misbehave.
+ *
+ * PRESENT MEANS DEGRADED — there is no `degraded: false`, so a healthy block is
+ * the untouched zero constant and never passes through here.
+ */
+const asDegraded = <A extends object>(zero: A): A & { readonly degraded: true } => ({
+  ...zero,
+  degraded: true,
+})
+
+/**
+ * Record WHY a block degraded before swallowing the cause.
+ *
+ * The fallback itself is deliberate and stays (the tile must render), but
+ * `orElseSucceed` on its own discards the only evidence of what went wrong: the
+ * operator sees a marked tile and the logs say nothing at all. `Effect.tapCause`
+ * runs ahead of the fallback and preserves the cause, so the block still cannot
+ * fail while the reason survives — defects and interruptions included, which a
+ * failure-only tap would drop.
+ */
+const logBlockFailure =
+  (block: string) =>
+  (cause: Cause.Cause<unknown>): Effect.Effect<void, never, Logger> =>
+    Effect.gen(function* () {
+      const logger = yield* Logger
+      yield* logger.error(
+        `Admin overview block '${block}' degraded to its zero value`,
+        Cause.squash(cause),
+        { 'sovrium.admin.overview.block': block }
+      )
+    })
 
 /**
  * Per-block latency budget (milliseconds). Each of the six domain blocks is
@@ -152,15 +228,17 @@ const overviewSemaphore = Semaphore.makeUnsafe(
  * (the amplifier behind the observed production 504). A failure (or no
  * configured tables) degrades to `0`.
  */
-const recordsBlock = (app: App): Effect.Effect<{ readonly total: number }> => {
+const recordsBlock = (
+  app: App
+): Effect.Effect<AdminOverviewRecords, never, TablesOverviewRepository | Logger> => {
   const dbNames = (app.tables ?? []).map((t) => sanitizeTableName(t.name))
   return Effect.gen(function* () {
     const repo = yield* TablesOverviewRepository
     const counts = yield* repo.countLiveRows(dbNames)
     return { total: counts.reduce((acc, n) => acc + n, 0) }
   }).pipe(
-    Effect.provide(TablesOverviewRepositoryLive),
-    Effect.orElseSucceed(() => RECORDS_ZERO)
+    Effect.tapCause(logBlockFailure('records')),
+    Effect.orElseSucceed(() => asDegraded(RECORDS_ZERO))
   )
 }
 
@@ -168,13 +246,13 @@ const recordsBlock = (app: App): Effect.Effect<{ readonly total: number }> => {
  * `users.total` — the live user count from users-overview `totals.users`. A
  * failure (or a validation miss) degrades to `0`.
  */
-const usersBlock = (): Effect.Effect<{ readonly total: number }> =>
+const usersBlock = (): Effect.Effect<AdminOverviewUsers, never, UsersOverviewRepository | Logger> =>
   BuildUsersOverview('24h').pipe(
     Effect.map((outcome) => ({
       total: outcome._tag === 'Ok' ? outcome.body.totals.users : 0,
     })),
-    Effect.provide(UsersOverviewLayer),
-    Effect.orElseSucceed(() => USERS_ZERO)
+    Effect.tapCause(logBlockFailure('users')),
+    Effect.orElseSucceed(() => asDegraded(USERS_ZERO))
   )
 
 /**
@@ -185,15 +263,19 @@ const usersBlock = (): Effect.Effect<{ readonly total: number }> =>
  */
 const runsBlock = (
   app: App
-): Effect.Effect<{ readonly recent: number; readonly successRate: number }> =>
+): Effect.Effect<
+  AdminOverviewRuns,
+  never,
+  AdminAutomationsRepository | AutomationRunRepository | Logger
+> =>
   BuildAutomationsOverview(app, '24h').pipe(
     Effect.map((outcome) =>
       outcome._tag === 'Ok'
         ? { recent: outcome.body.totals.runs_24h, successRate: outcome.body.totals.success_rate }
         : RUNS_ZERO
     ),
-    Effect.provide(AdminAutomationsLayer),
-    Effect.orElseSucceed(() => RUNS_ZERO)
+    Effect.tapCause(logBlockFailure('runs')),
+    Effect.orElseSucceed(() => asDegraded(RUNS_ZERO))
   )
 
 /**
@@ -211,7 +293,9 @@ const runsBlock = (
  * a SUCCESSFUL value: neither the `catchAll` below nor `withBlockTimeout` can
  * see it, and it only surfaces at the route's response gate as a 500.
  */
-const submissionsBlock = (app: App): Effect.Effect<{ readonly total: number }> => {
+const submissionsBlock = (
+  app: App
+): Effect.Effect<AdminOverviewSubmissions, never, AdminFormsRepository | Logger> => {
   const forms = app.forms ?? []
   return Effect.gen(function* () {
     const repo = yield* AdminFormsRepository
@@ -221,8 +305,8 @@ const submissionsBlock = (app: App): Effect.Effect<{ readonly total: number }> =
     )
     return { total: sumSubmissionCounts(aggregates) }
   }).pipe(
-    Effect.provide(AdminFormsRepositoryLive),
-    Effect.orElseSucceed(() => SUBMISSIONS_ZERO)
+    Effect.tapCause(logBlockFailure('submissions')),
+    Effect.orElseSucceed(() => asDegraded(SUBMISSIONS_ZERO))
   )
 }
 
@@ -231,14 +315,14 @@ const submissionsBlock = (app: App): Effect.Effect<{ readonly total: number }> =
  * (`StorageService.getTotalBytes()`). Storage being disabled (no provider) or a
  * read failure degrades to `0` rather than failing the roll-up.
  */
-const storageBlock = (): Effect.Effect<{ readonly totalBytes: number }> =>
+const storageBlock = (): Effect.Effect<AdminOverviewStorage, never, StorageService | Logger> =>
   Effect.gen(function* () {
     const storage = yield* StorageService
     const totalBytes = yield* storage.getTotalBytes
     return { totalBytes }
   }).pipe(
-    Effect.provide(StorageServiceLive),
-    Effect.orElseSucceed(() => STORAGE_ZERO)
+    Effect.tapCause(logBlockFailure('storage')),
+    Effect.orElseSucceed(() => asDegraded(STORAGE_ZERO))
   )
 
 /**
@@ -246,10 +330,11 @@ const storageBlock = (): Effect.Effect<{ readonly totalBytes: number }> =>
  * derive an `active` status (NOT `expiring-soon` / `expired`). A failure (or no
  * connections) degrades to `{ total: 0, healthy: 0 }`.
  */
-const connectionsBlock = (): Effect.Effect<{
-  readonly total: number
-  readonly healthy: number
-}> =>
+const connectionsBlock = (): Effect.Effect<
+  AdminOverviewConnections,
+  never,
+  ConnectionRepository | ConnectionTokenRepository | OAuthStateStore | Logger
+> =>
   BuildConnectionsList.pipe(
     Effect.map((outcome) => {
       if (outcome._tag !== 'Ok') return CONNECTIONS_ZERO
@@ -259,8 +344,8 @@ const connectionsBlock = (): Effect.Effect<{
       ).length
       return { total: connections.length, healthy }
     }),
-    Effect.provide(AdminConnectionsLayer),
-    Effect.orElseSucceed(() => CONNECTIONS_ZERO)
+    Effect.tapCause(logBlockFailure('connections')),
+    Effect.orElseSucceed(() => asDegraded(CONNECTIONS_ZERO))
   )
 
 /**
@@ -284,19 +369,29 @@ const connectionsBlock = (): Effect.Effect<{
  * overlapping requests → ~24 against ~10). Serializing here is what makes the
  * per-request budget an actual process-wide bound.
  */
-export const buildAdminOverview = (app: App): Effect.Effect<AdminOverviewResponse> =>
+export const buildAdminOverview = (
+  app: App
+): Effect.Effect<AdminOverviewResponse, never, AdminOverviewServices> =>
   Effect.gen(function* () {
-    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- fixed-width fan-out: exactly six literal blocks (not data-dependent), each with its own timeout, and the whole overview is serialized process-wide by `overviewSemaphore` below.
+    // Fixed-width fan-out: exactly six literal blocks, not data-dependent. The
+    // `sovrium/no-unbounded-promise-fanout` suppression that used to sit here
+    // was retired on 2026-09-01, when that rule's `unboundedConcurrency`
+    // matcher gained the fixed-width-literal exemption its runner matcher
+    // already had — so this shape is now exempt by RULE rather than by
+    // hand-written exception, which is the direction [internal ref] asks for. The two
+    // other guarantees the old comment carried are still load-bearing and are
+    // NOT what the exemption covers: each block has its own timeout, and the
+    // whole overview is serialized process-wide by `overviewSemaphore` below.
     const [records, submissions, runs, users, storage, connections] = yield* Effect.all(
       [
-        withBlockTimeout(recordsBlock(app), RECORDS_ZERO, BLOCK_TIMEOUT_MS),
-        withBlockTimeout(submissionsBlock(app), SUBMISSIONS_ZERO, BLOCK_TIMEOUT_MS),
-        withBlockTimeout(runsBlock(app), RUNS_ZERO, BLOCK_TIMEOUT_MS),
-        withBlockTimeout(usersBlock(), USERS_ZERO, BLOCK_TIMEOUT_MS),
-        withBlockTimeout(storageBlock(), STORAGE_ZERO, BLOCK_TIMEOUT_MS),
-        withBlockTimeout(connectionsBlock(), CONNECTIONS_ZERO, BLOCK_TIMEOUT_MS),
+        withBlockTimeout(recordsBlock(app), asDegraded(RECORDS_ZERO), BLOCK_TIMEOUT_MS),
+        withBlockTimeout(submissionsBlock(app), asDegraded(SUBMISSIONS_ZERO), BLOCK_TIMEOUT_MS),
+        withBlockTimeout(runsBlock(app), asDegraded(RUNS_ZERO), BLOCK_TIMEOUT_MS),
+        withBlockTimeout(usersBlock(), asDegraded(USERS_ZERO), BLOCK_TIMEOUT_MS),
+        withBlockTimeout(storageBlock(), asDegraded(STORAGE_ZERO), BLOCK_TIMEOUT_MS),
+        withBlockTimeout(connectionsBlock(), asDegraded(CONNECTIONS_ZERO), BLOCK_TIMEOUT_MS),
       ],
       { concurrency: 'unbounded' }
     )
     return { records, submissions, runs, users, storage, connections }
-  }).pipe(overviewSemaphore.withPermits(1))
+  }).pipe(overviewSemaphore.withPermits(1), Effect.withSpan('admin.build-admin-overview'))

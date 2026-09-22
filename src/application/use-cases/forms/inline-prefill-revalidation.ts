@@ -29,7 +29,7 @@
 
 import { Effect } from 'effect'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import { findMatchingRoute } from '@/domain/utils/matching/route-matcher'
+import { findMatchingRoute } from '@/domain/kernel/matching/route-matcher'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -225,4 +225,8 @@ export const revalidateInlinePrefillParent = (ctx: RevalidationContext) =>
       }
     }
     return { kind: 'parent-found' as const, record }
-  })
+  }).pipe(
+    Effect.withSpan('forms.revalidate-inline-prefill-parent', {
+      attributes: { form: ctx.formName },
+    })
+  )

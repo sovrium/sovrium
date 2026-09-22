@@ -33,7 +33,8 @@ import {
 } from '@/application/ports/repositories/tables/user-view-repository'
 import { buildEffectiveRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { hasReadPermissionForRoles } from '@/domain/validators/permission-evaluators'
+import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -65,7 +66,7 @@ export const getSharedView = (
 ): Effect.Effect<
   UserViewResponse,
   UserViewDbError | UserViewForbiddenError | UserViewNotFoundError,
-  UserViewRepository
+  UserViewRepository | AuthRepository
 > =>
   Effect.gen(function* () {
     const repo = yield* UserViewRepository
@@ -85,23 +86,17 @@ export const getSharedView = (
     //
     // FAN-OUT WIDTH: 2, and structurally so — this is a fixed two-element
     // tuple, not a `.map()` over a collection, so no caller input and no
-    // config can widen it. Both reads hit the SHARED connection pool
-    // (`getUserRole` via `AuthRepositoryLive`, `getUserGroups` via a direct
-    // `db.select()`), which is why the width is stated rather than left to a
+    // config can widen it. Both reads hit the SHARED connection pool through
+    // the `AuthRepository` this use case declares, which is why the width is
+    // stated rather than left to a
     // raw `Promise.all`: expressed as `Effect.all` the ceiling is a required,
     // reviewable argument. See the QUERY BUDGET note in
     // `infrastructure/database/repositories/tables/tables-overview-repository-live.ts`
     // for the 2026-07-25 pool-exhaustion incident this discipline comes from.
     const [userRole, userGroups] = yield* Effect.all(
       [
-        Effect.tryPromise({
-          try: () => getUserRole(input.userId),
-          catch: (cause) => new UserViewDbError({ cause }),
-        }),
-        Effect.tryPromise({
-          try: () => getUserGroups(input.userId),
-          catch: (cause) => new UserViewDbError({ cause }),
-        }),
+        getUserRole(input.userId).pipe(Effect.mapError((cause) => new UserViewDbError({ cause }))),
+        getUserGroups(input.userId),
       ],
       { concurrency: 2 }
     )
@@ -111,4 +106,4 @@ export const getSharedView = (
     }
 
     return view
-  })
+  }).pipe(Effect.withSpan('tables.get-shared-view'))

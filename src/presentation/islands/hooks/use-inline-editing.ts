@@ -10,11 +10,11 @@ import { useRowSaveQueue } from './use-row-save-queue'
 import { useSaveStatusState } from './use-save-status'
 import { useSaveTokens } from './use-save-tokens'
 import { useUpdateRecord } from './use-table-mutations'
-import type { RecordButtonConfig } from '../shared/record-button'
+import type { RecordButtonConfig } from '../runtime/record-button'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
+import type { DurationDisplayFormat } from '@/domain/kernel/format/duration-format'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
-import type { CurrencyDisplayOptions } from '@/domain/utils/currency-format'
-import type { DurationDisplayFormat } from '@/domain/utils/duration-format'
-import type { SelectOptionLike } from '@/domain/utils/select-option'
+import type { SelectOptionLike } from '@/domain/models/app/tables/select-option'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,7 +29,7 @@ export interface EditingCell {
 // The save-status state machine moved to `use-save-status.ts`; both types are
 // re-exported here because the grid, its indicator and its view all import them
 // from this module.
-export type { SaveStatus, SaveTarget } from './use-save-status'
+export type { SaveStatus } from './use-save-status'
 
 /**
  * What a single field write may carry — the client-side mirror of the
@@ -75,7 +75,7 @@ export interface FieldDisplayMeta extends CurrencyDisplayOptions {
  * The declared properties an EDITABLE cell's control needs.
  *
  * Sibling to {@link FieldDisplayMeta} and forwarded by the same allowlist
- * mechanism in `type-specific-props-builder.ts` (`EDIT_META_KEYS`). Nothing here
+ * mechanism in `render/props/resolve-field-cell-meta.ts` (`EDIT_META_KEYS`). Nothing here
  * affects how a cell reads — these are the inputs an editor cannot open
  * without.
  */
@@ -88,6 +88,25 @@ export interface FieldEditMeta {
   readonly relationType?: string
   /** `relationship` / `user` — whether the column holds a list of keys. */
   readonly allowMultiple?: boolean
+  /**
+   * `relationship` — whether the picker may create a missing related record
+   * from the typed text. Declared on the FIELD; the answer to whether
+   * the CURRENT CALLER may do so is {@link canCreateRelated}, and both must be
+   * true for the affordance to be drawn.
+   */
+  readonly allowCreate?: boolean
+  /** `relationship` — ceiling on how many records the column may link to. */
+  readonly maxLinked?: number
+  /**
+   * `relationship` — whether the current session may create in `relatedTable`.
+   *
+   * NOT a field property, and therefore not forwarded by `EDIT_META_KEYS`: it is
+   * a per-session permission answer, stamped by the data-source resolver where
+   * the session role is known and merged into this bag there. Absent means auth
+   * is not configured, which reads as PERMITTED — the same full-access default
+   * the toolbar's own `_canCreate` gate uses.
+   */
+  readonly canCreateRelated?: boolean
   /** attachments — the bucket uploads are posted to. */
   readonly bucket?: string
   /**
@@ -104,6 +123,22 @@ export interface FieldEditMeta {
   readonly placeholder?: string
   /** `rich-text` — budget measured on the STORED HTML, as the CHECK measures it. */
   readonly maxLength?: number
+  /**
+   * `code` — the grammar the cell editor loads.
+   *
+   * The one property of the field the schema makes REQUIRED, and the one that
+   * decides whether the surface is a code editor at all: without it CodeMirror
+   * draws the stored source as one undifferentiated run of monospace text.
+   */
+  readonly language?: string
+  /** `code` — draw the line-number gutter. Defaults to `true`. */
+  readonly lineNumbers?: boolean
+  /** `code` — indent width in spaces (1-8). Defaults to `2`. */
+  readonly tabSize?: number
+  /** `code` — floor on the editor's visible height, in lines. */
+  readonly minLines?: number
+  /** `code` — ceiling on the visible height before the surface scrolls. */
+  readonly maxLines?: number
   /** `datetime` — the zone the instant is resolved into. Capital Z. */
   readonly timeZone?: string
 }
@@ -345,11 +380,26 @@ function useEditingState(persistence: Persistence, isAutoSave: boolean) {
 
   const saveEdit = useCallback(
     async (newValue: unknown) => {
-      if (!editingCell) return
+      const saved = editingCell
+      if (!saved) return
       try {
-        await persistField(editingCell.rowId, editingCell.field, newValue)
+        await persistField(saved.rowId, saved.field, newValue)
       } finally {
-        setEditingCell(undefined)
+        // Close the editor this save BELONGS to, never "whichever editor is
+        // open now".
+        //
+        // The write is awaited, and the operator does not wait with it: Enter
+        // already moved the cursor down (see `useCursorAwareEditHandlers`), so
+        // a second Enter can open the NEXT cell's editor before the first
+        // round trip returns. An unconditional `setEditingCell(undefined)`
+        // here then shut that second editor and discarded whatever had been
+        // typed into it — the faster the typist and the slower the link, the
+        // more often. Anchoring the close on the saved cell makes it
+        // idempotent, the same reason `advanceCursorRow` anchors on the row
+        // being edited rather than on the live cursor.
+        setEditingCell((current) =>
+          current?.rowId === saved.rowId && current.field === saved.field ? undefined : current
+        )
       }
     },
     [editingCell, persistField]

@@ -71,8 +71,8 @@
  * not a wider gate here.
  */
 
-import { gradeBytes, parseEcoIndexHeader } from '@/domain/models/env/eco/eco-index-header'
-import { recordGradedResponse } from '@/infrastructure/utils/eco-index-tracker'
+import { gradeBytes, parseEcoIndexHeader } from '@/domain/models/process-env/eco/eco-index-header'
+import { recordGradedResponse } from '@/infrastructure/process/eco-index-tracker'
 import type { Context, MiddlewareHandler, Next } from 'hono'
 
 const HEADER_NAME = 'X-Eco-Index'
@@ -136,7 +136,6 @@ const isAttachmentDownload = (c: Readonly<Context>): boolean =>
  */
 // eslint-disable-next-line functional/prefer-immutable-types -- Hono Context type is mutable by library design
 async function handleEcoIndexResponse(c: Context, next: Next): Promise<void> {
-  // eslint-disable-next-line functional/no-expression-statements -- middleware contract: invoke downstream
   await next()
 
   const mode = parseEcoIndexHeader(process.env as Readonly<Record<string, string | undefined>>)

@@ -10,8 +10,8 @@ description: >-
   shows the inline-markdown mode; the docs section shows the file-based
   content-directory mode.
 
-theme:
-  $ref: ./config/theme.yaml
+design:
+  $ref: ./config/design.yaml
 
 pages:
   # Inline-markdown landing page (markdown.content + layout: prose)

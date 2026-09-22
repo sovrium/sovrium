@@ -25,7 +25,8 @@
  */
 
 import { elidedLabel, resolveCauseChain } from './error-chain'
-import type { SentryDsn } from '@/domain/models/env/telemetry/sentry-dsn'
+import type { SentryDsn } from '@/domain/models/process-env/telemetry/sentry-dsn'
+import type { Tracer } from 'effect'
 
 /** A parsed V8 stack frame in Sentry's `stacktrace.frames[]` shape. */
 export interface SentryStackFrame {
@@ -66,6 +67,28 @@ export interface SentryEvent {
   }
 }
 
+/**
+ * ONE entry of a transaction's `spans[]`, in GlitchTip's shape.
+ *
+ * The schema is FLAT and this type mirrors it exactly. There is no
+ * `parent_span_id` and no `trace_id` field on the receiver's `SpanSchema`, so
+ * parentage travels inside `data` — which is typed as a free-form `JsonValue`
+ * and therefore survives ingest. Putting them at the top level instead would
+ * cost nothing visible: every schema is a `LaxIngestSchema` with pydantic's
+ * default `extra='ignore'`, so an unknown key is silently DROPPED and the
+ * payload still gets a 2xx. That silence is exactly why this type is written
+ * against the dumped receiver schema rather than against Sentry's own SDK.
+ */
+export interface SentrySpan {
+  readonly span_id: string
+  readonly op: string
+  readonly description: string
+  readonly start_timestamp: number
+  readonly timestamp: number
+  readonly status: string
+  readonly data: Readonly<Record<string, string>>
+}
+
 /** A Sentry performance transaction payload. */
 export interface SentryTransaction {
   readonly event_id: string
@@ -84,6 +107,32 @@ export interface SentryTransaction {
       readonly status: string
     }
   }
+  /** Flat list of the CHILD spans the request opened; the root is the transaction. */
+  readonly spans: ReadonlyArray<SentrySpan>
+  /** Filterable key/value pairs (GlitchTip: KeyValueFormat). */
+  readonly tags: Readonly<Record<string, string>>
+  /** Numeric per-transaction measurements (GlitchTip: free-form JsonValue). */
+  readonly measurements: Readonly<Record<string, { readonly value: number; readonly unit: string }>>
+}
+
+/** Inputs for {@link buildTransaction}, gathered by the timing middleware. */
+export interface TransactionInput {
+  /** `METHOD /path`. */
+  readonly name: string
+  readonly startMs: number
+  readonly endMs: number
+  readonly meta: EventMeta
+  /** The response status actually sent, mapped to a Sentry span status. */
+  readonly httpStatus: number
+  /** The request root span's ids; absent for a request that never entered Effect. */
+  readonly traceId?: string
+  readonly spanId?: string
+  /** The request's CHILD spans, root excluded. */
+  readonly spans?: ReadonlyArray<Tracer.Span>
+  /** Statements issued by this request (`db.queries` measurement). */
+  readonly dbQueryCount?: number
+  /** Child spans discarded past the per-transaction cap. */
+  readonly droppedSpans?: number
 }
 
 /** Shared metadata stamped onto every event/transaction. */
@@ -295,28 +344,111 @@ export const buildEventFromError = (
   }
 }
 
-/** Build a Sentry transaction for a completed HTTP request. */
-export const buildTransaction = (
-  name: string,
-  startMs: number,
-  endMs: number,
-  meta: EventMeta
-): SentryTransaction => ({
+/**
+ * Map an HTTP status code to the Sentry span status the transaction reports.
+ *
+ * Pure and exported so the mapping is unit-testable per code: this is the value
+ * an operator sorts a GlitchTip transaction list by, and it was a hardcoded
+ * `'ok'` for the whole of the transaction pipeline's life — so every 500
+ * Sovrium ever reported was filed as a success. Unknown codes map to
+ * `unknown_error` rather than to `ok`, because guessing "fine" about a code we
+ * do not recognise is the exact failure this replaces.
+ */
+export const toSentrySpanStatus = (httpStatus: number): string => {
+  if (httpStatus >= 200 && httpStatus < 400) return 'ok'
+  return SPAN_STATUS_BY_CODE.get(httpStatus) ?? 'unknown_error'
+}
+
+/** Sentry's `SpanStatus` names for the HTTP codes that have a canonical one. */
+const SPAN_STATUS_BY_CODE = new Map<number, string>([
+  [400, 'invalid_argument'],
+  [401, 'unauthenticated'],
+  [403, 'permission_denied'],
+  [404, 'not_found'],
+  [409, 'already_exists'],
+  [429, 'resource_exhausted'],
+  [500, 'internal_error'],
+  [501, 'unimplemented'],
+  [503, 'unavailable'],
+  [504, 'deadline_exceeded'],
+])
+
+/** GlitchTip truncates `op` at 255 chars SILENTLY, so truncate client-side. */
+const MAX_OP_LENGTH = 255
+
+/** Effect span times are nanoseconds since epoch; Sentry wants epoch SECONDS. */
+const nanosToEpochSeconds = (nanos: bigint): number => Number(nanos) / 1e9
+
+/**
+ * Convert one finished Effect span into GlitchTip's flat span shape.
+ *
+ * `op` is the span name's first token (`page.render` out of
+ * `page.render /home`), which is the grouping key GlitchTip aggregates on;
+ * the full name stays in `description`.
+ */
+/** The `Ended` arm of Effect's span status — the only one with an end time. */
+type EndedStatus = Extract<Tracer.SpanStatus, { _tag: 'Ended' }>
+
+const toSentrySpan = (span: Tracer.Span, status: Readonly<EndedStatus>): SentrySpan => ({
+  span_id: span.spanId,
+  op: (span.name.split(' ')[0] ?? span.name).slice(0, MAX_OP_LENGTH),
+  description: span.name,
+  start_timestamp: nanosToEpochSeconds(status.startTime),
+  timestamp: nanosToEpochSeconds(status.endTime),
+  status: status.exit._tag === 'Success' ? 'ok' : 'internal_error',
+  // The receiver declares neither `parent_span_id` nor `trace_id` on a span, so
+  // they ride in `data` (a free-form JsonValue) instead of being dropped.
+  data: {
+    trace_id: span.traceId,
+    ...(span.parent._tag === 'Some' ? { parent_span_id: span.parent.value.spanId } : {}),
+  },
+})
+
+/**
+ * Project the request's collected spans into the envelope, dropping any that had
+ * not ENDED when the response was snapshotted.
+ *
+ * A still-`Started` span has no end time, and GlitchTip computes duration as
+ * `timestamp - start_timestamp` with a 0.0 fallback — so emitting one would
+ * publish a fabricated zero-duration span rather than an honest absence.
+ */
+const toSentrySpans = (spans: ReadonlyArray<Tracer.Span>): ReadonlyArray<SentrySpan> =>
+  spans.flatMap((span) => (span.status._tag === 'Ended' ? [toSentrySpan(span, span.status)] : []))
+
+/**
+ * Build a Sentry transaction for a completed HTTP request.
+ *
+ * The trace identity comes from the request's ROOT span when the request ran an
+ * Effect program, which is what lets a GlitchTip transaction be joined to its
+ * OTLP trace. `randomHex` survives ONLY as the fallback for a request that never
+ * entered Effect (`GET /api/health`): such a request has no trace to point at,
+ * and an absent `contexts.trace` would make the payload a degraded transaction
+ * rather than an honest span-free one.
+ */
+export const buildTransaction = (input: TransactionInput): SentryTransaction => ({
   event_id: newEventId(),
   type: 'transaction',
-  transaction: name,
-  start_timestamp: startMs / 1000,
-  timestamp: endMs / 1000,
+  transaction: input.name,
+  start_timestamp: input.startMs / 1000,
+  timestamp: input.endMs / 1000,
   platform: 'javascript',
-  release: meta.release,
-  environment: meta.environment,
+  release: input.meta.release,
+  environment: input.meta.environment,
   contexts: {
     trace: {
-      trace_id: randomHex(32),
-      span_id: randomHex(16),
+      trace_id: input.traceId ?? randomHex(32),
+      span_id: input.spanId ?? randomHex(16),
       op: 'http.server',
-      status: 'ok',
+      status: toSentrySpanStatus(input.httpStatus),
     },
+  },
+  spans: toSentrySpans(input.spans ?? []),
+  tags: { 'http.status_code': String(input.httpStatus) },
+  measurements: {
+    'db.queries': { value: input.dbQueryCount ?? 0, unit: 'none' },
+    ...(input.droppedSpans !== undefined && input.droppedSpans > 0
+      ? { 'spans.dropped': { value: input.droppedSpans, unit: 'none' } }
+      : {}),
   },
 })
 

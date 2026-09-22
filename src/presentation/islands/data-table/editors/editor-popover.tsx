@@ -11,6 +11,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { FieldWriteValue } from '../../hooks/use-inline-editing'
+import type { TabDirection } from '../island/tab-target'
 import type { ReactElement, ReactNode } from 'react'
 
 /**
@@ -43,7 +44,7 @@ interface EditorPopoverProps {
   readonly cancel: () => void
   /** The value Tab commits on its way out. */
   readonly tabValue: () => FieldWriteValue
-  readonly tabNext?: (next: FieldWriteValue) => void
+  readonly tabNext?: (next: FieldWriteValue, direction: TabDirection) => void
   /** Accessible name for the frame, so the editor announces which column it edits. */
   readonly label: string
 }
@@ -76,7 +77,7 @@ export function EditorPopover({
     if (e.key === 'Tab' && tabNext) {
       e.preventDefault()
       e.stopPropagation()
-      tabNext(tabValue())
+      tabNext(tabValue(), e.shiftKey ? 'previous' : 'next')
     }
   }
 

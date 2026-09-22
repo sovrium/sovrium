@@ -29,7 +29,7 @@
  */
 
 // eslint-disable-next-line no-restricted-syntax -- Account self-service / GDPR is a cross-cutting concern, not phase-specific
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   AccountRepository,
   type AuthoredTableCandidate,
@@ -45,8 +45,8 @@ import {
   accountExportResponseSchema,
   accountPendingErasureResponseSchema,
 } from '@/domain/models/api/account/account'
-import { isAdminRole } from '@/domain/models/shared/permission-evaluation'
-import { AccountRepositoryLive } from '@/infrastructure/database/repositories/auth/account-repository-live'
+import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
+import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 
 /** Grace period (days) before a scheduled erasure is hard-purged. */
@@ -154,6 +154,10 @@ function buildExportPayload(sources: Readonly<ExportSources>) {
       email: user.email,
       name: user.name,
       image: user.image,
+      // The account's own interface-language preference. It belongs on the
+      // export because this section IS the caller's `auth.user` row, and the
+      // access right covers the row rather than a chosen subset of it.
+      language: user.language,
       // Coerce to a real boolean: the SQLite runtime stores booleans as INTEGER
       // 0/1, and the hand-written raw SELECT in the repository bypasses Drizzle's
       // `{ mode: 'boolean' }` column decoding, so `emailVerified` arrives as a
@@ -192,7 +196,7 @@ function buildExportPayload(sources: Readonly<ExportSources>) {
 
 /** Outcome of {@link ExportAccount}. */
 export type ExportAccountOutcome =
-  | { readonly _tag: 'Ok'; readonly body: ReturnType<typeof accountExportResponseSchema.parse> }
+  | { readonly _tag: 'Ok'; readonly body: typeof accountExportResponseSchema.Type }
   | { readonly _tag: 'Unauthorized' }
 
 /**
@@ -246,7 +250,7 @@ export const ExportAccount = (
     const authoredRecords = perTable.flat()
 
     // Validate against the contract before returning (defence-in-depth).
-    const body = accountExportResponseSchema.parse(
+    const body = decodeOrThrow(accountExportResponseSchema)(
       buildExportPayload({
         user,
         sessionRows,
@@ -256,13 +260,13 @@ export const ExportAccount = (
       })
     )
     return { _tag: 'Ok', body } as const
-  })
+  }).pipe(Effect.withSpan('account.export-account'))
 
 // ─── Account-deletion use cases ──────────────────────────────────────────────
 
 /** Result of {@link ScheduleAccountDeletion} — drives the route's 202 body + audit emit. */
 export interface ScheduleAccountDeletionResult {
-  readonly body: ReturnType<typeof accountDeleteScheduledResponseSchema.parse>
+  readonly body: typeof accountDeleteScheduledResponseSchema.Type
   readonly scheduledErasureAt: Date
 }
 
@@ -283,14 +287,14 @@ export const ScheduleAccountDeletion = (
     const scheduledErasureAt = new Date(Date.now() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000)
     yield* repo.scheduleErasure(userId, scheduledErasureAt)
 
-    const body = accountDeleteScheduledResponseSchema.parse({
+    const body = decodeOrThrow(accountDeleteScheduledResponseSchema)({
       status: 'scheduled',
       scheduledErasureAt: scheduledErasureAt.toISOString(),
       gracePeriodDays: GRACE_PERIOD_DAYS,
       cancellable: true,
     })
     return { body, scheduledErasureAt }
-  })
+  }).pipe(Effect.withSpan('account.schedule-account-deletion'))
 
 /**
  * Cancel a pending erasure for the caller. Clears `scheduledErasureAt` and
@@ -299,15 +303,15 @@ export const ScheduleAccountDeletion = (
 export const CancelAccountDeletion = (
   userId: string
 ): Effect.Effect<
-  ReturnType<typeof accountDeleteCancelledResponseSchema.parse>,
+  typeof accountDeleteCancelledResponseSchema.Type,
   AccountDatabaseError,
   AccountRepository
 > =>
   Effect.gen(function* () {
     const repo = yield* AccountRepository
     yield* repo.cancelErasure(userId)
-    return accountDeleteCancelledResponseSchema.parse({ status: 'cancelled' })
-  })
+    return decodeOrThrow(accountDeleteCancelledResponseSchema)({ status: 'cancelled' })
+  }).pipe(Effect.withSpan('account.cancel-account-deletion'))
 
 // ─── Pending-erasure read use case ───────────────────────────────────────────
 
@@ -336,7 +340,7 @@ export const CancelAccountDeletion = (
 export const LoadPendingErasure = (
   userId: string
 ): Effect.Effect<
-  ReturnType<typeof accountPendingErasureResponseSchema.parse>,
+  typeof accountPendingErasureResponseSchema.Type,
   AccountDatabaseError,
   AccountRepository
 > =>
@@ -344,17 +348,17 @@ export const LoadPendingErasure = (
     const repo = yield* AccountRepository
     const scheduledAt = yield* repo.loadScheduledErasure(userId)
     if (scheduledAt === undefined) {
-      return accountPendingErasureResponseSchema.parse({ items: [] })
+      return decodeOrThrow(accountPendingErasureResponseSchema)({ items: [] })
     }
     // Reuse the existing dialect-safe `auth.user` read for the caller's email.
     // A defined `scheduledAt` proves the row exists, but guard `undefined`
     // defensively (a row vanishing between reads surfaces no item, never a 500).
     const user = yield* repo.loadProfile(userId)
     if (user === undefined) {
-      return accountPendingErasureResponseSchema.parse({ items: [] })
+      return decodeOrThrow(accountPendingErasureResponseSchema)({ items: [] })
     }
     const requestedAt = new Date(scheduledAt.getTime() - GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000)
-    return accountPendingErasureResponseSchema.parse({
+    return decodeOrThrow(accountPendingErasureResponseSchema)({
       items: [
         {
           id: userId,
@@ -365,9 +369,4 @@ export const LoadPendingErasure = (
         },
       ],
     })
-  })
-
-/**
- * Application layer for the account use cases.
- */
-export const AccountLayer = Layer.mergeAll(AccountRepositoryLive)
+  }).pipe(Effect.withSpan('account.load-pending-erasure'))

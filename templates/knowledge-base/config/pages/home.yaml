@@ -21,7 +21,7 @@ components:
           - type: text
             element: p
             props:
-              className: text-lg mb-8
+              className: text-xl mb-8
             content: Onboarding, IT how-tos, and policies — written in markdown, versioned in Git, readable only by the team.
           - type: link
             props:

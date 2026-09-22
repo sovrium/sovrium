@@ -6,9 +6,9 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { buildSystemQueryUrl } from '../shared/system-query-url'
+import { buildSystemQueryUrl } from '../runtime/system-query-url'
 import type { ChartFetchResult } from './use-chart-records'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 import type { ChartSystemSource } from '@/domain/models/app/pages/components/component-types/data/chart'
 
 /**

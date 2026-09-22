@@ -48,6 +48,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { printStderr } from '@/infrastructure/logging/cli-output'
 
 // `import.meta.url` rather than Bun's `import.meta.dir`: Playwright's
 // globalSetup — one of this module's four callers — runs under Node, where
@@ -94,10 +95,16 @@ export function syncInstallScript(projectRoot: string = PROJECT_ROOT): SyncResul
 }
 
 if (import.meta.main) {
-  const result = syncInstallScript()
-  console.log(
-    result.written
-      ? `✓ Generated ${INSTALL_SERVED_PATH} from ${INSTALL_SOURCE_PATH}`
-      : `✓ ${INSTALL_SERVED_PATH} already matches ${INSTALL_SOURCE_PATH}`
-  )
+  // Silent on a no-op, which is the overwhelmingly common case: this runs ahead
+  // of every `bun run app:*` preview, so an "already matches" line was the first
+  // thing on screen before the banner and told the operator nothing they could
+  // act on. T23 governs a COMMAND that did no work; a build step nobody invoked
+  // by hand owes no such report.
+  //
+  // A real regeneration IS worth a line. It is stream narration about the run,
+  // so it goes to stderr (T31), flush-left (T12) and with no glyph, because
+  // glyphs are banner furniture and this is not a banner (T11).
+  if (syncInstallScript().written) {
+    printStderr(`Generated ${INSTALL_SERVED_PATH} from ${INSTALL_SOURCE_PATH}`)
+  }
 }

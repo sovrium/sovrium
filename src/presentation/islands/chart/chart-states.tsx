@@ -5,7 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeChartShellClasses } from '@/presentation/design/chart-default-classes'
 import type { ReactElement } from 'react'
+
+// The loading skeleton stands in for the chart card, so it paints the same
+// frame — otherwise the border, radius and surface visibly change the moment
+// the data arrives. Resolved once at module load; the recipe is pure.
+//
+// The error / empty / missing-table / missing-axes branches deliberately keep
+// their own surfaces: those are semantic status panels (error, warning, muted
+// placeholder), not the chart card, and the R-D target table has no row for
+// them.
+const SHELL_CLASSES = computeChartShellClasses()
 
 /**
  * Mirrors gallery-states pattern — every state still emits
@@ -16,7 +27,7 @@ import type { ReactElement } from 'react'
 export function ChartLoading(): ReactElement {
   return (
     <div
-      className="border-border bg-background-raised w-full rounded-lg border p-4"
+      className={SHELL_CLASSES}
       data-component="chart"
       data-chart-state="loading"
       role="status"
@@ -38,7 +49,7 @@ export function ChartLoading(): ReactElement {
 export function ChartError({ error }: { readonly error: unknown }): ReactElement {
   return (
     <div
-      className="border-error-border bg-error-bg text-error-fg rounded border p-3 text-sm"
+      className="border-error-border bg-error-bg text-error-fg text-md rounded border p-3"
       data-component="chart"
       data-chart-state="error"
       role="alert"
@@ -77,7 +88,7 @@ export function ChartEmpty({
   if (emptyState) {
     return (
       <section
-        className="border-border bg-background-subtle text-foreground-muted rounded border p-6 text-center text-sm"
+        className="border-border bg-background-subtle text-foreground-muted text-md rounded border p-6 text-center"
         data-component="chart"
         data-chart-state="empty"
         role="region"
@@ -94,7 +105,7 @@ export function ChartEmpty({
   }
   return (
     <div
-      className="border-border bg-background-subtle text-foreground-muted rounded border p-6 text-center text-sm"
+      className="border-border bg-background-subtle text-foreground-muted text-md rounded border p-6 text-center"
       data-component="chart"
       data-chart-state="empty"
     >
@@ -111,7 +122,7 @@ export function ChartEmpty({
 export function ChartMissingTable(): ReactElement {
   return (
     <div
-      className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm"
+      className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
       data-component="chart"
       data-chart-state="missing-table"
       role="alert"
@@ -125,7 +136,7 @@ export function ChartMissingTable(): ReactElement {
 export function ChartMissingAxes(): ReactElement {
   return (
     <div
-      className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm"
+      className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
       data-component="chart"
       data-chart-state="missing-axes"
       role="alert"

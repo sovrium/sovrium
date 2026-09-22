@@ -23,17 +23,23 @@
  *    runtime (`$record.*` resolved at click time) and, when a `confirm` prompt
  *    is set, the shared `InlineConfirmDialog` gate — it does NOT reinvent
  *    dispatch.
+ *  - CAP-5 `children`: the author's composed content, placed between the
+ *    record's own form and the footer action row. The fields are the record's
+ *    facts and the footer is where the reader acts on them, so content ABOUT
+ *    those facts belongs between the two; below the footer it would sit under
+ *    the commit affordance. See `record-drawer-children.tsx`.
  */
 
 /* eslint-disable react-perf/jsx-no-new-function-as-prop -- conventional confirm-gate + per-field/per-action event handlers (the footer-action confirm/cancel close over the armed action; a field's onChange closes over its name). These are transient surfaces rendered only while the drawer is open, not a hot path. Mirrors the same exemption in action-cell.tsx + inline-confirm-dialog.tsx. */
 
 import { useCallback, useState, type ReactElement } from 'react'
-import { fieldDescribedBy, fieldDescriptionId } from '@/presentation/utils/field-display'
-import { executeFetchAction } from '../shared/action-executor'
-import { AiRefinementMarker } from '../shared/ai-refinement-marker'
-import { readAiRefinementStatus } from '../shared/ai-refinement-status'
-import { InlineConfirmDialog, ObjectConfirmDialog } from '../shared/inline-confirm-dialog'
-import { RecordButton, type RecordButtonConfig } from '../shared/record-button'
+import { fieldDescribedBy, fieldDescriptionId } from '@/presentation/design/field-display'
+import { executeFetchAction } from '../runtime/action-executor'
+import { AiRefinementMarker } from '../runtime/ai-refinement-marker'
+import { readAiRefinementStatus } from '../runtime/ai-refinement-status'
+import { InlineConfirmDialog, ObjectConfirmDialog } from '../runtime/inline-confirm-dialog'
+import { RecordButton, type RecordButtonConfig } from '../runtime/record-button'
+import { RecordDrawerChildren } from './record-drawer-children'
 import type { Action, FetchAction } from '@/domain/models/app/pages/components/action'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
 
@@ -94,7 +100,7 @@ function EntryDescription({ field }: { readonly field: RecordDrawerField }) {
   return (
     <span
       id={fieldDescriptionId(field.name)}
-      className="text-foreground-muted text-xs"
+      className="text-foreground-muted text-sm"
     >
       {field.description}
     </span>
@@ -131,7 +137,7 @@ function PairLine({
   readonly value: unknown
 }): ReactElement {
   return (
-    <span className="text-foreground text-xs">
+    <span className="text-foreground text-sm">
       <span className="text-foreground-muted">{name}</span>
       {`: ${formatScalar(value)}`}
     </span>
@@ -144,7 +150,7 @@ function renderObjectPairs(value: unknown): ReactElement[] {
     return [
       <span
         key="_scalar"
-        className="text-foreground text-xs"
+        className="text-foreground text-sm"
       >
         {formatScalar(value)}
       </span>,
@@ -159,7 +165,7 @@ function renderObjectPairs(value: unknown): ReactElement[] {
   ))
 }
 
-const PRE_CLASS = 'text-foreground overflow-auto text-xs'
+const PRE_CLASS = 'text-foreground overflow-auto text-sm'
 
 /** Array-of-objects → a readable `<ul>` list, one labelled item per element. */
 function StructuredList({ data }: { readonly data: unknown }): ReactElement {
@@ -212,7 +218,7 @@ function StructuredFieldDisplay({
   readonly value: unknown
 }): ReactElement {
   return (
-    <div className="flex flex-col gap-1 text-sm">
+    <div className="text-md flex flex-col gap-1">
       <span className="text-foreground-muted">{entryLabel(field)}</span>
       <StructuredValue
         renderAs={field.renderAs ?? 'json'}
@@ -241,7 +247,7 @@ function FieldInput({
   readonly onChange: (name: string, value: string) => void
 }): ReactElement {
   return (
-    <label className="flex flex-col gap-1 text-sm">
+    <label className="text-md flex flex-col gap-1">
       <span className="text-foreground-muted">{entryLabel(field)}</span>
       <input
         type="text"
@@ -278,7 +284,7 @@ function ReadOnlyField({
   readonly value: unknown
 }): ReactElement {
   return (
-    <div className="flex flex-col gap-1 text-sm">
+    <div className="text-md flex flex-col gap-1">
       <span className="text-foreground-muted">{entryLabel(field)}</span>
       <span
         data-field={field.name}
@@ -307,7 +313,7 @@ function dispatchDrawerAction(action: Action, record: RawRecord): void {
 }
 
 const ACTION_BUTTON_CLASS =
-  'border-border text-foreground hover:bg-background-subtle rounded border px-3 py-1.5 text-sm transition-colors'
+  'border-border text-foreground hover:bg-background-subtle rounded border px-3 py-1.5 text-md transition-colors'
 
 /**
  * A single footer action button. A `confirm`-bearing action arms the shared
@@ -405,6 +411,11 @@ export interface DrawerContentProps {
   readonly loading?: boolean
   readonly error?: string
   readonly actions?: ReadonlyArray<DrawerAction>
+  /**
+   * CAP-5: the author's composed-content slot, as markup the SSR host rendered.
+   * Absent unless children were declared — see `RecordDrawerChildren`.
+   */
+  readonly childrenHtml?: string
   readonly onChange: (name: string, value: string) => void
   readonly onSave: () => void
   /**
@@ -532,6 +543,7 @@ export function DrawerContent({
   loading = false,
   error,
   actions = NO_ACTIONS,
+  childrenHtml,
   onChange,
   onSave,
   table,
@@ -543,7 +555,7 @@ export function DrawerContent({
         <p
           role="alert"
           aria-label="Validation error"
-          className="text-error-fg bg-error-bg border-error-border rounded border p-2 text-sm"
+          className="text-error-fg bg-error-bg border-error-border text-md rounded border p-2"
         >
           {error}
         </p>
@@ -565,10 +577,16 @@ export function DrawerContent({
           type="button"
           onClick={onSave}
           disabled={loading}
-          className="bg-primary text-primary-fg mt-2 self-start rounded px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+          className="bg-primary text-primary-fg text-md mt-2 self-start rounded px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saveLabel}
         </button>
+      )}
+      {childrenHtml !== undefined && (
+        <RecordDrawerChildren
+          html={childrenHtml}
+          record={record}
+        />
       )}
       <DrawerActions
         actions={actions}

@@ -5,18 +5,23 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
-import { resolveAiEcoRouting, type AiEcoRouting } from '@/domain/models/env/ai/ai-eco-routing'
+import { Schema } from 'effect'
+import { isoDateTime } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import {
+  resolveAiEcoRouting,
+  type AiEcoRouting,
+} from '@/domain/models/process-env/ai/ai-eco-routing'
 import {
   computeAiModelWarnings,
   type AgentModelOverride,
-} from '@/domain/models/env/ai/ai-model-warnings'
+} from '@/domain/models/process-env/ai/ai-model-warnings'
 import {
   defaultModelForProvider,
   isSupportedAiProvider,
   resolveAiProvider,
   resolveBaseUrl,
-} from '@/domain/models/env/ai/ai-providers'
+} from '@/domain/models/process-env/ai/ai-providers'
 
 /**
  * Health check response schema
@@ -46,67 +51,75 @@ import {
  * The retired per-engine descriptor (`sqlite-heuristic` / `postgres-trigger`)
  * is intentionally absent.
  */
-export const aiComputeHealthSchema = z.object({
-  enabled: z.boolean().describe('AI-compute availability (always true — baseline is the floor)'),
-  mode: z.literal('baseline-then-refined').describe('Two-phase compute mode'),
-  refinement: z
-    .enum(['on', 'off'])
-    .describe('Whether a configured provider refines the deterministic baseline'),
+export const aiComputeHealthSchema = Schema.Struct({
+  enabled: Schema.Boolean.annotate({
+    description: 'AI-compute availability (always true — baseline is the floor)',
+  }),
+  mode: Schema.Literal('baseline-then-refined').annotate({ description: 'Two-phase compute mode' }),
+  refinement: Schema.Literals(['on', 'off']).annotate({
+    description: 'Whether a configured provider refines the deterministic baseline',
+  }),
 })
 
-export type AiComputeHealth = z.infer<typeof aiComputeHealthSchema>
+export type AiComputeHealth = typeof aiComputeHealthSchema.Type
 
-export const aiHealthStatusSchema = z.object({
-  status: z
-    .enum(['configured', 'not_configured'])
-    .describe('Whether an AI provider is configured via AI_PROVIDER'),
-  compute: aiComputeHealthSchema.describe('AI-compute two-phase descriptor'),
-  provider: z.string().optional().describe('Configured AI provider identifier (AI_PROVIDER)'),
-  model: z.string().optional().describe('Default AI model identifier (AI_MODEL)'),
-  endpoint: z.string().optional().describe('AI provider base URL (AI_BASE_URL), when applicable'),
-  warnings: z
-    .array(z.string())
-    .optional()
-    .describe('Non-fatal AI configuration warnings surfaced at startup (e.g. unknown model names)'),
+export const aiHealthStatusSchema = Schema.Struct({
+  status: Schema.Literals(['configured', 'not_configured']).annotate({
+    description: 'Whether an AI provider is configured via AI_PROVIDER',
+  }),
+  compute: aiComputeHealthSchema.annotate({ description: 'AI-compute two-phase descriptor' }),
+  provider: optionalField(
+    Schema.String.annotate({ description: 'Configured AI provider identifier (AI_PROVIDER)' })
+  ),
+  model: optionalField(
+    Schema.String.annotate({ description: 'Default AI model identifier (AI_MODEL)' })
+  ),
+  endpoint: optionalField(
+    Schema.String.annotate({ description: 'AI provider base URL (AI_BASE_URL), when applicable' })
+  ),
+  warnings: optionalField(
+    Schema.Array(Schema.String).annotate({
+      description:
+        'Non-fatal AI configuration warnings surfaced at startup (e.g. unknown model names)',
+    })
+  ),
   // ── Eco-conception provider routing (ECO_AI_PROVIDER_PRECEDENCE) ──────────
-  precedence: z
-    .enum(['local-first', 'cloud-first', 'local-only'])
-    .optional()
-    .describe('Active ECO_AI_PROVIDER_PRECEDENCE routing mode'),
-  resolvedProvider: z
-    .string()
-    .optional()
-    .describe('Provider AI calls are actually routed to (after applying eco precedence)'),
-  ollamaReachable: z
-    .boolean()
-    .optional()
-    .describe('Whether the local Ollama reachability probe succeeded'),
-  configured: z
-    .string()
-    .optional()
-    .describe('Provider declared via AI_PROVIDER (distinct from resolvedProvider)'),
-  fallbackReason: z
-    .string()
-    .optional()
-    .describe('Why the eco resolver fell back to a non-preferred provider'),
+  precedence: optionalField(
+    Schema.Literals(['local-first', 'cloud-first', 'local-only']).annotate({
+      description: 'Active ECO_AI_PROVIDER_PRECEDENCE routing mode',
+    })
+  ),
+  resolvedProvider: optionalField(
+    Schema.String.annotate({
+      description: 'Provider AI calls are actually routed to (after applying eco precedence)',
+    })
+  ),
+  ollamaReachable: optionalField(
+    Schema.Boolean.annotate({
+      description: 'Whether the local Ollama reachability probe succeeded',
+    })
+  ),
+  configured: optionalField(
+    Schema.String.annotate({
+      description: 'Provider declared via AI_PROVIDER (distinct from resolvedProvider)',
+    })
+  ),
+  fallbackReason: optionalField(
+    Schema.String.annotate({
+      description: 'Why the eco resolver fell back to a non-preferred provider',
+    })
+  ),
 })
 
-export type AiHealthStatus = z.infer<typeof aiHealthStatusSchema>
+export type AiHealthStatus = typeof aiHealthStatusSchema.Type
 
-export const healthResponseSchema = z.object({
-  status: z.literal('ok').describe('Server health status indicator'),
-  timestamp: z.iso
-    .datetime({
-      offset: true,
-      precision: 3,
-    })
-    .describe('ISO 8601 timestamp of the health check'),
-  app: z
-    .object({
-      name: z.string().describe('Application name from configuration'),
-    })
-    .describe('Application metadata'),
-  ai: aiHealthStatusSchema.describe('AI subsystem status'),
+export const healthResponseSchema = Schema.Struct({
+  status: Schema.Literal('ok').annotate({ description: 'Server health status indicator' }),
+  timestamp: isoDateTime({ description: 'ISO 8601 timestamp of the health check' }),
+  app: Schema.Struct({
+    name: Schema.String.annotate({ description: 'Application name from configuration' }),
+  }).annotate({ description: 'Application metadata' }),
+  ai: aiHealthStatusSchema.annotate({ description: 'AI subsystem status' }),
 })
 
 /**
@@ -114,7 +127,7 @@ export const healthResponseSchema = z.object({
  *
  * Use this type for type-safe health check responses in application code.
  */
-export type HealthResponse = z.infer<typeof healthResponseSchema>
+export type HealthResponse = typeof healthResponseSchema.Type
 
 /**
  * Build the `ai` health-status object from a snapshot of env vars.

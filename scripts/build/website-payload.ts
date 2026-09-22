@@ -8,7 +8,7 @@
 /**
  * Shared tree builder for the two flattened copies of `apps/website`:
  *
- *   1. the Scalingo deploy tree  (`scripts/build-website-deploy-tree.sh`)
+ * 1. the Scalingo deploy tree
  *   2. the public GitHub mirror  (`scripts/build/publish-website-repo.ts`)
  *
  * Both flatten the app to a root layout so `sovrium start app.ts` resolves
@@ -23,6 +23,7 @@
 
 import { cpSync, existsSync, mkdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { printStderr } from '@/infrastructure/logging/cli-output'
 import { syncInstallScript } from './sync-install-script'
 
 /** Top-level entries copied from `apps/website/` to the tree root, in order. */
@@ -107,7 +108,7 @@ export function copyWebsitePayload(
 if (import.meta.main) {
   const [srcDir, destDir] = process.argv.slice(2)
   if (srcDir === undefined || destDir === undefined) {
-    console.error('usage: website-payload.ts <src-dir> <dest-dir> [--strip-public-assets]')
+    printStderr('usage: website-payload.ts <src-dir> <dest-dir> [--strip-public-assets]')
     process.exit(1)
   }
   // `public/install` is generated from install.sh, so a deploy tree built from a

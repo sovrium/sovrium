@@ -17,52 +17,36 @@
  * follows most-permissive-wins: a user is granted access when their role OR
  * any of their groups passes the table-level permission gate.
  *
- * Table reads go through `AuthRepository.getUserGroups`; this module exposes a
- * Promise-returning wrapper because the permission middleware needs a plain
- * async lookup with no HTTP request context. Mirrors the sibling
- * `user-role.ts`, which wraps `AuthRepository.getUserRole` the same way.
+ * Table reads go through `AuthRepository.getUserGroups`. The lookup DECLARES
+ * that repository rather than binding one (standing rule E1); the permission
+ * middleware runs it on the request's own services. Mirrors the sibling
+ * `user-role.ts`, which reads `AuthRepository.getUserRole` the same way.
  */
 
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { toGroupReference } from '@/domain/models/app/auth/groups/group-reference'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
-
-/** Service shape for direct injection (used by tests to bypass real DB). */
-export type UserGroupsService = {
-  readonly getUserGroups: (userId: string) => Promise<readonly string[]>
-}
 
 /**
  * Resolve the names of every group the given user belongs to.
  *
- * Returns a bare list of group names (NOT `group:`-prefixed). An empty array
- * is returned when the user belongs to no groups, or when the team tables do
- * not exist (auth not configured) — a best-effort lookup that never throws.
+ * Yields a bare list of group names (NOT `group:`-prefixed). An empty array is
+ * returned when the user belongs to no groups, or when the team tables do not
+ * exist (auth not configured) — a best-effort lookup that cannot fail.
  *
  * @param userId - Better Auth `user.id`
- * @param service - Optional direct service injection (for unit tests).
  */
-export async function getUserGroups(
-  userId: string,
-  service?: UserGroupsService
-): Promise<readonly string[]> {
-  if (service) {
-    return service.getUserGroups(userId)
-  }
-
-  const program = Effect.gen(function* () {
+export const getUserGroups = (
+  userId: string
+): Effect.Effect<readonly string[], never, AuthRepository> =>
+  Effect.gen(function* () {
     const repo = yield* AuthRepository
     return yield* repo.getUserGroups(userId)
   }).pipe(
-    Effect.provide(AuthRepositoryLive),
-    // Team tables absent (auth not configured) — no group memberships. Kept as a
-    // total Effect so this helper never throws into the permission gate.
-    Effect.orElseSucceed(() => [] as readonly string[])
+    // effect-swallow: team tables absent (auth not configured) is the ordinary case, not an incident — it means "no group memberships", and keeping it total stops a missing table failing the permission gate open OR closed by accident.
+    Effect.orElseSucceed(() => [] as readonly string[]),
+    Effect.withSpan('tables.get-user-groups')
   )
-
-  return Effect.runPromise(program)
-}
 
 /**
  * Build the set of effective roles for a user: their global role plus a

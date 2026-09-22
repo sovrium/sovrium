@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { commonFieldProps } from '../../../shared/form-field-props'
+import { commonFieldProps } from '../form-field-props'
 
 /**
  * Calculation field — read-only computed value derived from other fields.

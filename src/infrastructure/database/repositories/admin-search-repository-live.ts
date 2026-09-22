@@ -14,8 +14,8 @@ import {
   type AdminSearchStaleness,
   type AdminSearchUpsertRow,
 } from '@/application/ports/repositories/admin-search-repository'
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
-import { sanitizeTableName } from '@/domain/utils/database/table-naming'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { db } from '@/infrastructure/database'
 import {
   ADMIN_SEARCH_CONTENT_TABLE,

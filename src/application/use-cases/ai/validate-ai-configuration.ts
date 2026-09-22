@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
-import { validateModelString } from '@/domain/models/env/ai/ai-model-string'
+import { validateModelString } from '@/domain/models/process-env/ai/ai-model-string'
 import {
   SUPPORTED_AI_PROVIDERS,
   apiKeyAliasEnvVar,
@@ -20,7 +20,7 @@ import {
   resolveApiKey,
   resolveAiProvider,
   resolveBaseUrl,
-} from '@/domain/models/env/ai/ai-providers'
+} from '@/domain/models/process-env/ai/ai-providers'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -177,5 +177,11 @@ export const validateAiConfiguration = (
     checkModelStringFormat(processEnv['AI_MODEL']) ??
     checkTemperatureRange(processEnv['AI_TEMPERATURE']) ??
     checkMaxTokensRange(processEnv['AI_MAX_TOKENS'])
-  return message === undefined ? Effect.void : Effect.fail(new AppValidationError(message))
+  // Only the REFUSAL opens a span: a validator that passes did no work worth a
+  // trace entry, while one that refuses is the reason a boot stopped.
+  return message === undefined
+    ? Effect.void
+    : Effect.fail(new AppValidationError(message)).pipe(
+        Effect.withSpan('ai.validate-ai-configuration')
+      )
 }

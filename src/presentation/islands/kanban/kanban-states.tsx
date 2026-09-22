@@ -5,11 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeKanbanBoardClasses,
+  computeKanbanColumnClasses,
+} from '@/presentation/design/kanban-default-classes'
 import type { ReactElement } from 'react'
 
 export function KanbanMissingGroupBy(): ReactElement {
   return (
-    <div className="border-warning-border bg-warning-bg text-warning-fg rounded border p-3 text-sm">
+    <div className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3">
       <p>
         Kanban board is missing required <code>kanbanGroupBy.field</code> configuration.
       </p>
@@ -18,19 +22,29 @@ export function KanbanMissingGroupBy(): ReactElement {
   )
 }
 
+/**
+ * The kanban board's loading state.
+ *
+ * Board and column chrome come from the SAME recipes the hydrated board uses,
+ * so the columns do not re-draw at the moment the records arrive: the pulsing
+ * bars are replaced inside wells whose fill, radius, padding and gutter never
+ * move. The skeleton bar tone changes with them — a `bg-background-subtle` bar
+ * on a `bg-background-subtle` well was invisible, which is what made the
+ * loading board look like three empty boxes.
+ */
 export function KanbanLoading(): ReactElement {
   return (
     <div
-      className="flex w-full gap-4 overflow-x-auto p-2"
+      className={computeKanbanBoardClasses()}
       aria-label="Loading kanban board..."
       role="status"
     >
       {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={`kanban-loading-col-${String(i)}`}
-          className="border-border bg-background-subtle flex w-72 shrink-0 flex-col gap-2 rounded-lg border p-3"
+          className={`${computeKanbanColumnClasses()} w-72 shrink-0`}
         >
-          <div className="bg-background-subtle h-5 w-24 animate-pulse rounded" />
+          <div className="bg-background-inset h-4 w-24 animate-pulse rounded" />
           <div className="bg-background-raised h-20 animate-pulse rounded" />
         </div>
       ))}
@@ -41,7 +55,7 @@ export function KanbanLoading(): ReactElement {
 export function KanbanError({ error }: { readonly error: unknown }): ReactElement {
   return (
     <div
-      className="border-error-border bg-error-bg text-error-fg rounded border p-3 text-sm"
+      className="border-error-border bg-error-bg text-error-fg text-md rounded border p-3"
       role="alert"
     >
       <p>Failed to load kanban records: {error instanceof Error ? error.message : String(error)}</p>

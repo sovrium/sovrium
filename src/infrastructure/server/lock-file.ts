@@ -7,7 +7,7 @@
 
 import { readFile, writeFile, rm, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { defaultLockDir } from '@/domain/models/env/data-dir'
+import { defaultLockDir } from '@/domain/models/process-env/data-dir'
 
 const LOCK_FILE_NAME = 'lock'
 
@@ -65,7 +65,6 @@ export const getReloadMessageFilePath = (): string => join(getLockDir(), 'reload
 export const writeLockFile = async (data: LockFileData): Promise<void> => {
   // eslint-disable-next-line functional/no-expression-statements
   await mkdir(getLockDir(), { recursive: true })
-  // eslint-disable-next-line functional/no-expression-statements
   await writeFile(getLockFilePath(), JSON.stringify(data), 'utf-8')
 }
 
@@ -86,7 +85,6 @@ export const readLockFile = async (): Promise<LockFileData | undefined> => {
  * Remove the lock file from disk
  */
 export const removeLockFile = async (): Promise<void> => {
-  // eslint-disable-next-line functional/no-expression-statements
   await rm(getLockFilePath(), { force: true })
 }
 

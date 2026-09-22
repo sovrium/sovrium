@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { GUEST_USER_ID, SYSTEM_USER_ID } from '@/domain/services/guest-session'
-import type { UserSession } from '@/application/ports/models/user-session'
+import { GUEST_USER_ID, SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 
 /**
  * Build a synthetic server-side session with the given actor id. Structurally

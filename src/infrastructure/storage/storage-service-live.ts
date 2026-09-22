@@ -16,7 +16,7 @@ import {
 import {
   parseStorageEnvConfig,
   validateStorageSizeLimits,
-} from '@/domain/models/env/storage/storage'
+} from '@/domain/models/process-env/storage/storage'
 import { logWarning } from '@/infrastructure/logging/logger'
 import {
   bucketBindingMatches,
@@ -50,6 +50,7 @@ import {
   s3GetTotalBytes,
   s3ValidateBucket,
 } from './s3-adapter'
+import { probeS3BucketOnce } from './s3-bucket-probe'
 import type { BucketBinding } from '@/application/ports/services/storage-service'
 
 const makeError = (cause: unknown): StorageError => new StorageError({ cause })
@@ -188,6 +189,39 @@ const findMissingS3EnvVar = (): string | undefined => {
   return requiredS3Vars.find((name) => !process.env[name])
 }
 
+/**
+ * Take the advisory S3 bucket probe and warn when it did not answer.
+ *
+ * This used to be an `Effect.tryPromise` inside the layer body whose failure
+ * ABORTED construction, which had two costs. A bucket that was briefly
+ * unreachable took down every composition holding this layer — including ones
+ * serving routes that never touch storage — and, because the failure then had
+ * to be erased somewhere, both composition roots wrapped the layer in
+ * `Layer.orDie`. And since `routes/buckets/effect-runner.ts` re-provides the
+ * layer per request, the check cost an S3 `LIST` on every signed-URL request.
+ *
+ * Now: at most one `LIST` per process per endpoint, and a warning instead of a
+ * failure. The operator still learns about it at boot; a request against a
+ * genuinely broken backend still fails with the `StorageError` the operation
+ * itself raises, which is the error that can actually be acted on.
+ *
+ * Never rejects — `probeS3BucketOnce` resolves its failures as values — so the
+ * caller's `Effect.promise` cannot become a defect.
+ */
+const warnIfS3BucketUnreachable = async (
+  client: Bun.S3Client,
+  endpoint: string,
+  bucket: string
+): Promise<void> => {
+  const probe = await probeS3BucketOnce(`${endpoint}|${bucket}`, () =>
+    s3ValidateBucket(client, bucket)
+  )
+  if (probe.reachable) return
+  logWarning(
+    `[storage] S3 bucket "${bucket}" did not answer a reachability probe: ${String(probe.cause)}. Storage operations will surface their own errors.`
+  )
+}
+
 export const StorageServiceLive = Layer.effect(
   StorageService,
   Effect.gen(function* () {
@@ -208,11 +242,10 @@ export const StorageServiceLive = Layer.effect(
     if (config?.provider === 's3') {
       const client = createS3Client(config)
       const { bucket: s3Bucket } = config
-      yield* Effect.tryPromise({
-        try: () => s3ValidateBucket(client, s3Bucket),
-        catch: (e: unknown) =>
-          new StorageError({ cause: `S3 bucket "${s3Bucket}" is not accessible: ${e}` }),
-      })
+      // ADVISORY, not fatal, and at most once per process — see
+      // {@link warnIfS3BucketUnreachable} and ./s3-bucket-probe.
+      // effect-promise: total -- `warnIfS3BucketUnreachable` only awaits `probeS3BucketOnce`, which converts every rejection into a value; neither has a failure mode.
+      yield* Effect.promise(() => warnIfS3BucketUnreachable(client, config.endpoint, s3Bucket))
       return StorageService.of({
         upload: (key: string, content: Uint8Array, mimeType: string, bucket: BucketBinding) =>
           assertBucketWritable(key, bucket).pipe(

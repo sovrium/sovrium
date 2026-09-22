@@ -16,6 +16,7 @@
    its handlers close over the draft instant. */
 
 import { useState } from 'react'
+import { computeTableAddRowInputClasses } from '@/presentation/design/table-default-classes'
 import { editMetaOf, type CellEditorProps } from './editor-contract'
 import { EditorPopover } from './editor-popover'
 import type { ReactElement } from 'react'
@@ -115,7 +116,7 @@ export function DateTimeEditor(props: CellEditorProps): ReactElement {
           e.preventDefault()
           commitLocal()
         }}
-        className="border-primary focus:ring-focus-ring w-full rounded border px-1 py-0.5 text-sm focus:ring-1 focus:outline-none"
+        className={computeTableAddRowInputClasses()}
       />
     </EditorPopover>
   )

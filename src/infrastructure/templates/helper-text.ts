@@ -14,7 +14,7 @@
  */
 
 import { Result } from 'effect'
-import { stripHtmlToText } from '@/domain/utils/html-sanitization'
+import { stripHtmlToText } from '@/domain/kernel/sanitize/html-sanitization'
 import { toNumber, toStr } from './helper-coercion'
 
 // ─── tokenisation ────────────────────────────────────────────────────────
@@ -271,6 +271,13 @@ export const matchAll = (input: string, pattern: string, flags: string): readonl
   if (pattern === '') return []
   const withGlobal = flags.includes('g') ? flags : `${flags}g`
   const compiled = Result.try({
+    // The pattern IS the feature: `{{matchAll}}` exists so an app author can supply a
+    // regular expression from config, and escaping it would compile the pattern as
+    // a literal and break every use. The enclosing `Result.try` catches a SYNTAX
+    // error only, so catastrophic backtracking in an operator-authored pattern is
+    // unmitigated — accepted because config is authored by the operator, who
+    // already controls the process.
+    // eslint-disable-next-line sovrium/no-dynamic-regexp -- operator-supplied pattern is the documented feature
     try: () => new RegExp(pattern, withGlobal),
     catch: () => undefined,
   })

@@ -82,4 +82,4 @@ export const checkRateLimit = (input: {
       reason: result.reason,
       retryAfterSec: result.retryAfterSec,
     })
-  })
+  }).pipe(Effect.withSpan('forms.check-rate-limit', { attributes: { form: input.form.name } }))

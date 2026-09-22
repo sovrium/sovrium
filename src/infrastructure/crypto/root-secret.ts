@@ -8,7 +8,7 @@
 import { randomBytes, scryptSync } from 'node:crypto'
 import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { defaultEncryptionKeyPath } from '@/domain/models/env/data-dir'
+import { defaultEncryptionKeyPath } from '@/domain/models/process-env/data-dir'
 
 /**
  * The single root secret every cryptographic purpose in Sovrium derives from.

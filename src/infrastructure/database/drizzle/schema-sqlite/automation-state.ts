@@ -47,5 +47,3 @@ export const automationState = systemTable(
 )
 
 // Type inference
-export type AutomationState = typeof automationState.$inferSelect
-export type NewAutomationState = typeof automationState.$inferInsert

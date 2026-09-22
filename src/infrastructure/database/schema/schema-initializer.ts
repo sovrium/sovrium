@@ -7,10 +7,11 @@
 
 import { SQL } from 'bun'
 import { Effect, Data, type Config } from 'effect'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import {
   parseDatabaseDialectConfig,
   type DatabaseDialectConfig,
-} from '@/domain/models/env/database/database-dialect'
+} from '@/domain/models/process-env/database/database-dialect'
 import { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import { logDebug } from '@/infrastructure/logging/logger'
@@ -19,7 +20,7 @@ import {
   needsUpdatedByTrigger,
   ensureBetterAuthUsersTable,
   ensureUpdatedByTriggerFunction,
-  type BetterAuthUsersTableRequired,
+  BetterAuthUsersTableRequired,
 } from '../auth/auth-validation'
 import * as lookupViewGenerators from '../lookup/lookup-view-generators'
 import {
@@ -31,9 +32,10 @@ import { openSqliteDdlDatabase, runSqliteSchemaTransaction } from '../sql/dialec
 import {
   tableExists,
   executeSQL,
-  type SQLExecutionError,
+  SQLExecutionError,
   type TransactionLike,
 } from '../sql/sql-execution'
+import { isManyToManyRelationship } from '../sql/sql-field-predicates'
 import { generateJunctionTableDDL, generateJunctionTableName } from '../sql/sql-generators'
 import {
   createOrMigrateTableEffect,
@@ -41,7 +43,6 @@ import {
   createTableViewsEffect,
   buildTablePrimaryKeyTypesMap,
 } from '../table-operations'
-import { sanitizeTableName, isManyToManyRelationship } from '../table-queries/shared/field-utils'
 import * as viewGenerators from '../views/view-generators'
 import { applySchemaDefaults } from './apply-schema-defaults'
 import { dropCommandSearchFtsObjects, reconcileCommandSearchIndexes } from './command-search-fts'
@@ -73,25 +74,56 @@ export class NoDatabaseUrlError extends Data.TaggedError('NoDatabaseUrlError')<{
   readonly message: string
 }> {}
 
-/** Ensure Better Auth prerequisites exist (users table + updated-by trigger) */
+/**
+ * Ensure Better Auth prerequisites exist (users table + updated-by trigger).
+ *
+ * The error channel NAMES {@link BetterAuthUsersTableRequired} because
+ * `ensureBetterAuthUsersTable` is documented to throw it, this module re-exports
+ * it as something a caller can handle, and `SchemaError` below has listed it as
+ * a member since that union was written. Wrapping the call in `Effect.promise`
+ * declared the channel `never`, which turned the throw into a DEFECT and left
+ * the union member unreachable — a misconfigured app got an unhandled fiber
+ * failure where an actionable, designed error was on offer. Both calls are now
+ * `Effect.tryPromise`, with a catch that keeps the designed error apart from the
+ * catalog query merely failing.
+ */
 const ensureAuthPrerequisites = (
   tx: TransactionLike,
   tables: readonly Table[],
   hasAuthConfig: boolean
-): Effect.Effect<void, never, never> =>
+): Effect.Effect<void, BetterAuthUsersTableRequired | SQLExecutionError, never> =>
   Effect.gen(function* () {
     const needs = needsUsersTable(tables)
 
     // Only enforce users table existence if auth is configured
     // If auth is NOT configured, authorship fields will be NULL
     if (needs && hasAuthConfig) {
-      yield* Effect.promise(() => ensureBetterAuthUsersTable(tx))
+      yield* Effect.tryPromise({
+        try: () => ensureBetterAuthUsersTable(tx),
+        // The designed error passes through UNCHANGED. Anything else is the
+        // catalog query itself failing, which is an ordinary SQL failure and
+        // must not be reported to an operator as a misconfiguration.
+        catch: (error) =>
+          error instanceof BetterAuthUsersTableRequired
+            ? error
+            : new SQLExecutionError({
+                message: `Better Auth users table check failed: ${String(error)}`,
+                cause: error,
+              }),
+      })
     } else if (needs && !hasAuthConfig) {
       logDebug('[schema] user fields present but auth not configured — authorship will be NULL')
     }
 
     if (needsUpdatedByTrigger(tables)) {
-      yield* Effect.promise(() => ensureUpdatedByTriggerFunction(tx))
+      yield* Effect.tryPromise({
+        try: () => ensureUpdatedByTriggerFunction(tx),
+        catch: (error) =>
+          new SQLExecutionError({
+            message: `set_updated_by trigger function setup failed: ${String(error)}`,
+            cause: error,
+          }),
+      })
     }
   })
 
@@ -246,7 +278,14 @@ const createAllViews = (
   viewGeneratorsModule: typeof viewGenerators
 ): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
-    yield* Effect.promise(() => viewGeneratorsModule.dropAllObsoleteViews(tx, sortedTables))
+    yield* Effect.tryPromise({
+      try: () => viewGeneratorsModule.dropAllObsoleteViews(tx, sortedTables),
+      catch: (error) =>
+        new SQLExecutionError({
+          message: `Dropping obsolete views failed: ${String(error)}`,
+          cause: error,
+        }),
+    })
     // Lookup/rollup/count VIEWs must be created in VIEW-BODY dependency order,
     // NOT the FK-topological `sortedTables` order: a view-backed table that is a
     // lookup/rollup/count SOURCE for another view must exist before the view that
@@ -300,7 +339,7 @@ const executeMigrationSteps = (
   tx: TransactionLike,
   tables: readonly Table[],
   app: App
-): Effect.Effect<void, SQLExecutionError, never> =>
+): Effect.Effect<void, SQLExecutionError | BetterAuthUsersTableRequired, never> =>
   Effect.gen(function* () {
     // Step 0: Validate stored checksum to detect tampering
     yield* validateStoredChecksum(tx)
@@ -398,6 +437,10 @@ export type SchemaError =
  * Errors are logged and handled internally - returns Effect<void, never>
  * for simpler composition in application layer.
  *
+ * @see [internal ref] — the decision.
+ *      (A `runtime-sql-migrations/04-migration-executor.md` deep dive was cited
+ *      here until 2026-09-03; it was deleted for describing services this file
+ *      does not contain.)
  */
 /**
  * Drop obsolete views when migration is skipped (checksum fast-path).
@@ -434,11 +477,9 @@ const cleanupObsoleteViews = (
       try {
         yield* Effect.tryPromise({
           try: async () => {
-            /* eslint-disable functional/no-expression-statements */
             await db.begin(async (tx) => {
               await viewGenerators.dropAllObsoleteViews(tx, tables)
             })
-            /* eslint-enable functional/no-expression-statements */
           },
           catch: (error) =>
             new SchemaInitializationError({
@@ -447,6 +488,7 @@ const cleanupObsoleteViews = (
             }),
         })
       } finally {
+        // effect-promise: total -- `SQL.close()` resolves once the pool is drained and has no rejection path; this is the `finally` arm, where a failure would replace the real view-cleanup error with a teardown one.
         yield* Effect.promise(() => db.close())
       }
     }

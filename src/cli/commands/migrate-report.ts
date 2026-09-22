@@ -26,45 +26,71 @@
 
 import { formatAccountCollisionMessage } from '@/infrastructure/database/drizzle/account-issuer-preflight'
 import { formatOauthClientIdCollisionMessage } from '@/infrastructure/database/drizzle/oauth-client-id-preflight'
-import type { MigrationJournalState } from '@/infrastructure/database/drizzle/migrate'
+import type { MigrationFolderState } from '@/infrastructure/database/drizzle/migrate'
 import type { MigrationPreflightReport } from '@/infrastructure/database/drizzle/migrate-preflight'
 import type { TableChange } from '@/infrastructure/database/schema/schema-dry-run'
 import type { CliBlock } from '@/infrastructure/logging/cli-output'
 
-/** The journal entries this database has NOT applied, in journal order. */
-export const pendingTags = (state: MigrationJournalState): readonly string[] =>
-  state.tags.slice(state.appliedCount)
+/**
+ * The migrations this database has NOT applied, in apply order.
+ *
+ * A SET DIFFERENCE, not a positional slice. Drizzle v1 decides what to run by
+ * NAME membership, so `names.slice(appliedCount)` — correct under 0.45's
+ * strictly ordered timestamp model — would now be able to name the wrong
+ * migrations outright on a database that recorded them out of order, or one
+ * holding a migration this build does not ship.
+ */
+export const pendingNames = (state: MigrationFolderState): readonly string[] => {
+  const applied = new Set(state.applied)
+  return state.names.filter((name) => !applied.has(name))
+}
+
+/**
+ * The shipped migrations this database HAS applied, in apply order.
+ *
+ * Intersected with the shipped set rather than counting the rows, so a database
+ * holding a migration this build does not ship cannot report more applied than
+ * exist — the `N of M` line has to stay readable, and `15 of 14` is not.
+ */
+const appliedNames = (state: MigrationFolderState): readonly string[] => {
+  const applied = new Set(state.applied)
+  return state.names.filter((name) => applied.has(name))
+}
 
 /** Which engine, and the folder drizzle actually resolved. */
-export const contextBlock = (state: MigrationJournalState): CliBlock => [
+export const contextBlock = (state: MigrationFolderState): CliBlock => [
   { text: `Dialect: ${state.dialect}` },
   { text: `Migrations: ${state.migrationsFolder}` },
 ]
 
 /**
- * What the journal did, named by tag.
+ * What the migration set did, named by folder.
  *
- * The applied tags are the SLICE between the before and after counts, because
- * drizzle applies journal entries in order and records no tag of its own. An
- * empty slice is reported positively — "nothing pending" and "the command
- * produced no output" have to stay distinguishable, which is the distinction
- * the silent v0.23.0 boot destroyed.
+ * The applied names are the DIFFERENCE between the before and after name sets.
+ * Under 0.45 this was the slice between two counts, which was only ever correct
+ * because the timestamp model made applying strictly append-only; drizzle v1
+ * records a `name` per row and decides by set membership, so the difference is
+ * both simpler and no longer an inference. An empty difference is reported
+ * positively — "nothing pending" and "the command produced no output" have to
+ * stay distinguishable, which is the distinction the silent v0.23.0 boot
+ * destroyed.
  */
 export const appliedBlock = (
-  before: MigrationJournalState,
-  after: MigrationJournalState
+  before: MigrationFolderState,
+  after: MigrationFolderState
 ): CliBlock => {
-  const applied = after.tags.slice(before.appliedCount, after.appliedCount)
-  const position = `${after.appliedCount} of ${after.tags.length}`
+  const previously = new Set(before.applied)
+  const applied = appliedNames(after).filter((name) => !previously.has(name))
+  const position = `${appliedNames(after).length} of ${after.names.length}`
 
   return applied.length === 0
-    ? [{ glyph: 'ok', text: `No pending migrations. The journal is at ${position}.` }]
+    ? [{ glyph: 'ok', text: `No pending migrations. The migration set is at ${position}.` }]
     : [
         {
           glyph: 'ok',
           text: `Applied ${applied.length} pending ${
             applied.length === 1 ? 'migration' : 'migrations'
-          }. The journal is at ${position}.`,
+          }. The migration set is at ${position}.`,
           detail: applied,
         },
       ]
@@ -128,11 +154,11 @@ export const configTableRefusalRows = (changes: readonly TableChange[]): readonl
  * completed nothing), and a closing line naming the command that would apply it.
  */
 export const dryRunBlocks = (
-  state: MigrationJournalState,
+  state: MigrationFolderState,
   changes: readonly TableChange[]
 ): readonly CliBlock[] => {
-  const pending = pendingTags(state)
-  const journal: CliBlock =
+  const pending = pendingNames(state)
+  const migrations: CliBlock =
     pending.length === 0
       ? [{ text: 'no pending migrations' }]
       : [
@@ -156,7 +182,7 @@ export const dryRunBlocks = (
   return [
     [{ glyph: 'warn', text: 'Dry run — nothing was written.' }],
     contextBlock(state),
-    journal,
+    migrations,
     schema,
     closing,
   ]
@@ -167,17 +193,17 @@ export const dryRunBlocks = (
  *
  * These are the three facts nobody could obtain during the v0.23.0 outage
  * without opening a database tunnel by hand: which engine, which folder, and
- * where the journal actually stands.
+ * where the migration set actually stands.
  */
 export const checkBlocks = (
-  state: MigrationJournalState,
+  state: MigrationFolderState,
   findings: MigrationPreflightReport,
   configTableChanges: readonly TableChange[]
 ): readonly CliBlock[] => {
-  const pending = pendingTags(state)
+  const pending = pendingNames(state)
   const counts: CliBlock = [
     ...contextBlock(state),
-    { text: `Applied: ${state.appliedCount} of ${state.tags.length}` },
+    { text: `Applied: ${appliedNames(state).length} of ${state.names.length}` },
     { text: `Pending: ${pending.length}` },
   ]
 
@@ -243,14 +269,16 @@ export const checkFindingRows = (findings: MigrationPreflightReport): readonly s
         '',
         ...findings.hashDrift.map(
           (drift) =>
-            `    ${drift.tag}: stored ${drift.storedHash.slice(0, 12)}…, shipped ${drift.expectedHash.slice(0, 12)}…`
+            `    ${drift.name}: stored ${drift.storedHash.slice(0, 12)}…, shipped ${drift.expectedHash.slice(0, 12)}…`
         ),
         '',
-        'Drizzle decides what to apply by timestamp and never re-reads the hash it',
-        'stored, so a rewritten released migration is invisible to it and fatal to',
-        'every database that already applied the original. Restore the file this',
-        'release shipped rather than editing the stored hash: the hash is the only',
-        'evidence that the rewrite happened.',
+        'Drizzle decides what to apply by name and never re-reads the hash it stored,',
+        'so a rewritten released migration is invisible to it and fatal to every',
+        'database that already applied the original. On a database that has not yet',
+        'booted a v1 build it is worse: the hash is what names a legacy row whose',
+        'timestamp matches nothing, so an edited file can make the upgrade refuse to',
+        'start at all. Restore the file this release shipped rather than editing the',
+        'stored hash: the hash is the only evidence that the rewrite happened.',
       ]
     : []),
 ]

@@ -113,7 +113,7 @@ export const ListItemTemplateSchema = Schema.Struct({
  * List display configuration for search-first result display.
  *
  * The list component is designed as a search-first display — the natural
- * companion for `searchInput`. A searchInput component drives the query
+ * companion for `search-input`. A search-input component drives the query
  * (via `dataSource.bindTo`), and the list displays results with custom
  * templates, highlighting, and pagination.
  *

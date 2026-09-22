@@ -25,7 +25,7 @@
  * audit entry — see the route handler note.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
   UsersDirectoryRepository,
   type UsersDirectoryDatabaseError,
@@ -35,7 +35,7 @@ import {
   adminUsersDirectoryResponseSchema,
   type AdminUsersDirectoryResponse,
 } from '@/domain/models/api/admin/users'
-import { UsersDirectoryRepositoryLive } from '@/infrastructure/database/repositories/tables/users-directory-repository-live'
+import { decodeSafe } from '@/domain/models/api/combinators/decode'
 
 /**
  * The fallback role for an account whose `auth.user.role` column is NULL or
@@ -180,14 +180,9 @@ export const BuildUsersDirectory = (
       appliedQuery: input.q ?? null,
     } satisfies AdminUsersDirectoryResponse
 
-    const parsed = adminUsersDirectoryResponseSchema.safeParse(body)
+    const parsed = decodeSafe(adminUsersDirectoryResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
     return { _tag: 'Ok', body: parsed.data } as const
-  })
-
-/**
- * Application layer for the users-directory use case.
- */
-export const UsersDirectoryLayer = Layer.mergeAll(UsersDirectoryRepositoryLive)
+  }).pipe(Effect.withSpan('admin.build-users-directory'))

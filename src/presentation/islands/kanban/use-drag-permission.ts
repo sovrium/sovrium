@@ -33,7 +33,7 @@ interface PermissionsResult {
 
 interface ResolveDragPermissionInput {
   readonly enabled: boolean
-  readonly groupByField: string | undefined
+  readonly writeFields: readonly (string | undefined)[]
   readonly sessionPending: boolean
   readonly sessionData: SessionProbeResult | undefined
   readonly permissionsPending: boolean
@@ -56,9 +56,19 @@ async function probeAuthSession(): Promise<SessionProbeResult> {
   }
 }
 
-function isFieldWritable(perms: PermissionsResult, groupByField: string | undefined): boolean {
-  if (!groupByField) return true
-  return perms.fields[groupByField]?.write !== false
+/**
+ * Every AXIS field a drop could write must be writable, not just the first.
+ *
+ * A two-axis board's drag writes `kanbanGroupBy.field`, `swimlanes.field`, or
+ * both, so a role permitted one and refused the other would be offered a board
+ * whose vertical drags paint and then fail at the API. Absent entries (a board
+ * with no lane axis) are vacuously writable.
+ */
+function areFieldsWritable(
+  perms: PermissionsResult,
+  writeFields: readonly (string | undefined)[]
+): boolean {
+  return writeFields.every((field) => !field || perms.fields[field]?.write !== false)
 }
 
 /**
@@ -72,7 +82,7 @@ function isFieldWritable(perms: PermissionsResult, groupByField: string | undefi
  *   3. auth not configured → guest mode, canDrag=true
  *   4. table permissions still pending → unresolved
  *   5. permissions returned undefined / no table.update → canDrag=false
- *   6. groupBy field's write=false → canDrag=false
+ *   6. any axis field's write=false → canDrag=false
  *   7. all gates passed → canDrag=true
  */
 function resolveDragPermission(input: ResolveDragPermissionInput): DragPermissionState {
@@ -82,7 +92,7 @@ function resolveDragPermission(input: ResolveDragPermissionInput): DragPermissio
   if (input.permissionsPending) return { canDrag: false, resolved: false }
   const perms = input.permissions
   if (!perms || perms.table.update !== true) return { canDrag: false, resolved: true }
-  if (!isFieldWritable(perms, input.groupByField)) return { canDrag: false, resolved: true }
+  if (!areFieldsWritable(perms, input.writeFields)) return { canDrag: false, resolved: true }
   return { canDrag: true, resolved: true }
 }
 
@@ -95,15 +105,15 @@ function resolveDragPermission(input: ResolveDragPermissionInput): DragPermissio
  *      guest with full drag access — matching the no-auth behaviour of the
  *      records API (`hasUpdatePermission` allows guests by default).
  *   2. When auth IS configured, we honour the table-level `update` permission
- *      and the per-field `write` permission for the groupBy field returned by
- *      `/api/tables/:tableId/permissions`.
+ *      and the per-field `write` permission for EVERY axis field the board can
+ *      write, as returned by `/api/tables/:tableId/permissions`.
  *
  * The hook returns `resolved: false` while either probe is pending so the
  * island can avoid rendering `draggable="true"` in a flickering state.
  */
 export function useDragPermission(
   tableName: string | undefined,
-  groupByField: string | undefined,
+  writeFields: readonly (string | undefined)[],
   enabled: boolean
 ): DragPermissionState {
   const sessionProbe = useQuery({
@@ -132,7 +142,7 @@ export function useDragPermission(
 
   return resolveDragPermission({
     enabled,
-    groupByField,
+    writeFields,
     sessionPending: sessionProbe.isPending,
     sessionData: sessionProbe.data,
     permissionsPending: permissionsQuery.isPending,

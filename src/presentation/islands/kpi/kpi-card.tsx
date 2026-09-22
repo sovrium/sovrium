@@ -5,7 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveLucideIcon } from '@/presentation/utils/lucide-resolver'
+import {
+  KPI_LABEL_ROW_CLASSES,
+  KPI_TREND_GROUP_CLASSES,
+  computeKpiCardClasses,
+  computeKpiIconClasses,
+  computeKpiLabelClasses,
+  computeKpiTrendClasses,
+  computeKpiValueClasses,
+} from '@/presentation/design/kpi-default-classes'
+import { LucideGlyph } from '@/presentation/design/lucide-glyph'
 import { KpiSparkline } from './kpi-sparkline'
 import type { ReactElement } from 'react'
 
@@ -23,12 +32,28 @@ interface KpiCardProps {
   readonly label?: string
   readonly value: string
   readonly icon?: string
+  /**
+   * Server-resolved geometry for {@link KpiCardProps.icon}. Resolved in
+   * `extractKpiProps` and serialized into `data-island-props`, so the island
+   * draws the icon without bundling lucide's ~2,000-icon set — see
+   * `@/presentation/utils/lucide-glyph`.
+   */
+  readonly iconNode?: unknown
   readonly trend?: KpiTrendConfig
   /** Conditional color name resolved from `thresholds` — applied to the value. */
   readonly thresholdColor?: string
   /** Sparkline series — when present, a mini line chart is rendered. */
   readonly sparklineSeries?: readonly number[]
 }
+
+/**
+ * The icon box, in CSS pixels — the canvas `kpiCard` glyph.
+ *
+ * Set as `width`/`height` on the `<svg>` rather than as a Tailwind class
+ * because lucide's `Icon` renderer writes those attributes itself; a class
+ * competing with them would resolve unpredictably.
+ */
+const ICON_BOX = 16
 
 /**
  * Canonical role-token text class for a resolved threshold color name.
@@ -59,7 +84,13 @@ const TREND_DIRECTION_ARROW: Record<NonNullable<KpiTrendConfig['direction']>, st
   flat: '→',
 }
 
-/** Renders the trend indicator (arrow + percentage change). */
+/**
+ * Renders the trend indicator (arrow + percentage change).
+ *
+ * The arrow and the percentage are wrapped as ONE group on the canvas' 2px
+ * inner gap, inside the row's 4px outer gap — a glyph and the number it
+ * modifies read as a single token, which they do not at the row's spacing.
+ */
 function KpiTrend({ trend }: { readonly trend: KpiTrendConfig }): ReactElement {
   const colorClass = TREND_COLOR_CLASS[trend.color ?? 'gray']
   const arrow = TREND_DIRECTION_ARROW[trend.direction ?? 'flat']
@@ -67,10 +98,12 @@ function KpiTrend({ trend }: { readonly trend: KpiTrendConfig }): ReactElement {
   return (
     <div
       data-role="kpi-trend"
-      className={`mt-1 flex items-center gap-1 text-sm font-medium ${colorClass}`}
+      className={`${computeKpiTrendClasses()} ${colorClass}`}
     >
-      <span aria-hidden="true">{arrow}</span>
-      <span>{`${String(trend.changePercent)}%`}</span>
+      <span className={KPI_TREND_GROUP_CLASSES}>
+        <span aria-hidden="true">{arrow}</span>
+        <span>{`${String(trend.changePercent)}%`}</span>
+      </span>
     </div>
   )
 }
@@ -81,16 +114,20 @@ function KpiTrend({ trend }: { readonly trend: KpiTrendConfig }): ReactElement {
  *
  * Carries `data-component="kpi"` so spec assertions on the canonical KPI
  * attribute resolve; the formatted value lives under `data-role="kpi-value"`.
+ *
+ * Every class comes from `kpi-default-classes.ts`, which the SSR skeleton in
+ * `island-data-components.tsx` also reads — so the card chrome is identical
+ * before and after hydration and the metric never reflows as the island mounts.
  */
 export function KpiCard({
   label,
   value,
   icon,
+  iconNode,
   trend,
   thresholdColor,
   sparklineSeries,
 }: KpiCardProps): ReactElement {
-  const Icon = resolveLucideIcon(icon)
   const valueColorClass = thresholdColor
     ? (THRESHOLD_COLOR_CLASS[thresholdColor] ?? 'text-foreground')
     : 'text-foreground'
@@ -99,17 +136,19 @@ export function KpiCard({
     <div
       data-component="kpi"
       data-kpi-state="ready"
-      className="border-border bg-background-raised flex flex-col rounded-lg border p-4 shadow-sm"
+      className={computeKpiCardClasses()}
     >
-      <div className="flex items-center gap-2">
-        {Icon && (
+      <div className={KPI_LABEL_ROW_CLASSES}>
+        {iconNode !== undefined && (
           <span
             data-role="kpi-icon"
-            className="text-foreground-subtle"
+            className={computeKpiIconClasses()}
           >
-            <Icon
-              width={20}
-              height={20}
+            <LucideGlyph
+              iconNode={iconNode}
+              name={icon}
+              width={ICON_BOX}
+              height={ICON_BOX}
               aria-hidden="true"
             />
           </span>
@@ -117,7 +156,7 @@ export function KpiCard({
         {label && (
           <span
             data-role="kpi-label"
-            className="text-foreground-muted text-sm font-medium"
+            className={computeKpiLabelClasses()}
           >
             {label}
           </span>
@@ -126,7 +165,7 @@ export function KpiCard({
       <div
         data-role="kpi-value"
         {...(thresholdColor ? { 'data-threshold': thresholdColor } : {})}
-        className={`mt-1 text-3xl font-bold ${valueColorClass}`}
+        className={`${computeKpiValueClasses()} ${valueColorClass}`}
       >
         {value}
       </div>

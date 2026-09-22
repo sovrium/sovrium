@@ -12,7 +12,17 @@
  * file to respect the per-island `max-lines: 250` cap.
  */
 
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { computeCommentSortSelectClasses } from '@/presentation/design/comments-default-classes'
 import type { ReactElement } from 'react'
+
+/**
+ * "Previous"/"Next" and the non-current page numbers are the quiet half of a
+ * pager — the current page is the one thing in the row that announces itself,
+ * so it alone takes the primary fill.
+ */
+const PAGER_BUTTON = computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })
+const CURRENT_PAGE_BUTTON = computeButtonDefaultClasses({ variant: 'default', size: 'sm' })
 
 export function SortDropdown({
   sort,
@@ -22,40 +32,20 @@ export function SortDropdown({
   readonly onChange: (next: 'newest' | 'oldest') => void
 }): ReactElement {
   return (
-    <label className="ml-auto flex items-center gap-1 text-xs">
+    // The sort bar supplies the row's alignment and its 11px muted tone, so
+    // the label only has to keep its own two children on one baseline.
+    <label className="flex items-center gap-1">
       <span>Sort</span>
       <select
         aria-label="Sort comments"
         value={sort}
         onChange={(e) => onChange(e.target.value === 'oldest' ? 'oldest' : 'newest')}
-        className="border-input bg-background rounded border px-1 py-0.5"
+        className={computeCommentSortSelectClasses()}
       >
         <option value="newest">Newest first</option>
         <option value="oldest">Oldest first</option>
       </select>
     </label>
-  )
-}
-
-export function LoadMoreButton({
-  hasMore,
-  onClick,
-  isLoading,
-}: {
-  readonly hasMore: boolean
-  readonly onClick: () => void
-  readonly isLoading: boolean
-}): ReactElement | null {
-  if (!hasMore) return null
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={isLoading}
-      className="border-input rounded border px-3 py-1 text-sm disabled:opacity-50"
-    >
-      {isLoading ? 'Loading…' : 'Load more'}
-    </button>
   )
 }
 
@@ -75,12 +65,12 @@ export function NumberedPagination({
   const currentPage = Math.floor(offset / limit) + 1
   const pages = Array.from({ length: pageCount }, (_, i) => i + 1)
   return (
-    <nav className="flex items-center gap-1 text-xs">
+    <nav className="flex items-center gap-1">
       <button
         type="button"
         onClick={() => onSelect(Math.max(0, offset - limit))}
         disabled={currentPage === 1}
-        className="border-input rounded border px-2 py-0.5 disabled:opacity-50"
+        className={PAGER_BUTTON}
       >
         Previous
       </button>
@@ -89,7 +79,7 @@ export function NumberedPagination({
           key={page}
           type="button"
           onClick={() => onSelect((page - 1) * limit)}
-          className={`border-input rounded border px-2 py-0.5 ${page === currentPage ? 'bg-primary text-primary-foreground' : ''}`}
+          className={page === currentPage ? CURRENT_PAGE_BUTTON : PAGER_BUTTON}
         >
           {page}
         </button>
@@ -98,7 +88,7 @@ export function NumberedPagination({
         type="button"
         onClick={() => onSelect(Math.min((pageCount - 1) * limit, offset + limit))}
         disabled={currentPage === pageCount}
-        className="border-input rounded border px-2 py-0.5 disabled:opacity-50"
+        className={PAGER_BUTTON}
       >
         Next
       </button>

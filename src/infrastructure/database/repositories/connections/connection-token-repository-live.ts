@@ -34,7 +34,7 @@ import {
 } from '@/infrastructure/database/drizzle/schema-sqlite/connection'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { isEncryptionKeyMismatch } from '@/infrastructure/errors/encryption-key-mismatch-error'
-import { isProduction } from '@/infrastructure/utils/env'
+import { isProduction } from '@/infrastructure/process/env'
 
 const connectionTokens = resolveDialectSchema(connectionTokensPg, connectionTokensSqlite)
 const connectionAppTokens = resolveDialectSchema(connectionAppTokensPg, connectionAppTokensSqlite)

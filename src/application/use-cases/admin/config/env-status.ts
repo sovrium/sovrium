@@ -60,7 +60,7 @@
  */
 
 import { ENV_VALUE_MASK } from '@/domain/models/api/admin/env'
-import type { EnvValueSource, EnvVarStatus } from '@/domain/models/api/admin/env'
+import type { EnvDefaultState, EnvValueSource, EnvVarStatus } from '@/domain/models/api/admin/env'
 import type { App } from '@/domain/models/app'
 import type { EnvVar } from '@/domain/models/app/env'
 
@@ -94,6 +94,19 @@ function disclosesDefault(envVar: EnvVar): boolean {
   return envVar.secret === false && envVar.default !== undefined
 }
 
+/**
+ * The declared default's state, collapsing `hasDefault` x disclosure into the
+ * one three-way fact a declarative reader can gate on.
+ *
+ * Derived from the same two predicates the neighbouring fields use, so the
+ * three can never disagree: `disclosed` is emitted if and only if
+ * `defaultValue` is, and `none` if and only if `hasDefault` is false.
+ */
+function defaultStateOf(envVar: EnvVar): EnvDefaultState {
+  if (envVar.default === undefined) return 'none'
+  return disclosesDefault(envVar) ? 'disclosed' : 'withheld'
+}
+
 /** Project one declared variable to its status row. */
 function statusOf(
   envVar: EnvVar,
@@ -111,6 +124,9 @@ function statusOf(
     // Presence, unconditionally — the diagnostic that must keep working for the
     // withheld majority.
     hasDefault: envVar.default !== undefined,
+    // The same two predicates as one gate-able fact, for a reader that cannot
+    // compute `hasDefault && defaultValue === undefined` for itself.
+    defaultState: defaultStateOf(envVar),
     // The literal, only where the author took responsibility for it. Absent —
     // not empty-string — otherwise, so "withheld" never becomes
     // indistinguishable from "declared with a blank default".

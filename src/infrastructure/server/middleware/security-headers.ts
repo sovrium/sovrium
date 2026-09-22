@@ -95,13 +95,20 @@ const ROUTE_OVERRIDABLE_HEADERS = ['Content-Security-Policy', 'X-Frame-Options']
  *
  *  - **Stricter.** The signed bucket-download path streams untrusted bytes
  *    under `default-src 'none'`, which must survive.
- *  - **Looser, and narrowly.** The design-system previews
- *    (`/_admin/design-system/preview/:section`) exist to be embedded by the
- *    console page one origin over, so they answer with `frame-ancestors 'self'`
+ *  - **Looser, and narrowly.** The design-system viewport frames
+ *    (`/_admin/design-system/component-frame/:name`) exist to be embedded by
+ *    the console page framing them, so they answer with `frame-ancestors 'self'`
  *    and the matching `SAMEORIGIN`. That is not a weakening of clickjacking
- *    protection: the routes sit behind `requireAdminTier` (404 for everyone
- *    else), and `'self'` still refuses every origin an attacker could control
- *    without already controlling this app.
+ *    protection: the route sits behind the console's own admin guard (404 for
+ *    everyone else), and `'self'` still refuses every origin an attacker could
+ *    control without already controlling this app.
+ *
+ *    This example named `/_admin/design-system/preview/:section` until
+ *    2026-09-17. Those routes were deleted in `36c9914678`, which left the
+ *    looser direction documented by a route that no longer existed — a reader
+ *    checking whether the mechanism had ever been used would have found
+ *    nothing, and concluded the wrong thing about which of the two directions
+ *    is load-bearing.
  *
  * A route that says nothing keeps the platform default —
  * `frame-ancestors 'none'` + `X-Frame-Options: DENY` — so the safe answer
@@ -112,7 +119,6 @@ export const securityHeaders: MiddlewareHandler = async (c, next) => {
   let routeHeaders: ReadonlyArray<readonly [string, string]> = []
   // eslint-disable-next-line functional/no-expression-statements
   await structuralSecureHeaders(c, async () => {
-    // eslint-disable-next-line functional/no-expression-statements
     await next()
     // eslint-disable-next-line functional/no-expression-statements
     routeHeaders = ROUTE_OVERRIDABLE_HEADERS.flatMap((name) => {

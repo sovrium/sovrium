@@ -6,9 +6,32 @@
  */
 
 import { Schema } from 'effect'
+import { RampValueSchema } from './ramps'
 
 /**
- * Usage guidance for ONE colour token.
+ * A role's value in one colour scheme.
+ *
+ * Almost always a ramp REFERENCE (`neutral-950`), because that is what a role
+ * IS: a name for a position in a ladder, so retuning the ladder retunes every
+ * role that follows it. A literal is admitted for the handful that cannot
+ * follow one — the default palette has a few, and refusing them would push
+ * those back out of the schema.
+ *
+ * The `var()` chains the emitted CSS carries are DERIVED from these references
+ * by the generator. They are never authored: a `var()` in a config resolves
+ * against the cascade, so nothing that reads the config could say what colour
+ * it names. See `ColorValueSchema` and [internal ref].
+ */
+const RoleValueSchema = RampValueSchema.pipe(
+  Schema.annotate({
+    title: 'Role Value',
+    description: 'The ramp step this role follows, or a colour literal',
+    examples: ['neutral-950', 'oklch(0.56 0.12 250)'],
+  })
+)
+
+/**
+ * Usage guidance and value for ONE colour role.
  *
  * `theme.colors` is an open record of name → CSS value. `primary: '#123456'`
  * tells a renderer everything and an author nothing: there is no place in the
@@ -45,7 +68,7 @@ export const ColorRoleSchema = Schema.Struct({
    * reads the pair does not have to re-measure the ratio.
    *
    * An OPEN string, and deliberately NOT cross-validated against
-   * `design.theme.colors` (unlike the record's own keys). A legitimate
+   * `design.colors` (unlike the record's own keys). A legitimate
    * companion is very often a PLATFORM role token the app never redeclared —
    * `foreground`, `background` — so requiring it to resolve against the
    * author's palette would refuse correct configs. It is also why this does not
@@ -64,12 +87,51 @@ export const ColorRoleSchema = Schema.Struct({
       })
     )
   ),
+
+  /**
+   * What the role RESOLVES TO in the light scheme.
+   *
+   * Declaring it turns the entry from documentation into a definition: a role
+   * with a `value` DEFINES the token, so it need not already exist in
+   * `design.colors` (see rule 2 in `design-validation.ts`). A role with
+   * prose and no value still must name a declared palette token, because
+   * guidance attached to a token that does not exist renders nowhere.
+   *
+   * This is the home the 40 `ROLE_TOKEN_BRIDGE` declarations of the default
+   * palette need. Without it, `DesignSchema` can hold the ramps and not the
+   * roles that point at them — half a palette, which is worse than none,
+   * because the half that is missing is the half every surface actually reads.
+   */
+  value: Schema.optional(RoleValueSchema),
+
+  /**
+   * The role's value under the dark scheme, when it differs.
+   *
+   * A separate field rather than a second `colorRoles` block, because a role's
+   * two values are ONE decision: `bg` is `neutral-50` in light and
+   * `neutral-950` in dark, and that pairing is the thing a reader needs to see
+   * at once. Two parallel maps keyed by the same names would let one drift out
+   * of the other silently.
+   *
+   * Absent means "same in both schemes", which is the common case: the default
+   * palette re-points roughly a third of its roles in dark and inherits the
+   * rest.
+   */
+  dark: Schema.optional(RoleValueSchema),
 }).pipe(
   Schema.annotate({
     identifier: 'ColorRole',
     title: 'Colour Role',
-    description: 'Usage guidance for one colour token: what it is for, and what it pairs with',
-    examples: [{ usage: 'Primary CTA fill only. Never body text.', pairsWith: 'primary-fg' }],
+    description:
+      'One colour role: what it resolves to in each scheme, what it is for, and what it pairs with',
+    examples: [
+      {
+        value: 'neutral-50',
+        dark: 'neutral-950',
+        usage: 'Primary CTA fill only. Never body text.',
+        pairsWith: 'primary-fg',
+      },
+    ],
   })
 )
 
@@ -105,7 +167,7 @@ const ColorRoleKeySchema = Schema.String.annotate({
 /**
  * Usage guidance keyed by colour-token name.
  *
- * Keys are cross-validated against `design.theme.colors` at decode time (see
+ * Keys are cross-validated against `design.colors` at decode time (see
  * `src/domain/models/app/design-validation.ts`): a role documenting a token
  * that does not exist is guidance nobody can act on, and it is almost always a
  * typo in the token name rather than a deliberate placeholder.

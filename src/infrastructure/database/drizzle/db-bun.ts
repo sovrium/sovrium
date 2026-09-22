@@ -13,11 +13,12 @@ import { drizzle as drizzleSqlite } from 'drizzle-orm/bun-sqlite'
 import {
   parseDatabaseDialectConfig,
   resolveDatabasePoolMax,
-} from '@/domain/models/env/database/database-dialect'
+} from '@/domain/models/process-env/database/database-dialect'
+import { recordDbQueryIssued } from '@/infrastructure/telemetry/db-query-counter'
+import { applySqlitePragmas } from '../sql/sqlite-pragmas'
 import { primeSqliteVec, resetSqliteVecCache } from '../sql/sqlite-vec-extension'
 import { UnsupportedInSqliteError } from '../unsupported-in-sqlite'
-import * as schemaPg from './schema'
-import * as schemaSqlite from './schema-sqlite'
+import type { Logger } from 'drizzle-orm'
 
 /**
  * Dual-dialect lazy Drizzle initialization.
@@ -65,14 +66,42 @@ import * as schemaSqlite from './schema-sqlite'
  * genuinely Postgres-only members are raw `execute()` and the materialized-view
  * helper; SQLite callers must not reach them. New code that requires guaranteed
  * Postgres semantics uses `getPgDb()` (below), which throws on SQLite.
+ *
+ * ## No `schema` map, and why that is not a loss
+ *
+ * Drizzle v1 removed `schema` from every driver config outright
+ * (`DrizzlePgConfig = Omit<DrizzleConfig, 'schema'>`), and the first type
+ * parameter of `drizzle()` is now the RELATIONS config rather than the table
+ * map — which is why `ReturnType<typeof drizzlePg<typeof schemaPg>>` stopped
+ * type-checking rather than merely changing meaning. The table map only ever
+ * powered the relational query builder (`db.query.*`), which this codebase has
+ * never called: the surface every repository is written against (`select` /
+ * `insert` / `update` / `delete` / `transaction` / `execute`) does not read it.
+ * Nothing is given up. If RQB is ever wanted, v1 feeds it a `relations` object
+ * built by `defineRelations` — a different artifact from the deleted
+ * `relations()` graph, and not a revival of it.
  */
-export type DrizzleDB = ReturnType<typeof drizzlePg<typeof schemaPg>>
+export type DrizzleDB = ReturnType<typeof drizzlePg>
 
 /** Concrete SQLite client type — kept internal to this module. */
-type SqliteDrizzleDB = ReturnType<typeof drizzleSqlite<typeof schemaSqlite>>
+type SqliteDrizzleDB = ReturnType<typeof drizzleSqlite>
 
 // eslint-disable-next-line functional/no-let, functional/prefer-immutable-types -- one-shot module-level memo cache; replaces the eager const that crashed at boot when DATABASE_URL was unset
 let cached: DrizzleDB | undefined
+
+/**
+ * Per-request query-count tap (the keystone of the query-count seam — see
+ * `@/infrastructure/telemetry/db-query-counter`). Both driver sessions call
+ * `logQuery` exactly once per issued statement (`bun-sql/session.js` and
+ * `bun-sqlite/session.js`: `all()` either logs directly or delegates to
+ * `values()`, which logs — never both), so incrementing here counts each
+ * statement exactly once, on both dialects. `recordDbQueryIssued` is a no-op
+ * outside a counted request (ALS store absent), so boot/cron/listener queries
+ * cost one map lookup and record nothing.
+ */
+const countingLogger: Logger = {
+  logQuery: (): void => recordDbQueryIssued(),
+}
 
 /**
  * Build the dialect-appropriate Drizzle client.
@@ -93,10 +122,34 @@ const buildClient = (): DrizzleDB => {
     // is a stated number (see `resolveDatabasePoolMax`) instead of an assumption
     // about the driver — and so an operator on a larger Postgres can raise it
     // via `DATABASE_POOL_MAX` without patching code.
-    return drizzlePg({
+    const pg = drizzlePg({
       connection: { url: config.databaseUrl, max: resolveDatabasePoolMax() },
-      schema: schemaPg,
+      logger: countingLogger,
     })
+    // Undo the `bigint: true` that drizzle-orm 1.0.0-rc.4 forces on EVERY client.
+    //
+    // `construct()` (bun-sql/postgres/driver.ts) opens with an unconditional
+    // `client.options.bigint = true`, on all four `drizzle()` entry paths - so
+    // passing `bigint: false` in `connection` above would be overwritten, and
+    // resetting it here is the only available seam. 0.45.2 did not do this.
+    //
+    // Bun's own documented default is `false` (its type declaration says values
+    // outside the 32-bit integer range come back as BigInt, and that by default
+    // they are returned as strings), so this restores stock driver behaviour
+    // rather than opting into a quirk. Measured on Bun 1.4.0 the flag is NOT
+    // limited to that range as the wording suggests: with it on, `COUNT(*)` of
+    // 3 arrives as `3n`.
+    //
+    // The `int8 -> string` wire contract is load-bearing. The only relations
+    // emitting int8 are the generated lookup views (SUM/COUNT rollups), whose
+    // values reach `formattedFieldValueSchema` - a union admitting no bigint,
+    // which rejects with `Expected FormattedFieldValue` and turns every list and
+    // create on a table carrying rollups into an HTTP 500. The contract is pinned
+    // by `rollup.spec.ts` ROLLUP-007 (`toBe('4')`) and by the `toFiniteCount` /
+    // `Number()` coercions the read paths depend on.
+    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- driver-level connection setup; resets an option the upstream constructor forces, restoring Bun's own documented default (see above)
+    pg.$client.options.bigint = false
+    return pg
   }
 
   // SQLite — open the file (create on first boot), then harden the connection.
@@ -115,15 +168,18 @@ const buildClient = (): DrizzleDB => {
 
   primeSqliteVec(config.path)
   const client = new BunSqlite(config.path, { create: true })
-  // eslint-disable-next-line functional/no-expression-statements -- driver-level connection setup; bun:sqlite exec returns void
-  client.exec('PRAGMA foreign_keys = ON')
-  // eslint-disable-next-line functional/no-expression-statements -- WAL journaling for concurrent readers; required for the spawned-server + in-fixture connection pattern
-  client.exec('PRAGMA journal_mode = WAL')
-  // eslint-disable-next-line functional/no-expression-statements -- 5s lock wait before SQLITE_BUSY, matching the test-harness restart pattern
-  client.exec('PRAGMA busy_timeout = 5000')
+  // Foreign keys, WAL journaling and the busy timeout, from the one module that
+  // spells them — this list used to be written out here with `busy_timeout`
+  // LAST, which left its own WAL switch unprotected against the very lock the
+  // timeout exists for.
+
+  applySqlitePragmas(client)
 
   // eslint-disable-next-line functional/prefer-immutable-types -- upstream-mutable drizzle-orm/bun-sqlite return shape; same rationale as getDb
-  const sqliteDb: SqliteDrizzleDB = drizzleSqlite({ client, schema: schemaSqlite })
+  const sqliteDb: SqliteDrizzleDB = drizzleSqlite({
+    client,
+    logger: countingLogger,
+  })
   // The bun-sqlite client exposes the same portable query-builder surface
   // (select/insert/update/delete/transaction/query/$with/with) the DrizzleDB
   // facade contracts. Postgres-only members (execute, materialized views) are

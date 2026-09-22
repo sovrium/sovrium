@@ -135,6 +135,10 @@ export const aiEmbeddings = systemTable(
  * AI Knowledge Sources Table
  *
  * Knowledge base source configurations for RAG.
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 export const aiKnowledgeSources = systemTable(
   'ai_knowledge_sources',
@@ -163,6 +167,10 @@ export const aiKnowledgeSources = systemTable(
  * AI Field Cache Table
  *
  * Cached AI field computation results to avoid redundant API calls.
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 export const aiFieldCache = systemTable(
   'ai_field_cache',
@@ -219,6 +227,10 @@ export const aiFieldCache = systemTable(
  * - `transport`: `'stdio' | 'streamable-http'` — which MCP_TRANSPORT served this call
  * - `sessionId`: optional client session identifier (streamable-http MCP-Session-Id header)
  * - `requestId`: JSON-RPC `id` field, for correlating with client logs
+ * @public Live schema, reached only by drizzle-kit through the string path in
+ * `drizzle.config.ts` — a consumer no TypeScript import can express. It has no
+ * TS importer because no dialect-branching caller needs the SQLite object yet.
+ * Deleting it would drop the table from the next generated SQLite migration.
  */
 export const aiToolCalls = systemTable(
   'ai_tool_calls',
@@ -356,18 +368,3 @@ export const aiComputeStatus = systemTable(
 )
 
 // Type inference
-export type AiConversation = typeof aiConversations.$inferSelect
-export type NewAiConversation = typeof aiConversations.$inferInsert
-export type AiComputeStatus = typeof aiComputeStatus.$inferSelect
-export type NewAiComputeStatus = typeof aiComputeStatus.$inferInsert
-export type AiMessage = typeof aiMessages.$inferSelect
-export type NewAiMessage = typeof aiMessages.$inferInsert
-export type AiFact = typeof aiFacts.$inferSelect
-export type NewAiFact = typeof aiFacts.$inferInsert
-export type AiEmbedding = typeof aiEmbeddings.$inferSelect
-export type AiKnowledgeSource = typeof aiKnowledgeSources.$inferSelect
-export type AiFieldCacheEntry = typeof aiFieldCache.$inferSelect
-export type AiToolCall = typeof aiToolCalls.$inferSelect
-export type NewAiToolCall = typeof aiToolCalls.$inferInsert
-export type AiActivityLog = typeof aiActivityLogs.$inferSelect
-export type NewAiActivityLog = typeof aiActivityLogs.$inferInsert

@@ -6,26 +6,36 @@
  */
 
 import { Group } from '@visx/group'
-import { scalePoint, scaleLinear } from '@visx/scale'
+import { scalePoint } from '@visx/scale'
 import { AreaClosed } from '@visx/shape'
+import {
+  CHART_AREA_FILL_OPACITY,
+  CHART_LINE_STROKE_WIDTH,
+} from '@/presentation/design/chart-default-classes'
 import { PointScaleAxes } from './chart-axes'
 import {
+  buildValueScale,
   CHART_MARGIN,
   maxAcrossSeries,
+  minPositiveAcrossSeries,
   numericValue,
   seriesColor,
   xKeys,
+  type ChartAxisDisplay,
   type ChartSeriesConfig,
+  type ChartValueScale,
   type LegendPosition,
 } from './chart-series-shared'
 import { ChartShell } from './chart-shell'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 import type { ReactElement } from 'react'
 
 interface MultiAreaChartProps {
   readonly records: readonly TableRecord[]
   readonly xField: string
   readonly series: readonly ChartSeriesConfig[]
+  /** Value-axis display configuration forwarded from the chart's `yAxis`. */
+  readonly yAxis?: ChartAxisDisplay
   readonly legendPosition?: LegendPosition
   readonly legendVisible?: boolean
   /** Operator-set `<svg role="img">` name; falls back to the "Area chart" default. */
@@ -49,13 +59,13 @@ function plotSeries(args: {
   readonly xField: string
   readonly field: string
   readonly xScale: ReturnType<typeof scalePoint<string>>
-  readonly yScale: ReturnType<typeof scaleLinear<number>>
+  readonly yScale: ChartValueScale
 }): PlottedPoint[] {
   const { records, keys, xField, field, xScale, yScale } = args
   return keys.map((k) => {
     const record = records.find((r) => String(r[xField]) === k)
     const value = record ? numericValue(record[field]) : 0
-    return { key: k, x: xScale(k) ?? 0, y: yScale(value) }
+    return { key: k, x: xScale(k) ?? 0, y: yScale.toY(value) }
   })
 }
 
@@ -65,6 +75,7 @@ interface MultiAreaSvgProps {
   readonly records: readonly TableRecord[]
   readonly xField: string
   readonly series: readonly ChartSeriesConfig[]
+  readonly yAxis?: ChartAxisDisplay
   readonly hidden: ReadonlySet<string>
   readonly accessibleName?: string
 }
@@ -76,28 +87,28 @@ interface AreaLayout {
   readonly keys: readonly string[]
   readonly visibleSeries: readonly ChartSeriesConfig[]
   readonly xScale: ReturnType<typeof scalePoint<string>>
-  readonly yScale: ReturnType<typeof scaleLinear<number>>
+  readonly yScale: ChartValueScale
 }
 
-/** Builds the point (X) and linear (Y) scales for the chart's inner area. */
+/** Builds the point (X) and value (Y) scales for the chart's inner area. */
 function buildAreaLayout(args: MultiAreaSvgProps): AreaLayout {
-  const { width, height, records, xField, series, hidden } = args
+  const { width, height, records, xField, series, yAxis, hidden } = args
   const innerWidth = Math.max(0, width - CHART_MARGIN.left - CHART_MARGIN.right)
   const innerHeight = Math.max(0, height - CHART_MARGIN.top - CHART_MARGIN.bottom)
   const keys = xKeys(records, xField)
   const visibleSeries = series.filter((s) => !hidden.has(s.field))
   const xScale = scalePoint<string>({ domain: [...keys], range: [0, innerWidth], padding: 0.5 })
-  const maxY = maxAcrossSeries(records, visibleSeries)
-  const yScale = scaleLinear<number>({
-    domain: [0, maxY === 0 ? 1 : maxY],
-    range: [innerHeight, 0],
-    nice: true,
+  const yScale = buildValueScale({
+    maxValue: maxAcrossSeries(records, visibleSeries),
+    minPositiveValue: minPositiveAcrossSeries(records, visibleSeries),
+    innerHeight,
+    scale: yAxis?.scale,
   })
   return { innerWidth, innerHeight, keys, visibleSeries, xScale, yScale }
 }
 
 function MultiAreaSvg(props: MultiAreaSvgProps): ReactElement {
-  const { width, height, records, xField, series, accessibleName } = props
+  const { width, height, records, xField, series, yAxis, accessibleName } = props
   const { innerWidth, innerHeight, keys, visibleSeries, xScale, yScale } = buildAreaLayout(props)
 
   return (
@@ -116,22 +127,33 @@ function MultiAreaSvg(props: MultiAreaSvgProps): ReactElement {
           xScale={xScale}
           innerWidth={innerWidth}
           innerHeight={innerHeight}
+          valueScale={yScale}
+          valueAxis={yAxis}
         />
         {visibleSeries.map((s) => {
           const index = series.indexOf(s)
           const color = seriesColor(s, index)
-          const points = plotSeries({ records, keys, xField, field: s.field, xScale, yScale })
+          const points = plotSeries({
+            records,
+            keys,
+            xField,
+            field: s.field,
+            xScale,
+            yScale,
+          })
           return (
             <AreaClosed<PlottedPoint>
               key={`area-${s.field}`}
               data={points}
               x={accessX}
               y={accessY}
-              yScale={yScale}
+              // The PIXEL scale, not the value axis: `AreaClosed` reads only
+              // `range()[0]` off it, to find the baseline its fill closes onto.
+              yScale={yScale.pixels}
               fill={color}
-              fillOpacity={s.fillOpacity ?? 0.3}
+              fillOpacity={s.fillOpacity ?? CHART_AREA_FILL_OPACITY}
               stroke={color}
-              strokeWidth={2}
+              strokeWidth={CHART_LINE_STROKE_WIDTH}
               data-series-field={s.field}
             />
           )
@@ -152,6 +174,7 @@ export function MultiAreaChart({
   records,
   xField,
   series,
+  yAxis,
   legendPosition,
   legendVisible,
   accessibleName,
@@ -169,6 +192,7 @@ export function MultiAreaChart({
           records={records}
           xField={xField}
           series={series}
+          yAxis={yAxis}
           hidden={hidden}
           accessibleName={accessibleName}
         />

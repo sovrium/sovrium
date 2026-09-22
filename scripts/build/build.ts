@@ -16,16 +16,52 @@
  *   5. Add shebang to dist/cli.js
  *
  * Usage:
- *   bun run scripts/build.ts
+ * bun run [internal ref]
  */
 
 import { readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { join, relative, dirname, posix } from 'node:path'
-import { buildRuntimeAssets } from './lib/runtime-assets'
+import * as Data from 'effect/Data'
+import * as Effect from 'effect/Effect'
+import { printStderr } from '@/infrastructure/logging/cli-output'
+import { CommandServiceLive, spawn } from '../lib/effect/command-service'
+import { buildRuntimeAssets } from '../lib/runtime-assets'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const DIST_DIR = join(PROJECT_ROOT, 'dist')
 const SRC_DIR = join(PROJECT_ROOT, 'src')
+
+/**
+ * The one typed failure this script raises.
+ *
+ * Most of this file spawns nothing and holds no scoped resource — `Bun.build`
+ * is an in-process bundler call, not a child process, so SC1 keeps `bundleJS`,
+ * `fixPathAliases` and `addShebang` plain `async`/sync functions rather than
+ * `Effect.gen` programs. `run()` below is the one exception: it is the only
+ * place in the file that spawns a process (`tsc -p tsconfig.build.json`), so
+ * it is the only function built on `CommandService` (SC2). Every failure site
+ * — inside `run()` and outside it — throws this instead of calling
+ * `printStderr` + `process.exit(1)` at the point of discovery, so `main()`'s
+ * entry-point guard can be the SINGLE exit site SC4 asks for.
+ */
+class BuildScriptError extends Data.TaggedError('BuildScriptError')<{
+  readonly message: string
+}> {}
+
+/** Re-throw an unknown value as a `BuildScriptError`, preserving its message. */
+const toBuildScriptError = (error: unknown): BuildScriptError =>
+  error instanceof BuildScriptError
+    ? error
+    : new BuildScriptError({ message: error instanceof Error ? error.message : String(error) })
+
+/**
+ * `tsc -p tsconfig.build.json` emits `.d.ts` declarations for the WHOLE
+ * `src/` tree. The incremental cache (`BUILD_TSBUILDINFO`) makes a warm
+ * re-run cheap, but `clean()` deletes that cache on every invocation of this
+ * script by design (see its own comment), so this budget is sized for the
+ * cold case a release build always pays.
+ */
+const DECLARATION_EMIT_TIMEOUT_MS = 180_000
 
 /**
  * Incremental cache for the declaration emit (`tsconfig.build.json`).
@@ -40,12 +76,48 @@ const BUILD_TSBUILDINFO = join(PROJECT_ROOT, 'node_modules/.cache/tsc/tsconfig.b
 // Helpers
 // ---------------------------------------------------------------------------
 
-function run(cmd: string[], label: string): void {
-  console.log(`\n▸ ${label}`)
-  const proc = Bun.spawnSync(cmd, { cwd: PROJECT_ROOT, stdout: 'inherit', stderr: 'inherit' })
-  if (proc.exitCode !== 0) {
-    console.error(`✗ ${label} failed (exit ${proc.exitCode})`)
-    process.exit(1)
+/**
+ * Run one build step, with its output attached to THIS process's terminal —
+ * `inherit: true` reproduces the original `Bun.spawnSync(cmd, { stdout:
+ * 'inherit', stderr: 'inherit' })` exactly, rather than buffering a
+ * multi-minute `tsc` declaration emit into a post-hoc dump.
+ *
+ * The only spawn in this file, and therefore the only function that touches
+ * `CommandService` — see the class comment on `BuildScriptError` for why the
+ * rest of the pipeline stays plain `async`/sync (SC1).
+ */
+async function run(cmd: readonly string[], label: string, timeoutMs: number): Promise<void> {
+  console.log(`\n${label}`)
+  const program = spawn(cmd, {
+    cwd: PROJECT_ROOT,
+    inherit: true,
+    timeout: timeoutMs,
+    throwOnError: false,
+  }).pipe(
+    Effect.catchTags({
+      CommandTimeoutError: () =>
+        Effect.fail(new BuildScriptError({ message: `${label} timed out after ${timeoutMs}ms` })),
+      CommandSpawnError: (error) =>
+        Effect.fail(
+          new BuildScriptError({
+            message: `${label} failed to spawn: ${error.cause ? String(error.cause) : 'unknown error'}`,
+          })
+        ),
+      // Unreachable under `throwOnError: false` — kept so the Effect's error
+      // channel is exhaustively `BuildScriptError`.
+      CommandFailedError: (error) =>
+        Effect.fail(new BuildScriptError({ message: `${label} failed (exit ${error.exitCode})` })),
+    })
+  )
+
+  let result: { readonly exitCode: number }
+  try {
+    result = await Effect.runPromise(program.pipe(Effect.provide(CommandServiceLive)))
+  } catch (error) {
+    throw toBuildScriptError(error)
+  }
+  if (result.exitCode !== 0) {
+    throw new BuildScriptError({ message: `${label} failed (exit ${result.exitCode})` })
   }
 }
 
@@ -78,7 +150,7 @@ function getExternalDeps(): readonly string[] {
  * is deliberately left warm, so building does not cold-bust `bun run quality`.
  */
 function clean(): void {
-  console.log('\n▸ Cleaning dist/ and the declaration-emit cache')
+  console.log('\nCleaning dist/ and the declaration-emit cache')
   if (existsSync(DIST_DIR)) {
     rmSync(DIST_DIR, { recursive: true })
   }
@@ -102,7 +174,7 @@ async function bundleJS(): Promise<void> {
   // from react/jsx-runtime instead of jsxDEV from react/jsx-dev-runtime).
   // Code that needs runtime NODE_ENV detection (e.g. CSS compiler) uses an
   // indirect read pattern to avoid static replacement by define.
-  console.log('\n▸ Bundling dist/index.js')
+  console.log('\nBundling dist/index.js')
   const libResult = await Bun.build({
     entrypoints: [join(SRC_DIR, 'index.ts')],
     outdir: DIST_DIR,
@@ -114,9 +186,9 @@ async function bundleJS(): Promise<void> {
     },
   })
   if (!libResult.success) {
-    console.error('✗ Library bundle failed:')
-    for (const log of libResult.logs) console.error(log)
-    process.exit(1)
+    throw new BuildScriptError({
+      message: ['Library bundle failed:', ...libResult.logs.map((log) => String(log))].join('\n'),
+    })
   }
 
   // Bundle CLI entry point
@@ -124,7 +196,7 @@ async function bundleJS(): Promise<void> {
   // directory; the entry point is now src/cli/index.ts. An explicit
   // `naming.entry` keeps the output as dist/cli.js (without it Bun would emit
   // dist/index.js from the index.ts basename and collide with the library).
-  console.log('▸ Bundling dist/cli.js')
+  console.log('Bundling dist/cli.js')
   const cliResult = await Bun.build({
     entrypoints: [join(SRC_DIR, 'cli', 'index.ts')],
     outdir: DIST_DIR,
@@ -137,9 +209,9 @@ async function bundleJS(): Promise<void> {
     naming: { entry: 'cli.js' },
   })
   if (!cliResult.success) {
-    console.error('✗ CLI bundle failed:')
-    for (const log of cliResult.logs) console.error(log)
-    process.exit(1)
+    throw new BuildScriptError({
+      message: ['CLI bundle failed:', ...cliResult.logs.map((log) => String(log))].join('\n'),
+    })
   }
 }
 
@@ -147,15 +219,16 @@ async function bundleJS(): Promise<void> {
 // Step 3: Generate .d.ts
 // ---------------------------------------------------------------------------
 
-function generateDeclarations(): void {
+async function generateDeclarations(): Promise<void> {
   // Addressed by path, not as `tsc`: node_modules/.bin/tsc is TypeScript 7
   // (tsgo's compiler, installed under the `@typescript/native` alias), and TS 7
   // rejects this repo's tsconfig outright. The release declaration emit must
   // stay on TypeScript 6. See `TSC_BIN` in
   // [internal ref].
-  run(
+  await run(
     ['./node_modules/typescript/bin/tsc', '-p', 'tsconfig.build.json'],
-    'Generating .d.ts declarations'
+    'Generating .d.ts declarations',
+    DECLARATION_EMIT_TIMEOUT_MS
   )
 }
 
@@ -177,7 +250,7 @@ function resolveAlias(aliasPath: string, fileDir: string): string {
 }
 
 function fixPathAliases(): void {
-  console.log('\n▸ Fixing @/ path aliases in .d.ts files')
+  console.log('\nFixing @/ path aliases in .d.ts files')
 
   const glob = new Bun.Glob('**/*.d.ts')
   let fixCount = 0
@@ -232,7 +305,7 @@ function fixPathAliases(): void {
  * - dist/island-chunks/*.js   — Code-split island component chunks
  */
 async function copyRuntimeAssets(): Promise<void> {
-  console.log('\n▸ Copying and building runtime assets')
+  console.log('\nCopying and building runtime assets')
   await buildRuntimeAssets(DIST_DIR, SRC_DIR)
   console.log('  Built client-bundle.js, island-chunks/, and copied client scripts')
 }
@@ -242,7 +315,7 @@ async function copyRuntimeAssets(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 function addShebang(): void {
-  console.log('\n▸ Adding shebang to dist/cli.js')
+  console.log('\nAdding shebang to dist/cli.js')
   const cliPath = join(DIST_DIR, 'cli.js')
   const content = readFileSync(cliPath, 'utf-8')
 
@@ -256,29 +329,40 @@ function addShebang(): void {
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  console.log('Building Sovrium for npm publishing...')
+  console.log('Building Sovrium for npm publishing…')
 
   clean()
   await bundleJS()
-  generateDeclarations()
+  // `run()` is now async (it awaits a spawned `tsc` through CommandService),
+  // where the original `Bun.spawnSync`-backed version blocked synchronously —
+  // this `await` is load-bearing: `fixPathAliases()` reads the very `.d.ts`
+  // files this step emits, and dropping it would let the two race.
+  await generateDeclarations()
   fixPathAliases()
   await copyRuntimeAssets()
   addShebang()
-  // @sovrium/types is no longer built here: the package is RETIRED and is never
-  // published. `scripts/build/build-types.ts` still exists, but as an INPUT to
-  // the binary — `build-binary.ts` runs it, then wraps its output as the ambient
-  // `declare module 'sovrium'` payload `sovrium types` writes out. Building it
-  // during the npm build would produce an artifact nothing consumes.
+  // Config types are not built here. `scripts/build/build-types.ts` is an INPUT to
+  // the BINARY — `build-binary.ts` runs it, then wraps its output as the ambient
+  // `declare module 'sovrium'` payload `sovrium types` writes out. Running it during
+  // the npm build would produce an artifact nothing consumes, and nothing is
+  // published to npm in any case.
 
   // Verify key outputs exist
   const required = ['index.js', 'cli.js', 'index.d.ts']
   const missing = required.filter((f) => !existsSync(join(DIST_DIR, f)))
   if (missing.length > 0) {
-    console.error(`\n✗ Missing expected outputs: ${missing.join(', ')}`)
-    process.exit(1)
+    throw new BuildScriptError({ message: `\nMissing expected outputs: ${missing.join(', ')}` })
   }
 
-  console.log('\n✓ Build complete — dist/ ready for publishing')
+  console.log('\nBuild complete — dist/ ready for publishing')
 }
 
-await main()
+// SC4 — the only `process.exit` in the file.
+if (import.meta.main) {
+  try {
+    await main()
+  } catch (error) {
+    printStderr(error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  }
+}

@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { coerceFieldValue, type CoercedFieldValue } from '../../runtime/field-value-coercion'
 import { matchHeaderToField } from '../import-csv-dialog/parser'
-import { isCellTypeMismatch } from './cell-mismatch'
 import { SKIP_VALUE } from './skip-value'
 import type { ParsedTsv } from './parse-tsv'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
@@ -24,23 +24,33 @@ export function buildInitialMappings(
  * per-column mappings.
  *
  * Columns mapped to {@link SKIP_VALUE} are excluded entirely. Cells whose
- * value is incompatible with the mapped field type (flagged in the preview)
- * are dropped from that row's payload so the valid columns still import — the
- * row lands with the type-incompatible field left blank rather than failing
- * the whole batch.
+ * value the shared coercion rule refuses (flagged in the preview) are dropped
+ * from that row's payload so the valid columns still import — the row lands
+ * with the type-incompatible field left blank rather than failing the whole
+ * batch. Accepted values are sent TYPED — a numeric column receives a number,
+ * never the digits as a string — which is the same rule the fill handle and
+ * the create flow write through.
  */
 export function buildRecords(
   parsed: ParsedTsv,
   mappings: readonly string[],
   fieldMeta?: FieldMetaMap
-): readonly { fields: Record<string, string> }[] {
+): readonly { fields: Record<string, CoercedFieldValue> }[] {
   return parsed.rows.map((row) => {
-    const fields = mappings.reduce<Record<string, string>>((acc, target, columnIndex) => {
-      if (target === SKIP_VALUE) return acc
-      const value = row[columnIndex] ?? ''
-      if (isCellTypeMismatch(value, fieldMeta?.[target]?.type)) return acc
-      return { ...acc, [target]: value }
-    }, {})
+    const fields = mappings.reduce<Record<string, CoercedFieldValue>>(
+      (acc, target, columnIndex) => {
+        if (target === SKIP_VALUE) return acc
+        const value = row[columnIndex] ?? ''
+        const coerced = coerceFieldValue(value, fieldMeta?.[target]?.type, target)
+        if (!coerced.ok) return acc
+        // A blank pasted into a typed column is left off the row rather than
+        // written as NULL: paste creates records, and an absent field takes
+        // the column's own default the way it always has.
+        if (coerced.value === null) return value === '' ? acc : { ...acc, [target]: value }
+        return { ...acc, [target]: coerced.value }
+      },
+      {}
+    )
     return { fields }
   })
 }
@@ -62,7 +72,7 @@ export interface PasteCreateResult {
  */
 export async function batchCreatePastedRecords(
   tableName: string,
-  records: readonly { fields: Record<string, string> }[]
+  records: readonly { fields: Record<string, CoercedFieldValue> }[]
 ): Promise<PasteCreateResult> {
   if (records.length === 0) return { created: 0, recordIds: [] }
   const response = await fetch(`/api/tables/${tableName}/records/batch`, {

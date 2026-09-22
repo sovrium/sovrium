@@ -26,7 +26,7 @@
 
 import { Effect } from 'effect'
 import { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
-import { resolveAutomationOperationalState } from '@/domain/utils/automation-operational-state'
+import { resolveAutomationOperationalState } from '@/domain/models/app/automations/automation-operational-state'
 import type {
   AutomationPauseDatabaseError,
   AutomationPauseRow,
@@ -98,7 +98,7 @@ export const BuildAutomationsCatalog = (
     const repository = yield* AutomationPauseRepository
     const pauses = indexPauses(yield* repository.listPauses)
     return { items: (app.automations ?? []).map((automation) => buildItem(automation, pauses)) }
-  })
+  }).pipe(Effect.withSpan('admin.build-automations-catalog'))
 
 /**
  * The outcome of a pause/resume mutation, mapped to HTTP by the route.
@@ -157,11 +157,15 @@ export const PauseAutomation = (
   name: string,
   pausedByUserId: string | undefined
 ): Effect.Effect<AutomationPauseOutcome, AutomationPauseDatabaseError, AutomationPauseRepository> =>
-  runMutation(app, name, (repository) => repository.pause({ automationName: name, pausedByUserId }))
+  runMutation(app, name, (repository) =>
+    repository.pause({ automationName: name, pausedByUserId })
+  ).pipe(Effect.withSpan('admin.pause-automation'))
 
 /** Allow new runs of `name` again. Idempotent; resuming an active automation succeeds. */
 export const ResumeAutomation = (
   app: App,
   name: string
 ): Effect.Effect<AutomationPauseOutcome, AutomationPauseDatabaseError, AutomationPauseRepository> =>
-  runMutation(app, name, (repository) => repository.resume(name))
+  runMutation(app, name, (repository) => repository.resume(name)).pipe(
+    Effect.withSpan('admin.resume-automation')
+  )

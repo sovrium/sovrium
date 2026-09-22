@@ -125,6 +125,8 @@ export const OptionItemSchema = Schema.Struct({
  *     action:
  *       type: crud
  *       operation: delete
+ *   - label: Show archived
+ *     toggle: unchecked
  * ```
  */
 export const MenuItemSchema = Schema.Struct({
@@ -164,6 +166,48 @@ export const MenuItemSchema = Schema.Struct({
   variant: Schema.optional(
     Schema.Literals(['default', 'destructive']).annotate({
       description: 'Visual style variant (destructive shows red text)',
+    })
+  ),
+  /**
+   * Render this item as a TOGGLE, and say which way it starts.
+   *
+   * ─── ONE KEY, BECAUSE A MENU ITEM HAS NO `type` ──────────────────────────
+   *
+   * Every other two-state control in the catalogue names its initial state
+   * with a boolean — `switch.checked`, `toggle.pressed` — and can do so safely
+   * because the component's own `type` already says what kind of control it is.
+   * A menu item has no `type`: the struct below IS every kind of row a menu can
+   * hold, and which kind is selected by which keys are present. So a bare
+   * `checked: boolean` would have to do two jobs at once, and `checked: false`
+   * would be unreadable — an author who meant "not a toggle" and an author who
+   * meant "a toggle that starts off" would write the same line.
+   *
+   * Naming the KIND and the STATE in one key removes the ambiguity without
+   * adding a second one that is inert on every other row: `toggle: checked`
+   * says both things, and its absence says "an ordinary item".
+   *
+   * ─── THE VALUE IS AN INITIAL CONDITION, NOT A BINDING ────────────────────
+   *
+   * It maps to Base UI's `defaultChecked`, never to `checked`, so the row is
+   * UNCONTROLLED and its live state lives only in the reader's browser
+   *. Nothing here reads a record or writes one back; an item that
+   * must persist what it toggles carries an `action` as well, exactly as any
+   * other item does.
+   *
+   * ─── PRECEDENCE, STATED RATHER THAN REFUSED ──────────────────────────────
+   *
+   * `separator: true` still wins: a row that declares both draws the divider
+   * and the toggle is inert. That matches how a separator already treats
+   * `label`, `icon` and `action`, and refusing only this one pair would make
+   * the same mistake report differently depending on which key it collided
+   * with. `children` is inert beside it for a different reason — a submenu
+   * trigger and a checkbox item are two different Base UI elements and cannot
+   * be one row.
+   */
+  toggle: Schema.optional(
+    Schema.Literals(['checked', 'unchecked']).annotate({
+      description:
+        'Render this item as a toggle whose switch sits at the right of its row, starting in the named state. The state is an INITIAL condition held in the reader\u2019s browser, not a binding. Inert on a `separator` row.',
     })
   ),
   /** Sub-menu items (nested menus) */
@@ -408,9 +452,10 @@ export const TimeFormatSchema = Schema.Literals(['12h', '24h']).annotate({
 /**
  * Progress visual variant
  */
-export const ProgressVariantSchema = Schema.Literals(['bar', 'circle']).annotate({
+export const ProgressVariantSchema = Schema.Literals(['bar', 'circle', 'steps']).annotate({
   title: 'Progress Variant',
-  description: 'Visual variant for the progress component (linear bar or circular)',
+  description:
+    'Visual variant for the progress component: a linear bar, a circle, or a discrete step rail',
 })
 
 // ---------------------------------------------------------------------------

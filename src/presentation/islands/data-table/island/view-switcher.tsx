@@ -5,11 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeTableViewSwitcherClasses,
+  computeTableViewSwitcherItemClasses,
+} from '@/presentation/design/table-default-classes'
 import type { ActiveViewType } from './use-ui-state'
 import type {
   DataTableViewLabels,
   DataTableViewType,
-} from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+} from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 /**
  * English defaults for every switcher control.
@@ -55,6 +59,14 @@ interface ViewSwitcherProps {
  * reader. Both are set from the same string, so they can never disagree — a
  * config cannot translate the visible text while leaving the announced name in
  * English.
+ *
+ * ## ONE segmented control, not four buttons
+ * Every position shipped with its own border and a 4px gap between them, which
+ * reads as four unrelated actions. It is one control with four positions,
+ * exactly one of which is always active — so the group carries the border and
+ * the radius, the positions carry internal dividers, and there is no gap for
+ * the eye to read as separation. `aria-pressed` already said this; now the
+ * drawing does too.
  */
 export function ViewSwitcher({
   views,
@@ -68,9 +80,9 @@ export function ViewSwitcher({
       data-testid="view-switcher"
       role="group"
       aria-label={groupLabel}
-      className="inline-flex items-center gap-1"
+      className={computeTableViewSwitcherClasses()}
     >
-      {views.map((view) => {
+      {views.map((view, index) => {
         const label = labelFor(view, viewLabels)
         return (
           <button
@@ -83,11 +95,13 @@ export function ViewSwitcher({
             aria-label={label}
             aria-pressed={activeView === view}
             onClick={onSelectViewType}
-            className={`rounded border px-2 py-1 text-xs ${
-              activeView === view
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border hover:bg-background-subtle'
-            }`}
+            // `first` suppresses the LEADING divider: N positions need N-1 of
+            // them, and hanging each off its own left edge means the group's
+            // border is never doubled at either end.
+            className={computeTableViewSwitcherItemClasses({
+              active: activeView === view,
+              first: index === 0,
+            })}
           >
             {label}
           </button>

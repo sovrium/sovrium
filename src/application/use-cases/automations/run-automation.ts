@@ -29,7 +29,8 @@ import {
   AutomationRepository,
   type AutomationDatabaseError,
 } from '@/application/ports/repositories/automations/automation-repository'
-import { isAutomationOperationallyEnabled } from '@/domain/utils/automation-operational-state'
+import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import { runOnAutomationServices } from '@/infrastructure/automations/runtime-layer'
 import { traceAutomationRun } from '@/infrastructure/telemetry/automation-run-trace'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { expandRefActions, type ActionTemplateLike } from './expand-action-refs'
@@ -216,7 +217,7 @@ export const resolveAutomationId = (
       } satisfies RunAutomationError)
     }
     return created['id']
-  })
+  }).pipe(Effect.withSpan('automations.resolve-automation-id'))
 
 /**
  * Build a `StepContext` for the run loop.
@@ -240,12 +241,15 @@ const buildStepContext = (input: {
    * runId is known.
    */
   readonly runId?: string
+  /** See `StepContext.runProgram` — captured from the running fiber. */
+  readonly runProgram: StepContext['runProgram']
 }): StepContext => {
   const { name, automationId, app, automation, processEnv, triggerData, handlers, userId } = input
   const callDepth = input.callDepth ?? 0
   const visited = input.visitedAutomations ?? new Set<string>()
   return {
     app,
+    runProgram: input.runProgram,
     envLookup: buildEnvLookup(app.env, processEnv),
     processEnv,
     handlers,
@@ -393,6 +397,7 @@ const enqueueAndAdmit = (
       cb(runId)
     }
     const limit = resolveConcurrencyLimit(automation, processEnv)
+    // effect-promise: total -- `acquireSlot` either resolves immediately or returns a promise that is only ever settled by `resolve`; it has no rejection path, and a queued automation waits rather than failing.
     yield* Effect.promise(() => acquireSlot(name, limit))
     yield* markRunRunning(runId)
     return runId
@@ -464,7 +469,10 @@ export const executeAutomationRun = (
       // so the resolved `runId` reaches each handler's `AutomationContext` —
       // needed by the `approval/request` handler to link its pending row to the
       // run it pauses.
-      const ctx = buildStepContext({ ...input, runId })
+      // Captured from THIS fiber, so anything the invokers dispatch across the
+      // sandbox's Promise boundary runs on the services this run already holds.
+      const runProgram = runOnAutomationServices(yield* Effect.context<RunRequirements>())
+      const ctx = buildStepContext({ ...input, runId, runProgram })
       const finalState = yield* runActionsWithTimeout(
         rawActions,
         ctx,
@@ -494,7 +502,7 @@ export const executeAutomationRun = (
       })
       return buildRunResult(observedRunId, effectiveState)
     })
-  )
+  ).pipe(Effect.withSpan('automations.execute-automation-run'))
 
 /**
  * The `automation:call` invoker, bound with this module's `executeAutomationRun`
@@ -608,7 +616,7 @@ export const runWebhookAutomation = ({
       userId,
       ...(onPersisted !== undefined ? { onPersisted } : {}),
     })
-  })
+  }).pipe(Effect.withSpan('automations.run-webhook-automation'))
 
 // Manual trigger entry point lives in `./run-manual-automation.ts` so the
 // per-trigger logic (role gating, custom error tags) does not bloat this

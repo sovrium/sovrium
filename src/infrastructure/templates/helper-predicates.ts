@@ -57,6 +57,13 @@ export const regexHelper = (value: unknown, pattern: unknown, flags?: unknown): 
   const patternStr = typeof pattern === 'string' ? pattern : ''
   if (patternStr === '') return ''
   const compiled = Result.try({
+    // The pattern IS the feature: `{{regex}}` exists so an app author can supply a
+    // regular expression from config, and escaping it would compile the pattern as
+    // a literal and break every use. The enclosing `Result.try` catches a SYNTAX
+    // error only, so catastrophic backtracking in an operator-authored pattern is
+    // unmitigated — accepted because config is authored by the operator, who
+    // already controls the process.
+    // eslint-disable-next-line sovrium/no-dynamic-regexp -- operator-supplied pattern is the documented feature
     try: () => new RegExp(patternStr, typeof flags === 'string' ? flags : ''),
     catch: () => undefined,
   })

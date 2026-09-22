@@ -9,13 +9,14 @@ import {
   isPageInSitemap,
   resolveSitemapChangefreq,
   resolveSitemapPriority,
-} from '@/domain/services/feeds/sitemap-builder'
+} from '@/domain/models/app/pages/sitemap-builder'
 import {
   enumerateContentDir,
   readContentDirBodies,
   type ContentDirEntry,
 } from '@/infrastructure/markdown/content-dir-enumerator'
 import type { App, Page } from '@/domain/models/app'
+import type { Options } from 'prettier'
 
 /**
  * Hreflang configuration for multilingual sitemaps
@@ -39,20 +40,70 @@ export interface HreflangConfig {
 const repairPreWhitespace = (html: string): string => html.replace(/(<pre[^>]*>)\n[ ]*/g, '$1')
 
 /**
- * Format HTML with Prettier for professional formatting
- * Loads Prettier config and formats HTML using the HTML parser.
+ * The formatting options every generated page is laid out with.
+ *
+ * PINNED IN CODE, and deliberately NOT discovered from the filesystem. A
+ * generated site is a pure function of the app config and its content (the
+ * Build Output Determinism contract in
+ * `[internal ref]`), so a `.prettierrc`,
+ * an `.editorconfig` or a `package.json#prettier` that a self-hoster happens to
+ * have lying around near their build directory must not change a byte of the
+ * output. `prettier.format` reads nothing from disk on its own — only
+ * `prettier.resolveConfig` does, and this module no longer calls it.
+ *
+ * It used to. `resolveConfig(process.cwd())` treats its argument as a FILE
+ * path and starts its upward search at that argument's PARENT, so the knob was
+ * not merely ambient, it was off by one directory: a config in the PARENT of
+ * the build directory changed the output while the one in the build directory
+ * itself was silently ignored. The fix is no lookup at all — not a corrected
+ * lookup. Pinned by `[internal ref]`, whose cwd-config case is a
+ * regression guard against "repairing" the off-by-one.
+ *
+ * Every value below is Prettier 3.x's own default, written out rather than
+ * inherited so a future change to those defaults cannot silently re-lay-out
+ * every shipped page. The JavaScript-side options are load-bearing despite the
+ * `html` parser: Prettier formats the contents of embedded `<script>` blocks
+ * (the command-palette bootstrap, island hydration, JSON-LD), so `printWidth`,
+ * `semi`, `singleQuote` and `trailingComma` all shape the emitted bytes.
+ *
+ * Two things this repo's OWN `.prettierrc.json` carries are pointedly absent,
+ * and both absences are decisions rather than oversights:
+ *  - `singleAttributePerLine` — a source-readability preference for this
+ *    repo's TypeScript. It has no business exploding shipped product markup
+ *    one attribute per line.
+ *  - `prettier-plugin-tailwindcss` — it REORDERS `class` attributes.
+ *    Reordering classes in product HTML is a behaviour change, not
+ *    formatting. `plugins: []` states that no plugin runs here.
+ */
+const HTML_FORMAT_OPTIONS: Readonly<Options> = {
+  parser: 'html',
+  plugins: [],
+  printWidth: 80,
+  tabWidth: 2,
+  useTabs: false,
+  endOfLine: 'lf',
+  htmlWhitespaceSensitivity: 'css',
+  bracketSameLine: false,
+  bracketSpacing: true,
+  semi: true,
+  singleQuote: false,
+  quoteProps: 'as-needed',
+  trailingComma: 'all',
+  arrowParens: 'always',
+}
+
+/**
+ * Format HTML with Prettier for professional formatting.
+ *
+ * Uses {@link HTML_FORMAT_OPTIONS} verbatim — no config is resolved from the
+ * filesystem, so the result depends on the input HTML alone.
  *
  * After formatting, repairs `<pre>` whitespace that Prettier damages
  * (leading newline + indentation, trailing whitespace).
  */
 export const formatHtmlWithPrettier = async (html: string): Promise<string> => {
   const prettier = await import('prettier')
-  const config = await prettier.resolveConfig(process.cwd())
-
-  const formatted = await prettier.format(html, {
-    ...config,
-    parser: 'html',
-  })
+  const formatted = await prettier.format(html, HTML_FORMAT_OPTIONS)
 
   return repairPreWhitespace(formatted)
 }

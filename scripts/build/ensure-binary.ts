@@ -54,9 +54,10 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, readdirSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { existsSync } from 'node:fs'
+import { basename, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { listDirSync } from '../lib/drift/walk'
 import { BINARY_PATH, PROJECT_ROOT, checkBinaryFreshness } from './binary-build-stamp'
 
 /** Repo-relative home of the `@packaging` tier. */
@@ -140,21 +141,49 @@ export function parsePositionalFilters(argv: readonly string[]): readonly string
 function packagingSpecFiles(): readonly string[] {
   const abs = join(PROJECT_ROOT, PACKAGING_SPEC_DIR)
   if (!existsSync(abs)) return []
-  return readdirSync(abs)
-    .filter((name) => name.endsWith('.spec.ts'))
-    .map((name) => `${PACKAGING_SPEC_DIR}/${name}`)
+  return listDirSync({ root: abs, extensions: ['.spec.ts'] }).map(
+    (absolute) => `${PACKAGING_SPEC_DIR}/${basename(absolute)}`
+  )
 }
 
-/** Does `filter` (a Playwright positional, i.e. a regex) select `specPath`? */
+/**
+ * Regex syntax that makes a positional something other than a literal path.
+ *
+ * `.` is DELIBERATELY absent. Every real filter ends `.spec.ts`, so including it
+ * would classify every invocation as a regex and make the gate fire on all of
+ * them — losing the entire cost saving this module exists for. Treating `.` as
+ * an ordinary character is also the safe reading: a literal substring match is
+ * strictly narrower than the wildcard the author may have meant, and the only
+ * input it could miss is a path whose `.` was intended as a wildcard over a
+ * DIFFERENT character.
+ */
+const REGEX_METACHARACTERS = /[\\^$|?*+()[\]{}]/
+
+/** A positional with its optional `./` prefix removed. */
+const normaliseFilter = (filter: string): string => filter.replace(/^\.\//, '')
+
+/** Does `filter`, read as a literal path fragment, select `specPath`? */
 function filterSelects(filter: string, specPath: string): boolean {
-  const normalised = filter.replace(/^\.\//, '')
-  if (specPath.includes(normalised)) return true
-  try {
-    return new RegExp(normalised).test(specPath)
-  } catch {
-    // Not a valid regex — the substring test above was the only meaningful one.
-    return false
-  }
+  return specPath.includes(normaliseFilter(filter))
+}
+
+/**
+ * Does `filter` carry regex syntax, making it undecidable as a literal path?
+ *
+ * Playwright reads positionals as regexes, but this module deliberately does NOT
+ * compile one. Constructing a `RegExp` from argv is a regex-injection sink
+ * (CodeQL `js/regex-injection`), and no bound helps: a catastrophic pattern like
+ * `(a+)+b` is exponential even against a 70-character spec path, and JavaScript
+ * offers no match timeout.
+ *
+ * Escaping the metacharacters — the fix applied to `[internal ref]` —
+ * is the WRONG move here. It would stop `[internal ref].*packaging.*` from matching,
+ * flipping the gate to "not in scope" and reinstating the six hard throws this
+ * module exists to remove. So a regex-shaped filter is answered by the fail-safe
+ * direction instead: assume in scope, and pay a ~1 s rebuild.
+ */
+function filterIsRegex(filter: string): boolean {
+  return REGEX_METACHARACTERS.test(normaliseFilter(filter))
 }
 
 export interface ScopeDecision {
@@ -182,6 +211,12 @@ export function packagingSpecsInScope(argv: readonly string[]): ScopeDecision {
   const filters = parsePositionalFilters(argv)
   if (filters.length === 0) {
     return { inScope: true, reason: 'no file filters — the whole suite is in scope' }
+  }
+
+  // A positional carrying regex syntax cannot be decided literally, and this
+  // module never compiles one. Err toward a rebuild — see `filterIsRegex`.
+  if (filters.some(filterIsRegex)) {
+    return { inScope: true, reason: 'a positional filter is a regex, not a literal path' }
   }
 
   const specs = packagingSpecFiles()
@@ -218,6 +253,27 @@ export interface EnsureResult {
  * on this host (darwin-arm64, git worktree): `bun run build:binary` completes in
  * ~1 s with no OOM.
  */
+/**
+ * A ceiling for the WHOLE `bun run build:binary` pipeline, not a single step.
+ *
+ * `build-binary.ts` runs eight sequential codegen/bundle steps (each budgeted
+ * up to two minutes) followed by one `bun build --compile` (budgeted at five
+ * minutes — "a binary build is minutes", not seconds, once the whole Bun
+ * runtime is embedded). Fifteen minutes covers that worst case with headroom;
+ * this is a runaway-catcher for a gate that must not hang the Playwright run
+ * forever, not a tuned target — see `COMPILE_TIMEOUT_MS` and its siblings in
+ * `build-binary.ts` for the per-step reasoning this sums.
+ *
+ * Not routed through `CommandService` (SC2's usual home for a spawn):
+ * `command-service.ts` imports `bun`'s own module, which does not resolve
+ * under plain Node — and this function is imported by
+ * `[internal ref]`, which runs under Node. `spawnSync` from
+ * `node:child_process` is the one spawn primitive available in both runtimes,
+ * which is also why it was already the spelling here rather than
+ * `Bun.spawnSync`.
+ */
+const BUILD_BINARY_TIMEOUT_MS = 900_000
+
 export function ensureCompiledBinary(): EnsureResult {
   const freshness = checkBinaryFreshness()
   if (freshness.current) {
@@ -229,6 +285,7 @@ export function ensureCompiledBinary(): EnsureResult {
     cwd: PROJECT_ROOT,
     stdio: 'inherit',
     encoding: 'utf-8',
+    timeout: BUILD_BINARY_TIMEOUT_MS,
   })
 
   if (proc.status !== 0) {
@@ -282,7 +339,7 @@ if (invokedDirectly) {
   const result = ensureCompiledBinary()
   console.log(
     result.rebuilt
-      ? `✓ ./sovrium rebuilt (${result.reason})`
-      : `✓ ./sovrium is current — ${result.reason}`
+      ? `./sovrium rebuilt (${result.reason})`
+      : `./sovrium is current — ${result.reason}`
   )
 }

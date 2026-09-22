@@ -18,7 +18,7 @@
  * `run-automation.ts` — that would form an import cycle.
  */
 
-import { Duration, Effect } from 'effect'
+import { Duration, Effect, Ref } from 'effect'
 import {
   actionKey,
   missingActionHandler,
@@ -31,8 +31,7 @@ import { resolveTriggerInValue } from '../resolve-trigger-data'
 import { buildNativeActionInvoker, buildTemplateInvoker } from './action-invokers'
 import {
   resolveRetryForAction,
-  retryDelayMs,
-  sleepEffect,
+  retrySchedule,
   truncateError,
   type AutomationInvoker,
   type ExecutedStep,
@@ -209,10 +208,9 @@ interface AttemptRecord {
   readonly error?: string
 }
 
-/** Per-iteration accumulator inside {@link dispatchWithRetry}'s reduce. */
-interface RetryReducerState {
+/** Everything {@link dispatchWithRetry} knows once the retry loop has settled. */
+interface RetryOutcome {
   readonly outcome: ActionOutcome
-  readonly retryCount: number
   readonly attempts: ReadonlyArray<AttemptRecord>
 }
 
@@ -223,45 +221,17 @@ const buildAttemptRecord = (outcome: ActionOutcome, attemptNumber: number): Atte
 })
 
 /**
- * Run one retry attempt: sleep per the retry strategy, invoke the handler,
- * append the new attempt to the accumulator. Skips the work when a prior
- * iteration already succeeded (the reduce loop walks a fixed length).
- *
- * `invoke` accepts the 1-indexed attempt number so handlers (notably the
- * code action) can surface it on the sandbox context as `run.attempt` —
- * [internal ref].
- */
-const stepRetry = (
-  state: RetryReducerState,
-  retryIndex: number,
-  retry: ResolvedRetryConfig,
-  invoke: (attempt: number) => Effect.Effect<ActionOutcome, never, StepRequirements>
-): Effect.Effect<RetryReducerState, never, StepRequirements> =>
-  state.outcome.status !== 'failure'
-    ? Effect.succeed(state)
-    : sleepEffect(retryDelayMs(retry, retryIndex)).pipe(
-        // `retryIndex` is 1-indexed by `dispatchWithRetry`'s `Array.from`
-        // expression; attempt 1 was the first invocation, so the Nth
-        // retry is attempt N+1.
-        Effect.andThen(invoke(retryIndex + 1)),
-        Effect.map((next) => ({
-          outcome: next,
-          retryCount: state.retryCount + 1,
-          attempts: [...state.attempts, buildAttemptRecord(next, state.attempts.length + 1)],
-        }))
-      )
-
-/**
- * Project the final reducer state into the augmented outcome surfaced to
+ * Project the settled retry state into the augmented outcome surfaced to
  * the run loop. Carries `attempts`, `retryCount`, and (on final failure
  * with `maxAttempts > 1`) the `exhausted: true` marker that lets the run
  * loop set `runStatus: 'exhausted'` instead of `'failure'`
  *.
+ *
+ * `retryCount` counts RETRIES, not attempts — one fewer than the number of
+ * recorded attempts — so `maxAttempts: 2` reports `retryCount: 1`, which is
+ * what the failure-handler fan-out reads as `trigger.data.attempt`.
  */
-const projectRetryResult = (
-  result: RetryReducerState,
-  retry: ResolvedRetryConfig
-): ActionOutcome => {
+const projectRetryResult = (result: RetryOutcome, retry: ResolvedRetryConfig): ActionOutcome => {
   if (result.outcome.status !== 'failure') {
     return {
       ...result.outcome,
@@ -273,12 +243,50 @@ const projectRetryResult = (
     ...result.outcome,
     output: {
       ...(result.outcome.output ?? {}),
-      retryCount: result.retryCount,
+      retryCount: Math.max(0, result.attempts.length - 1),
       attempts: result.attempts,
       ...(isExhausted ? { exhausted: true } : {}),
     },
   }
 }
+
+/**
+ * Run the handler under the action's retry policy, recording one
+ * {@link AttemptRecord} per invocation.
+ *
+ * An action handler reports failure as a VALUE (`outcome.status === 'failure'`)
+ * on an effect whose error channel is `never`, so there is nothing for
+ * `Effect.retry` to retry until we lift that value into the error channel —
+ * which is what the `Effect.fail` below does, and what the trailing
+ * `Effect.catch` immediately undoes once the schedule is exhausted. The failing
+ * outcome is therefore never lost: it is carried through the error channel and
+ * handed back verbatim.
+ *
+ * The attempt log lives in a `Ref` because `Effect.retry` gives the caller no
+ * per-attempt hook; reading it back also yields the attempt NUMBER to pass into
+ * the next invocation, which the code action surfaces as `context.run.attempt`
+ *.
+ */
+const runWithRetrySchedule = (
+  retry: ResolvedRetryConfig,
+  invoke: (attempt: number) => Effect.Effect<ActionOutcome, never, StepRequirements>
+): Effect.Effect<RetryOutcome, never, StepRequirements> =>
+  Effect.gen(function* () {
+    const log = yield* Ref.make<ReadonlyArray<AttemptRecord>>([])
+    const attempt = Ref.get(log).pipe(
+      Effect.flatMap((prior) => invoke(prior.length + 1)),
+      Effect.tap((outcome) =>
+        Ref.update(log, (prior) => [...prior, buildAttemptRecord(outcome, prior.length + 1)])
+      ),
+      Effect.flatMap((outcome) =>
+        outcome.status === 'failure' ? Effect.fail(outcome) : Effect.succeed(outcome)
+      )
+    )
+    const outcome = yield* Effect.retry(attempt, retrySchedule(retry)).pipe(
+      Effect.catch((failed) => Effect.succeed(failed))
+    )
+    return { outcome, attempts: yield* Ref.get(log) }
+  })
 
 /**
  * Invoke an action's handler, retrying on failure per the action's resolved
@@ -310,22 +318,14 @@ const dispatchWithRetry = (input: {
         action
       )
     }
-    const first = yield* invoke(1)
-    if (first.status !== 'failure' || retry === undefined) return first
-    // `maxAttempts` is the cap on TOTAL attempts; we already consumed one,
-    // so the loop body runs at most `maxAttempts - 1` more times. With
-    // `maxAttempts: 1` the loop body never runs (0 retries).
-    const maxRetries = Math.max(0, retry.maxAttempts - 1)
-    const initial: RetryReducerState = {
-      outcome: first,
-      retryCount: 0,
-      attempts: [buildAttemptRecord(first, 1)],
+    if (retry === undefined) return yield* invoke(1)
+    const result = yield* runWithRetrySchedule(retry, invoke)
+    // A first-attempt success is returned VERBATIM — no `attempts` key. Only a
+    // run that actually retried carries the attempt log, which is what keeps
+    // `computeAttemptCount` reporting 1 for ordinary successful runs.
+    if (result.outcome.status !== 'failure' && result.attempts.length <= 1) {
+      return result.outcome
     }
-    const result = yield* Effect.reduce(
-      Array.from({ length: maxRetries }, (_v, i) => i + 1),
-      () => initial,
-      (state, retryIndex) => stepRetry(state, retryIndex, retry, invoke)
-    )
     return projectRetryResult(result, retry)
   })
 
@@ -612,7 +612,7 @@ export const executeStep = (
       retry: resolveRetryForAction(rawAction, ctx.automationRetry),
     })
     return foldOutcome({ acc, rawAction, resolvedProps, outcome, ctx })
-  })
+  }).pipe(Effect.withSpan('automations.execute-step'))
 
 /**
  * Build a `'skipped'` step record for an action that was never executed

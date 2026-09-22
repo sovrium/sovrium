@@ -5,23 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
-import { WebhookResponseActionSchema } from './response'
-import { WebhookSendActionSchema } from './send'
-
-export const WebhookActionSchema = Schema.Union([
-  WebhookSendActionSchema,
-  WebhookResponseActionSchema,
-]).pipe(
-  Schema.annotate({
-    identifier: 'WebhookAction',
-    title: 'Webhook Action',
-    description: 'Outgoing webhook send or synchronous response construction',
-  })
-)
-
-/** @public */
-export type WebhookAction = Schema.Schema.Type<typeof WebhookActionSchema>
+export * from './webhook-action'
 
 export * from './response'
 export * from './send'

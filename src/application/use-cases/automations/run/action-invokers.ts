@@ -15,8 +15,6 @@
  * gets fresh invokers) and share one cycle-detection `invocationStack`.
  */
 
-import { Effect } from 'effect'
-import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
 import { actionKey, missingActionHandler } from '../action-handlers'
 import { applyTemplateVars } from '../expand-action-refs'
 import { findTemplate, resolveActionPropsForDispatch } from './prop-substitution'
@@ -66,7 +64,7 @@ const dispatchActionAsPromise = (input: DispatchActionInput): Promise<unknown> =
     ctx.automation,
     subRunContext
   )
-  return Effect.runPromise(provideAutomationRuntime(program)).then((outcome) => {
+  return ctx.runProgram(program).then((outcome) => {
     if (outcome.status === 'failure') {
       // eslint-disable-next-line functional/no-throw-statements -- inside .then; throw-as-rejection is the unicorn-preferred form
       throw new Error(outcome.error ?? `${failureLabel} failed`)

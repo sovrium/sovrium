@@ -9,8 +9,8 @@ description: >-
 auth:
   $ref: ./config/auth.yaml
 
-theme:
-  $ref: ./config/theme.yaml
+design:
+  $ref: ./config/design.yaml
 
 # Named storage bucket for receipt uploads (local disk by default; S3 when the
 # operator sets STORAGE_PROVIDER).

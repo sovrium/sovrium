@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { TableRecord } from '../shared/types'
+import { flattenRecordFields } from '@/domain/models/app/pages/record-envelope'
+import { buildDetailEndpointUrl } from '@/domain/models/app/pages/system-detail-endpoint'
+import type { TableRecord } from '../runtime/types'
 import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
 import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
 
@@ -41,7 +43,7 @@ export interface FetchResult {
   readonly total: number
   /**
    * The search term the endpoint reports it ACTUALLY applied — the signal that
-   * decides which layer filters (`appliedQuerySchema`, `src/domain/models/api/_shared/search.ts`).
+   * decides which layer filters (`appliedQuerySchema`, `src/domain/models/api/combinators/search.ts`).
    *
    * Tri-state, and the third state is the whole point:
    *
@@ -127,7 +129,7 @@ export interface SystemFetchQuery extends SystemQueryInput {
 }
 
 // ---------------------------------------------------------------------------
-// Run-status localization (gated — inert without a NAMED runs grid)
+// Run-status localization (gated on the runs endpoint — inert everywhere else)
 // ---------------------------------------------------------------------------
 
 /**
@@ -137,9 +139,14 @@ export interface SystemFetchQuery extends SystemQueryInput {
  * (`completed` / `failed` / `completed-with-errors`). When a NAMED directory
  * binds to that endpoint, the `status` field is mapped to its operator-facing
  * label here so the directory renders a readable status pill without a
- * server change or a per-column value-map in config. Gated on a NAMED source +
- * the runs endpoint so a generic / anonymous system source keeps its raw values
- * untouched.
+ * server change or a per-column value-map in config. Gated on the runs endpoint
+ * so a generic system source keeps its raw values untouched — and on a NAMED
+ * source as well on the rows path, where an anonymous grid may be an author's own
+ * view of the same feed.
+ *
+ * It applies on BOTH read paths, and to a run's steps as well as to the run: the
+ * grid and the drawer it opens describe the same run, so a word they spell
+ * differently is a defect on screen rather than a difference of scope.
  */
 const RUN_STATUS_LABELS: Record<string, string> = {
   completed: 'Success',
@@ -147,18 +154,66 @@ const RUN_STATUS_LABELS: Record<string, string> = {
   'completed-with-errors': 'Partial',
 }
 
+/**
+ * Does this endpoint publish the automation engine's run vocabulary?
+ *
+ * Matched on the SEGMENT rather than on the whole path, so the list feed
+ * (`/api/admin/automations/runs`) and one run's detail
+ * (`/api/admin/automations/runs/:runId`) are both recognised by the one test.
+ */
+const isRunsEndpoint = (endpoint: string): boolean => endpoint.includes('/automations/runs')
+
+/** One row's `status`, mapped to its operator-facing label when it has one. */
+const localizeStatus = (row: TableRecord): TableRecord => {
+  const raw = row['status']
+  if (typeof raw !== 'string') return row
+  const label = RUN_STATUS_LABELS[raw]
+  return label ? { ...row, status: label } : row
+}
+
+/**
+ * One run in the operator's vocabulary — its own status AND each of its steps'.
+ *
+ * The descent into `steps` is not a generalisation: a run's steps carry the same
+ * terminal status the run does, from the same engine, and the drawer prints them
+ * side by side. Localising only the outer one is how one vocabulary comes to have
+ * two spellings on a single screen. Anything that is not an object in that array
+ * is left exactly as it arrived, since there is no `status` to map.
+ */
+const localizeRun = (row: TableRecord): TableRecord => {
+  const localized = localizeStatus(row)
+  const rawSteps = row['steps']
+  if (!Array.isArray(rawSteps)) return localized
+  return {
+    ...localized,
+    steps: rawSteps.map((step) =>
+      typeof step === 'object' && step !== null ? localizeStatus(step as TableRecord) : step
+    ),
+  }
+}
+
 function localizeRunStatusRows(
   endpoint: string,
   sourceId: string | undefined,
   rows: readonly TableRecord[]
 ): readonly TableRecord[] {
-  if (!sourceId || !endpoint.includes('/automations/runs')) return rows
-  return rows.map((row) => {
-    const raw = row['status']
-    if (typeof raw !== 'string') return row
-    const label = RUN_STATUS_LABELS[raw]
-    return label ? { ...row, status: label } : row
-  })
+  if (!sourceId || !isRunsEndpoint(endpoint)) return rows
+  return rows.map(localizeRun)
+}
+
+/**
+ * The DETAIL-path counterpart, gated on the ENDPOINT alone.
+ *
+ * The rows gate also requires a NAMED source because a grid's id is what
+ * distinguishes "the runs directory" from some generic system source an author
+ * happened to point at the same feed. A detail binding carries no such id — the
+ * record-drawer's `dataSource.system` has an `endpoint` and a `param` and nothing
+ * else — so requiring one here would make the localiser unreachable on this path
+ * and leave the drawer disagreeing with the grid that opened it. The endpoint is
+ * the discriminating half in both gates; the id only narrows the rows one.
+ */
+function localizeRunStatusRecord(endpoint: string, record: TableRecord): TableRecord {
+  return isRunsEndpoint(endpoint) ? localizeRun(record) : record
 }
 
 // ---------------------------------------------------------------------------
@@ -289,9 +344,10 @@ async function readErrorBody(res: Response): Promise<string> {
 
 /**
  * Parse a system-endpoint response envelope into `{ records, total }`: rows are
- * read at `rowsKey`, each row's id normalized onto the canonical `id` key,
- * run-status localized for a named runs grid, and `total` taken from `totalKey`
- * when numeric (else rows length).
+ * read at `rowsKey`, a record envelope's nested `fields` bag lifted to the top
+ * level, each row's id normalized onto the canonical `id` key, run-status
+ * localized for a named runs grid, and `total` taken from `totalKey` when
+ * numeric (else rows length).
  */
 export function parseSystemEnvelope(
   system: SystemSource,
@@ -300,7 +356,9 @@ export function parseSystemEnvelope(
 ): FetchResult {
   const rowsKey = system.rowsKey ?? 'items'
   const idKey = system.idKey ?? 'id'
-  const rawRows = Array.isArray(json[rowsKey]) ? (json[rowsKey] as readonly TableRecord[]) : []
+  const rawRows = Array.isArray(json[rowsKey])
+    ? (json[rowsKey] as readonly TableRecord[]).map(flattenRecordFields)
+    : []
   // Normalize each row's id onto the canonical `id` key so row identity +
   // row-click actions resolve uniformly.
   const idMapped: readonly TableRecord[] = rawRows.map((row) =>
@@ -358,6 +416,12 @@ export async function fetchSystemEndpoint({
 // Single-record DETAIL fetch (CAP-2)
 // ---------------------------------------------------------------------------
 
+// The URL builder moved to `@/domain/utils/system-detail-endpoint` when the
+// RENDERER began resolving the same binding server-side: the
+// rendering layer may not import an island, so one shared home replaces what
+// would otherwise be two copies of the id-injection rule.
+export { buildDetailEndpointUrl }
+
 /**
  * The single-record counterpart to the rows-envelope fetch above. Where the
  * rows fetch extracts an ARRAY at `rowsKey`, the detail fetch injects a bound
@@ -368,26 +432,11 @@ export async function fetchSystemEndpoint({
  */
 
 /**
- * Build the detail-endpoint URL: substitute `id` into the endpoint's `:param`
- * placeholder (default `:id`) and append any static `system.query` params.
- */
-export function buildDetailEndpointUrl(system: SystemDetailSource, id: string): string {
-  const placeholder = `:${system.param ?? 'id'}`
-  const path = system.endpoint.includes(placeholder)
-    ? system.endpoint.replace(placeholder, encodeURIComponent(id))
-    : system.endpoint
-  const params = new URLSearchParams()
-  Object.entries(system.query ?? {}).forEach(([key, value]) => {
-    params.set(key, String(value))
-  })
-  const suffix = params.toString()
-  return `${path}${suffix ? `?${suffix}` : ''}`
-}
-
-/**
  * Parse a detail-endpoint response into a single record: read it at `recordKey`
- * (fallback the whole body), then normalize its id onto the canonical `id` key
- * from `idKey` (default `'id'`) so downstream field lookups resolve uniformly.
+ * (fallback the whole body), normalize its id onto the canonical `id` key from
+ * `idKey` (default `'id'`) so downstream field lookups resolve uniformly, then
+ * localize the run status — the record's own and its steps' — for a runs
+ * endpoint.
  */
 export function parseSystemDetailEnvelope(
   system: SystemDetailSource,
@@ -396,7 +445,8 @@ export function parseSystemDetailEnvelope(
   const raw = system.recordKey !== undefined ? json[system.recordKey] : json
   const record = (typeof raw === 'object' && raw !== null ? raw : {}) as TableRecord
   const idKey = system.idKey ?? 'id'
-  return idKey === 'id' ? record : { ...record, id: record[idKey] }
+  const identified = idKey === 'id' ? record : { ...record, id: record[idKey] }
+  return localizeRunStatusRecord(system.endpoint, identified)
 }
 
 /**

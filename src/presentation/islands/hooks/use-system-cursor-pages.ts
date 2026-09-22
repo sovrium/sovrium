@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react'
-import type { TableRecord } from '../shared/types'
+import type { TableRecord } from '../runtime/types'
 
 /**
  * Cursor-driven "load more" for a system read endpoint.

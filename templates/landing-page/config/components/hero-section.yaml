@@ -7,12 +7,12 @@ children:
   - type: text
     element: h1
     props:
-      className: text-5xl font-bold mb-6
+      className: text-6xl font-bold mb-6
     content: $title
   - type: text
     element: p
     props:
-      className: text-xl text-gray-600 mb-8
+      className: text-2xl text-gray-600 mb-8
     content: $subtitle
   - type: container
     props:

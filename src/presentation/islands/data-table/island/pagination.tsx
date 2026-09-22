@@ -6,13 +6,24 @@
  */
 
 import { useCallback } from 'react'
-import type { TableRecord } from '../../shared/types'
-import type { useReactTable } from '@tanstack/react-table'
+import {
+  computeTablePagerButtonClasses,
+  computeTablePagerClasses,
+  computeTablePagerSelectClasses,
+} from '@/presentation/design/table-default-classes'
+import type { DataTableInstance } from './table-features'
 
 interface PaginationControlsProps {
-  readonly table: ReturnType<typeof useReactTable<TableRecord>>
+  readonly table: DataTableInstance
   readonly total: number
   readonly pageSizeOptions?: readonly number[]
+  /**
+   * Which edge of the grid this pager sits on. It decides the separating border
+   * only — a pager above the rows is bordered underneath, one below is bordered
+   * on top — so the rule always falls between the pager and the rows it counts.
+   * WHERE the pager is placed is `GridBody`'s call, not this one's.
+   */
+  readonly position?: 'top' | 'bottom'
 }
 
 function PageSizeSelect({
@@ -29,7 +40,7 @@ function PageSizeSelect({
       data-page-size
       value={pageSize}
       onChange={onChange}
-      className="rounded border px-2 py-1 text-sm"
+      className={computeTablePagerSelectClasses()}
       aria-label="Page size"
     >
       {pageSizeOptions.map((size) => (
@@ -44,8 +55,20 @@ function PageSizeSelect({
   )
 }
 
-export function PaginationControls({ table, total, pageSizeOptions }: PaginationControlsProps) {
-  const { pageIndex, pageSize } = table.getState().pagination
+/**
+ * The page-number pager.
+ *
+ * Two placement decisions stay at this call site rather than moving into the
+ * pager recipe, because both are properties of what this bar HOLDS rather than
+ * of the bar. `justify-between` pushes the range summary and the step controls
+ * to opposite edges — the same chrome carries a single centred button under a
+ * cursor-paginated feed, where that would be wrong. And the summary span
+ * declares no type of its own: the bar's 11px muted step IS the pager's voice,
+ * and the span used to override it one step LOUDER than the values it counts.
+ */
+export function PaginationControls(props: PaginationControlsProps) {
+  const { table, total, pageSizeOptions, position = 'bottom' } = props
+  const { pageIndex, pageSize } = table.state.pagination
   const pageCount = table.getPageCount()
 
   const onPageSizeChange = useCallback(
@@ -64,9 +87,9 @@ export function PaginationControls({ table, total, pageSizeOptions }: Pagination
     <nav
       aria-label="pagination"
       data-pagination
-      className="border-border flex items-center justify-between border-t px-2 py-3"
+      className={`${computeTablePagerClasses({ position })} justify-between`}
     >
-      <span className="text-foreground-muted text-sm">{summary}</span>
+      <span>{summary}</span>
       <div className="flex items-center gap-2">
         {pageSizeOptions && pageSizeOptions.length > 0 && (
           <PageSizeSelect
@@ -79,19 +102,19 @@ export function PaginationControls({ table, total, pageSizeOptions }: Pagination
           type="button"
           onClick={onPrevious}
           disabled={!table.getCanPreviousPage()}
-          className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+          className={computeTablePagerButtonClasses({ disabled: !table.getCanPreviousPage() })}
           aria-label="Previous page"
         >
           Previous
         </button>
-        <span className="text-sm">
+        <span>
           Page {pageIndex + 1} of {pageCount || 1}
         </span>
         <button
           type="button"
           onClick={onNext}
           disabled={!table.getCanNextPage()}
-          className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+          className={computeTablePagerButtonClasses({ disabled: !table.getCanNextPage() })}
           aria-label="Next page"
         >
           Next

@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 /**
  * AI agent API contract schemas.
@@ -16,71 +17,85 @@ import { z } from '@hono/zod-openapi'
  */
 
 /** Approval lifecycle status. */
-export const approvalStatusSchema = z.enum(['pending', 'approved', 'rejected', 'expired'])
+export const approvalStatusSchema = Schema.Literals(['pending', 'approved', 'rejected', 'expired'])
 
 /** A serialized AI agent configuration. */
-export const serializedAgentSchema = z.object({
-  name: z.string(),
-  role: z.string(),
-  systemPrompt: z.string(),
-  enabled: z.boolean(),
-  model: z.string().optional(),
-  temperature: z.number().optional(),
-  maxTokens: z.number().optional(),
-  instructions: z.array(z.string()).optional(),
-  approval: z
-    .object({
-      mode: z.enum(['none', 'all', 'selective']).optional(),
-      required: z.array(z.string()).optional(),
-      timeout: z.number().optional(),
-      escalation: z.object({ after: z.number(), to: z.string() }).optional(),
+export const serializedAgentSchema = Schema.Struct({
+  name: Schema.String,
+  role: Schema.String,
+  systemPrompt: Schema.String,
+  enabled: Schema.Boolean,
+  model: optionalField(Schema.String),
+  temperature: optionalField(Schema.Finite),
+  maxTokens: optionalField(Schema.Finite),
+  instructions: optionalField(Schema.Array(Schema.String)),
+  approval: optionalField(
+    Schema.Struct({
+      mode: optionalField(Schema.Literals(['none', 'all', 'selective'])),
+      required: optionalField(Schema.Array(Schema.String)),
+      timeout: optionalField(Schema.Finite),
+      escalation: optionalField(
+        Schema.Struct({
+          after: Schema.Finite,
+          to: Schema.String,
+        })
+      ),
     })
-    .optional(),
-  tools: z.object({ tables: z.array(z.string()), actions: z.array(z.string()) }).optional(),
-  limits: z.object({
-    maxActionsPerMinute: z.number(),
-    maxTokensPerDay: z.number(),
-    maxConcurrentTasks: z.number(),
+  ),
+  tools: optionalField(
+    Schema.Struct({
+      tables: Schema.Array(Schema.String),
+      actions: Schema.Array(Schema.String),
+    })
+  ),
+  limits: Schema.Struct({
+    maxActionsPerMinute: Schema.Finite,
+    maxTokensPerDay: Schema.Finite,
+    maxConcurrentTasks: Schema.Finite,
   }),
 })
 
 /** A serialized agent approval request. */
-export const serializedApprovalSchema = z.object({
-  approvalId: z.string(),
-  id: z.string(),
-  agent: z.string(),
-  action: z.string(),
+export const serializedApprovalSchema = Schema.Struct({
+  approvalId: Schema.String,
+  id: Schema.String,
+  agent: Schema.String,
+  action: Schema.String,
   status: approvalStatusSchema,
-  timeout: z.number(),
-  actionExecuted: z.boolean(),
-  executedAs: z.string().optional(),
-  escalated: z.boolean(),
-  escalatedTo: z.string().optional(),
-  createdAt: z.string(),
-  expiresAt: z.string(),
+  timeout: Schema.Finite,
+  actionExecuted: Schema.Boolean,
+  executedAs: optionalField(Schema.String),
+  escalated: Schema.Boolean,
+  escalatedTo: optionalField(Schema.String),
+  createdAt: Schema.String,
+  expiresAt: Schema.String,
 })
 
 /** Result of an agent action execution — completed, pending approval, or queued. */
-export const executeResultSchema = z.union([
-  z.object({
-    status: z.literal('completed'),
-    approvalRequired: z.literal(false),
-    agent: z.string(),
+export const executeResultSchema = Schema.Union([
+  Schema.Struct({
+    status: Schema.Literal('completed'),
+    approvalRequired: Schema.Literal(false),
+    agent: Schema.String,
   }),
-  z.object({
-    status: z.literal('pending_approval'),
-    approvalRequired: z.literal(true),
-    approvalId: z.string(),
-    agent: z.string(),
+  Schema.Struct({
+    status: Schema.Literal('pending_approval'),
+    approvalRequired: Schema.Literal(true),
+    approvalId: Schema.String,
+    agent: Schema.String,
   }),
-  z.object({ status: z.literal('queued'), agent: z.string(), reason: z.string() }),
+  Schema.Struct({
+    status: Schema.Literal('queued'),
+    agent: Schema.String,
+    reason: Schema.String,
+  }),
 ])
 
 /** @public */
-export type ApprovalStatus = z.infer<typeof approvalStatusSchema>
+export type ApprovalStatus = typeof approvalStatusSchema.Type
 /** @public */
-export type SerializedAgent = z.infer<typeof serializedAgentSchema>
+export type SerializedAgent = typeof serializedAgentSchema.Type
 /** @public */
-export type SerializedApproval = z.infer<typeof serializedApprovalSchema>
+export type SerializedApproval = typeof serializedApprovalSchema.Type
 /** @public */
-export type ExecuteResult = z.infer<typeof executeResultSchema>
+export type ExecuteResult = typeof executeResultSchema.Type

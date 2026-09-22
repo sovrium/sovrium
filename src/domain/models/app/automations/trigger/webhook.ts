@@ -80,7 +80,7 @@ const WebhookAuthSchema = Schema.Struct({
     // (`src/domain/models/app/tables/webhooks/auth.ts`). A shared identifier
     // collapses both into one JSON Schema `$def`, erasing this one from the
     // public schema — see the collision test in
-    // `src/domain/services/json-schema.test.ts`.
+    // `src/domain/models/app/app-json-schema.test.ts`.
     identifier: 'IncomingWebhookAuth',
     title: 'Incoming Webhook Authentication',
     description: 'Authentication configuration for incoming webhook requests',

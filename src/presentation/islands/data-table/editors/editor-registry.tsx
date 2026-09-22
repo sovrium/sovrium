@@ -11,8 +11,9 @@
    this field alone". The two are not interchangeable here — swapping them turns
    every clear gesture into a silent no-op. */
 
-import { fieldWidgetOf, type FieldWidget } from '@/presentation/utils/field-type-behavior'
+import { fieldWidgetOf, type FieldWidget } from '@/presentation/design/field-type-behavior'
 import { AttachmentEditor } from './attachment-editor'
+import { CodeCellEditorBoundary } from './code-editor-boundary'
 import { DateTimeEditor } from './datetime-editor'
 import { MultiSelectEditor } from './multi-select-editor'
 import { RecordPickerEditor } from './record-picker-editor'
@@ -71,9 +72,11 @@ const WIDGET_EDITORS: Record<FieldWidget, EditorComponent | null> = {
   'record-picker': RecordPickerEditor,
   'user-picker': UserPickerEditor,
   datetime: DateTimeEditor,
-  // The one editor behind a chunk boundary: it is the only widget whose control
-  // is heavier than the grid that hosts it. See `rich-text-editor-boundary.tsx`.
+  // The two editors behind a chunk boundary: Tiptap and CodeMirror are the only
+  // controls heavier than the grid that hosts them. See
+  // `rich-text-editor-boundary.tsx` and `code-editor-boundary.tsx`.
   'rich-text': RichTextCellEditorBoundary,
+  code: CodeCellEditorBoundary,
   'file-single': (props) => (
     <AttachmentEditor
       {...props}
@@ -99,7 +102,6 @@ const WIDGET_EDITORS: Record<FieldWidget, EditorComponent | null> = {
   date: HANDLED_BY_LEGACY_EDITOR,
   email: HANDLED_BY_LEGACY_EDITOR,
   url: HANDLED_BY_LEGACY_EDITOR,
-  code: HANDLED_BY_LEGACY_EDITOR,
 }
 
 /**

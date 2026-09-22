@@ -27,7 +27,7 @@ import {
   evaluatePermission,
   permits,
   toPermissionValue,
-} from '@/domain/models/shared/permission-evaluation'
+} from '@/domain/models/app/auth/permission-evaluation'
 
 /** Field types whose content is meaningful to embed for RAG retrieval. */
 const TEXT_LIKE_FIELD_TYPES: ReadonlySet<string> = new Set([
@@ -139,7 +139,7 @@ const validateAgentKnowledge = (
  * author can act on it.
  *
  * KEEP IN LOCK-STEP with `canAgentReadKnowledgeTable` in
- * `src/domain/services/rag/rag-knowledge-access.ts`, which decides the same
+ * `src/domain/models/app/agents/rag-knowledge-access.ts`, which decides the same
  * question at ingest time; see the note there for why the two cannot share a
  * helper. `role` defaults to `member` for the same reason it does there.
  */

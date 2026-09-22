@@ -42,21 +42,24 @@
  * — only the OTLP exporter wiring lives under `unstable`.
  */
 
-import { Duration, Effect, Layer, Logger, References, ManagedRuntime } from 'effect'
+import { Duration, Effect, Layer, Logger, References, ManagedRuntime, Tracer } from 'effect'
 import * as FetchHttpClient from 'effect/unstable/http/FetchHttpClient'
 import * as HttpBody from 'effect/unstable/http/HttpBody'
+import * as OtlpExporter from 'effect/unstable/observability/OtlpExporter'
 import * as OtlpLogger from 'effect/unstable/observability/OtlpLogger'
 import * as OtlpMetrics from 'effect/unstable/observability/OtlpMetrics'
 import * as OtlpSerialization from 'effect/unstable/observability/OtlpSerialization'
 import * as OtlpTracer from 'effect/unstable/observability/OtlpTracer'
-import { isDebugEnabled } from '@/infrastructure/utils/env'
+import { formatClock } from '@/infrastructure/logging/cli-output'
+import { isDebugEnabled, isProduction } from '@/infrastructure/process/env'
+import { collectingTracer } from './span-collector'
 import { getTelemetryConfig } from './telemetry-config'
 import type { LogAttributes, TelemetryLogLevel } from './telemetry-sink'
 import type {
   LogExportConfig as LogExport,
   MetricsExportConfig as MetricsExport,
   TracesConfig as Traces,
-} from '@/domain/models/env/telemetry/telemetry'
+} from '@/domain/models/process-env/telemetry/telemetry'
 import type { LogLevel } from 'effect'
 
 /** Resolved OTLP resource identity (service name/version + deployment env). */
@@ -105,20 +108,48 @@ const toLogLevel = (level: TelemetryLogLevel): LogLevel.Severity => {
 }
 
 /**
- * The stdout sink — reproduces `[ISO] [LEVEL] msg`, byte-compatible with the
- * previous `formatLogMessage` + `Console.*` output. debug/info → stdout,
- * warn/error → stderr (matching `Console.debug/log` vs `Console.warn/error`);
- * the E2E harnesses merge both streams, so the split is not asserted. The error
- * `cause` stack is written by the `logError` helper, not here.
+ * Render one structured log line for the terminal — the pure half of
+ * {@link stdoutLogger}, extracted so both shapes are testable without capturing
+ * a process stream.
  *
- * EFFECT 4. v3 read `logLevel.label`, which was already UPPERCASE (`'WARN'`).
- * v4's `logLevel` IS the string and it is title-case (`'Warn'`), so the
- * `.toUpperCase()` is what keeps the emitted line byte-identical. Dropping it
- * would silently change every log line the E2E harnesses read.
+ * PRODUCTION keeps `[ISO] [LEVEL] msg`, byte for byte (T43). That is the format
+ * journald, Scalingo and the OTLP tee already parse; reformatting it would be a
+ * log-shipping outage wearing a design change. The `.toUpperCase()` below is
+ * load-bearing for exactly that reason — v3 read `logLevel.label`, which was
+ * already UPPERCASE (`'WARN'`), while v4's `logLevel` IS the string and it is
+ * title-case (`'Warn'`).
+ *
+ * OUTSIDE PRODUCTION the line joins the journal (T39): `HH:MM:SS <message>`,
+ * where the message already opens with its own `[area]` tag by the convention
+ * in `logging/logger.ts`. Severity is the WORD, after the clock (T41) — never a
+ * `[LEVEL]` bracket, which T34 exists to refuse, and never a glyph (T11).
+ *
+ * The `date` is the one Effect's `Logger.make` already hands the callback, so
+ * the clock is the instant of the log record rather than the instant of
+ * formatting.
+ */
+export const formatStdoutLogLine = (
+  label: string,
+  message: string,
+  date: Readonly<Date>
+): string => {
+  if (isProduction()) return `[${date.toISOString()}] [${label}] ${message}`
+  const severity = label === 'ERROR' ? 'Error: ' : label === 'WARN' ? 'Warning: ' : ''
+  return `${formatClock(date)} ${severity}${message}`
+}
+
+/**
+ * The stdout sink. debug/info → stdout, warn/error → stderr (matching
+ * `Console.debug/log` vs `Console.warn/error`). The error `cause` stack is
+ * written by the `logError` helper, not here.
+ *
+ * The routing is deliberately shape-independent: the stream carries severity in
+ * BOTH shapes (T31), so a development journal and a production log agree about
+ * where a warning goes even though they disagree about how it reads.
  */
 const stdoutLogger: Logger.Logger<unknown, void> = Logger.make(({ logLevel, message, date }) => {
   const label = logLevel.toUpperCase()
-  const line = `[${date.toISOString()}] [${label}] ${String(message)}\n`
+  const line = `${formatStdoutLogLine(label, String(message), date)}\n`
   const toStderr = label === 'ERROR' || label === 'WARN'
   // eslint-disable-next-line functional/no-expression-statements -- terminal sink write
   ;(toStderr ? process.stderr : process.stdout).write(line)
@@ -230,30 +261,70 @@ const metricsTee = (metricsExport: MetricsExport | undefined): readonly Layer.La
       ]
 
 /**
- * Traces tee (0 or 1 layer): `OtlpTracer.layer` installs the OTLP tracer (via
- * `Layer.setTracer`) whose exporter fiber batches finished spans every
- * `exportInterval` (`OTEL_BSP_SCHEDULE_DELAY`, default 5s) and PUSHes them to
- * `<endpoint>/v1/traces`. Empty unless a traces endpoint is armed; its exporter
- * fiber lives in this (pre-built) runtime's scope so `Effect.withSpan` seams run
- * against the OTLP tracer and the final batch flushes on `disposeObsRuntime`.
+ * Traces tee (0 or 1 layer), gated on EITHER of two independent signals.
+ *
+ * 1. **A traces endpoint is armed.** The OTLP tracer is installed; its exporter
+ *    fiber batches finished spans every `exportInterval`
+ *    (`OTEL_BSP_SCHEDULE_DELAY`, default 5s) and PUSHes them to
+ *    `<endpoint>/v1/traces`. The fiber lives in this (pre-built) runtime's scope
+ *    so `Effect.withSpan` seams run against the OTLP tracer and the final batch
+ *    flushes on `disposeObsRuntime`.
+ * 2. **Sentry performance sampling is armed.** Spans then have somewhere to GO
+ *    even with the OTLP pipeline disarmed — the Sentry transaction envelope.
+ *
+ * `collectingTracer` is what joins the two: it files every span it mints into
+ * the current request's box (`request-trace-context.ts`) and otherwise behaves
+ * exactly like the tracer it wraps. With traces armed it wraps the OTLP tracer,
+ * so BOTH destinations see the same spans; with traces disarmed it wraps
+ * nothing and mints native spans, reproducing the default tracer's behaviour
+ * while still filling the box.
+ *
+ * That second branch is the production configuration and the reason this file
+ * changed at all: GlitchTip received 4293 transactions and zero spans precisely
+ * because span reachability was gated on an OTLP endpoint nobody had set.
+ *
+ * The armed-traces branch reproduces `OtlpTracer.layer` inline
+ * (`flow(make, Layer.effect(Tracer.Tracer), Layer.provideMerge(layerFlusher))`)
+ * rather than calling it, because the wrap has to happen BETWEEN `make` and
+ * `Layer.effect` — there is no seam for it once the layer is built.
  *
  * Head-sampling (the ecoconception volume lever) is applied at the request edge
  * in `runRequestEffect` via `Effect.withTracerEnabled` — NOT here; the OtlpTracer
  * exports every span it is handed.
  */
-const tracesTee = (traces: Traces | undefined): readonly Layer.Layer<never>[] =>
-  traces === undefined
-    ? []
-    : [
-        OtlpTracer.layer({
-          url: traces.endpoint,
-          headers: traces.headers,
-          resource: otlpResource(),
-          ...(traces.scheduleDelayMs !== undefined
-            ? { exportInterval: Duration.millis(traces.scheduleDelayMs) }
-            : {}),
-        }).pipe(Layer.provide(otlpSerializationJson), Layer.provide(FetchHttpClient.layer)),
-      ]
+const tracesTee = (
+  traces: Traces | undefined,
+  collectSpans: boolean
+): readonly Layer.Layer<never>[] => {
+  if (traces !== undefined) {
+    // Always collecting, even with the Sentry gate off: `runRequestEffect` reads
+    // `box.root` to decide whether to open a request root or chain under the
+    // existing one, so a traces-only instance needs the collector too — without
+    // it, a handler running several Effect programs fragments one request into
+    // several disconnected traces. Outside a request box the collector is inert.
+    return [
+      Layer.effect(
+        Tracer.Tracer,
+        Effect.map(
+          OtlpTracer.make({
+            url: traces.endpoint,
+            headers: traces.headers,
+            resource: otlpResource(),
+            ...(traces.scheduleDelayMs !== undefined
+              ? { exportInterval: Duration.millis(traces.scheduleDelayMs) }
+              : {}),
+          }),
+          (delegate) => collectingTracer(delegate)
+        )
+      ).pipe(
+        Layer.provideMerge(OtlpExporter.layerFlusher),
+        Layer.provide(otlpSerializationJson),
+        Layer.provide(FetchHttpClient.layer)
+      ),
+    ]
+  }
+  return collectSpans ? [Layer.succeed(Tracer.Tracer, collectingTracer())] : []
+}
 
 /** Build the observability layer. `withOtlp` adds the OTLP tees (async `Scope`). */
 const buildLayer = (withOtlp: boolean): Layer.Layer<never> => {
@@ -272,10 +343,16 @@ const buildLayer = (withOtlp: boolean): Layer.Layer<never> => {
     Logger.layer([stdoutLogger, Logger.tracerLogger]),
     Layer.succeed(References.MinimumLogLevel, minimumLevel)
   )
-  const { logExport, metricsExport, traces } = getTelemetryConfig()
+  // `performance` arms this runtime too, even though it exports nothing over
+  // OTLP: the span box the Sentry transaction reads is filled by the tracer the
+  // traces tee installs, so a performance-only instance still needs that tee.
+  const { logExport, metricsExport, traces, performance } = getTelemetryConfig()
   if (
     !withOtlp ||
-    (logExport === undefined && metricsExport === undefined && traces === undefined)
+    (logExport === undefined &&
+      metricsExport === undefined &&
+      traces === undefined &&
+      performance === undefined)
   ) {
     return base
   }
@@ -283,7 +360,7 @@ const buildLayer = (withOtlp: boolean): Layer.Layer<never> => {
     base,
     ...logTee(logExport),
     ...metricsTee(metricsExport),
-    ...tracesTee(traces)
+    ...tracesTee(traces, performance !== undefined)
   )
 }
 
@@ -321,8 +398,14 @@ export const setLogResource = (resource: LogResource): void => {
  * (the bootstrap stdout runtime already serves every line synchronously).
  */
 export const initObsRuntime = async (): Promise<void> => {
-  const { logExport, metricsExport, traces } = getTelemetryConfig()
-  if (logExport === undefined && metricsExport === undefined && traces === undefined) return
+  const { logExport, metricsExport, traces, performance } = getTelemetryConfig()
+  if (
+    logExport === undefined &&
+    metricsExport === undefined &&
+    traces === undefined &&
+    performance === undefined
+  )
+    return
   const runtime = ManagedRuntime.make(buildLayer(true))
   // Pre-build: populate the cached Runtime (acquires the OTLP Scope + exporter
   // fiber) so later runSync takes the fast, synchronous cached-runtime path.
@@ -337,21 +420,54 @@ export const initObsRuntime = async (): Promise<void> => {
 }
 
 /**
+ * The log record itself, as an Effect — the thing {@link emitLog} runs.
+ *
+ * Exported so a test can run the EXACT effect the sink runs, on its own runtime
+ * with a capturing logger, rather than re-deriving an equivalent one. That is
+ * the only way to assert the `parentSpan` behaviour below, because the real
+ * runtime's loggers are stdout and the OTLP tee.
+ *
+ * `parentSpan` is what gives log↔trace correlation, and it has to be passed in
+ * rather than inherited. Every call here runs on the OBSERVABILITY runtime,
+ * which means a FRESH fiber: `OtlpLogger` stamps `traceId`/`spanId` from
+ * `options.fiber.currentSpan` (OtlpLogger.ts:230), and a fresh fiber has none,
+ * so before this argument existed NO log line emitted from inside application
+ * code could carry a trace id — however deep inside a span it was written.
+ * `Effect.withParentSpan` puts the caller's span into this fiber's context,
+ * where `fiber.currentSpan` reads it.
+ */
+export const logRecordEffect = (
+  level: TelemetryLogLevel,
+  message: string,
+  attributes?: LogAttributes,
+  parentSpan?: Tracer.AnySpan
+): Effect.Effect<void> => {
+  // EFFECT 4: `logWithLevel` is CURRIED — `(level) => (...message) => Effect`
+  // (Effect.d.ts:17479), where v3 took both at once.
+  const record = Effect.logWithLevel(toLogLevel(level))(message)
+  const annotated = attributes ? record.pipe(Effect.annotateLogs(attributes)) : record
+  return parentSpan ? annotated.pipe(Effect.withParentSpan(parentSpan)) : annotated
+}
+
+/**
  * Emit one structured log line through the unified runtime: stdout (always) +
  * OTLP (once activated). Optional `attributes` become OTLP record attributes via
  * `Effect.annotateLogs`; they never touch stdout. `runSync` is safe because the
  * active runtime is either sync-buildable (bootstrap) or pre-built (full).
+ *
+ * `parentSpan` is supplied by the `Logger` SERVICE, which reads the ambient span
+ * off its own fiber before crossing into this runtime. The plain-function
+ * helpers (`logError` and friends) pass nothing, because there is no fiber to
+ * read one from — which is the honest answer for a `catch` block in an async
+ * helper, and why the argument is optional rather than required.
  */
 export const emitLog = (
   level: TelemetryLogLevel,
   message: string,
-  attributes?: LogAttributes
+  attributes?: LogAttributes,
+  parentSpan?: Tracer.AnySpan
 ): void => {
-  // EFFECT 4: `logWithLevel` is CURRIED — `(level) => (...message) => Effect`
-  // (Effect.d.ts:17479), where v3 took both at once.
-  const record = Effect.logWithLevel(toLogLevel(level))(message)
-
-  activeRuntime().runSync(attributes ? record.pipe(Effect.annotateLogs(attributes)) : record)
+  activeRuntime().runSync(logRecordEffect(level, message, attributes, parentSpan))
 }
 
 /**

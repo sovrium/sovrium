@@ -35,4 +35,4 @@ export const updateUserTablePreferences = (
   Effect.gen(function* () {
     const repo = yield* UserTablePreferencesRepository
     return yield* repo.update(input)
-  })
+  }).pipe(Effect.withSpan('tables.update-user-table-preferences'))

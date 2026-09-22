@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isGuestSession } from '@/domain/services/guest-session'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import type { DrizzleTransaction } from '@/infrastructure/database'
 

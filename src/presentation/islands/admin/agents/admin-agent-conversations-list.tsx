@@ -49,24 +49,24 @@ function NewConversation({
       <button
         type="button"
         onClick={onStart}
-        className="text-foreground-muted border-border-strong/40 bg-background-subtle hover:bg-background-subtle/70 inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
+        className="text-foreground-muted border-border-strong/40 bg-background-subtle hover:bg-background-subtle/70 text-md inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 font-medium transition-colors"
       >
         <span
           aria-hidden="true"
-          className="text-base leading-none"
+          className="text-lg leading-none"
         >
           +
         </span>
         New conversation
       </button>
       {state.active ? (
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-foreground-subtle text-xs">Agent</span>
+        <label className="text-md flex items-center gap-2">
+          <span className="text-foreground-subtle text-sm">Agent</span>
           <select
             aria-label="Agent"
             value={state.agent}
             onChange={handlePick}
-            className="border-border bg-background text-foreground flex-1 rounded-md border px-2 py-1 text-sm"
+            className="border-border bg-background text-foreground text-md flex-1 rounded-md border px-2 py-1"
           >
             <option value="">Choose an agent…</option>
             {agentNames.map((name) => (
@@ -116,13 +116,13 @@ function AgentFilter({
   // eslint-disable-next-line unicorn/no-null -- React conditional needs null, not undefined
   if (agentNames.length < 2 || hidden) return null
   return (
-    <label className="flex items-center gap-2 text-sm">
-      <span className="text-foreground-subtle text-xs">Agent</span>
+    <label className="text-md flex items-center gap-2">
+      <span className="text-foreground-subtle text-sm">Agent</span>
       <select
         aria-label="Filter by agent"
         value={agent}
         onChange={handleChange}
-        className="border-border bg-background text-foreground flex-1 rounded-md border px-2 py-1 text-sm"
+        className="border-border bg-background text-foreground text-md flex-1 rounded-md border px-2 py-1"
       >
         <option value="">All agents</option>
         {agentNames.map((name) => (
@@ -154,9 +154,9 @@ function ListSearch({
     <div className="relative">
       <svg
         aria-hidden="true"
-        width="15"
-        height="15"
-        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.5"
@@ -165,11 +165,11 @@ function ListSearch({
         className="text-foreground-subtle pointer-events-none absolute top-2.5 left-2.5"
       >
         <circle
-          cx="11"
-          cy="11"
-          r="7"
+          cx="7"
+          cy="7"
+          r="4.2"
         />
-        <path d="m21 21-4.3-4.3" />
+        <path d="m10.3 10.3 3.2 3.2" />
       </svg>
       <input
         type="search"
@@ -177,7 +177,7 @@ function ListSearch({
         onChange={handleChange}
         placeholder="Search conversations…"
         aria-label="Search conversations"
-        className="border-border bg-background-raised focus:border-border-strong focus:ring-focus-ring/30 w-full rounded-md border py-1.5 pr-3 pl-8 text-sm transition-colors focus:ring-2 focus:outline-none"
+        className="border-border bg-background-raised focus:border-border-strong focus:ring-focus-ring/30 text-md w-full rounded-md border py-1.5 pr-3 pl-8 transition-colors focus:ring-2 focus:outline-none"
       />
     </div>
   )
@@ -207,13 +207,13 @@ function ConversationCard({
           : 'text-foreground-muted hover:border-border hover:bg-background-subtle border-transparent',
       ].join(' ')}
     >
-      <span className="text-foreground truncate text-sm font-medium">{conversation.title}</span>
+      <span className="text-foreground text-md truncate font-medium">{conversation.title}</span>
       {/* The agent name used to lead this line, from when the list merged every
           agent. Scoped to one agent by the URL, it repeated the breadcrumb, the
           sidebar's active row and the page heading on every row — four times for
           one fact. Dropped; `agentName` stays on the row because the transcript
           fetch is agent-scoped and still needs it. */}
-      <span className="text-foreground-subtle flex items-center gap-2 text-xs">
+      <span className="text-foreground-subtle flex items-center gap-2 text-sm">
         <span>{formatRelative(conversation.lastActivityAt)}</span>
         <span aria-hidden="true">·</span>
         <span className="tabular-nums">
@@ -242,8 +242,8 @@ function ListStateCard({
       aria-label={label}
       className="border-border bg-background-raised flex flex-col items-center gap-1.5 rounded-md border border-dashed p-6 text-center"
     >
-      <p className="text-foreground text-sm font-medium">{title}</p>
-      <p className="text-foreground-muted text-xs leading-relaxed">{body}</p>
+      <p className="text-foreground text-md font-medium">{title}</p>
+      <p className="text-foreground-muted text-sm leading-relaxed">{body}</p>
       {children}
     </section>
   )
@@ -278,7 +278,7 @@ function ListErrorState({ onRetry }: { readonly onRetry: () => void }): ReactEle
       <button
         type="button"
         onClick={onRetry}
-        className="text-foreground-muted hover:text-foreground-muted/80 mt-1 text-xs font-medium"
+        className="text-foreground-muted hover:text-foreground-muted/80 mt-1 text-sm font-medium"
       >
         Retry
       </button>
@@ -325,7 +325,7 @@ function ListNoMatchState({
       <button
         type="button"
         onClick={onResetSearch}
-        className="text-foreground-muted hover:text-foreground-muted/80 mt-1 text-xs font-medium"
+        className="text-foreground-muted hover:text-foreground-muted/80 mt-1 text-sm font-medium"
       >
         Reset
       </button>

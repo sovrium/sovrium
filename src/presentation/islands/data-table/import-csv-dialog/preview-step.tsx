@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeTablePreviewGridCellClasses } from '@/presentation/design/table-default-classes'
 import type { CsvPreview } from './types'
 
 interface PreviewStepProps {
@@ -14,13 +15,13 @@ interface PreviewStepProps {
 export function PreviewStep({ preview }: PreviewStepProps) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full border-collapse text-sm">
+      <table className="min-w-full border-collapse">
         <thead>
           <tr>
             {preview.headers.map((header, i) => (
               <th
                 key={i}
-                className="border-border bg-background-subtle text-foreground border px-3 py-2 text-left font-medium"
+                className={computeTablePreviewGridCellClasses({ kind: 'header' })}
               >
                 {header}
               </th>
@@ -33,7 +34,7 @@ export function PreviewStep({ preview }: PreviewStepProps) {
               {row.map((cell, ci) => (
                 <td
                   key={ci}
-                  className="border-border text-foreground border px-3 py-2"
+                  className={computeTablePreviewGridCellClasses({ kind: 'data' })}
                 >
                   {cell}
                 </td>

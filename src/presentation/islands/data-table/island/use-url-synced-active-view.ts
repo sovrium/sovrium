@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef } from 'react'
-import { subscribe as subscribeIslandEvent } from '../../_shared/event-bus'
+import { subscribe as subscribeIslandEvent } from '../../runtime/event-bus'
 import type { FilterRow, SortRow } from './use-ui-state'
 
 /**

@@ -5,58 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
-import { coreFields } from '../../modules/core'
-import { dataBoundFields } from '../../modules/data-bound'
-import { responsiveFields } from '../../modules/responsive'
-import { visibilityFields } from '../../modules/visibility'
-import { GalleryCardSchema } from './card'
-import { GalleryGridColumnsSchema } from './grid-columns'
-
-/**
- * Gallery pagination style.
- */
-export const GalleryPaginationStyleSchema = Schema.Literals([
-  'loadMore',
-  'numbered',
-  'infinite',
-]).annotate({
-  title: 'Gallery Pagination Style',
-  description: 'Pagination interaction style for the gallery',
-})
-
-/** @public */
-export type GalleryPaginationStyle = Schema.Schema.Type<typeof GalleryPaginationStyleSchema>
-
-// ---------------------------------------------------------------------------
-// Component type definition
-// ---------------------------------------------------------------------------
-
-export const GalleryTypeLiteral = Schema.Literal('gallery')
-
-export const galleryFields = {
-  ...coreFields,
-  ...responsiveFields,
-  ...visibilityFields,
-  ...dataBoundFields,
-  gridColumns: Schema.optional(GalleryGridColumnsSchema),
-  galleryCard: Schema.optional(GalleryCardSchema),
-  layout: Schema.optional(
-    Schema.Literals(['grid', 'masonry']).annotate({
-      description: 'Gallery layout mode: grid | masonry',
-    })
-  ),
-  emptyMessage: Schema.optional(
-    Schema.String.annotate({
-      description: 'Message displayed when no records match the data source query',
-      examples: ['No products found', 'No items match your filters'],
-    })
-  ),
-} as const
-
-// ---------------------------------------------------------------------------
-// Re-export all sub-schemas
-// ---------------------------------------------------------------------------
+export * from './fields'
 
 export { GalleryGridColumnsSchema, type GalleryGridColumns } from './grid-columns'
 export { GalleryCardSchema, type GalleryCard } from './card'

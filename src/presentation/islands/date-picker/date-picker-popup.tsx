@@ -25,11 +25,30 @@ interface DatePickerPopupProps {
   readonly singleValue: Date | undefined
   readonly rangeValue: DateRange | undefined
   readonly onDayClick: (day: Date) => void
+  /**
+   * Draw the panel as a still DEPICTION of the open state rather than as the
+   * live popup.
+   *
+   * Two things go, and they are the two the drawing cannot honestly claim.
+   * `role="dialog"` goes because a dialog nobody opened is a second dialog the
+   * document advertises and a screen reader announces — the design-system
+   * console draws several of these on one page, and `[internal ref]`
+   * asserts the absence. The floating position goes because a specimen cell
+   * cannot host an overlay (see `POPUP_LAYOUT_DEPICTED`).
+   *
+   * Everything else is untouched, which is the point: the month nav, the
+   * caption and the grid are the component's own markup, so what a reader looks
+   * at is the calendar this app ships rather than a surface shaped like one.
+   */
+  readonly depicted?: boolean
 }
 
 /**
  * Calendar popup `<div role="dialog">` containing the month-nav buttons
  * + the `<DateGrid>` mount.
+ *
+ * With {@link DatePickerPopupProps.depicted} set it is the same panel without
+ * the dialog role and without the floating position — see that prop.
  */
 export function DatePickerPopup({
   label,
@@ -42,12 +61,14 @@ export function DatePickerPopup({
   singleValue,
   rangeValue,
   onDayClick,
+  depicted = false,
 }: DatePickerPopupProps): ReactElement {
   return (
     <div
-      role="dialog"
-      aria-label={label ?? 'Choose date'}
-      className={computeDatePopupClasses()}
+      role={depicted ? undefined : 'dialog'}
+      aria-label={depicted ? undefined : (label ?? 'Choose date')}
+      data-specimen-open={depicted ? 'true' : undefined}
+      className={computeDatePopupClasses({ depicted })}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <button

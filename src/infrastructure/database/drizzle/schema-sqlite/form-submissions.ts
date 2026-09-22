@@ -66,5 +66,3 @@ export const formSubmissions = systemTable(
 )
 
 // Type inference
-export type FormSubmission = typeof formSubmissions.$inferSelect
-export type NewFormSubmission = typeof formSubmissions.$inferInsert

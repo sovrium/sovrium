@@ -94,7 +94,7 @@ function SearchBox({ value, placeholder, onChange }: SearchBoxProps) {
       placeholder={placeholder}
       aria-label={placeholder}
       data-search-input="true"
-      className="border-border bg-background-raised text-foreground focus:border-focus-ring focus:ring-focus-ring mb-2 w-full rounded-md border py-2 pr-3 pl-3 text-sm focus:ring-1 focus:outline-none"
+      className="border-border bg-background-raised text-foreground focus:border-focus-ring focus:ring-focus-ring text-md mb-2 w-full rounded-md border py-2 pr-3 pl-3 focus:ring-1 focus:outline-none"
     />
   )
 }
@@ -111,7 +111,7 @@ function SearchBox({ value, placeholder, onChange }: SearchBoxProps) {
  *
  *  - **Unbound** — the delay is the `debounceMs` prop, carrying the list's own
  *    `dataSource.debounceMs`; {@link useUnboundQuery} applies it.
- *  - **Bound** — the delay belongs to the publishing `searchInput` and is read
+ *  - **Bound** — the delay belongs to the publishing `search-input` and is read
  *    off its DOM attributes by {@link useBoundQuery}. The prop plays no part:
  *    `useUnboundQuery` still runs (hooks are unconditional) but its box is
  *    never rendered, so nothing ever dispatches through it.
@@ -139,7 +139,7 @@ export default function SearchListIsland({
   // own `dataSource.debounceMs`.
   const searchBox = useUnboundQuery(debounceMs, setQuery)
 
-  // Bound: an external searchInput drives the query, debounced and
+  // Bound: an external `search-input` drives the query, debounced and
   // length-gated by that publisher's own declared controls.
   useBoundQuery(bindTo, setQuery)
 

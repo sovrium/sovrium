@@ -40,8 +40,9 @@
 
 import { Effect } from 'effect'
 import { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
-import { parseDuration } from '@/domain/utils/parse-duration'
-import { stringProp } from './shared'
+import { parseDuration } from '@/domain/kernel/time/parse-duration'
+import { logError } from '@/infrastructure/logging/logger'
+import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
 /**
@@ -64,7 +65,20 @@ const insertApprovalRequest = (input: {
   Effect.gen(function* () {
     const repo = yield* AutomationApprovalRepository
     yield* repo.insertPending(input)
-  }).pipe(Effect.ignore)
+  }).pipe(
+    // The row is what the approval endpoint later reads to find this run. Losing
+    // it silently leaves an automation paused with nothing for an operator to
+    // approve and no record of why — so the write stays non-fatal, but never
+    // silent.
+    Effect.tapCause((cause) =>
+      Effect.sync(() => {
+        logError('[automations] pending-approval row not written', cause, {
+          'sovrium.automation.run': input.runId ?? 'unknown',
+        })
+      })
+    ),
+    Effect.ignore
+  )
 
 /**
  * Derive the `{ timeoutSeconds, expiresAt }` pair from the raw `timeout`
@@ -116,4 +130,6 @@ export const handleApprovalRequest: ActionHandler = (action, _app, automation, r
         ...(typeof onTimeout === 'string' ? { onTimeout } : {}),
       },
     } as const satisfies ActionOutcome
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-approval-request', { attributes: actionAttributes(action) })
+  )

@@ -6,18 +6,21 @@
  */
 
 import { Data, Effect } from 'effect'
-import { resolveStoragePublicAccess } from '@/domain/models/env/storage/storage-public-access'
+import { resolveStoragePublicAccess } from '@/domain/models/process-env/storage/storage-public-access'
 
 /**
  * Raised when `STORAGE_PUBLIC_PATHS` / `STORAGE_DEFAULT_ACCESS` is malformed.
  *
- * `message` is carried EXPLICITLY, not just `cause` — a `Data.TaggedError`
- * whose payload is `{ cause }` alone renders as the literal string
- * `StoragePublicAccessEnvError: An error has occurred`, burying the parser's
- * descriptive text ("Invalid STORAGE_DEFAULT_ACCESS: expected …") where the
- * operator's terminal never shows it. Same contract as `EcoEnvError`.
+ * `message` is carried EXPLICITLY alongside `cause` — it is the field
+ * `formatRuntimeError` prints as prose, so the parser's descriptive text
+ * ("Invalid STORAGE_DEFAULT_ACCESS: expected …") is what the operator's
+ * terminal shows. Same contract as `EcoEnvError`.
+ *
+ * Exported for one reason only: `validateOperatorEnv` names this tag in its
+ * declared error channel, and a `.d.ts` cannot reference a name its declaring
+ * module keeps to itself. No caller catches it by tag — an operator reads it.
  */
-class StoragePublicAccessEnvError extends Data.TaggedError('StoragePublicAccessEnvError')<{
+export class StoragePublicAccessEnvError extends Data.TaggedError('StoragePublicAccessEnvError')<{
   readonly message: string
   readonly cause: unknown
 }> {}

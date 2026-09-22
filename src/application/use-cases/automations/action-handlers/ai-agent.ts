@@ -24,9 +24,8 @@
 import { Effect } from 'effect'
 import { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import { AiService } from '@/application/ports/services/ai-service'
-import { AiEmbeddingRepositoryActive } from '@/infrastructure/database/repositories/ai/ai-embedding-repository-live'
 import { aiErrorOutcome } from './ai'
-import { stringProp } from './shared'
+import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type {
   ChatInput,
@@ -69,7 +68,7 @@ const retrieveKnowledgeChunks = (input: {
 }): Effect.Effect<
   ReadonlyArray<{ readonly content: string; readonly sourceRef: string | null }>,
   never,
-  AiService
+  AiService | AiEmbeddingRepository
 > =>
   Effect.gen(function* () {
     const memory = input.agent.memory?.knowledge
@@ -94,7 +93,7 @@ const retrieveKnowledgeChunks = (input: {
         maxResults: limit,
       })
     }).pipe(
-      Effect.provide(AiEmbeddingRepositoryActive),
+      // effect-swallow: retrieval is an ENRICHMENT — a knowledge-index read that fails must leave the agent answering from its prompt rather than fail the run, and an empty result here already means "nothing matched".
       Effect.orElseSucceed(() => [] as ReadonlyArray<never>)
     )
     const results = yield* searchProgram
@@ -439,4 +438,4 @@ export const handleAiAgent: ActionHandler = (action, app: App, _automation) =>
         knowledgeUsed: knowledgeChunks.length,
       },
     } as const
-  })
+  }).pipe(Effect.withSpan('automations.handle-ai-agent', { attributes: actionAttributes(action) }))

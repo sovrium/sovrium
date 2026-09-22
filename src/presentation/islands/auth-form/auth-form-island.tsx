@@ -11,15 +11,17 @@ import {
   defaultAuthFields,
   type AuthFormField,
   type AuthMethod,
-} from '@/presentation/utils/auth-form-types'
-import { cn } from '@/presentation/utils/design/class-merge'
+} from '@/presentation/design/auth-form-types'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
   AUTH_ERROR_BANNER_STYLE,
   AUTH_SUCCESS_BANNER_STYLE,
   computeAuthFeedbackBannerClasses,
   computeFormLayoutClasses,
-} from '@/presentation/utils/design/form-layout-classes'
+} from '@/presentation/design/form-layout-classes'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { AuthErrorSummary, AuthFieldRow } from './auth-form-fields'
+import { OAuthSignInForm } from './auth-form-oauth'
 import { useAuthFormState } from './auth-form-state'
 import { type AuthState, type ToastConfig } from './auth-form-submit'
 
@@ -44,6 +46,23 @@ interface AuthFormIslandProps {
    */
   readonly pendingLabel?: string
   readonly redirectUrl?: string
+  /**
+   * Auth strategy from the action. `'oauth'` selects the social sign-in branch
+   * — one submit button, no fields; anything else (including absent) is a
+   * credential form. This is the DISCRIMINANT, deliberately rather than
+   * `provider`: `provider` is `Schema.optional`, so a schema-valid
+   * `strategy: 'oauth'` action may omit it, and keying off it then sent a form
+   * whose SSR skeleton is a single OAuth button to the credential branch,
+   * which replaced that button with email/password inputs on hydration.
+   */
+  readonly strategy?: string
+  /**
+   * Provider handle for a social (OAuth) sign-in form, e.g. `google`. Empty
+   * when the action omits it — the OAuth branch still renders, so the server
+   * and the hydrated island agree, and the flow fails at the provider call
+   * rather than silently becoming a different form.
+   */
+  readonly provider?: string
   readonly successToast?: ToastConfig
   readonly errorToast?: ToastConfig
   readonly className?: string
@@ -95,10 +114,10 @@ function AuthFormFeedback({ state }: { readonly state: AuthState }) {
 }
 
 // ---------------------------------------------------------------------------
-// Main component
+// Credential (email/password) branch
 // ---------------------------------------------------------------------------
 
-export default function AuthFormIsland(props: AuthFormIslandProps) {
+function CredentialAuthForm(props: AuthFormIslandProps) {
   const { method, redirectUrl, successToast, errorToast, className, initialValues } = props
   const fields = props.fields && props.fields.length > 0 ? props.fields : defaultAuthFields(method)
   const submitLabel = props.submitLabel ?? authSubmitLabel(method)
@@ -115,7 +134,7 @@ export default function AuthFormIsland(props: AuthFormIslandProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className={cn(computeFormLayoutClasses(), className)}
+      className={resolveClasses(computeFormLayoutClasses(), className)}
       id={props.id}
       data-testid={props['data-testid']}
       data-action-type="auth"
@@ -139,10 +158,44 @@ export default function AuthFormIsland(props: AuthFormIslandProps) {
       <button
         type="submit"
         disabled={state.isPending}
-        className="btn btn-primary w-full"
+        className={`${computeButtonDefaultClasses()} w-full`}
       >
         {state.isPending ? pendingLabel : submitLabel}
       </button>
     </form>
   )
+}
+
+// ---------------------------------------------------------------------------
+// Main component (branch dispatcher)
+// ---------------------------------------------------------------------------
+
+/**
+ * Auth-form island entry point.
+ *
+ * A social (OAuth) sign-in form SHARES this island rather than owning its own.
+ * Its branch renders no fields and runs no validation, so a separate island
+ * type would buy a second chunk — plus its island-registry, preload-manifest
+ * and payload-budget entries — for a single button. `strategy` is the
+ * discriminant, and only the OAuth renderer ever sets it to `'oauth'`;
+ * `redirectUrl` (the action's resolved `onSuccess` destination) rides on as
+ * the round-trip `callbackURL`.
+ *
+ * The two branches are separate COMPONENTS rather than an early return inside
+ * one, because the credential branch calls `useAuthFormState` and a hook may
+ * not sit behind a conditional return.
+ */
+export default function AuthFormIsland(props: AuthFormIslandProps) {
+  if (props.strategy === 'oauth') {
+    return (
+      <OAuthSignInForm
+        provider={props.provider ?? ''}
+        callbackUrl={props.redirectUrl}
+        className={props.className}
+        id={props.id}
+        data-testid={props['data-testid']}
+      />
+    )
+  }
+  return <CredentialAuthForm {...props} />
 }

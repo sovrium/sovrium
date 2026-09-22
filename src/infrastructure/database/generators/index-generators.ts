@@ -5,13 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   isRelationshipField,
   isUserField,
   relationshipFieldCreatesForeignKey,
 } from '../sql/sql-generators'
-import { sanitizeTableName } from '../table-queries/shared/field-utils'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 

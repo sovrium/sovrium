@@ -7,7 +7,7 @@
 
 import { Slider } from '@base-ui/react/slider'
 import { useCallback, useRef, useState } from 'react'
-import { cn } from '@/presentation/utils/design/class-merge'
+import { cn } from '@/presentation/design/class-merge'
 import { computeSliderRangeClasses, computeSliderTrackClasses } from './numeric-default-classes'
 import { useSliderAriaSync } from './slider-aria-sync'
 import { SliderThumb } from './slider-thumb'
@@ -64,8 +64,8 @@ export default function SliderIsland({
     >
       {label && (
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-foreground text-sm font-medium">{label}</span>
-          {showValue && <span className="text-foreground-muted text-sm">{value}</span>}
+          <span className="text-foreground text-md font-medium">{label}</span>
+          {showValue && <span className="text-foreground-muted text-md">{value}</span>}
         </div>
       )}
       <Slider.Root

@@ -6,6 +6,17 @@
  */
 
 import { Schema } from 'effect'
+import { validateTailwindClassList } from '../tailwind-class-list'
+
+/**
+ * The two prop keys whose string value becomes CSS classes verbatim.
+ *
+ * `RESERVED_PROPS` in `src/presentation/rendering/prop-conversion.ts` passes
+ * both through raw — `className` is the documented spelling, `class` is the
+ * HTML one an author reaches for out of habit. Validating only the first would
+ * leave the habit as the escape hatch.
+ */
+const CLASS_LIST_PROP_KEYS: ReadonlySet<string> = new Set(['className', 'class'])
 
 /**
  * Component property value (string, number, boolean, object, or array)
@@ -82,8 +93,33 @@ export const ComponentPropsSchema = Schema.Record(
 ).pipe(
   Schema.annotate({
     title: 'Component Props',
-    description: 'Properties for component templates, supporting variable references',
-  })
+    description:
+      'Properties for component templates, supporting variable references. A `className` or `class` value is validated as a Tailwind class list: arbitrary values are allowed, but `url(`, `image-set(`, `attr(`, `expression(` and `@import` are refused inside one.',
+  }),
+  // A RECORD-level check, not a per-value schema, and the annotation above it
+  // deliberately comes FIRST.
+  //
+  // Record-level, because `ComponentPropsSchema` is a `Schema.Record` over ONE
+  // value schema: there is no per-key value schema to attach
+  // `TailwindClassListSchema` to, so the only place that can see the key
+  // alongside its value is a filter over the whole decoded record.
+  //
+  // Annotation first, because a `check` piped before an `annotate` lands the
+  // annotation on the CHECK rather than the node, and the emitted JSON Schema
+  // then loses the `title` and `description` — the same ordering trap recorded
+  // at `pages/index.ts:55-57` and in the type-scale module.
+  Schema.check(
+    Schema.makeFilter((props: Readonly<Record<string, unknown>>) => {
+      const violation = Object.entries(props)
+        .flatMap(([key, value]) =>
+          CLASS_LIST_PROP_KEYS.has(key) && typeof value === 'string'
+            ? [validateTailwindClassList(value)]
+            : []
+        )
+        .find((result) => result !== true)
+      return violation ?? true
+    })
+  )
 )
 
 /** @public */

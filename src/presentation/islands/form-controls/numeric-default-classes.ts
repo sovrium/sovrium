@@ -18,7 +18,7 @@
  * The recipe mirrors the buttons + inputs + selects + toggles slices
  * (commits 02b2f35f3 + 571ae53ce + 5527660bc + 000f835d7): layout / spacing
  * classes stay as raw Tailwind utilities; only color / radius / shadow /
- * motion / focus classes go through {@link withVarFallback} so `app.theme.*`
+ * motion / focus classes go through {@link withVarFallback} so `app.design.*`
  * overrides still win at the CSS cascade layer (var lookups resolve `--sv-*`
  * first, fall back to the inline OKLCH literal).
  *
@@ -43,8 +43,8 @@
  * `select-default-classes.ts` and `toggle-default-classes.ts`.
  */
 
-import { TOKENS as T, withVarFallback as v } from '@/presentation/utils/design/css-var'
-import { MOTION_COLORS, RADIUS_MD } from '../recipes/shared-tokens-default-classes'
+import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
+import { MOTION_COLORS, RADIUS_MD } from '../../design/shared-tokens-default-classes'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared building blocks
@@ -108,7 +108,7 @@ export const computeNumberInputWrapperClasses = ({
 // NUMBER-INPUT FIELD (inner <input type="number">)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const NUMBER_INPUT_FIELD_LAYOUT = 'h-9 w-20 border-0 bg-transparent px-3 text-sm text-center'
+const NUMBER_INPUT_FIELD_LAYOUT = 'h-9 w-20 border-0 bg-transparent px-3 text-base text-center'
 
 const NUMBER_INPUT_FIELD_SURFACE = [
   `text-[${v('sv-fg', T.fg)}]`,
@@ -132,7 +132,7 @@ export const computeNumberInputFieldClasses = (): string =>
 // NUMBER-INPUT STEPPER BUTTONS (± flanking buttons)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const STEPPER_LAYOUT = 'inline-flex h-9 w-9 shrink-0 items-center justify-center text-sm'
+const STEPPER_LAYOUT = 'inline-flex h-9 w-9 shrink-0 items-center justify-center text-base'
 
 const STEPPER_SURFACE = [
   `text-[${v('sv-fg-muted', T.fgMuted)}]`,
@@ -230,7 +230,7 @@ const SLIDER_THUMB_SURFACE = [
   `border-[${v('sv-primary', T.primary)}]`,
   `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
   `hover:bg-[${v('sv-primary-subtle', T.primarySubtle)}]`,
-  `shadow-[${v('sv-shadow-sm', T.shadowSm)}]`,
+  `shadow-[${v('shadow-sm', T.shadowSm)}]`,
 ].join(' ')
 
 const SLIDER_THUMB_FOCUS = [

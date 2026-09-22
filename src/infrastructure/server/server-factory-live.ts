@@ -7,6 +7,12 @@
 
 import { Effect, Layer } from 'effect'
 import { ServerFactory } from '@/application/ports/services/server-factory'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import { createRenderApp } from '@/infrastructure/server/render-app'
+import {
+  runDatabaseStartup,
+  runDeferredStartupMaintenance,
+} from '@/infrastructure/server/startup-database'
 import { createServer } from './server'
 
 /**
@@ -30,6 +36,19 @@ import { createServer } from './server'
 export const ServerFactoryLive = Layer.effect(
   ServerFactory,
   Effect.sync(() => ({
+    // The chain itself is unchanged and unwrapped — this adapter only gives the
+    // application a way to ask for it once, and returns what it produced in the
+    // shape the port declares. `phases` is the infrastructure array verbatim;
+    // `StartupPhaseRow` is a narrower view of the same objects, not a copy.
+    startDatabase: (app, options) =>
+      runDatabaseStartup(app, parseDatabaseDialectConfig(), options?.ephemeral ?? false).pipe(
+        Effect.map((phases) => ({ phases }))
+      ),
+    runDeferredMaintenance: (app) => runDeferredStartupMaintenance(app),
+    // No socket, no banner, neither boot chain — see `createRenderApp`. The
+    // config arrives already narrowed to what a render reads, so this adapter
+    // forwards it rather than having anything to strip out.
+    buildRenderApp: (config) => createRenderApp(config),
     create: (config) =>
       createServer({
         app: config.app,
@@ -37,6 +56,8 @@ export const ServerFactoryLive = Layer.effect(
         hostname: config.hostname,
         publicDir: config.publicDir,
         silent: config.silent,
+        reload: config.reload,
+        databaseStartup: config.databaseStartup,
         configHash: config.configHash,
         configPath: config.configPath,
         renderPage: config.renderPage,

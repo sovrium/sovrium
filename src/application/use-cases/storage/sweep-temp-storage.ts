@@ -8,7 +8,7 @@
 import { Effect } from 'effect'
 import { UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
-import { parseStorageTempCleanupAfter } from '@/domain/models/env/storage/storage-temp-cleanup-after'
+import { parseStorageTempCleanupAfter } from '@/domain/models/process-env/storage/storage-temp-cleanup-after'
 import type { StorageService } from '@/application/ports/services/storage-service'
 
 /**
@@ -75,7 +75,9 @@ const reclaimIfAged = (
     const lastModified = Date.parse(metadata.success.lastModified)
     if (!Number.isFinite(lastModified) || lastModified > cutoff) return
     // eslint-disable-next-line drizzle/enforce-delete-with-where -- StorageService port, not a Drizzle query builder
-    yield* Effect.ignore(storage.delete(key, UNATTRIBUTED_BUCKET))
+    const removal = storage.delete(key, UNATTRIBUTED_BUCKET)
+    // effect-swallow: this is a periodic SWEEP — a delete that fails leaves the file for the next pass, which is the same outcome as never having reached it, and a storage outage must not abort the whole sweep partway through.
+    yield* Effect.ignore(removal)
   })
 
 /**
@@ -102,4 +104,4 @@ export const sweepAgedTempFiles = (
     yield* Effect.forEach(candidates, (key) => reclaimIfAged(storage, key, cutoff), {
       discard: true,
     })
-  })
+  }).pipe(Effect.withSpan('storage.sweep-aged-temp-files'))

@@ -17,7 +17,7 @@
  * The recipe mirrors the buttons + inputs + selects slices (commits 02b2f35f3 +
  * 571ae53ce + 5527660bc): layout / spacing classes stay as raw Tailwind utilities;
  * only color / radius / shadow / motion / focus classes go through
- * {@link withVarFallback} so `app.theme.*` overrides still win at the CSS cascade
+ * {@link withVarFallback} so `app.design.*` overrides still win at the CSS cascade
  * layer (var lookups resolve `--sv-*` first, fall back to the inline OKLCH
  * literal).
  *
@@ -36,12 +36,12 @@
  * `select-default-classes.ts`.
  */
 
-import { TOKENS as T, withVarFallback as v } from '@/presentation/utils/design/css-var'
+import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 import {
   FOCUS_VISIBLE_RING,
   MOTION_COLORS as MOTION,
   RADIUS_MD,
-} from '../recipes/shared-tokens-default-classes'
+} from '../../design/shared-tokens-default-classes'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared building blocks
@@ -60,9 +60,9 @@ const DISABLED = 'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50'
 const TOGGLE_LAYOUT = 'inline-flex items-center justify-center font-medium'
 
 const TOGGLE_SIZE: Record<ComponentSize, string> = {
-  sm: 'h-8 px-2 text-xs',
-  md: 'h-9 px-3 text-sm',
-  lg: 'h-10 px-4 text-base',
+  sm: 'h-8 px-2 text-sm',
+  md: 'h-9 px-3 text-base',
+  lg: 'h-10 px-4 text-md',
 }
 
 const TOGGLE_VARIANT_DEFAULT = [
@@ -205,7 +205,7 @@ const SWITCH_THUMB_SIZE: Record<ComponentSize, string> = {
 
 const SWITCH_THUMB_SURFACE = `bg-[${v('sv-bg-raised', T.bgRaised)}]`
 
-const SWITCH_THUMB_SHADOW = `shadow-[${v('sv-shadow-sm', T.shadowSm)}]`
+const SWITCH_THUMB_SHADOW = `shadow-[${v('shadow-sm', T.shadowSm)}]`
 
 /**
  * Compute the default className for the Switch thumb (the circle that slides

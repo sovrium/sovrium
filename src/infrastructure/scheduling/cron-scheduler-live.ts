@@ -5,187 +5,175 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Cron, DateTime, Effect, Result, Layer } from 'effect'
+import { Cron, DateTime, Effect, Fiber, Ref, Result, Schedule, Layer } from 'effect'
 import { CronScheduler, CronSchedulerError } from '@/application/ports/services/cron-scheduler'
 import { logError } from '@/infrastructure/logging/logger'
+import type { Scope } from 'effect'
 
 /**
- * Live `CronScheduler` adapter.
+ * Live `CronScheduler` adapter, driven by `Schedule.cron`.
  *
- * The scheduler keeps an internal map of `jobId → Timeout` (held inside a
- * mutable `Map` deliberately — see the eslint-disable comments). Each call
- * to `schedule(expression, callback, options)` parses the cron via Effect's
- * `Cron.parse` (Either path — never `unsafeParse`, so a malformed expression
- * at boot surfaces as a `CronSchedulerError` instead of crashing the
- * process), computes the delay until the next fire via `Cron.next`, and
- * arms a `setTimeout`. Each fire re-arms itself by recomputing the next
- * fire from "now" — robust to drift, sleep/wake events, and DST shifts.
+ * Each `schedule(expression, callback, options)` parses the cron via Effect's
+ * `Cron.parse` (Result path — never `unsafeParse`, so a malformed expression at
+ * boot surfaces as a `CronSchedulerError` instead of crashing the process) and
+ * forks a fiber running {@link cronJobLoop}. The loop sleeps until the next
+ * fire, runs the callback, and repeats — recomputing the next fire from "now"
+ * on every iteration, so it is robust to drift, sleep/wake events and DST
+ * shifts, and never tries to "catch up" a missed tick.
  *
- * `cancel(jobId)` is idempotent: cancelling an unknown job succeeds silently
- * so callers do not need to track which jobs were actually scheduled.
+ * `cancel(jobId)` is idempotent: cancelling an unknown job succeeds silently so
+ * callers do not need to track which jobs were actually scheduled.
  *
- * Lifecycle: the scheduler instance is created once when the layer is
- * materialised. Because `createAppLayer` is `Effect.provide`d at the top of
- * the CLI program (and `Effect.runPromise` resolves before the server has
- * actually finished serving), `Layer.scoped` would prematurely fire its
- * finalizer the moment the start program returns — clearing timers before
- * any cron has fired. Instead we expose `disposeCronScheduler()` for the
- * server's `createStopEffect` to call, mirroring the `AiComputeListener.stop()`
- * pattern in `src/infrastructure/server/server.ts`.
+ * ## The scope IS the disposer (standing rule E3)
  *
- * Test fixtures restart the server by killing the child process, which
- * implicitly clears all timers — so the explicit dispose path is exercised
- * only on graceful shutdown.
+ * Every job fiber is forked into THIS LAYER'S scope, and the registry itself is
+ * an `Effect.acquireRelease`, so closing the scope interrupts every job — on
+ * success, on failure and on interruption, with no call site to forget. The
+ * scope that matters is the domain `ManagedRuntime`'s: built in `createServer`,
+ * disposed in `createStopEffect` after the socket drain
+ * (`infrastructure/server/domain-runtime.ts`).
+ *
+ * This replaced a root `Effect.runFork` per job plus an exported
+ * `disposeCronScheduler` that shutdown had to remember to call. That shape was
+ * not a preference: before the server owned a runtime, `createAppLayer` was
+ * `Effect.provide`d at the top of the CLI program and its scope closed the
+ * moment `Effect.runPromise` resolved — so a scoped finalizer would have
+ * interrupted every job before a single cron fired. The runtime is what made
+ * the scope outlive boot, and therefore what unblocked this.
+ *
+ * One consequence is load-bearing and easy to undo by accident: **the job
+ * registry is per-layer, not module-level.** Four callers arm this scheduler
+ * (`register-cron-automations`, `register-agent-schedules`,
+ * `register-account-purge`, `register-activity-log-retention`) and each used to
+ * `Effect.provide(CronSchedulerLive)` for itself. Layers memoise per BUILD, so
+ * four provides would now be four registries — and four scopes, each closing
+ * when its own registration program returned, interrupting the jobs it had just
+ * armed. They all run on the server's domain context instead: one build, one
+ * registry, one scope.
+ *
+ * ## The 32-bit timer ceiling is Effect's problem now
+ *
+ * A monthly cron (`0 6 1 * *`) armed early in the month is ~26 days out, past
+ * the 2^31-1 ms ceiling a raw `setTimeout` can hold — Bun silently clamps such
+ * a delay to 1 ms, which used to turn a far-future fire into a ~1000/sec
+ * busy-loop that starved the event loop. This adapter no longer carries a
+ * workaround for that, because Effect's `Clock` already does it: `sleepMillis`
+ * clamps to `2 ** 31 - 1` and chains a continuation for the remainder
+ * (`internal/effect.ts`), so an arbitrarily long `Effect.sleep` resolves once,
+ * at the right time.
  */
 
 interface ScheduledJob {
   readonly jobId: string
   readonly expression: string
   readonly timezone: string
-  readonly timer: ReturnType<typeof setTimeout>
+  readonly fiber: Fiber.Fiber<void>
 }
 
-// Module-scoped singleton state.
-//
-// Mutable Map is used here intentionally: the scheduler is process-wide
-// state (one cron registry per Sovrium server), and Effect.Ref would not
-// help because the timer callbacks must run synchronously from setTimeout
-// (no Effect runtime in scope at fire time). The eslint-disable comments
-// document each mutation.
-const jobs = new Map<string, ScheduledJob>()
-
-const cancelTimer = (jobId: string): void => {
-  const job = jobs.get(jobId)
-  if (job === undefined) return
-  clearTimeout(job.timer)
-  /* eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, drizzle/enforce-delete-with-where -- intentional: Map.delete is the JS API; drizzle rule false positive on Map */
-  jobs.delete(jobId)
-}
-
-interface ArmTimerInput {
-  readonly jobId: string
-  readonly expression: string
-  readonly timezone: string
-  readonly cron: Cron.Cron
-  readonly callback: () => Effect.Effect<void, unknown>
-}
+/** The job registry. One per built layer — see the header note. */
+type JobRegistry = Ref.Ref<ReadonlyMap<string, ScheduledJob>>
 
 /**
- * The largest delay a single `setTimeout` can hold: 2^31 - 1 ms (~24.85 days).
+ * Run one callback invocation, absorbing everything it can throw.
  *
- * Bun/Node store the timer delay in a 32-bit signed integer and SILENTLY clamp
- * any larger value to `1` ms (emitting `TimeoutOverflowWarning: <n> does not
- * fit into a 32-bit signed integer. Timeout duration was set to 1.`). That
- * turns a far-future fire into an immediate one, and — because each fire
- * re-arms itself to the same far-future time — into a ~1000x/sec busy-loop
- * that starves the event loop (observed as "Server did not start within
- * 5000ms" on the cloud/partner app servers).
- *
- * Monthly crons (e.g. `0 6 1 * *`) scheduled during the first ~6 days of a
- * month are ~26 days out, past this ceiling — so the delay MUST be clamped.
- * See `nextTimerPlan`.
+ * `catchCause` (not `Effect.result`) so a DEFECT is swallowed too: a
+ * misbehaving automation must never stop the scheduler from waiting for the
+ * next tick.
  */
-export const MAX_TIMER_MS = 2_147_483_647
-
-/**
- * Plan for a single `setTimeout` arm.
- *
- * When the raw delay until the next fire exceeds `MAX_TIMER_MS`, the timer is
- * clamped to `MAX_TIMER_MS` and flagged `rearmOnly`: on wake it must NOT run
- * the job, only recompute `Cron.next` and re-arm. Successive bounded hops walk
- * the clock forward until the remaining delay fits under the ceiling, at which
- * point a `rearmOnly: false` timer finally fires the job — so the job runs
- * only when the ACTUAL fire time has arrived, never on an overflow-clamped
- * early wake.
- */
-export interface TimerPlan {
-  readonly rearmOnly: boolean
-  readonly delayMs: number
-}
-
-/**
- * Pure clamp: decide the `setTimeout` delay for the next fire.
- *
- * `delayMs` is always within `[0, MAX_TIMER_MS]`. A delay past the 32-bit
- * ceiling yields a bounded, `rearmOnly` hop; anything at or below it fires
- * normally (preserving the original behaviour for all sub-24-day delays).
- */
-export const nextTimerPlan = (fireAtMs: number, nowMs: number): TimerPlan => {
-  const delay = Math.max(0, fireAtMs - nowMs)
-  if (delay > MAX_TIMER_MS) {
-    return { rearmOnly: true, delayMs: MAX_TIMER_MS }
-  }
-  return { rearmOnly: false, delayMs: delay }
-}
-
-/**
- * Injectable clock / timer / runner seam. The defaults bind the real runtime;
- * the co-located unit test swaps in a fake clock and a timer recorder to
- * assert the overflow clamp deterministically without real time (`mock.module`
- * is forbidden project-wide — deps are passed as a parameter instead).
- */
-export interface ArmTimerDeps {
-  readonly now: () => number
-  readonly setTimer: (handler: () => void, ms: number) => ReturnType<typeof setTimeout>
-  readonly runJob: (jobId: string, callback: () => Effect.Effect<void, unknown>) => void
-}
-
-export const defaultArmTimerDeps: ArmTimerDeps = {
-  now: () => Date.now(),
-  setTimer: (handler, ms) => setTimeout(handler, ms),
-  runJob: (jobId, callback) => {
-    // Run the callback fire-and-forget. Failures are logged but never
-    // propagated — a misbehaving automation must not stop the scheduler
-    // from re-arming for the next tick.
-    Effect.runPromise(Effect.result(callback() as Effect.Effect<void, unknown, never>)).then(
-      (result) => {
-        if (result._tag === 'Failure') {
-          logError('[cron-scheduler] callback failed', result.failure, { jobId })
-        }
-      },
-      (err) => {
-        logError('[cron-scheduler] callback rejected', err, { jobId })
-      }
+const runCallbackSafely = (
+  jobId: string,
+  callback: () => Effect.Effect<void, unknown>
+): Effect.Effect<void> =>
+  callback().pipe(
+    Effect.catchCause((cause) =>
+      Effect.sync(() => {
+        logError('[cron-scheduler] callback failed', cause, { jobId })
+      })
     )
-  },
-}
+  )
 
 /**
- * Arm (or re-arm) the `setTimeout` for a job. Exported for the co-located unit
- * test, which drives it with a fake `ArmTimerDeps` to lock the overflow clamp;
- * production callers use the single-argument form (real deps by default).
+ * The scheduling loop for one job: sleep until the next fire, run, repeat.
+ *
+ * Built on `Schedule.toStepWithSleep` rather than `Effect.repeat`, because
+ * `repeat` runs its effect FIRST and delays afterwards — which would fire every
+ * cron automation once at boot. A sleeping step inverts that to wait-then-run,
+ * which is the contract callers depend on.
+ *
+ * Exported for the co-located unit test, which drives it under `TestClock` to
+ * assert the fire schedule deterministically without real time.
  */
-export const armTimer = (input: ArmTimerInput, deps: ArmTimerDeps = defaultArmTimerDeps): void => {
-  const { jobId, expression, timezone, cron, callback } = input
-  // Read "now" once so the fire-time delta is skew-free AND so the fake clock
-  // in tests fully controls the scheduling decision.
-  const nowMs = deps.now()
-  const fireAt = Cron.next(cron, new Date(nowMs))
-  const plan = nextTimerPlan(fireAt.getTime(), nowMs)
-  const timer = deps.setTimer(() => {
-    // On an overflow-clamped (`rearmOnly`) wake the real fire time has NOT
-    // arrived yet, so the job MUST NOT run — the re-arm below recomputes a
-    // shorter delay. Only a non-clamped wake (`now >= fireAt`) runs the job.
-    if (!plan.rearmOnly) {
-      deps.runJob(jobId, callback)
-    }
-    // Re-arm only if the job is still registered (callers may have
-    // cancelled mid-fire). Recompute next from "now" — robust to drift.
-    //
-    // Race-window note: if `schedule(jobId)` was called with NEW input while
-    // this OLD callback was already queued in the event loop, the OLD
-    // re-arm here will overwrite the NEW timer's entry in `jobs[jobId]`.
-    // The current boot-time wiring registers each automation exactly once
-    // and never reschedules under the same id at runtime, so the race is
-    // unreachable. If a future caller adds a hot-reload path that
-    // re-registers the same id, gate this re-arm with a generation counter.
-    if (jobs.has(jobId)) {
-      armTimer(input, deps)
-    }
-  }, plan.delayMs)
-  /* eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- intentional: register Map entry */
-  jobs.set(jobId, { jobId, expression, timezone, timer })
-}
+export const cronJobLoop = (
+  jobId: string,
+  cron: Cron.Cron,
+  callback: () => Effect.Effect<void, unknown>
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    // `Schedule.cron` recomputes `Cron.next(cron, now)` on every step, so the
+    // timezone baked into the parsed `Cron` is honoured and a tick missed while
+    // the process was suspended is skipped rather than replayed.
+    const step = yield* Schedule.toStepWithSleep(Schedule.cron(cron))
+    return yield* Effect.forever(
+      step(undefined).pipe(Effect.andThen(runCallbackSafely(jobId, callback)))
+    )
+  }).pipe(
+    // The schedule's declared `CronParseError` is unreachable here (the `Cron`
+    // arrived already parsed) and the step only halts at an infinite clock, but
+    // both are in the type — log and end this job rather than leaving the fiber
+    // to die with an unhandled cause. Interruption is NOT logged: it is the
+    // normal `cancel` / scope-exit path.
+    Effect.catchCause((cause) =>
+      Effect.sync(() => {
+        logError('[cron-scheduler] job loop stopped', cause, { jobId })
+      })
+    )
+  )
+
+/**
+ * Registry updates are built as fresh Maps from entries rather than by mutating
+ * a copy — `Map.set` / `Map.delete` are banned by `functional/immutable-data`,
+ * and the entry-list form needs no escape hatch. A later entry wins in the
+ * `Map` constructor, so {@link withJob} both inserts and replaces.
+ */
+const withJob = (
+  current: ReadonlyMap<string, ScheduledJob>,
+  job: ScheduledJob
+): ReadonlyMap<string, ScheduledJob> =>
+  new Map<string, ScheduledJob>([...current, [job.jobId, job]])
+
+const withoutJob = (
+  current: ReadonlyMap<string, ScheduledJob>,
+  jobId: string
+): ReadonlyMap<string, ScheduledJob> =>
+  new Map<string, ScheduledJob>([...current].filter(([key]) => key !== jobId))
+
+/** Interrupt a job's fiber and drop it from the registry. Idempotent. */
+const cancelJob = (jobs: JobRegistry, jobId: string): Effect.Effect<void> =>
+  Ref.modify(jobs, (current) => {
+    const job = current.get(jobId)
+    return job === undefined
+      ? ([undefined, current] as const)
+      : ([job, withoutJob(current, jobId)] as const)
+  }).pipe(Effect.flatMap((job) => (job === undefined ? Effect.void : Fiber.interrupt(job.fiber))))
+
+/**
+ * Interrupt and clear EVERY job — the registry's release, run by the scope.
+ *
+ * Deliberately NOT exported. An exported disposer is the shape E3 removed: a
+ * cleanup that happens only when somebody remembers to call it, on the happy
+ * path only.
+ *
+ * Emptying the `Ref` before interrupting keeps it idempotent against a
+ * concurrent `cancel`.
+ */
+const interruptAllJobs = (jobs: JobRegistry): Effect.Effect<void> =>
+  Ref.getAndSet(jobs, new Map<string, ScheduledJob>()).pipe(
+    Effect.flatMap((current) =>
+      Effect.forEach(Array.from(current.values()), (job) => Fiber.interrupt(job.fiber), {
+        discard: true,
+      })
+    )
+  )
 
 const generateJobId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -194,78 +182,95 @@ const generateJobId = (): string => {
   return `cron-${String(Date.now())}-${String(Math.random()).slice(2, 10)}`
 }
 
-const scheduleImpl = (
-  cronExpression: string,
-  callback: () => Effect.Effect<void, unknown>,
-  options?: { readonly jobId?: string; readonly timezone?: string }
-): Effect.Effect<string, CronSchedulerError> =>
-  // The `Cron.parse + zoneMakeNamedUnsafe` triplet is duplicated here, in the
-  // domain Schema filter (`cron.ts`), and in `presentation/api/routes/automations/index.ts`.
-  // Kept inline because this site needs the original throw/Either.left wrapped
-  // in `CronSchedulerError({ cause })` so callers can inspect the underlying
-  // failure — a shared helper that returned `Either<Cron, string>` would
-  // collapse the cause chain to a flat message.
-  Effect.gen(function* () {
-    const timezone = options?.timezone ?? 'UTC'
-    const jobId = options?.jobId ?? generateJobId()
+const scheduleImpl =
+  (jobs: JobRegistry, scope: Scope.Scope) =>
+  (
+    cronExpression: string,
+    callback: () => Effect.Effect<void, unknown>,
+    options?: { readonly jobId?: string; readonly timezone?: string }
+  ): Effect.Effect<string, CronSchedulerError> =>
+    // The `Cron.parse + zoneMakeNamedUnsafe` triplet is duplicated here, in the
+    // domain Schema filter (`cron.ts`), and in `presentation/api/routes/automations/index.ts`.
+    // Kept inline because this site needs the original throw/Result.failure wrapped
+    // in `CronSchedulerError({ cause })` so callers can inspect the underlying
+    // failure — a shared helper that returned `Result<Cron, string>` would
+    // collapse the cause chain to a flat message.
+    Effect.gen(function* () {
+      const timezone = options?.timezone ?? 'UTC'
+      const jobId = options?.jobId ?? generateJobId()
 
-    const zoneResult = yield* Effect.try({
-      try: () => DateTime.zoneMakeNamedUnsafe(timezone),
-      catch: (cause) => new CronSchedulerError({ cause }),
-    })
-
-    const parsed = Cron.parse(cronExpression, zoneResult)
-    if (Result.isFailure(parsed)) {
-      return yield* new CronSchedulerError({ cause: parsed.failure })
-    }
-
-    // Replace any existing job with the same id so re-registration on app
-    // reload is well-defined (no leftover timers from the old definition).
-    yield* Effect.sync(() => {
-      cancelTimer(jobId)
-      armTimer({
-        jobId,
-        expression: cronExpression,
-        timezone,
-        cron: parsed.success,
-        callback,
+      const zone = yield* Effect.try({
+        try: () => DateTime.zoneMakeNamedUnsafe(timezone),
+        catch: (cause) => new CronSchedulerError({ cause }),
       })
+
+      const parsed = Cron.parse(cronExpression, zone)
+      if (Result.isFailure(parsed)) {
+        return yield* new CronSchedulerError({ cause: parsed.failure })
+      }
+
+      // Replace any existing job with the same id so re-registration on `--watch`
+      // reload is well-defined: the old fiber is interrupted before the new one
+      // is forked, so no two loops ever share an id.
+      yield* cancelJob(jobs, jobId)
+      // The job fiber must OUTLIVE this Effect — `schedule` is called from boot
+      // code that returns as soon as every job is armed, so `Effect.forkChild`
+      // would interrupt the loop the moment registration finished. It is forked
+      // into the LAYER's scope instead, which lives as long as the server does.
+      const fiber = yield* Effect.forkIn(cronJobLoop(jobId, parsed.success, callback), scope)
+      yield* Ref.update(jobs, (current) =>
+        withJob(current, { jobId, expression: cronExpression, timezone, fiber })
+      )
+      return jobId
     })
-    return jobId
-  })
 
-const cancelImpl = (jobId: string): Effect.Effect<void, CronSchedulerError> =>
-  Effect.sync(() => {
-    cancelTimer(jobId)
-  })
+const cancelImpl =
+  (jobs: JobRegistry) =>
+  (jobId: string): Effect.Effect<void, CronSchedulerError> =>
+    cancelJob(jobs, jobId)
 
-const listJobsImpl: Effect.Effect<readonly Record<string, unknown>[], CronSchedulerError> =
-  Effect.sync(() =>
-    Array.from(jobs.values()).map((job) => ({
-      jobId: job.jobId,
-      expression: job.expression,
-      timezone: job.timezone,
-    }))
+const listJobsImpl = (
+  jobs: JobRegistry
+): Effect.Effect<readonly Record<string, unknown>[], CronSchedulerError> =>
+  Ref.get(jobs).pipe(
+    Effect.map((current) =>
+      Array.from(current.values()).map((job) => ({
+        jobId: job.jobId,
+        expression: job.expression,
+        timezone: job.timezone,
+      }))
+    )
   )
 
 /**
- * Cancel and clear ALL scheduled jobs. Called from the server's
- * `createStopEffect` (mirroring the `AiComputeListener.stop()` pattern) so
- * graceful shutdown does not leave zombie timers behind.
+ * The live scheduler, scoped to the layer that builds it.
+ *
+ * `Layer.effect` IS the scoped constructor in Effect 4 — there is no
+ * `Layer.scoped` (it was removed; `rg 'declare const scoped' node_modules/effect/dist/Layer.d.ts`
+ * returns nothing). `Layer.effectContext` runs the construction effect under
+ * `Scope.provide(effect, scope)` with the layer's own memo scope, and the
+ * resulting `Layer<I, E, Exclude<R, Scope>>` strips the requirement — so
+ * `Effect.acquireRelease` and `Effect.scope` are usable here without leaking a
+ * `Scope` into `createAppLayer`'s type.
  */
-export const disposeCronScheduler = (): void => {
-  Array.from(jobs.values()).forEach((job) => {
-    clearTimeout(job.timer)
-  })
-  // eslint-disable-next-line functional/immutable-data -- intentional: drain Map
-  jobs.clear()
-}
-
-export const CronSchedulerLive = Layer.succeed(
+export const CronSchedulerLive = Layer.effect(
   CronScheduler,
-  CronScheduler.of({
-    schedule: scheduleImpl,
-    cancel: cancelImpl,
-    listJobs: listJobsImpl,
+  Effect.gen(function* () {
+    // The registry IS the resource: acquiring it is cheap, releasing it
+    // interrupts every fiber armed against it. Scope exit therefore tears the
+    // scheduler down whether the server stopped cleanly, failed, or was
+    // interrupted.
+    const jobs = yield* Effect.acquireRelease(
+      Ref.make<ReadonlyMap<string, ScheduledJob>>(new Map()),
+      (registry) => interruptAllJobs(registry)
+    )
+    // Captured once, at construction: `schedule` is called later, from boot code
+    // running on an unrelated fiber, which has no other way to reach this scope.
+    const scope = yield* Effect.scope
+    return CronScheduler.of({
+      schedule: scheduleImpl(jobs, scope),
+      cancel: cancelImpl(jobs),
+      listJobs: listJobsImpl(jobs),
+    })
   })
 )

@@ -11,9 +11,10 @@
  * files under the per-island `max-lines` cap.
  *
  * The broadened palette renders the global-search matches GROUPED BY TYPE: one
- * labelled `listbox` per present entity kind (the French type label is the
- * listbox's accessible name AND the per-result badge), and one `option` per
- * result (its accessible name is the result title, so
+ * labelled `listbox` per present entity kind (the PLURAL group label is both the
+ * heading and the listbox's accessible name; each row carries the SINGULAR badge
+ * instead — see `ENTITY_TYPE_BADGES`), and one `option` per result (its
+ * accessible name is the result title, so
  * `getByRole('option', { name: /Zaphod/ })` resolves). Plus the three calm
  * states the operator sees: the empty prompt (no query), the loading hint, and
  * the no-results status naming the searched term.
@@ -23,7 +24,8 @@
 
 import { type ReactElement } from 'react'
 import {
-  ENTITY_TYPE_LABELS,
+  groupLabel,
+  resultBadge,
   type AdminSearchGroup,
   type AdminSearchResult,
 } from './admin-command-palette-data'
@@ -44,12 +46,16 @@ function ResultOption({
       aria-label={result.title}
       aria-selected="false"
       onClick={() => onSelect(result.href)}
-      className="hover:bg-background-subtle flex cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2 text-sm"
+      // A palette row is a MENU ITEM: the same 5px/8px step, the same 4px
+      // radius and the same subtle fill as a dropdown item, because the two are
+      // the same gesture reached two ways.
+      className="hover:bg-background-subtle flex cursor-pointer items-center justify-between gap-2 rounded-[4px] px-2 py-[5px] text-base"
     >
       <span className="text-foreground truncate font-medium">{result.title}</span>
-      <span className="border-border text-foreground-subtle shrink-0 rounded border px-1.5 py-0.5 text-xs">
-        {badge}
-      </span>
+      {/* The kind reads as an aside after the title, not as a chip. A bordered
+          pill on every row draws a second column of boxes down a list whose
+          whole job is to be scanned for one word. */}
+      <span className="text-foreground-subtle shrink-0 text-xs">{badge}</span>
     </li>
   )
 }
@@ -57,15 +63,21 @@ function ResultOption({
 /** One per-type group: a labelled `listbox` of result `option`s. */
 function ResultGroup({
   group,
+  kindLabels,
   onSelect,
 }: {
   readonly group: AdminSearchGroup
+  readonly kindLabels: Readonly<Record<string, string>> | undefined
   readonly onSelect: (href: string) => void
 }): ReactElement {
-  const label = ENTITY_TYPE_LABELS[group.type]
+  const label = groupLabel(group.type, kindLabels)
+  // The heading names the SET and the badge names one MEMBER of it, so the two
+  // are different words rather than the same string repeated once per row. See
+  // `ENTITY_TYPE_BADGES` for why they had to split.
+  const badge = resultBadge(group.type)
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-foreground-subtle px-1 text-xs font-medium tracking-wide uppercase">
+      <p className="text-foreground-subtle px-2 pt-1.5 pb-0.5 text-xs font-medium tracking-[0.04em] uppercase">
         {label}
       </p>
       <ul
@@ -77,7 +89,7 @@ function ResultGroup({
           <ResultOption
             key={`${result.type}:${result.entityId}`}
             result={result}
-            badge={label}
+            badge={badge}
             onSelect={onSelect}
           />
         ))}
@@ -89,9 +101,11 @@ function ResultGroup({
 /** The grouped global-search result list (one labelled listbox per kind). */
 export function GroupedResults({
   groups,
+  kindLabels,
   onSelect,
 }: {
   readonly groups: ReadonlyArray<AdminSearchGroup>
+  readonly kindLabels: Readonly<Record<string, string>> | undefined
   readonly onSelect: (href: string) => void
 }): ReactElement {
   return (
@@ -100,6 +114,7 @@ export function GroupedResults({
         <ResultGroup
           key={group.type}
           group={group}
+          kindLabels={kindLabels}
           onSelect={onSelect}
         />
       ))}
@@ -107,10 +122,19 @@ export function GroupedResults({
   )
 }
 
-/** The calm prompt shown when no query is typed (invites a global search). */
+/**
+ * The prompt shown before anything is typed.
+ *
+ * It names the CORPUS rather than repeating the placeholder. It used to say
+ * "Search all your data", which is the placeholder's own text — so an empty
+ * palette printed the same sentence twice, and neither instance told the reader
+ * what was actually reachable from here.
+ */
 export function PaletteEmptyPrompt(): ReactElement {
   return (
-    <p className="text-foreground-subtle px-3 py-6 text-center text-sm">Search all your data</p>
+    <p className="text-foreground-subtle px-3 py-6 text-center text-base">
+      Start typing to search records, submissions, files, automations and users.
+    </p>
   )
 }
 
@@ -119,9 +143,9 @@ export function PaletteLoading(): ReactElement {
   return (
     <p
       role="status"
-      className="text-foreground-subtle px-3 py-6 text-center text-sm"
+      className="text-foreground-subtle px-3 py-6 text-center text-base"
     >
-      Recherche en cours…
+      Searching…
     </p>
   )
 }
@@ -131,7 +155,7 @@ export function PaletteNoResults({ query }: { readonly query: string }): ReactEl
   return (
     <p
       role="status"
-      className="text-foreground-subtle px-3 py-6 text-center text-sm"
+      className="text-foreground-subtle px-3 py-6 text-center text-base"
     >
       {`No results for “${query}”`}
     </p>

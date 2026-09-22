@@ -9,14 +9,15 @@ import { useEffect, useRef } from 'react'
 import { writeColumnWidthsToCache } from '../../hooks/use-table-preferences'
 import { evaluatePredicate } from './filter-operators'
 import type { FilterConjunction, FilterRow } from './use-ui-state'
-import type { TableRecord } from '../../shared/types'
+import type { FieldMetaMap } from '../../hooks/use-inline-editing'
+import type { TableRecord } from '../../runtime/types'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type {
   DataTableColumn,
   DataTableGroupBy,
   ComponentSearch,
   DataTableToolbar,
-} from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+} from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 /**
  * The `?groupBy=` value for one grid: every grouping level, outermost first.
@@ -116,6 +117,41 @@ export function resolveSaveIndicator(
 }
 
 /**
+ * Whether this grid sorts its own rows instead of asking the server to.
+ *
+ * TWO conditions, and each excludes a different way a browser-side sort lies.
+ *
+ * 1. **A system source.** The records API honours `?sort=` on every DB-table
+ *    grid, so those have a server that sorts and need nothing here — which is
+ *    also what keeps this unable to reach them. A system read endpoint is the
+ *    only binding where `?sort=` may be received and ignored, and the
+ *    catalogue's own specimen endpoint is exactly that: it returns a
+ *    compile-time fixture in authored order, whatever it is asked for.
+ * 2. **The whole result set is loaded.** A page is not a view. Sorting the
+ *    rows in hand and labelling the header `ascending` would tell the reader
+ *    they are looking at the smallest values in the source when they are
+ *    looking at the smallest values on their screen — a wrong answer delivered
+ *    with the same confidence as a right one, which is worse than the inert
+ *    header this replaces.
+ *
+ * `loadedRows` is the count BEFORE the runtime filter-builder narrows it,
+ * because a filter removing rows says nothing about whether the server paged:
+ * comparing the narrowed count would switch client sorting off precisely when
+ * the reader had narrowed the view enough for it to be cheapest.
+ *
+ * An endpoint that DOES sort is unharmed: it keeps receiving `?sort=`, returns
+ * its rows already in order, and the model re-sorts them by the same key to
+ * the same order.
+ */
+export function resolveClientSorted(
+  isSystemSource: boolean,
+  loadedRows: number,
+  totalRecords: number
+): boolean {
+  return isSystemSource && loadedRows >= totalRecords
+}
+
+/**
  * Apply the runtime filter-builder's `activeFilters` to the server-returned
  * records (PG-03 / [internal ref]).
  *
@@ -124,21 +160,27 @@ export function resolveSaveIndicator(
  * every predicate must match; with OR at least one must match. An empty
  * filter set passes through unchanged.
  *
+ * `fieldMeta` carries the declared field types, and is what tells `equals` on
+ * an `assignee` column to compare strings rather than coerce `'Alice'` to
+ * `NaN`. It is optional because the predicate degrades safely to the string
+ * comparison without it, but the island always has it — pass it.
+ *
  * Kept out of the orchestrator so the orchestrator's hook count + complexity
  * stays under the size-limit cap.
  */
 export function applyClientFilters(
   records: readonly TableRecord[],
   activeFilters: readonly FilterRow[],
-  conjunction: FilterConjunction
+  conjunction: FilterConjunction,
+  fieldMeta?: FieldMetaMap
 ): readonly TableRecord[] {
   if (activeFilters.length === 0) return records
+  const matches = (row: Record<string, unknown>, f: FilterRow): boolean =>
+    evaluatePredicate(row[f.field], f.operator, f.value, fieldMeta?.[f.field]?.type)
   return records.filter((record) => {
     const row = record as Record<string, unknown>
-    if (conjunction === 'OR') {
-      return activeFilters.some((f) => evaluatePredicate(row[f.field], f.operator, f.value))
-    }
-    return activeFilters.every((f) => evaluatePredicate(row[f.field], f.operator, f.value))
+    if (conjunction === 'OR') return activeFilters.some((f) => matches(row, f))
+    return activeFilters.every((f) => matches(row, f))
   })
 }
 

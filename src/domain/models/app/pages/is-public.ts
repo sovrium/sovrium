@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isOpenToEveryone, toPermissionValue } from '@/domain/models/shared/permission-evaluation'
+import { isOpenToEveryone, toPermissionValue } from '@/domain/models/app/auth/permission-evaluation'
 import type { Page } from './page'
 
 /**

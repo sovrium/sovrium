@@ -17,7 +17,7 @@
  * requests but is scoped to a single server process. It is intentionally not
  * an Effect `Layer` resource: the download route is plain `async/await` and a
  * module singleton keeps the lookup synchronous and cheap. This mirrors the
- * in-memory rate-limiter primitive (`infrastructure/utils/sliding-window-limiter.ts`)
+ * in-memory rate-limiter primitive (`infrastructure/process/sliding-window-limiter.ts`)
  * — correct for single-process deployments, which matches the E2E topology.
  *
  * **Eviction**: the total byte size of cached entries is capped by the
@@ -32,6 +32,23 @@ export interface CachedTransform {
   readonly bytes: Uint8Array
   readonly contentType: string
   readonly etag: string
+}
+
+/**
+ * What a whole-cache clear dropped.
+ *
+ * A cache hit and a fresh transform are byte-identical over HTTP — same
+ * status, same bytes, same `Content-Type`, and an `ETag` derived from the
+ * cache KEY rather than from cached state — so nothing on the download route
+ * can witness whether the cache holds an entry. This report is therefore the
+ * only oracle the operator-facing clear has, and the only feedback the action
+ * gives: "dropped 14 variants, 3.2 MB".
+ */
+export interface ClearedTransforms {
+  /** Number of derived variants dropped by this call. */
+  readonly entries: number
+  /** Total bytes those variants occupied. */
+  readonly bytes: number
 }
 
 /** Default cache cap (in megabytes) when the env var is unset. */
@@ -60,6 +77,12 @@ interface TransformCache {
    * key. Used when a file is deleted so stale transformed bytes are not served.
    */
   readonly evictKey: (storageKey: string) => void
+  /**
+   * Drop every cached entry, whatever storage key it derives from, reporting
+   * the entry count and byte total dropped by THIS call. A second call with
+   * no insertion in between therefore reports zero.
+   */
+  readonly clear: () => ClearedTransforms
 }
 
 /**
@@ -131,6 +154,16 @@ const createTransformCache = (): TransformCache => {
       // drop each stale entry from the mutable cache
       stale.forEach((cacheKey) => drop(cacheKey))
     },
+    clear: () => {
+      // Total BEFORE emptying: `currentBytes` derives the byte total from the
+      // live map, so reading it after the clear would always report zero.
+      // There is no separate byte accumulator to reset — emptying the map IS
+      // the byte accounting reset.
+      const cleared: ClearedTransforms = { entries: entries.size, bytes: currentBytes(entries) }
+      // eslint-disable-next-line functional/immutable-data -- LRU cache requires mutable state
+      entries.clear()
+      return cleared
+    },
   }
 }
 
@@ -167,3 +200,15 @@ export const setCachedTransform = (key: string, value: CachedTransform): void =>
 export const evictTransformCacheForKey = (storageKey: string): void => {
   cache.evictKey(storageKey)
 }
+
+/**
+ * Drop every cached transform, returning the entry count and byte total this
+ * call dropped.
+ *
+ * Backs the operator-facing `DELETE /api/admin/storage/transform-cache`.
+ * Transforms are derived on demand from the stored original bytes, so this
+ * discards only derived variants — the stored originals are untouched and the
+ * next request rebuilds any variant it needs. Idempotent: clearing an
+ * already-empty cache reports zero rather than failing.
+ */
+export const clearTransformCache = (): ClearedTransforms => cache.clear()

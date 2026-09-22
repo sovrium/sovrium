@@ -44,8 +44,11 @@
  *   `{ <items> }` admin-list-response precedent this mirrors.
  */
 
-import { z } from '@hono/zod-openapi'
-import { appliedQuerySchema, searchTermSchema } from '../../_shared'
+import { Schema } from 'effect'
+import { coercedNumber } from '@/domain/models/api/combinators/coerce'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { appliedQuerySchema, searchTermSchema } from '../../combinators'
+import { withDefault } from '../../combinators/schema-defaults'
 
 // ─── Directory Query ─────────────────────────────────────────────────────────
 
@@ -65,18 +68,17 @@ export const DEFAULT_DIRECTORY_PAGE_SIZE = 25
  * order the scan yielded, under a header painting a sort arrow — and the
  * operator believes the arrow. An unsupported key is a 400.
  */
-export const adminDirectorySortFieldSchema = z
-  .enum(['id', 'email', 'name', 'role', 'banned'])
-  .optional()
-  .describe(
-    'Column to order by. Omit for the storage order. Accepts the combined `field:direction` spelling a column header emits, which the route splits before validation.'
-  )
+export const adminDirectorySortFieldSchema = optionalField(
+  Schema.Literals(['id', 'email', 'name', 'role', 'banned']).annotate({
+    description:
+      'Column to order by. Omit for the storage order. Accepts the combined `field:direction` spelling a column header emits, which the route splits before validation.',
+  })
+)
 
 /** Sort direction. Default `asc` — a directory reads alphabetically. */
-export const adminDirectorySortOrderSchema = z
-  .enum(['asc', 'desc'])
-  .default('asc')
-  .describe('Sort direction, applied to `sort`. Default `asc`.')
+export const adminDirectorySortOrderSchema = Schema.Literals(['asc', 'desc'])
+  .annotate({ description: 'Sort direction, applied to `sort`. Default `asc`.' })
+  .pipe(withDefault('asc'))
 
 /**
  * Query schema for `GET /api/admin/users`.
@@ -124,24 +126,25 @@ export const adminDirectorySortOrderSchema = z
  * has a page number and no cursor. The account population of one self-hosted
  * app stays small enough for that to be the right trade.
  */
-export const adminUsersDirectoryQuerySchema = z.object({
-  q: searchTermSchema.describe(
-    'Optional free-text search over the account `email` and `name`, as a case-insensitive literal substring. `role` and `id` are intentionally not searched. Empty / whitespace-only means "no search" (the full directory), NOT "match nothing".'
-  ),
-  page: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .default(1)
-    .describe('1-based page number over the matching accounts. Default 1.'),
-  limit: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(200)
-    .default(DEFAULT_DIRECTORY_PAGE_SIZE)
-    .describe(
-      `Accounts per page, 1-200. Default ${DEFAULT_DIRECTORY_PAGE_SIZE}, matching the grid's declared page size so the pager's arithmetic and the body agree.`
+export const adminUsersDirectoryQuerySchema = Schema.Struct({
+  q: searchTermSchema.annotate({
+    description:
+      'Optional free-text search over the account `email` and `name`, as a case-insensitive literal substring. `role` and `id` are intentionally not searched. Empty / whitespace-only means "no search" (the full directory), NOT "match nothing".',
+  }),
+  page: coercedNumber
+    .annotate({ description: '1-based page number over the matching accounts. Default 1.' })
+    .pipe(Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1)), withDefault(1)),
+  limit: coercedNumber
+    .annotate({
+      description: `Accounts per page, 1-200. Default ${DEFAULT_DIRECTORY_PAGE_SIZE}, matching the grid's declared page size so the pager's arithmetic and the body agree.`,
+    })
+    .pipe(
+      Schema.check(
+        Schema.isInt(),
+        Schema.isGreaterThanOrEqualTo(1),
+        Schema.isLessThanOrEqualTo(200)
+      ),
+      withDefault(DEFAULT_DIRECTORY_PAGE_SIZE)
     ),
   sort: adminDirectorySortFieldSchema,
   order: adminDirectorySortOrderSchema,
@@ -172,39 +175,28 @@ export const adminUsersDirectoryQuerySchema = z.object({
  * "Customers"-model contract — the operator has one console for the whole user
  * population — so the signed-in operator's own row is always present.
  */
-export const adminDirectoryUserSchema = z
-  .object({
-    id: z
-      .string()
-      .min(1)
-      .describe(
-        'Subject identifier of the account (`auth.user.id`). The id the row actions (set-role / ban-user / unban-user) target.'
-      ),
-    email: z
-      .string()
-      .min(1)
-      .describe(
-        'Account e-mail address (`auth.user.email`). The directory’s primary column and one of the two `?q=` search keys.'
-      ),
-    name: z
-      .string()
-      .describe(
-        'Account display name (`auth.user.name`). The other `?q=` search key. The column is nullable in storage; a null/absent name is coalesced to the empty string, so this is always a string (possibly empty) rather than sometimes missing — an absent key would make "this account has no name" indistinguishable from "this build does not send names".'
-      ),
-    role: z
-      .string()
-      .min(1)
-      .describe(
-        'Account role (`auth.user.role`). The column is nullable in storage; the handler coalesces a null/empty role to the app default role, so this is always a non-empty string. The vocabulary is the APP’s configured roles, not the operator tier.'
-      ),
-    banned: z
-      .boolean()
-      .describe(
-        'Whether the account is banned (`auth.user.banned`). Drives the Statut pill: `false` → actif, `true` → banni.'
-      ),
-  })
-  .strict()
-  .openapi('AdminDirectoryUser')
+export const adminDirectoryUserSchema = Schema.Struct({
+  id: Schema.String.annotate({
+    description:
+      'Subject identifier of the account (`auth.user.id`). The id the row actions (set-role / ban-user / unban-user) target.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  email: Schema.String.annotate({
+    description:
+      'Account e-mail address (`auth.user.email`). The directory’s primary column and one of the two `?q=` search keys.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  name: Schema.String.annotate({
+    description:
+      'Account display name (`auth.user.name`). The other `?q=` search key. The column is nullable in storage; a null/absent name is coalesced to the empty string, so this is always a string (possibly empty) rather than sometimes missing — an absent key would make "this account has no name" indistinguishable from "this build does not send names".',
+  }),
+  role: Schema.String.annotate({
+    description:
+      'Account role (`auth.user.role`). The column is nullable in storage; the handler coalesces a null/empty role to the app default role, so this is always a non-empty string. The vocabulary is the APP’s configured roles, not the operator tier.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  banned: Schema.Boolean.annotate({
+    description:
+      'Whether the account is banned (`auth.user.banned`). Drives the Statut pill: `false` → actif, `true` → banni.',
+  }),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'AdminDirectoryUser' })
 
 // ─── Directory List Response ─────────────────────────────────────────────────
 
@@ -227,30 +219,27 @@ export const adminDirectoryUserSchema = z
  * operator row (the directory lists the whole population); a truly empty
  * `users: []` is what the island's calm empty state renders.
  */
-export const adminUsersDirectoryResponseSchema = z
-  .object({
-    users: z
-      .array(adminDirectoryUserSchema)
-      .describe(
-        'ONE PAGE of accounts from the auth `user` table — operators and app users alike — as secret-free directory rows. Narrowed to the MATCHING accounts when `?q=` is supplied, ordered by `sort`, sliced by `page`/`limit`.'
-      ),
-    total: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'How many accounts MATCH across every page — narrowed by `?q=`, unaffected by `page`/`limit`. The pager renders its "1-25 of N" range and decides whether a next page exists from this number, so a page that omitted it could only report the rows in front of it.'
-      ),
-    appliedQuery: appliedQuerySchema,
-  })
-  .strict()
-  .openapi('AdminUsersDirectoryResponse')
+export const adminUsersDirectoryResponseSchema = Schema.Struct({
+  users: Schema.Array(adminDirectoryUserSchema).annotate({
+    description:
+      'ONE PAGE of accounts from the auth `user` table — operators and app users alike — as secret-free directory rows. Narrowed to the MATCHING accounts when `?q=` is supplied, ordered by `sort`, sliced by `page`/`limit`.',
+  }),
+  total: Schema.Int.annotate({
+    description:
+      'How many accounts MATCH across every page — narrowed by `?q=`, unaffected by `page`/`limit`. The pager renders its "1-25 of N" range and decides whether a next page exists from this number, so a page that omitted it could only report the rows in front of it.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  appliedQuery: appliedQuerySchema,
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'AdminUsersDirectoryResponse',
+})
 
 // ─── Inferred types ──────────────────────────────────────────────────────────
 
 /** @public */
-export type AdminUsersDirectoryQuery = z.infer<typeof adminUsersDirectoryQuerySchema>
+export type AdminUsersDirectoryQuery = typeof adminUsersDirectoryQuerySchema.Type
 /** @public */
-export type AdminDirectoryUser = z.infer<typeof adminDirectoryUserSchema>
+export type AdminDirectoryUser = typeof adminDirectoryUserSchema.Type
 /** @public */
-export type AdminUsersDirectoryResponse = z.infer<typeof adminUsersDirectoryResponseSchema>
+export type AdminUsersDirectoryResponse = typeof adminUsersDirectoryResponseSchema.Type

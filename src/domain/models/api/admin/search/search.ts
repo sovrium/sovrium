@@ -63,7 +63,8 @@
  * @see src/domain/models/api/admin/connections/connections.ts (the S4 allow-list this mirrors)
  */
 
-import { z } from '@hono/zod-openapi'
+import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
 
 /**
  * The closed set of admin entity kinds the global search spans. The query
@@ -78,67 +79,77 @@ export const adminSearchEntityTypes = [
   'file',
   'conversation',
   'connection',
+  // ─── THE DESIGN-SYSTEM KINDS, AND WHY THEY ARE TWO RATHER THAN ONE ───────
+  //
+  // Both are static rows projected from the registry rather than indexed
+  // entities, so ONE kind would have been the smaller change. `PER_GROUP_CAP`
+  // is what makes it the wrong one: it caps each GROUP at 25 results, so the 7
+  // console destinations sharing a bucket with 85 component types could be
+  // pushed out of view entirely by a query matching many types. Two kinds are
+  // two independent budgets, and the destinations — the rows an operator is
+  // most likely to want — cannot be crowded out by the catalogue.
+  //
+  // APPENDED, so the canonical group order is unchanged for the seven kinds
+  // before them: the operator's own data still reads first.
+  'design-console',
+  'component-type',
 ] as const
 
-export const adminSearchEntityTypeSchema = z
-  .enum(adminSearchEntityTypes)
-  .describe(
-    'The admin entity kind this result belongs to. Drives the per-type result group + badge.'
-  )
+export const adminSearchEntityTypeSchema = Schema.Literals(adminSearchEntityTypes).annotate({
+  description:
+    'The admin entity kind this result belongs to. Drives the per-type result group + badge.',
+})
 
-export type AdminSearchEntityType = z.infer<typeof adminSearchEntityTypeSchema>
+export type AdminSearchEntityType = typeof adminSearchEntityTypeSchema.Type
 
 /**
  * A single global-search hit — the S4 allow-list projection of one
  * `_admin_search_index` row. STRICT: no extra keys, so a secret can never ride
  * along in a future field.
  */
-export const adminSearchResultSchema = z
-  .object({
-    type: adminSearchEntityTypeSchema,
-    entityId: z
-      .string()
-      .describe(
-        'The source entity id, carried verbatim into the deep-link. Heterogeneous across kinds (record / submission / user / connection ids…).'
-      ),
-    title: z
-      .string()
-      .describe(
-        'Secret-free primary label shown as the result line. Connection = NAME/label only; file = file NAME only; user = e-mail/display label; record = first text column. NEVER a token/credential (S4).'
-      ),
-    href: z
-      .string()
-      .describe(
-        'The deep-link the UI navigates to when this result is selected (e.g. /_admin/tables/{name}?record={id}, /_admin/connections).'
-      ),
-    updatedAt: z
-      .string()
-      .datetime()
-      .describe(
-        'ISO 8601 last-touch time of the source entity, used to order results (most recent first) within a type group.'
-      ),
-  })
-  .strict()
-  .describe('One admin global-search result (S4 secret-free allow-list).')
+export const adminSearchResultSchema = Schema.Struct({
+  type: adminSearchEntityTypeSchema,
+  entityId: Schema.String.annotate({
+    description:
+      'The source entity id, carried verbatim into the deep-link. Heterogeneous across kinds (record / submission / user / connection ids…).',
+  }),
+  title: Schema.String.annotate({
+    description:
+      'Secret-free primary label shown as the result line. Connection = NAME/label only; file = file NAME only; user = e-mail/display label; record = first text column. NEVER a token/credential (S4).',
+  }),
+  href: Schema.String.annotate({
+    description:
+      'The deep-link the UI navigates to when this result is selected (e.g. /_admin/tables/{name}?record={id}, /_admin/connections).',
+  }),
+  updatedAt: looseIsoDateTime({
+    description:
+      'ISO 8601 last-touch time of the source entity, used to order results (most recent first) within a type group.',
+  }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  description: 'One admin global-search result (S4 secret-free allow-list).',
+})
 
-export type AdminSearchResult = z.infer<typeof adminSearchResultSchema>
+export type AdminSearchResult = typeof adminSearchResultSchema.Type
 
 /**
  * One result group — a present entity kind plus the matches for it. The
  * response is a list of these so the palette renders a labelled section per
  * kind (kinds with no match are simply absent from the list).
  */
-export const adminSearchGroupSchema = z
-  .object({
-    type: adminSearchEntityTypeSchema,
-    results: z
-      .array(adminSearchResultSchema)
-      .describe('Matches for this entity kind, most-recent first (capped per group).'),
-  })
-  .strict()
-  .describe('A per-type group of global-search results.')
+export const adminSearchGroupSchema = Schema.Struct({
+  type: adminSearchEntityTypeSchema,
+  results: Schema.Array(adminSearchResultSchema).annotate({
+    description: 'Matches for this entity kind, most-recent first (capped per group).',
+  }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  description: 'A per-type group of global-search results.',
+})
 
-export type AdminSearchGroup = z.infer<typeof adminSearchGroupSchema>
+export type AdminSearchGroup = typeof adminSearchGroupSchema.Type
 
 /**
  * The `GET /api/admin/search?q=` response body: grouped cross-entity results.
@@ -148,16 +159,18 @@ export type AdminSearchGroup = z.infer<typeof adminSearchGroupSchema>
  * ({@link adminSearchEntityTypes}); a kind with no match is omitted. An empty
  * `groups` array is the canonical NO-RESULTS body (a 200, not a 404).
  */
-export const adminSearchResponseSchema = z
-  .object({
-    query: z.string().describe('The trimmed query term the index was searched with.'),
-    groups: z
-      .array(adminSearchGroupSchema)
-      .describe(
-        'Per-type result sections in canonical kind order. Empty array = no results (still a 200).'
-      ),
-  })
-  .strict()
-  .describe('Admin global-search response — cross-entity results grouped by kind.')
+export const adminSearchResponseSchema = Schema.Struct({
+  query: Schema.String.annotate({
+    description: 'The trimmed query term the index was searched with.',
+  }),
+  groups: Schema.Array(adminSearchGroupSchema).annotate({
+    description:
+      'Per-type result sections in canonical kind order. Empty array = no results (still a 200).',
+  }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  description: 'Admin global-search response — cross-entity results grouped by kind.',
+})
 
-export type AdminSearchResponse = z.infer<typeof adminSearchResponseSchema>
+export type AdminSearchResponse = typeof adminSearchResponseSchema.Type

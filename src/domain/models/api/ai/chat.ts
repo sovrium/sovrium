@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
+import { Schema } from 'effect'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
 // ---------------------------------------------------------------------------
 // Chat request schema
@@ -16,33 +17,40 @@ import { z } from 'zod'
  *
  * Used for:
  * - OpenAPI documentation generation
- * - Runtime API request validation via @hono/zod-validator
+ * - Runtime API request validation via `effectValidator`
  * - Hono RPC client type inference
  */
-export const chatRequestSchema = z.object({
-  message: z.string().min(1).describe('User message to send to the AI'),
-  sessionId: z
-    .string()
-    .optional()
-    .describe('Session identifier for conversation continuity (auto-generated if omitted)'),
-  context: z
-    .object({
-      table: z.string().optional().describe('Current table context for scoped queries'),
-      recordId: z
-        .union([z.string(), z.number()])
-        .optional()
-        .describe('Current record context for targeted operations'),
+export const chatRequestSchema = Schema.Struct({
+  message: Schema.String.annotate({ description: 'User message to send to the AI' }).pipe(
+    Schema.check(Schema.isMinLength(1))
+  ),
+  sessionId: optionalField(
+    Schema.String.annotate({
+      description: 'Session identifier for conversation continuity (auto-generated if omitted)',
     })
-    .optional()
-    .describe('Optional context about the current page or view'),
-  confirmationToken: z
-    .string()
-    .optional()
-    .describe('Token to confirm a previously pending destructive action'),
-  agent: z
-    .string()
-    .optional()
-    .describe('Name of a declared app.agents[] entry to bind this chat turn to'),
+  ),
+  context: optionalField(
+    Schema.Struct({
+      table: optionalField(
+        Schema.String.annotate({ description: 'Current table context for scoped queries' })
+      ),
+      recordId: optionalField(
+        Schema.Union([Schema.String, Schema.Finite]).annotate({
+          description: 'Current record context for targeted operations',
+        })
+      ),
+    }).annotate({ description: 'Optional context about the current page or view' })
+  ),
+  confirmationToken: optionalField(
+    Schema.String.annotate({
+      description: 'Token to confirm a previously pending destructive action',
+    })
+  ),
+  agent: optionalField(
+    Schema.String.annotate({
+      description: 'Name of a declared app.agents[] entry to bind this chat turn to',
+    })
+  ),
 })
 
 // ---------------------------------------------------------------------------
@@ -52,36 +60,49 @@ export const chatRequestSchema = z.object({
 /**
  * Describes an action taken by the AI during chat processing.
  */
-export const chatActionSchema = z.object({
-  type: z
-    .enum(['query', 'create', 'update', 'delete', 'automation'])
-    .describe('Type of action performed'),
-  table: z.string().optional().describe('Table affected by the action'),
-  recordId: z.union([z.string(), z.number()]).optional().describe('Record affected by the action'),
-  description: z.string().describe('Human-readable description of the action taken'),
+export const chatActionSchema = Schema.Struct({
+  type: Schema.Literals(['query', 'create', 'update', 'delete', 'automation']).annotate({
+    description: 'Type of action performed',
+  }),
+  table: optionalField(Schema.String.annotate({ description: 'Table affected by the action' })),
+  recordId: optionalField(
+    Schema.Union([Schema.String, Schema.Finite]).annotate({
+      description: 'Record affected by the action',
+    })
+  ),
+  description: Schema.String.annotate({
+    description: 'Human-readable description of the action taken',
+  }),
   /**
    * Automation name — present only on `type: 'automation'` actions produced
    * when a chat turn triggers a manual automation.
    */
-  name: z.string().optional().describe('Automation name (automation actions only)'),
+  name: optionalField(
+    Schema.String.annotate({ description: 'Automation name (automation actions only)' })
+  ),
   /**
    * Automation run status — `'completed' | 'failed' | 'running'`. Present only
    * on `type: 'automation'` actions.
    */
-  status: z
-    .enum(['completed', 'failed', 'running'])
-    .optional()
-    .describe('Automation run status (automation actions only)'),
+  status: optionalField(
+    Schema.Literals(['completed', 'failed', 'running']).annotate({
+      description: 'Automation run status (automation actions only)',
+    })
+  ),
   /**
    * Automation run identifier — correlates with `GET /api/automations/runs/:id`.
    * Present only on `type: 'automation'` actions.
    */
-  runId: z.string().optional().describe('Automation run id (automation actions only)'),
+  runId: optionalField(
+    Schema.String.annotate({ description: 'Automation run id (automation actions only)' })
+  ),
   /**
    * Automation run duration in seconds. Present only on `type: 'automation'`
    * actions when the duration is known.
    */
-  duration: z.number().optional().describe('Automation run duration in seconds'),
+  duration: optionalField(
+    Schema.Finite.annotate({ description: 'Automation run duration in seconds' })
+  ),
 })
 
 // ---------------------------------------------------------------------------
@@ -91,12 +112,20 @@ export const chatActionSchema = z.object({
 /**
  * Describes a destructive action awaiting user confirmation.
  */
-export const pendingConfirmationSchema = z.object({
-  action: z.string().describe('Action type requiring confirmation (e.g. delete, bulk update)'),
-  table: z.string().describe('Table affected by the pending action'),
-  affectedCount: z.number().int().min(1).describe('Number of records that will be affected'),
-  description: z.string().describe('Human-readable description of the pending action'),
-  confirmationToken: z.string().describe('Token to include in next request to confirm the action'),
+export const pendingConfirmationSchema = Schema.Struct({
+  action: Schema.String.annotate({
+    description: 'Action type requiring confirmation (e.g. delete, bulk update)',
+  }),
+  table: Schema.String.annotate({ description: 'Table affected by the pending action' }),
+  affectedCount: Schema.Int.annotate({
+    description: 'Number of records that will be affected',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1))),
+  description: Schema.String.annotate({
+    description: 'Human-readable description of the pending action',
+  }),
+  confirmationToken: Schema.String.annotate({
+    description: 'Token to include in next request to confirm the action',
+  }),
 })
 
 // ---------------------------------------------------------------------------
@@ -111,20 +140,26 @@ export const pendingConfirmationSchema = z.object({
  * - Runtime API response validation
  * - Hono RPC client type inference
  */
-export const chatResponseSchema = z.object({
-  reply: z.string().describe('AI-generated text response to the user'),
-  actions: z.array(chatActionSchema).describe('Actions taken by the AI during this turn'),
-  sessionId: z.string().describe('Session identifier for conversation continuity'),
-  pendingConfirmation: pendingConfirmationSchema
-    .optional()
-    .describe('Destructive action awaiting user confirmation before execution'),
+export const chatResponseSchema = Schema.Struct({
+  reply: Schema.String.annotate({ description: 'AI-generated text response to the user' }),
+  actions: Schema.Array(chatActionSchema).annotate({
+    description: 'Actions taken by the AI during this turn',
+  }),
+  sessionId: Schema.String.annotate({
+    description: 'Session identifier for conversation continuity',
+  }),
+  pendingConfirmation: optionalField(
+    pendingConfirmationSchema.annotate({
+      description: 'Destructive action awaiting user confirmation before execution',
+    })
+  ),
 })
 
 // ---------------------------------------------------------------------------
 // Type exports
 // ---------------------------------------------------------------------------
 
-export type ChatRequest = z.infer<typeof chatRequestSchema>
-export type ChatAction = z.infer<typeof chatActionSchema>
-export type PendingConfirmation = z.infer<typeof pendingConfirmationSchema>
-export type ChatResponse = z.infer<typeof chatResponseSchema>
+export type ChatRequest = typeof chatRequestSchema.Type
+export type ChatAction = typeof chatActionSchema.Type
+export type PendingConfirmation = typeof pendingConfirmationSchema.Type
+export type ChatResponse = typeof chatResponseSchema.Type

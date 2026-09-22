@@ -16,7 +16,7 @@ import {
   type PersistedRun,
   type PersistedStep,
 } from '@/application/ports/repositories/automations/automation-run-repository'
-import { toFiniteCount } from '@/domain/utils/database/count-coercion'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {

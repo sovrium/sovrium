@@ -79,7 +79,3 @@ export const analyticsEvents = systemTable(
     index('analytics_events_app_session_idx').on(table.appName, table.sessionHash),
   ]
 )
-
-// Type exports for consumers
-export type AnalyticsEvent = typeof analyticsEvents.$inferSelect
-export type NewAnalyticsEvent = typeof analyticsEvents.$inferInsert

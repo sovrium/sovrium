@@ -6,7 +6,7 @@
  */
 
 import type { createAuthInstance } from './auth'
-import type { AvatarProfileStore } from '@/application/ports/models/avatar-profile-store'
+import type { AvatarProfileStore } from '@/application/ports/contracts/avatar-profile-store'
 
 type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
 
@@ -40,16 +40,33 @@ type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
  *
  * `$context` is a promise resolved once per auth instance and memoised by Better
  * Auth, so awaiting it per call costs nothing after the first.
+ *
+ * ## Why `auth` is optional
+ *
+ * `chainAccountRoutes` mounts `/api/account/*` unconditionally, including for an
+ * app that declares no `auth:` block — those handlers answer 401 because no
+ * session can exist. So the store must be CONSTRUCTIBLE without an auth
+ * instance, even though neither method can be reached without one: reaching
+ * `readImage`/`writeImage` requires a session, and a session requires auth.
+ *
+ * The `undefined` branch therefore degrades exactly as the 401 path already
+ * does — no avatar to read, nothing to write — rather than throwing. Making the
+ * parameter required instead would force `createApiRoutes` to build an auth
+ * instance on every boot, which is the eager Better Auth load this whole
+ * boundary exists to remove.
  */
-export function createAvatarProfileStore(auth: AuthInstance): AvatarProfileStore {
+export function createAvatarProfileStore(auth: AuthInstance | undefined): AvatarProfileStore {
   return {
     readImage: async (userId) => {
+      // eslint-disable-next-line unicorn/no-null -- `null` is this column's own "no avatar" value, and the port's declared contract
+      if (!auth) return null
       const { internalAdapter } = await auth.$context
       const user = await internalAdapter.findUserById(userId)
       // eslint-disable-next-line unicorn/no-null -- `null` is this column's own "no avatar" value, and the port's declared contract
       return user?.image ?? null
     },
     writeImage: async (userId, image) => {
+      if (!auth) return
       const { internalAdapter } = await auth.$context
       // eslint-disable-next-line functional/no-expression-statements -- persistence side effect
       await internalAdapter.updateUser(userId, { image })

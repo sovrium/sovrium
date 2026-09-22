@@ -46,12 +46,37 @@ const PROJECT_ROOT = join(import.meta.dir, '..', '..')
  * hydrate client-side, so their utility classes never appear in server-rendered
  * HTML and cannot be recovered by the binary's runtime config scan.
  *
+ * `apps/admin` is scanned and its two siblings are NOT, and the asymmetry is
+ * the product-path boundary rather than an oversight. The operator console is
+ * compiled INTO the binary from `apps/admin/config/**` ((../../docs/architecture/decisions/033-apps-admin-first-class-embedded-app.md)),
+ * so a class it authors renders on every user's instance and must reach the
+ * builtin candidate set — exactly like a class under `src`. `apps/website` and
+ * `apps/partner` are Sovrium's own deployed surfaces: nobody else runs them,
+ * their CSS is compiled at runtime from their own theme, and folding their
+ * classes into the binary would ship an operator CSS for pages that operator
+ * will never serve.
+ *
+ * Scanning the console's SOURCE is not redundant with the generated preset
+ * (`src/infrastructure/assets/embedded-admin-preset.generated.ts`), which the
+ * scan already picks up incidentally as a `src` file. The preset is the
+ * RESOLVED config: a conditional like `verdict === 'do' ? 'text-foreground-subtle'
+ * : 'text-error'` serialises only the branch each fixture item actually took, so
+ * a class on an untaken branch exists in the source and in no generated artifact.
+ * The source scan sees both branches; the preset scan cannot.
+ *
+ * That hole is why the entry is here, and it is PREVENTIVE — measured on the day
+ * it landed, adding `apps/admin` recovered three rules, all three harvested from
+ * doc comments rather than live class usage, for 165 bytes of default stylesheet.
+ * Do not read the entry as having fixed a rendering bug; read it as closing the
+ * gap between "a product path compiled into the binary" and "a product path the
+ * corpus reads directly". See [internal ref]'s note on this.
+ *
  * `[internal ref]` and `[internal ref]` are intentionally excluded: they are not application
  * code, and the classes mentioned there are not part of any rendered page.
  * Co-located unit-test files (`*.test.ts`/`*.test.tsx`) live INSIDE `src` but
  * are excluded for the same reason — see `TEST_FILE_GLOBS` below.
  */
-const SCAN_SOURCES = ['src', 'templates'] as const
+const SCAN_SOURCES = ['src', 'templates', 'apps/admin'] as const
 
 /**
  * Co-located unit-test files live under `src` but are NOT application code:
@@ -93,6 +118,26 @@ const GENERATED_OUTPUT_REL = 'infrastructure/css/generated-css-assets.ts'
  */
 const EMBEDDED_CONFIG_TYPES_REL = 'infrastructure/assets/embedded-config-types.generated.ts'
 
+/**
+ * The default design system's FLAT VIEW
+ * (`scripts/build/generate-default-design.ts`) is the third file in the scan
+ * root that is derived data rather than application code: every `--sv-*` token
+ * and its resolved literal, plus the author-key role map, re-stated in a shape
+ * a gate can read.
+ *
+ * It is negated because it adds NOTHING the corpus does not already have — the
+ * same values reach the scan through `default-theme-layer.generated.ts` (which
+ * REPLACES a scanned file and therefore stays scanned) — while contributing a
+ * second copy of every token name plus its own identifiers. That is the corpus
+ * rule applied literally: negate a generated file only when it adds candidates
+ * its hand-written predecessor did not, and this one has no predecessor.
+ *
+ * The other three outputs of that generator stay scanned: each replaces a file
+ * the corpus was already built from, so negating them would REMOVE candidates
+ * the binary needs.
+ */
+const DEFAULT_DESIGN_FLAT_REL = 'domain/models/app/design/default-design.generated.ts'
+
 const COPYRIGHT_HEADER = `/**
  * Copyright (c) 2025-2026 ESSENTIAL SERVICES
  *
@@ -120,6 +165,13 @@ function scanCandidates(): readonly string[] {
       {
         base: join(PROJECT_ROOT, 'src'),
         pattern: EMBEDDED_CONFIG_TYPES_REL,
+        negated: true,
+      },
+      // The default design's flat view — derived data, and a duplicate of what
+      // the generated theme layer already contributes. See DEFAULT_DESIGN_FLAT_REL.
+      {
+        base: join(PROJECT_ROOT, 'src'),
+        pattern: DEFAULT_DESIGN_FLAT_REL,
         negated: true,
       },
       // Exclude co-located unit-test files from the candidate scan: their
@@ -206,6 +258,6 @@ export const TW_ANIMATE_CSS: string = ${JSON.stringify(twAnimateCss)}
 writeFileSync(outPath, fileContent)
 
 console.log(
-  `✓ generated-css-assets.ts — ${candidates.length} candidates, ` +
+  `generated-css-assets.ts — ${candidates.length} candidates, ` +
     `${formatKb(tailwindIndexCss, twAnimateCss)} embedded stylesheets`
 )

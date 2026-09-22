@@ -6,16 +6,16 @@
  */
 
 import { useCallback, useMemo } from 'react'
-import { dispatch as dispatchIslandEvent } from '../../_shared/event-bus'
 import {
   useSavedViewActions,
   type SavedView,
   type SavedViewConfigPayload,
 } from '../../hooks/use-saved-views'
+import { dispatch as dispatchIslandEvent } from '../../runtime/event-bus'
 import { DEFAULT_VIEW_TYPE, type FilterRow, type SortRow } from './use-ui-state'
 import type { ViewsMenuEntry } from './views-menu'
 import type { RowDensity } from '../../hooks/use-table-preferences'
-import type { DataTableViewType } from '@/domain/models/app/pages/components/component-types/data/data-table/schema'
+import type { DataTableViewType } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 /**
  * Saved-views orchestration (PG-03 / [internal ref]..022).

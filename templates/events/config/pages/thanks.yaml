@@ -16,12 +16,12 @@ components:
           - type: text
             element: h1
             props:
-              className: text-3xl font-bold mb-4
+              className: text-4xl font-bold mb-4
             content: See you there!
           - type: text
             element: p
             props:
-              className: text-lg mb-8
+              className: text-xl mb-8
             content: Your registration is in — a confirmation email is on its way.
           - type: link
             props:

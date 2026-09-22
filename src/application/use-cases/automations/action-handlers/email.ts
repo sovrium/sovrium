@@ -6,9 +6,9 @@
  */
 
 import { Data, Duration, Effect } from 'effect'
-import { sanitizeRichTextHTML, stripHtmlToText } from '@/domain/utils/html-sanitization'
+import { sanitizeRichTextHTML, stripHtmlToText } from '@/domain/kernel/sanitize/html-sanitization'
 import { sendEmail } from '@/infrastructure/email/email-service'
-import { stringProp } from './shared'
+import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
 /**
@@ -146,4 +146,6 @@ export const handleEmailSend: ActionHandler = (action, _app, _automation) =>
       status: 'success',
       output: { messageId: result.success },
     } as const satisfies ActionOutcome
-  })
+  }).pipe(
+    Effect.withSpan('automations.handle-email-send', { attributes: actionAttributes(action) })
+  )

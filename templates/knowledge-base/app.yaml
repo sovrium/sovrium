@@ -9,8 +9,8 @@ description: >-
 auth:
   $ref: ./config/auth.yaml
 
-theme:
-  $ref: ./config/theme.yaml
+design:
+  $ref: ./config/design.yaml
 
 pages:
   # Public landing with the sign-in call to action.

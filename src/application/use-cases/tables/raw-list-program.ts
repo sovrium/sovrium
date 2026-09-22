@@ -24,7 +24,7 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import type { UserSession } from '@/application/ports/models/user-session'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { DatabaseError } from '@/domain/errors'
 
 export function rawListRecordsProgram(
@@ -36,5 +36,5 @@ export function rawListRecordsProgram(
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     return yield* repo.listRecords({ session, tableName, filter, includeDeleted })
-  })
+  }).pipe(Effect.withSpan('tables.raw-list-records-program'))
 }
