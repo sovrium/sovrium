@@ -31,6 +31,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { listDirSync } from '../lib/drift/walk'
+import { fileImportSpecifier } from '../lib/posix-path'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const TS_LIB_DIR = join(PROJECT_ROOT, 'node_modules', 'typescript', 'lib')
@@ -86,7 +87,7 @@ if (libFiles.length === 0) {
 
 const imports: readonly ImportLine[] = libFiles.map((f, idx) => ({
   varName: `_l${idx}`,
-  importPath: `${REL_ROOT}/node_modules/typescript/lib/${f}`,
+  importPath: fileImportSpecifier(REL_ROOT, 'node_modules/typescript/lib', f),
 }))
 
 // Emit single-quoted keys to match Prettier's `singleQuote: true` project

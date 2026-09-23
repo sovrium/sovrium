@@ -1,3 +1,9 @@
+## [0.27.1](https://github.com/sovrium/sovrium/compare/v0.27.0...v0.27.1) (2026-09-23)
+
+### Bug Fixes
+
+- **build**: write generated import paths with forward slashes on every platform
+
 ## [0.27.0](https://github.com/sovrium/sovrium/compare/v0.26.0...v0.27.0) (2026-09-23)
 
 ### Features

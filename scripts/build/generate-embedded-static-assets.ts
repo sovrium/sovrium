@@ -41,7 +41,8 @@
  */
 
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { join, relative } from 'node:path'
+import { fileImportSpecifier, posixRelative } from '../lib/posix-path'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const OUT_FILE = join(
@@ -103,7 +104,7 @@ export const collectMigrationFolders = (
       }
       if (!entry.isFile() || entry.name !== 'migration.sql') return []
       // `abs` is the CONTAINING directory; `entry.name` is always migration.sql.
-      const folder = relative(migrationsRoot, abs).split(sep).join('/')
+      const folder = posixRelative(migrationsRoot, abs)
       if (folder.includes('/') || folder.length === 0) {
         throw new Error(
           `Migration at an unreadable depth: ${relative(migrationsRoot, join(abs, entry.name))}. ` +
@@ -130,7 +131,7 @@ const nextVar = (): string => `_a${counter++}`
 
 const addImport = (relPath: string): string => {
   const varName = nextVar()
-  imports.push({ varName, importPath: `${REL_ROOT}/${relPath}` })
+  imports.push({ varName, importPath: fileImportSpecifier(REL_ROOT, relPath) })
   return varName
 }
 
@@ -251,7 +252,7 @@ const walkTemplates = (
     const abs = join(dir, entry.name)
     // Match on the path relative to the templates root, in POSIX form, so the
     // rules read in `.gitignore`'s own vocabulary on every platform.
-    const rel = relative(root, abs).split(sep).join('/')
+    const rel = posixRelative(root, abs)
     if (isIgnored(rel, entry.isDirectory(), rules)) return []
     if (entry.isDirectory()) return walkTemplates(abs, root, rules)
     if (entry.isFile() && !entry.name.endsWith('.ts')) return [abs]
@@ -293,7 +294,7 @@ export const collectTemplateFiles = (
 ): readonly string[] => walkTemplates(templatesRoot, templatesRoot, rules)
 
 const templateEntries = collectTemplateFiles(TEMPLATES_ROOT).map((abs) => {
-  const key = relative(TEMPLATES_ROOT, abs)
+  const key = posixRelative(TEMPLATES_ROOT, abs)
   return `  ${JSON.stringify(key)}: ${addImport(`templates/${key}`)},`
 })
 
@@ -356,7 +357,7 @@ export const collectSampleFiles = (
       }
       if (!entry.isFile() || entry.name.endsWith('.md')) return []
       const abs = join(samplesRoot, entry.name)
-      const rel = relative(ignoreRoot, abs).split(sep).join('/')
+      const rel = posixRelative(ignoreRoot, abs)
       return isIgnored(rel, false, rules) ? [] : [abs]
     })
   if (collected.length === 0) {
@@ -372,7 +373,7 @@ export const collectSampleFiles = (
 }
 
 const sampleEntries = collectSampleFiles(SAMPLES_ROOT).map((abs) => {
-  const key = relative(SAMPLES_ROOT, abs)
+  const key = posixRelative(SAMPLES_ROOT, abs)
   return `  ${JSON.stringify(key)}: ${addImport(`src/admin/assets/samples/${key}`)},`
 })
 
@@ -451,7 +452,7 @@ export const collectBrandMarkFiles = (logoRoot: string): readonly string[] => {
         )
     })
 
-  const keys = new Set(collected.map((abs) => relative(logoRoot, abs).split(sep).join('/')))
+  const keys = new Set(collected.map((abs) => posixRelative(logoRoot, abs)))
   const missing = REQUIRED_BRAND_MARKS.filter((required) => !keys.has(required))
   if (missing.length > 0) {
     throw new Error(
@@ -464,7 +465,7 @@ export const collectBrandMarkFiles = (logoRoot: string): readonly string[] => {
 }
 
 const brandMarkEntries = collectBrandMarkFiles(BRAND_LOGO_ROOT).map((abs) => {
-  const key = relative(BRAND_LOGO_ROOT, abs).split(sep).join('/')
+  const key = posixRelative(BRAND_LOGO_ROOT, abs)
   return `  ${JSON.stringify(key)}: ${addImport(`assets/logo/${key}`)},`
 })
 

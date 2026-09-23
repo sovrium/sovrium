@@ -36,7 +36,8 @@
  */
 
 import { readdirSync, type Dirent } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { join, relative } from 'node:path'
+import { toPosixPath } from '../posix-path'
 
 /** Repository root — this file lives at `[internal ref]`. */
 export const REPO_ROOT = join(import.meta.dir, '..', '..', '..')
@@ -108,7 +109,7 @@ export const RUNTIME_ARTEFACT_PREFIXES: readonly string[] = [
  * path. Compose it with `&&` when a caller needs a filter of its own.
  */
 export const excludeRuntimeArtefacts = (absolutePath: string): boolean => {
-  const rel = relative(REPO_ROOT, absolutePath).split(sep).join('/')
+  const rel = toPosixPath(relative(REPO_ROOT, absolutePath))
   return !RUNTIME_ARTEFACT_PREFIXES.some((prefix) => rel.startsWith(prefix))
 }
 
@@ -205,7 +206,7 @@ export const walk = async (options: WalkOptions): Promise<readonly string[]> => 
 
 /** A walked absolute path, rendered repo-relative with POSIX separators. */
 export const toRepoRelative = (absolutePath: string): string =>
-  relative(REPO_ROOT, absolutePath).split(sep).join('/')
+  toPosixPath(relative(REPO_ROOT, absolutePath))
 
 /**
  * ONE directory listing, non-recursive — the other half of SC6's walk home.

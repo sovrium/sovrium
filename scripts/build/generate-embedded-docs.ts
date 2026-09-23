@@ -46,10 +46,11 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { join } from 'node:path'
 import { SECTIONS } from '@/docs/sections'
 import { printFailure } from '@/infrastructure/logging/cli-output'
 import { REPO_ROOT, walkSync } from '../lib/drift/walk'
+import { fileImportSpecifier, posixRelative } from '../lib/posix-path'
 import { parseUserStorySections, type AcceptanceCriterionRow } from '../lib/user-story-criteria'
 
 /**
@@ -124,7 +125,7 @@ export const storyCorpusRootsPresent = (root: string): readonly string[] =>
 export const collectDocFiles = (root: string): readonly string[] => {
   const fragments = walkSync({ root: join(root, 'src'), extensions: ['.md'] })
   return fragments
-    .map((absolute) => relative(root, absolute).split(sep).join('/'))
+    .map((absolute) => posixRelative(root, absolute))
     .filter((path) => path.endsWith('.docs.md') || path.startsWith('src/docs/'))
     .toSorted((a, b) => a.localeCompare(b))
 }
@@ -259,7 +260,10 @@ const GENERATED_HEADER = (what: string): string =>
 /** The fragment manifest module, as text. */
 export const renderDocsModule = (paths: readonly string[]): string => {
   const imports = paths
-    .map((path, index) => `import _d${index} from '${REL_ROOT}/${path}' with { type: 'file' }`)
+    .map(
+      (path, index) =>
+        `import _d${index} from '${fileImportSpecifier(REL_ROOT, path)}' with { type: 'file' }`
+    )
     .join('\n')
   const entries = paths.map((path, index) => `  ${JSON.stringify(path)}: _d${index},`).join('\n')
   return `${GENERATED_HEADER(

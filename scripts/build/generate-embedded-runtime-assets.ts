@@ -22,9 +22,10 @@
  */
 
 import { existsSync, statSync } from 'node:fs'
-import { basename, join, relative } from 'node:path'
+import { basename, join } from 'node:path'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { listDirSync, walkSync } from '../lib/drift/walk'
+import { fileImportSpecifier, posixRelative } from '../lib/posix-path'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
 const DIST_DIR = join(PROJECT_ROOT, 'dist')
@@ -53,13 +54,16 @@ let counter = 0
 /** Add a `type: 'file'` import for a dist-relative path, return its var name. */
 const addImport = (distRelPath: string): string => {
   const varName = `_r${counter++}`
-  imports.push({ varName, importPath: `${REL_ROOT}/dist/${distRelPath}` })
+  imports.push({ varName, importPath: fileImportSpecifier(REL_ROOT, 'dist', distRelPath) })
   return varName
 }
 
-// Recursively list files under a dir, returned as paths relative to that dir.
+// Recursively list files under a dir, returned as POSIX paths relative to that
+// dir. POSIX and not the platform separator because these strings are BOTH the
+// manifest keys and the tail of a `with { type: 'file' }` specifier — see
+// `[internal ref]` for what a Windows backslash does to the latter.
 const listFiles = (dir: string, base = dir): readonly string[] =>
-  walkSync({ root: dir }).map((abs) => relative(base, abs))
+  walkSync({ root: dir }).map((abs) => posixRelative(base, abs))
 
 const clientBundleVar = addImport('client-bundle.js')
 

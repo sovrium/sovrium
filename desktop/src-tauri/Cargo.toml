@@ -1,6 +1,6 @@
 [package]
 name = "sovrium-desktop"
-version = "0.27.0"
+version = "0.27.1"
 description = "The Sovrium desktop shell — a native window and tray supervising the Sovrium binary as a sidecar."
 authors = ["ESSENTIAL SERVICES"]
 edition = "2021"
