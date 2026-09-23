@@ -57,57 +57,60 @@ export const AgentDefinitionSchema = Schema.Struct({
 
   /** Auth role this agent operates as (must reference a role defined in auth.roles) */
   role: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Auth role this agent operates as (must exist in auth.roles)',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /** LLM model override for this agent (defaults to AI_MODEL env var) */
   model: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
+        defaultNote: 'the AI_MODEL environment variable',
         description: 'LLM model override for this agent (defaults to AI_MODEL env var)',
         examples: ['claude-sonnet-4-5', 'gpt-4o-mini'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 
   /** Temperature override (0-1 inclusive, defaults to AI_TEMPERATURE env var) */
   temperature: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
       Schema.annotate({
+        defaultNote: 'the AI_TEMPERATURE environment variable',
         description: 'Temperature override for LLM responses (0-1 inclusive)',
-      })
+      }),
+      Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))
     )
   ),
 
   /** Max output tokens override (defaults to AI_MAX_TOKENS env var) */
   maxTokens: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
+        defaultNote: 'the AI_MAX_TOKENS environment variable',
         description: 'Maximum output tokens override (positive integer)',
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 
   /** System prompt defining agent personality, role, and rules */
   systemPrompt: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'System prompt defining agent personality and behavioral rules',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /** Additional behavioral instructions appended as numbered rules to the system prompt */
   instructions: Schema.optional(
     Schema.Array(
       Schema.String.pipe(
-        Schema.check(Schema.isMinLength(1)),
-        Schema.annotate({ description: 'A single behavioral instruction' })
+        Schema.annotate({ description: 'A single behavioral instruction' }),
+        Schema.check(Schema.isMinLength(1))
       )
     ).pipe(
       Schema.annotate({
@@ -121,6 +124,7 @@ export const AgentDefinitionSchema = Schema.Struct({
   enabled: Schema.optional(
     Schema.Boolean.pipe(
       Schema.annotate({
+        defaultNote: 'true',
         description: 'Whether agent can execute (defaults to true)',
       })
     )

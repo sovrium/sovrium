@@ -19,8 +19,17 @@ import type { Action } from '../..'
 export const LoopEachActionSchema: Schema.Codec<Action & { readonly type: 'loop' }, unknown> =
   Schema.Struct({
     ...ActionBaseFields,
-    type: Schema.Literal('loop'),
-    operator: Schema.Literal('each'),
+    type: Schema.Literal('loop').pipe(
+      Schema.annotate({
+        description: "Constant value 'loop' for type discrimination in discriminated unions",
+      })
+    ),
+    operator: Schema.Literal('each').pipe(
+      Schema.annotate({
+        description:
+          "Selects the operation within the 'loop' action family; it decides which props the step takes",
+      })
+    ),
     props: Schema.Struct({
       items: TemplateStringSchema.pipe(
         Schema.annotate({
@@ -41,27 +50,33 @@ export const LoopEachActionSchema: Schema.Codec<Action & { readonly type: 'loop'
           return ActionSchema
         })
       ).pipe(
-        Schema.check(Schema.isMinLength(1)),
         Schema.annotate({
           description:
             'Actions to execute for each item. Current item: {{loop.item}}, index: {{loop.index}}',
-        })
+        }),
+        Schema.check(Schema.isMinLength(1))
       ),
       maxIterations: Schema.optional(
         Schema.Finite.pipe(
-          Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 10_000 })),
           Schema.annotate({
+            howTo:
+              'The cap truncates silently: a loop over 1,800 entries processes the first 1,000 and still reports success. Raise it explicitly whenever the list can exceed the cap, or page the source and loop per page.',
+            defaultNote: '1000',
             description: 'Maximum loop iterations (1-10000, default: 1000)',
-          })
+          }),
+          Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 10_000 }))
         )
       ),
       continueOnItemError: Schema.optional(
         Schema.Boolean.pipe(
           Schema.annotate({
+            defaultNote: 'false',
             description: 'Continue processing remaining items if one fails (default: false)',
           })
         )
       ),
+    }).annotate({
+      description: 'The list to walk, the actions run for each entry, and the limits on the walk.',
     }),
   }).pipe(
     Schema.annotate({

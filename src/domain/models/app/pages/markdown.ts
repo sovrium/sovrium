@@ -16,8 +16,8 @@ const MarkdownTocSchema = Schema.Struct({
   /** Maximum heading depth to include in the TOC */
   maxDepth: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 6 })),
-      Schema.annotate({ description: 'Maximum heading depth to include (1-6)' })
+      Schema.annotate({ description: 'Maximum heading depth to include (1-6)' }),
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 6 }))
     )
   ),
 
@@ -67,8 +67,8 @@ export const MarkdownSchema = Schema.Struct({
   /** Path to a markdown file relative to the project root */
   file: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Path to a markdown file (e.g., content/docs.md)' })
+      Schema.annotate({ description: 'Path to a markdown file (e.g., content/docs.md)' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 

@@ -32,8 +32,17 @@ import { DurationProps, isValidTimezone, TimezoneProp } from './props'
  */
 export const DateAddActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('date'),
-  operator: Schema.Literal('add'),
+  type: Schema.Literal('date').pipe(
+    Schema.annotate({
+      description: "Constant value 'date' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('add').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'date' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** The instant to shift. */
     input: TemplateStringSchema.pipe(
@@ -56,29 +65,33 @@ export const DateAddActionSchema = Schema.Struct({
         })
       )
     ),
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter((props) => {
-        if (props.timezone !== undefined && !isValidTimezone(props.timezone))
-          return `Invalid IANA timezone: ${props.timezone}`
-        // A shift of nothing is almost always a typo (a misspelled unit key is
-        // dropped by the decoder), and silently returning the input unchanged
-        // is the kind of no-op that only surfaces as wrong data downstream.
-        const hasDuration = [
-          props.years,
-          props.months,
-          props.weeks,
-          props.days,
-          props.hours,
-          props.minutes,
-          props.seconds,
-        ].some((v) => v !== undefined)
-        return hasDuration
-          ? undefined
-          : 'date:add requires at least one duration component (years, months, weeks, days, hours, minutes or seconds)'
-      })
-    )
-  ),
+  })
+    .annotate({
+      description: 'The date to move forward, by how much, and in which time zone.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter((props) => {
+          if (props.timezone !== undefined && !isValidTimezone(props.timezone))
+            return `Invalid IANA timezone: ${props.timezone}`
+          // A shift of nothing is almost always a typo (a misspelled unit key is
+          // dropped by the decoder), and silently returning the input unchanged
+          // is the kind of no-op that only surfaces as wrong data downstream.
+          const hasDuration = [
+            props.years,
+            props.months,
+            props.weeks,
+            props.days,
+            props.hours,
+            props.minutes,
+            props.seconds,
+          ].some((v) => v !== undefined)
+          return hasDuration
+            ? undefined
+            : 'date:add requires at least one duration component (years, months, weeks, days, hours, minutes or seconds)'
+        })
+      )
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'DateAddAction',

@@ -33,6 +33,7 @@ import {
   computeStaticTableHeaderRowClasses,
   computeStaticTableShellClasses,
 } from '../../design/display-default-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
 
@@ -92,7 +93,7 @@ export const staticTableComponent: ComponentRenderer = ({ elementPropsWithSpacin
     'data-testid': dataTestId,
     className: authorClassName,
     ...restProps
-  } = elementPropsWithSpacing
+  } = omitInternalMarkers(elementPropsWithSpacing)
   const mergedClassName = mergePrestyle(
     computeStaticTableShellClasses(),
     authorClassName as string | undefined

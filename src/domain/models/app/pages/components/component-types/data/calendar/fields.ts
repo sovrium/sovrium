@@ -56,8 +56,8 @@ export const calendarFields = {
   ),
   maxEventsPerDay: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Max events visible per day cell before "+N more"' })
+      Schema.annotate({ description: 'Max events visible per day cell before "+N more"' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
   calendarEvent: Schema.optional(CalendarEventConfigSchema),

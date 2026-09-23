@@ -28,13 +28,17 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const RichTextFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('rich-text'),
+    type: Schema.Literal('rich-text').pipe(
+      Schema.annotate({
+        description: "Constant value 'rich-text' for type discrimination in discriminated unions",
+      })
+    ),
     maxLength: Schema.optional(
       Schema.Int.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
         Schema.annotate({
           description: 'Maximum length in characters',
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(1))
       )
     ),
     fullTextSearch: Schema.optional(
@@ -45,7 +49,12 @@ export const RichTextFieldSchema = BaseFieldSchema.pipe(
       )
     ),
     toolbar: Schema.optional(
-      Schema.Array(Schema.String).pipe(
+      Schema.Array(
+        Schema.String.annotate({
+          description: 'One toolbar action to display.',
+          examples: ['bold', 'italic', 'link', 'heading', 'list'],
+        })
+      ).pipe(
         Schema.annotate({
           description:
             'Toolbar actions to display (e.g., bold, italic, link, heading, list, image, code-block, table). When omitted, all actions are available.',

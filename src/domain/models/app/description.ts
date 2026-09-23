@@ -44,14 +44,6 @@ const DESCRIPTION_MAX_LENGTH = 2000
  * ```
  */
 export const DescriptionSchema = Schema.String.pipe(
-  Schema.check(
-    Schema.isPattern(/^[^\r\n]*$/, {
-      message: 'Description must be a single line (line breaks are not allowed)',
-    }),
-    Schema.isMaxLength(DESCRIPTION_MAX_LENGTH, {
-      message: `Description must be ${DESCRIPTION_MAX_LENGTH} characters or less (current length exceeds limit)`,
-    })
-  ),
   Schema.annotate({
     title: 'Application Description',
     description: `A single-line description of the application (max ${DESCRIPTION_MAX_LENGTH} characters, no line breaks)`,
@@ -61,7 +53,15 @@ export const DescriptionSchema = Schema.String.pipe(
       'Très bien! 你好 🎉',
       'Full-featured e-commerce platform with cart, checkout & payment processing',
     ],
-  })
+  }),
+  Schema.check(
+    Schema.isPattern(/^[^\r\n]*$/, {
+      message: 'Description must be a single line (line breaks are not allowed)',
+    }),
+    Schema.isMaxLength(DESCRIPTION_MAX_LENGTH, {
+      message: `Description must be ${DESCRIPTION_MAX_LENGTH} characters or less (current length exceeds limit)`,
+    })
+  )
 )
 
 /**

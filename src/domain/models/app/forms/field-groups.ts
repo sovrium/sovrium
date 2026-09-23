@@ -21,7 +21,9 @@ export const FormFieldGroupSchema = Schema.Struct({
     description: 'Group label displayed as a section divider above the fields',
   }),
   /** Field names belonging to this group. */
-  fields: Schema.Array(Schema.String)
+  fields: Schema.Array(
+    Schema.String.annotate({ description: 'One field name, as the form declares it' })
+  )
     .pipe(Schema.check(Schema.isMinLength(1)))
     .annotate({
       description: 'Array of field names belonging to this group',

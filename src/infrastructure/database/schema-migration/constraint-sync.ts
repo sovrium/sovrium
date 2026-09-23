@@ -21,11 +21,19 @@ import type { Table } from '@/domain/models/app/tables'
  * ------------------------------------------------
  * Every helper in this module reconciles a constraint on an ALREADY-EXISTING
  * table by emitting `ALTER TABLE … DROP/ADD CONSTRAINT` plus PL/pgSQL `DO $$`
- * catalog-probe blocks. That whole vocabulary is **PostgreSQL-only**: SQLite's
- * `ALTER TABLE` supports only RENAME / ADD COLUMN / RENAME COLUMN / DROP COLUMN,
- * and it has no `DROP CONSTRAINT`, no `ADD CONSTRAINT`, and no procedural blocks.
- * Emitting these verbatim on SQLite crashes schema-init with
+ * catalog-probe blocks. That whole vocabulary is **PostgreSQL-only**: no SQLite
+ * version has `DROP CONSTRAINT`, `ADD CONSTRAINT`, or procedural blocks, so
+ * emitting these verbatim on SQLite crashes schema-init with
  * `SQLiteError: near "ALTER": syntax error`.
+ *
+ * This used to add that SQLite's `ALTER TABLE` "supports only RENAME / ADD
+ * COLUMN / RENAME COLUMN / DROP COLUMN". That list is now version-dependent —
+ * 3.53.2 also accepts `ALTER COLUMN … SET/DROP NOT NULL`, which 3.51.0 rejects
+ * (measured 2026-09-20) — and the engine does not use the difference anyway. The
+ * constraint vocabulary above is what is PostgreSQL-only here, and it is
+ * unconditional; see `generateColumnReshapeStatements` in
+ * `./migration-statements` for the column-reshape side and why it stays on the
+ * recreate-and-copy path on every SQLite version.
  *
  * On SQLite, UNIQUE / FOREIGN KEY / CHECK constraints are declared INLINE in
  * `CREATE TABLE` (via `generateTableConstraints` / `generateForeignKeyConstraints`,

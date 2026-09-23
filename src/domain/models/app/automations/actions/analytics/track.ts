@@ -16,18 +16,29 @@ import { ActionBaseFields } from '../base'
  */
 export const AnalyticsTrackActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('analytics'),
-  operator: Schema.Literal('track'),
+  type: Schema.Literal('analytics').pipe(
+    Schema.annotate({
+      description: "Constant value 'analytics' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('track').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'analytics' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     event: TemplateStringSchema.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Custom event name to track (non-empty)' })
+      Schema.annotate({ description: 'Custom event name to track (non-empty)' }),
+      Schema.check(Schema.isMinLength(1))
     ),
     properties: Schema.optional(
       Schema.Record(Schema.String, Schema.Unknown).pipe(
         Schema.annotate({ description: 'Event properties (key-value pairs)' })
       )
     ),
+  }).annotate({
+    description: 'The event to record and the properties kept with it.',
   }),
 }).pipe(
   Schema.annotate({

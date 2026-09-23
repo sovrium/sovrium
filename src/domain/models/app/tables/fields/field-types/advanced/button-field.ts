@@ -20,11 +20,15 @@ import { validateButtonAction } from '../validation-utils'
  */
 const ButtonFieldBaseSchema = BaseFieldWithoutLabelSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('button'),
+    type: Schema.Literal('button').pipe(
+      Schema.annotate({
+        description: "Constant value 'button' for type discrimination in discriminated unions",
+      })
+    ),
     /** The text printed INSIDE the button — NOT the field's display name. */
     label: Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'label is required' })),
-      Schema.annotate({ description: 'Button text label' })
+      Schema.annotate({ description: 'Button text label' }),
+      Schema.check(Schema.isNonEmpty({ message: 'label is required' }))
     ),
     /**
      * What pressing the button does. A closed vocabulary because it is a
@@ -66,7 +70,6 @@ const ButtonFieldBaseSchema = BaseFieldWithoutLabelSchema.pipe(
 )
 
 export const ButtonFieldSchema = ButtonFieldBaseSchema.pipe(
-  Schema.check(Schema.makeFilter(validateButtonAction)),
   Schema.annotate({
     title: 'Button Field',
     description:
@@ -81,7 +84,8 @@ export const ButtonFieldSchema = ButtonFieldBaseSchema.pipe(
         automation: 'approve_request',
       },
     ],
-  })
+  }),
+  Schema.check(Schema.makeFilter(validateButtonAction))
 )
 
 /** @public */

@@ -39,8 +39,17 @@ import { ActionBaseFields } from '../base'
  */
 export const CodeRunTypescriptActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('code'),
-  operator: Schema.Literal('runTypescript'),
+  type: Schema.Literal('code').pipe(
+    Schema.annotate({
+      description: "Constant value 'code' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('runTypescript').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'code' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /**
      * Code string containing a named `execute` function.
@@ -51,11 +60,11 @@ export const CodeRunTypescriptActionSchema = Schema.Struct({
      * YAML configs: multiline string with `async function execute(context) { ... }`
      */
     code: Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'TypeScript source for a named `execute(context)` function — validated at server startup. Context provides: { inputData, actions, env, log, run }. In TS configs use String(function execute(context: CodeContext) { ... }) for IDE autocompletion.',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     ),
 
     /** Input data (template-resolved key-value pairs passed to code context) */
@@ -71,12 +80,14 @@ export const CodeRunTypescriptActionSchema = Schema.Struct({
     /** Timeout in milliseconds (default: 30000) */
     timeout: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 300_000 })),
         Schema.annotate({
           description: 'Execution timeout in ms (1000-300000, default: 30000)',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 300_000 }))
       )
     ),
+  }).annotate({
+    description: 'The TypeScript to run, the data given to it, and how long it may take.',
   }),
 }).pipe(
   Schema.annotate({

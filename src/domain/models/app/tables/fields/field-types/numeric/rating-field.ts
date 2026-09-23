@@ -28,13 +28,17 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const RatingFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('rating'),
+    type: Schema.Literal('rating').pipe(
+      Schema.annotate({
+        description: "Constant value 'rating' for type discrimination in discriminated unions",
+      })
+    ),
     max: Schema.optional(
       Schema.Int.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(10)),
         Schema.annotate({
           description: 'Maximum rating value',
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(10))
       )
     ),
     style: Schema.optional(

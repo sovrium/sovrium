@@ -138,19 +138,20 @@ export const AllowSignUpSchema = Schema.Boolean.pipe(
  */
 export const InvitationTokenExpirySchema = Schema.Union([
   Schema.String.pipe(
-    Schema.check(Schema.isPattern(/^[1-9]\d*[smhd]$/)),
     Schema.annotate({
       description: 'Duration string e.g. "30s", "15m", "72h", "7d"',
-    })
+    }),
+    Schema.check(Schema.isPattern(/^[1-9]\d*[smhd]$/))
   ),
   Schema.Finite.pipe(
-    Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
     Schema.annotate({
       description: 'Lifetime in milliseconds (positive integer)',
-    })
+    }),
+    Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
   ),
 ]).pipe(
   Schema.annotate({
+    defaultNote: '72h',
     title: 'Invitation Token Expiry',
     description: 'Lifetime of single-use admin invitation tokens. Defaults to 72h when omitted.',
     examples: ['72h', '24h', '7d', 259_200_000],
@@ -408,10 +409,10 @@ export const AuthSchema = Schema.Struct({
   scopeTables: Schema.optional(
     Schema.Array(
       Schema.String.pipe(
-        Schema.check(Schema.isMinLength(1)),
         Schema.annotate({
           description: 'Table slug from app.tables[].name (e.g., "clients", "projects")',
-        })
+        }),
+        Schema.check(Schema.isMinLength(1))
       )
     ).pipe(
       Schema.annotate({
@@ -453,13 +454,13 @@ export const AuthSchema = Schema.Struct({
    */
   landingPath: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isPattern(/^\//)),
       Schema.annotate({
         title: 'Landing Path',
         description:
           'Engine-resolver mount path. Sessions navigating here are redirected to the matching role.defaultLanding. Must start with /. Must be backed by a co-located page declaration that acts as the unauthenticated-access guard.',
         examples: ['/portal', '/dashboard', '/home'],
-      })
+      }),
+      Schema.check(Schema.isPattern(/^\//))
     )
   ),
 
@@ -476,13 +477,14 @@ export const AuthSchema = Schema.Struct({
    */
   noAccessPath: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isPattern(/^\//)),
       Schema.annotate({
+        defaultNote: '/403',
         title: 'No Access Path',
         description:
           'Fallback path when no role.defaultLanding matches the session. Defaults to /403.',
         examples: ['/403', '/portal/onboarding', '/no-access'],
-      })
+      }),
+      Schema.check(Schema.isPattern(/^\//))
     )
   ),
 }).pipe(

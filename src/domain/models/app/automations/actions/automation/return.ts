@@ -20,8 +20,17 @@ import { ActionBaseFields } from '../base'
  */
 export const AutomationReturnActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('automation'),
-  operator: Schema.Literal('return'),
+  type: Schema.Literal('automation').pipe(
+    Schema.annotate({
+      description: "Constant value 'automation' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('return').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'automation' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Key-value data to return to the calling automation */
     data: Schema.Record(Schema.String, Schema.Unknown).pipe(
@@ -30,6 +39,8 @@ export const AutomationReturnActionSchema = Schema.Struct({
           'Key-value pairs returned to the calling automation (supports template variables). Accessible as steps.{name}.result.* in the parent.',
       })
     ),
+  }).annotate({
+    description: 'The data handed back to the automation that called this one.',
   }),
 }).pipe(
   Schema.annotate({

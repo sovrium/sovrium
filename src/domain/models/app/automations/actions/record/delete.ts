@@ -16,14 +16,25 @@ import { ActionBaseFields } from '../base'
  */
 export const RecordDeleteActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('record'),
-  operator: Schema.Literal('delete'),
+  type: Schema.Literal('record').pipe(
+    Schema.annotate({
+      description: "Constant value 'record' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('delete').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'record' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     table: Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Target table name' })
+      Schema.annotate({ description: 'Target table name' }),
+      Schema.check(Schema.isMinLength(1))
     ),
     filter: ConditionGroupSchema,
+  }).annotate({
+    description: 'The table, and which record to delete.',
   }),
 }).pipe(
   Schema.annotate({

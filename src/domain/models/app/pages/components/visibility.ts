@@ -38,12 +38,12 @@ import { PageCapabilitySchema } from '../requires'
 export const QueryConditionSchema = Schema.Struct({
   /** Declared `page.query` property whose resolved value the predicate is matched against */
   name: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description:
         'Declared page.query property whose resolved value the visibility predicate is matched against',
       examples: ['mark', 'period'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   ...ConditionOperatorsSchema.fields,
 }).annotate({
@@ -181,8 +181,12 @@ export const RUNTIME_CAPABILITIES = ['ai'] as const
 export const RuntimeCapabilitySchema = Schema.Literals([...RUNTIME_CAPABILITIES]).annotate({
   identifier: 'RuntimeCapability',
   title: 'Runtime Capability',
+  // POLARITY-NEUTRAL, for the reason `PageCapabilitySchema` states: this one
+  // node serves both `runtime` and `unlessRuntime`, and it carries an
+  // `identifier`, so a use-site annotation would fork its `$def`. The gate's
+  // direction belongs to the key name; this says what the value NAMES.
   description:
-    'A capability the host app must both DECLARE and be able to RUN on this deployment for the component to be rendered at all',
+    'A capability the host app both declares and can actually RUN on this deployment — declared in its config and supported by the environment the process is in',
 })
 
 /** @public */
@@ -271,13 +275,15 @@ export const VisibilitySchema = Schema.Struct({
   ),
   /** Role-based visibility filter */
   roles: Schema.optional(
-    Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(1)),
+    Schema.Array(
+      Schema.String.annotate({ description: 'One role name that may see the component' })
+    ).pipe(
       Schema.annotate({
         title: 'Visibility Roles',
         description: 'Show component only to users with one of these roles',
         examples: [['admin'], ['admin', 'editor']],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**

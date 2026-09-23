@@ -57,8 +57,17 @@ const XlsxColumnSchema = Schema.Struct({
  */
 export const FileGenerateXlsxActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('generateXlsx'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('generateXlsx').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /**
      * Template variable referencing the rows of the single output sheet.
@@ -130,13 +139,17 @@ export const FileGenerateXlsxActionSchema = Schema.Struct({
 
     /** Storage destination for generated file */
     destination: DestinationPropSchema,
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter((props) => (props.data === undefined) !== (props.sheets === undefined), {
-        message: 'generateXlsx requires exactly one of `data` (single sheet) or `sheets`',
-      })
-    )
-  ),
+  })
+    .annotate({
+      description: 'The rows and sheets to write, their columns, and where the file is written.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter((props) => (props.data === undefined) !== (props.sheets === undefined), {
+          message: 'generateXlsx requires exactly one of `data` (single sheet) or `sheets`',
+        })
+      )
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'FileGenerateXlsxAction',

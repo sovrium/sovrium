@@ -42,11 +42,15 @@ export const AiSentimentFieldSchema = BaseFieldSchema.pipe(
           "Constant value 'ai-sentiment' for type discrimination in discriminated unions",
       })
     ),
-    sourceFields: Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(1)),
+    sourceFields: Schema.Array(
+      Schema.String.annotate({
+        description: 'One field of this table whose value is fed to the model as input.',
+      })
+    ).pipe(
       Schema.annotate({
         description: 'Field names used as input context for sentiment analysis',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     ),
     prompt: Schema.optional(
       Schema.String.pipe(
@@ -65,31 +69,31 @@ export const AiSentimentFieldSchema = BaseFieldSchema.pipe(
     ),
     model: Schema.optional(
       Schema.String.pipe(
+        Schema.annotate({
+          description: 'AI model override (e.g., gpt-4o, claude-sonnet)',
+        }),
         Schema.check(
           Schema.isMinLength(1, {
             message: 'AI field model override must be a non-empty string',
           })
-        ),
-        Schema.annotate({
-          description: 'AI model override (e.g., gpt-4o, claude-sonnet)',
-        })
+        )
       )
     ),
     temperature: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
         Schema.annotate({
           description:
             'Temperature override (0 to 1). Low values recommended for consistent analysis.',
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))
       )
     ),
     maxTokens: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
         Schema.annotate({
           description: 'Maximum tokens for AI response',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
       )
     ),
     computeOn: Schema.optional(

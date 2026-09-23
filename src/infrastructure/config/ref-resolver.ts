@@ -15,6 +15,7 @@
 
 import { dirname, resolve } from 'node:path'
 import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
+import { findProjectJailEscape } from '@/domain/models/process-env/desktop'
 
 /**
  * Check if a value is a $ref object: an object with exactly one key "$ref"
@@ -29,18 +30,41 @@ const isRefObject = (value: unknown): value is { readonly $ref: string } =>
   typeof (value as Record<string, unknown>)['$ref'] === 'string'
 
 /**
- * Load and parse a referenced file.
+ * Stand-in bytes for one file of the graph, keyed by ABSOLUTE path.
+ *
+ * Returning `undefined` means "read this one from disk", so an overlay that
+ * knows about one file leaves every other file of the graph untouched.
+ *
+ * It exists for one caller and one question: `_config_write_file` has to know
+ * whether a candidate edit would still decode BEFORE the bytes reach the disk.
+ * Resolving the graph with the candidate standing in for the file it replaces is
+ * the only way to ask that of a `$ref` PARTIAL — judged on its own a partial is
+ * just a document that happens to parse, and `tables[0].fields[2]` is not a
+ * position it has.
+ *
+ * @public
  */
-const loadReferencedFile = async (refPath: string): Promise<unknown> => {
+export type ConfigGraphOverlay = (absolutePath: string) => string | undefined
+
+/**
+ * Load and parse a referenced file, or the overlay's stand-in for it.
+ */
+const loadReferencedFile = async (
+  refPath: string,
+  overlay: ConfigGraphOverlay | undefined
+): Promise<unknown> => {
+  const standIn = overlay?.(refPath)
   const file = Bun.file(refPath)
-  const exists = await file.exists()
+  // An overlaid file need not exist yet: a candidate is judged on its bytes,
+  // and a write that creates a partial has none on disk to check for.
+  const exists = standIn !== undefined || (await file.exists())
 
   if (!exists) {
     // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
     throw new Error(`Referenced file not found: ${refPath}`)
   }
 
-  const content = await file.text()
+  const content = standIn ?? (await file.text())
   const format = detectFormat(refPath)
 
   try {
@@ -131,22 +155,44 @@ interface ResolvedNode {
  * Follow one `$ref`: load the file it names, then resolve THAT document
  * against its own directory, recording the file on the way.
  */
-const followRef = async (refPath: string, visited: ReadonlySet<string>): Promise<ResolvedNode> => {
+const followRef = async (
+  refPath: string,
+  visited: ReadonlySet<string>,
+  overlay: ConfigGraphOverlay | undefined
+): Promise<ResolvedNode> => {
   if (visited.has(refPath)) {
     // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
     throw new Error(`Circular $ref detected: ${refPath}`)
   }
 
+  // The project directory is a jail for the WHOLE config graph, not just its
+  // root. That containment is what lets a supervising shell hand a folder to
+  // the engine without also handing it the rest of the filesystem — a `$ref`
+  // reaching out of the project would otherwise read any file the engine's own
+  // user can read. Checked before the file is opened, so a refused reference
+  // never discloses so much as its existence.
+  //
+  // Inert unless something declared a root: see `parseProjectDirJail`.
+  const escape = findProjectJailEscape(refPath)
+  if (escape) {
+    // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
+    throw new Error(
+      `$ref resolves outside the project directory: ${escape.escaped}\n` +
+        `The project directory is ${escape.root}, and the whole config graph must stay inside it.`
+    )
+  }
+
   const newVisited = new Set([...visited, refPath])
-  const loaded = await loadReferencedFile(refPath)
-  const nested = await resolveNode(loaded, dirname(refPath), newVisited)
+  const loaded = await loadReferencedFile(refPath, overlay)
+  const nested = await resolveNode(loaded, dirname(refPath), newVisited, overlay)
   return { value: nested.value, files: [refPath, ...nested.files] }
 }
 
 const resolveNode = async (
   data: unknown,
   baseDir: string,
-  visited: ReadonlySet<string>
+  visited: ReadonlySet<string>,
+  overlay?: ConfigGraphOverlay | undefined
 ): Promise<ResolvedNode> => {
   if (data === null || data === undefined || typeof data !== 'object') {
     return { value: data, files: [] }
@@ -155,11 +201,13 @@ const resolveNode = async (
   // Top-level $ref object (e.g. an array element that is itself `{ $ref: "..." }`)
   // The referenced file's content replaces this node verbatim — no splicing.
   if (isRefObject(data)) {
-    return followRef(resolve(baseDir, data.$ref), visited)
+    return followRef(resolve(baseDir, data.$ref), visited, overlay)
   }
 
   if (Array.isArray(data)) {
-    const items = await Promise.all(data.map((item) => resolveNode(item, baseDir, visited)))
+    const items = await Promise.all(
+      data.map((item) => resolveNode(item, baseDir, visited, overlay))
+    )
     return {
       value: items.map((item) => item.value),
       files: items.flatMap((item) => item.files),
@@ -172,8 +220,8 @@ const resolveNode = async (
   const resolvedEntries = await Promise.all(
     entries.map(async ([key, value]): Promise<readonly [string, ResolvedNode]> => {
       const resolved = isRefObject(value)
-        ? await followRef(resolve(baseDir, value.$ref), visited)
-        : await resolveNode(value, baseDir, visited)
+        ? await followRef(resolve(baseDir, value.$ref), visited, overlay)
+        : await resolveNode(value, baseDir, visited, overlay)
       return [key, resolved] as const
     })
   )
@@ -211,8 +259,9 @@ export interface ResolvedRefs {
  */
 export const resolveRefsWithSources = async (
   data: unknown,
-  baseDir: string
+  baseDir: string,
+  overlay?: ConfigGraphOverlay | undefined
 ): Promise<ResolvedRefs> => {
-  const node = await resolveNode(data, baseDir, new Set())
+  const node = await resolveNode(data, baseDir, new Set(), overlay)
   return { resolved: node.value, files: [...new Set(node.files)] }
 }

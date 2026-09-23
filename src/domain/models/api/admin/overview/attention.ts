@@ -14,7 +14,7 @@
  * domain; attention answers *"what is wrong with it right now?"* with the six
  * pulse cells the console's landing page renders above its tile grid, plus the
  * per-tile SUB-LINE figures the same page renders under each headline number.
- * Both back the one surface (`apps/admin/config/pages/home.ts`), which is why
+ * Both back the one surface (`src/admin/config/pages/home.ts`), which is why
  * this schema lives beside `overview.ts` rather than in a family of its own.
  *
  * WHY THE BODY IS FLAT

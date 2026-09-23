@@ -23,17 +23,17 @@ import { Schema } from 'effect'
  * @see [internal ref]#/properties/$ref
  */
 export const ComponentReferenceNameSchema = Schema.String.pipe(
+  Schema.annotate({
+    title: 'Component Reference Name',
+    description: 'Name of the component to reference (kebab-case)',
+    examples: ['icon-badge', 'section-header', 'call-to-action'],
+  }),
   Schema.check(
     Schema.isPattern(/^[a-z][a-z0-9-]*$/, {
       message:
         'Component reference name must start with lowercase letter and contain only lowercase letters, numbers, and hyphens (kebab-case)',
     })
-  ),
-  Schema.annotate({
-    title: 'Component Reference Name',
-    description: 'Name of the component to reference (kebab-case)',
-    examples: ['icon-badge', 'section-header', 'call-to-action'],
-  })
+  )
 )
 
 /**
@@ -57,17 +57,17 @@ export const ComponentReferenceNameSchema = Schema.String.pipe(
  */
 export const ComponentVarsSchema = Schema.Record(
   Schema.String.pipe(
+    Schema.annotate({
+      title: 'Component Variable Key',
+      description: 'Variable name (alphanumeric)',
+      examples: ['color', 'icon', 'text', 'titleColor'],
+    }),
     Schema.check(
       Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/, {
         message:
           'Component variable key must start with a letter and contain only alphanumeric characters',
       })
-    ),
-    Schema.annotate({
-      title: 'Component Variable Key',
-      description: 'Variable name (alphanumeric)',
-      examples: ['color', 'icon', 'text', 'titleColor'],
-    })
+    )
   ),
   Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
 ).pipe(

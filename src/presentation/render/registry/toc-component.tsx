@@ -7,6 +7,7 @@
 
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { computeTocLinkClasses } from '../../design/navigation-default-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ComponentDispatchConfig, ComponentRenderer } from './component-dispatch-config'
 import type { TocHeading } from '@/presentation/render/resolve/toc-resolver'
 import type { ReactElement } from 'react'
@@ -53,8 +54,9 @@ export const tocComponent: ComponentRenderer = (config: ComponentDispatchConfig)
     userClassName
   )
 
-  // Strip className from rest so we don't double-set it.
-  const { className: _cn, ...nonClassProps } = restProps
+  // Strip className from rest so we don't double-set it, and the internal
+  // data-source markers so they never reach the `<nav>`.
+  const { className: _cn, ...nonClassProps } = omitInternalMarkers(restProps)
 
   return (
     <nav

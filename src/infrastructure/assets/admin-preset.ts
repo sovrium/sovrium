@@ -8,7 +8,7 @@
 /**
  * The embedded admin console, decoded once per process.
  *
- * The console is authored as `apps/admin/` and frozen into
+ * The console is authored as `src/admin/` and frozen into
  * `embedded-admin-preset.generated.ts` at build time
  * (`scripts/build/generate-admin-preset.ts`). This module turns that value into
  * a decoded {@link App} and applies the two platform stamps that are NOT part

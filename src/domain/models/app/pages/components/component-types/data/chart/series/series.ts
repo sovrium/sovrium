@@ -31,8 +31,8 @@ export const ChartSeriesSchema = Schema.Struct({
   /** Area fill opacity (0-1, for area/donut types) */
   fillOpacity: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
-      Schema.annotate({ description: 'Area fill opacity between 0 and 1' })
+      Schema.annotate({ description: 'Area fill opacity between 0 and 1' }),
+      Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))
     )
   ),
 }).annotate({

@@ -17,13 +17,22 @@ import { ActionBaseFields } from '../base'
  */
 export const WebhookResponseActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('webhook'),
-  operator: Schema.Literal('response'),
+  type: Schema.Literal('webhook').pipe(
+    Schema.annotate({
+      description: "Constant value 'webhook' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('response').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'webhook' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     status: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 100, maximum: 599 })),
-        Schema.annotate({ description: 'HTTP response status code (default: 200)' })
+        Schema.annotate({ description: 'HTTP response status code (default: 200)' }),
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 100, maximum: 599 }))
       )
     ),
     body: Schema.optional(
@@ -36,6 +45,8 @@ export const WebhookResponseActionSchema = Schema.Struct({
         Schema.annotate({ description: 'Response headers' })
       )
     ),
+  }).annotate({
+    description: 'The reply sent back to whoever called the webhook: its status, body and headers.',
   }),
 }).pipe(
   Schema.annotate({

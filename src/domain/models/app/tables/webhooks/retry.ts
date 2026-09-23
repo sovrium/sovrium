@@ -20,33 +20,45 @@ import { Schema } from 'effect'
 export const WebhookRetrySchema = Schema.Struct({
   /** Number of retry attempts after initial failure. 0 disables retries. Default: 3. */
   maxAttempts: Schema.Finite.pipe(
-    Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
     Schema.annotate({
       title: 'Max Attempts',
-      description: 'Number of retry attempts (0 = no retries, default: 3)',
-    })
+      description:
+        'Number of retry attempts after the initial delivery failure (0 = no retries). Required once a `retry` block is present; 3 is what applies when the whole block is omitted.',
+      defaultNote: '3, when `retry` is omitted entirely',
+    }),
+    Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
   ),
 
   /** Backoff strategy between retries (default: exponential). */
   backoff: Schema.optional(
     Schema.Literals(['exponential', 'fixed']).pipe(
-      Schema.annotate({ description: 'Retry backoff strategy' })
+      Schema.annotate({
+        description: "Retry backoff strategy. Defaults to 'exponential'.",
+        defaultNote: 'exponential',
+      })
     )
   ),
 
   /** Milliseconds before first retry (default: 1000). */
   initialDelay: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Initial delay in milliseconds before first retry' })
+      Schema.annotate({
+        description: 'Initial delay in milliseconds before the first retry. Defaults to 1000.',
+        defaultNote: '1000',
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 
   /** Maximum delay between retries in milliseconds (default: 60000). */
   maxDelay: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Maximum delay in milliseconds between retries' })
+      Schema.annotate({
+        description:
+          'Upper bound on the delay between retries, in milliseconds. Defaults to 60000.',
+        defaultNote: '60000',
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 }).pipe(

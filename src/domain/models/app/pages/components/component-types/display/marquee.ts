@@ -35,13 +35,13 @@ export const MarqueeDirectionSchema = Schema.Literals(['left', 'right', 'up', 'd
  * S3's spirit applied to style generation, not SQL).
  */
 export const MarqueeGapSchema = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^(0|\d+(\.\d+)?(px|rem|em|%))$/)),
   Schema.annotate({
     title: 'Marquee Gap',
     description:
       'CSS length separating marquee items, e.g. "2rem" or "24px". Applied to the child GROUP, not the track: a gap on the track would make the 50% translate under-shoot by half a gap and stutter once per cycle.',
     examples: ['2rem', '24px', '0'],
-  })
+  }),
+  Schema.check(Schema.isPattern(/^(0|\d+(\.\d+)?(px|rem|em|%))$/))
 )
 
 /**
@@ -67,13 +67,13 @@ export const marqueeFields = {
   marqueeDirection: Schema.optional(MarqueeDirectionSchema),
   marqueeSpeed: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isGreaterThan(0)),
       Schema.annotate({
         title: 'Marquee Speed',
         description:
           'Seconds for one full loop of the track. Larger is slower. Expressed in SECONDS (not milliseconds) because it maps straight onto the CSS animation-duration of a continuous loop.',
         examples: [20, 40],
-      })
+      }),
+      Schema.check(Schema.isGreaterThan(0))
     )
   ),
   marqueeGap: Schema.optional(MarqueeGapSchema),

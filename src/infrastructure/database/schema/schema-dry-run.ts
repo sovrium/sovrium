@@ -40,7 +40,7 @@
 import { existsSync } from 'node:fs'
 import { SQL } from 'bun'
 import { Database as BunSqlite } from 'bun:sqlite'
-import { Effect } from 'effect'
+import { Cause, Effect } from 'effect'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import * as lookupViewGenerators from '../lookup/lookup-view-generators'
 import { generateAlterTableStatements, needsTableRecreation } from '../schema-migration'
@@ -176,6 +176,29 @@ const planExistingTable = (params: {
     : { table: table.name, kind: 'alter', statements, unsimulated: false, refusals }
 }
 
+/**
+ * The refusal a plan that could not be computed was refused WITH, if it was
+ * refused rather than merely unavailable.
+ *
+ * `generateAlterTableStatements` states its two refusals by THROWING — an
+ * ambiguous field rename, and a column drop without `allowDestructive: true` —
+ * so they arrive as DEFECTS in the cause. A `SQLExecutionError` from the
+ * introspection arrives as a typed FAILURE instead, and that is not a refusal:
+ * it means the plan is unknown, not that it would be rejected. Reading only the
+ * defect is what keeps the two apart.
+ *
+ * Before this existed the throw was caught and dropped, so the table came back
+ * as an unsimulated `recreate` with an EMPTY refusal list — `sovrium migrate
+ * --dry-run` closed with "Re-run without --dry-run to apply this plan" over a
+ * plan that cannot be applied, and a `--watch` pre-flight reading `refusals`
+ * saw nothing wrong. The refusal was always computable; nothing was reading it.
+ */
+const describePlanRefusal = (cause: Cause.Cause<unknown>): readonly string[] => {
+  const defect = Cause.findDefect(cause)
+  if (defect._tag !== 'Success') return []
+  return [defect.success instanceof Error ? defect.success.message : String(defect.success)]
+}
+
 /** Plan one table, given the live columns the database reports. */
 const planTable = (inputs: TablePlanInputs): Effect.Effect<TableChange, never> =>
   Effect.gen(function* () {
@@ -209,14 +232,18 @@ const planTable = (inputs: TablePlanInputs): Effect.Effect<TableChange, never> =
     // than aborting the whole report. `generateAlterTableStatements` THROWS on
     // an ambiguous rename or a refused destructive drop, and losing every other
     // table's plan to one such table would make the mode useless exactly when
-    // the operator most needs it.
-    Effect.catchCause(() =>
+    // the operator most needs it. The throw is REPORTED as the refusal it is
+    // (see `describePlanRefusal`) rather than swallowed: an operator whose plan
+    // would be rejected needs the sentence naming what to do about it, and it
+    // is the only thing about an unsimulated recreate that is knowable ahead of
+    // time.
+    Effect.catchCause((cause) =>
       Effect.succeed({
         table: inputs.table.name,
         kind: 'recreate' as const,
         statements: [],
         unsimulated: true,
-        refusals: [],
+        refusals: describePlanRefusal(cause),
       })
     )
   )

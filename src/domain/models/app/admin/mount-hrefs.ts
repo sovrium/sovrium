@@ -8,7 +8,7 @@
 /**
  * Moving an embedded app's internal links onto the base path it is mounted at.
  *
- * The admin console is authored as `apps/admin/` — a standalone app that boots
+ * The admin console is authored as `src/admin/` — a standalone app that boots
  * on its own at `/` under `bun run app:admin`. Its own pages therefore link
  * each other MOUNT-RELATIVE (`/login`, `/forgot-password`), which is the only
  * spelling that is correct in both worlds: served standalone at the site root,

@@ -58,12 +58,12 @@ export type BuiltInRole = Schema.Schema.Type<typeof BuiltInRoleSchema>
  * ```
  */
 export const RoleNameSchema = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
   Schema.annotate({
     title: 'Role Name',
     description: 'Role name: lowercase, alphanumeric, hyphens. Must start with a letter.',
     examples: ['editor', 'content-manager', 'moderator'],
-  })
+  }),
+  Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/))
 )
 
 /** @public */
@@ -123,7 +123,10 @@ const validateLandingUrlTokens = (
  * defaultLanding: /portal/clients/$currentUser.assignments.clients[0]
  * ```
  */
-export const DefaultLandingSchema = Schema.String.pipe(
+export const DefaultLandingSchema = Schema.String.annotate({
+  description:
+    'Where someone with this role is sent after signing in. It starts with `/`, and may carry one `$currentUser.assignments.<table>[0]` token to land them on their own record.',
+}).pipe(
   Schema.check(Schema.isPattern(/^\//)),
   Schema.check(
     Schema.makeFilter((value) =>
@@ -159,7 +162,10 @@ export const DefaultLandingSchema = Schema.String.pipe(
  * pickerLanding: /portal/companies-picker
  * ```
  */
-export const PickerLandingSchema = Schema.String.pipe(
+export const PickerLandingSchema = Schema.String.annotate({
+  description:
+    'Where someone with this role is sent instead when the landing token matches more than one record, so they can pick. It starts with `/` and carries no token.',
+}).pipe(
   Schema.check(Schema.isPattern(/^\//)),
   Schema.check(
     Schema.makeFilter((value) =>
@@ -277,6 +283,22 @@ export const RoleDefinitionSchema = Schema.Struct({
     )
   ),
 }).pipe(
+  Schema.annotate({
+    title: 'Role Definition',
+    description:
+      'Custom role definition with name, optional description, hierarchy level, and post-login landing rules.',
+    examples: [
+      { name: 'editor', description: 'Can edit content', level: 30 },
+      { name: 'moderator', level: 20 },
+      { name: 'contributor' },
+      { name: 'engineer', defaultLanding: '/admin' },
+      {
+        name: 'customer-admin',
+        defaultLanding: '/portal/clients/$currentUser.assignments.clients[0]',
+        pickerLanding: '/portal/select/clients',
+      },
+    ],
+  }),
   Schema.check(
     Schema.makeFilter((role) => {
       if (role.pickerLanding && !role.defaultLanding) {
@@ -293,23 +315,7 @@ export const RoleDefinitionSchema = Schema.Struct({
       }
       return undefined
     })
-  ),
-  Schema.annotate({
-    title: 'Role Definition',
-    description:
-      'Custom role definition with name, optional description, hierarchy level, and post-login landing rules.',
-    examples: [
-      { name: 'editor', description: 'Can edit content', level: 30 },
-      { name: 'moderator', level: 20 },
-      { name: 'contributor' },
-      { name: 'engineer', defaultLanding: '/admin' },
-      {
-        name: 'customer-admin',
-        defaultLanding: '/portal/clients/$currentUser.assignments.clients[0]',
-        pickerLanding: '/portal/select/clients',
-      },
-    ],
-  })
+  )
 )
 
 export type RoleDefinition = Schema.Schema.Type<typeof RoleDefinitionSchema>
@@ -329,38 +335,45 @@ export type RoleDefinition = Schema.Schema.Type<typeof RoleDefinitionSchema>
  * [{ name: 'editor', level: 30 }, { name: 'moderator', level: 20 }]
  * ```
  */
-export const RolesConfigSchema = Schema.Array(RoleDefinitionSchema).pipe(
-  Schema.check(
-    Schema.makeFilter((roles) => {
-      // Check for duplicate names
-      const names = roles.map((r) => r.name)
-      const uniqueNames = new Set(names)
-      if (uniqueNames.size !== names.length) {
-        const duplicates = names.filter((name, i) => names.indexOf(name) !== i)
-        return `Duplicate role names: ${duplicates.join(', ')}`
-      }
-
-      // Check for conflicts with built-in roles
-      const conflicts = names.filter((name) => (BUILT_IN_ROLES as readonly string[]).includes(name))
-      if (conflicts.length > 0) {
-        return `Custom role names cannot conflict with built-in roles: ${conflicts.join(', ')}`
-      }
-
-      return undefined
-    })
-  ),
-  Schema.annotate({
-    title: 'Roles Configuration',
-    description: 'Array of custom role definitions. Built-in roles are always available.',
-    examples: [
-      [],
-      [
-        { name: 'editor', description: 'Can edit content', level: 30 },
-        { name: 'moderator', level: 20 },
-      ],
-    ],
+export const RolesConfigSchema = Schema.Array(RoleDefinitionSchema)
+  .annotate({
+    description:
+      'Roles of your own, on top of the built-in admin, member and viewer. Each carries a level that decides what it inherits.',
   })
-)
+  .pipe(
+    Schema.check(
+      Schema.makeFilter((roles) => {
+        // Check for duplicate names
+        const names = roles.map((r) => r.name)
+        const uniqueNames = new Set(names)
+        if (uniqueNames.size !== names.length) {
+          const duplicates = names.filter((name, i) => names.indexOf(name) !== i)
+          return `Duplicate role names: ${duplicates.join(', ')}`
+        }
+
+        // Check for conflicts with built-in roles
+        const conflicts = names.filter((name) =>
+          (BUILT_IN_ROLES as readonly string[]).includes(name)
+        )
+        if (conflicts.length > 0) {
+          return `Custom role names cannot conflict with built-in roles: ${conflicts.join(', ')}`
+        }
+
+        return undefined
+      })
+    ),
+    Schema.annotate({
+      title: 'Roles Configuration',
+      description: 'Array of custom role definitions. Built-in roles are always available.',
+      examples: [
+        [],
+        [
+          { name: 'editor', description: 'Can edit content', level: 30 },
+          { name: 'moderator', level: 20 },
+        ],
+      ],
+    })
+  )
 
 /** @public */
 export type RolesConfig = Schema.Schema.Type<typeof RolesConfigSchema>
@@ -379,6 +392,7 @@ export type RolesConfig = Schema.Schema.Type<typeof RolesConfigSchema>
  */
 export const DefaultRoleSchema = Schema.String.pipe(
   Schema.annotate({
+    defaultNote: 'member',
     title: 'Default Role',
     description:
       'Role assigned to new users by default. Accepts built-in roles or custom role names. Defaults to member.',

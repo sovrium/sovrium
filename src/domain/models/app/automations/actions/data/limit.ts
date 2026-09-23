@@ -16,8 +16,17 @@ import { ActionBaseFields } from '../base'
  */
 export const DataLimitActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('data'),
-  operator: Schema.Literal('limit'),
+  type: Schema.Literal('data').pipe(
+    Schema.annotate({
+      description: "Constant value 'data' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('limit').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'data' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Template reference to the array of items */
     input: TemplateStringSchema.pipe(
@@ -26,9 +35,11 @@ export const DataLimitActionSchema = Schema.Struct({
 
     /** Maximum number of items to keep (positive integer) */
     count: Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Maximum number of items to keep (positive integer)' })
+      Schema.annotate({ description: 'Maximum number of items to keep (positive integer)' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     ),
+  }).annotate({
+    description: 'The list to shorten, and how many entries to keep.',
   }),
 }).pipe(
   Schema.annotate({

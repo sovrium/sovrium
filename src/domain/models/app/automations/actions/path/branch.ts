@@ -23,14 +23,23 @@ import type { Action } from '../..'
 export const PathBranchActionSchema: Schema.Codec<Action & { readonly type: 'path' }, unknown> =
   Schema.Struct({
     ...ActionBaseFields,
-    type: Schema.Literal('path'),
-    operator: Schema.Literal('branch'),
+    type: Schema.Literal('path').pipe(
+      Schema.annotate({
+        description: "Constant value 'path' for type discrimination in discriminated unions",
+      })
+    ),
+    operator: Schema.Literal('branch').pipe(
+      Schema.annotate({
+        description:
+          "Selects the operation within the 'path' action family; it decides which props the step takes",
+      })
+    ),
     props: Schema.Struct({
       paths: Schema.Array(
         Schema.Struct({
           name: Schema.String.pipe(
-            Schema.check(Schema.isMinLength(1)),
-            Schema.annotate({ description: 'Path name for identification' })
+            Schema.annotate({ description: 'Path name for identification' }),
+            Schema.check(Schema.isMinLength(1))
           ),
           condition: Schema.optional(ConditionGroupSchema),
           actions: Schema.Array(
@@ -48,13 +57,13 @@ export const PathBranchActionSchema: Schema.Codec<Action & { readonly type: 'pat
               return ActionSchema
             })
           ).pipe(
-            Schema.check(Schema.isMinLength(1)),
-            Schema.annotate({ description: 'Actions to execute on this path' })
+            Schema.annotate({ description: 'Actions to execute on this path' }),
+            Schema.check(Schema.isMinLength(1))
           ),
         })
       ).pipe(
-        Schema.check(Schema.isMinLength(2)),
-        Schema.annotate({ description: 'Two or more paths to branch into' })
+        Schema.annotate({ description: 'Two or more paths to branch into' }),
+        Schema.check(Schema.isMinLength(2))
       ),
       mode: Schema.optional(
         Schema.Literals(['first-match', 'all-matching']).pipe(
@@ -64,6 +73,8 @@ export const PathBranchActionSchema: Schema.Codec<Action & { readonly type: 'pat
           })
         )
       ),
+    }).annotate({
+      description: 'The branches to consider, and whether one or all of the matching ones run.',
     }),
   }).pipe(
     Schema.annotate({

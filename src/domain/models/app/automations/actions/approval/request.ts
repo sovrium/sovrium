@@ -19,8 +19,17 @@ import { ActionBaseFields } from '../base'
  */
 export const ApprovalRequestActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('approval'),
-  operator: Schema.Literal('request'),
+  type: Schema.Literal('approval').pipe(
+    Schema.annotate({
+      description: "Constant value 'approval' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('request').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'approval' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /**
      * Who can approve — literal 'all-admins' or array of emails/role names.
@@ -63,21 +72,21 @@ export const ApprovalRequestActionSchema = Schema.Struct({
           ),
         })
       ).pipe(
-        Schema.check(Schema.isMinLength(2)),
         Schema.annotate({
           description:
             'Approval options (minimum 2). Default: [{ value: "approve" }, { value: "reject" }]',
-        })
+        }),
+        Schema.check(Schema.isMinLength(2))
       )
     ),
 
     /** Timeout before automatic action */
     timeout: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^\d+\s*(m|h|d)$/)),
         Schema.annotate({
           description: 'How long to wait for approval (e.g., "24h", "7d"). No timeout by default.',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^\d+\s*(m|h|d)$/))
       )
     ),
 
@@ -99,6 +108,9 @@ export const ApprovalRequestActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description:
+      'Who has to approve, what they are shown, and what happens if nobody answers in time.',
   }),
 }).pipe(
   Schema.annotate({

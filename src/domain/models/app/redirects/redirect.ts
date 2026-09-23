@@ -16,16 +16,16 @@ import { isSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
  * carried onto the target, so encoding one here would be silently ignored.
  */
 const RedirectFromSchema = Schema.String.pipe(
+  Schema.annotate({
+    description:
+      "Root-relative path to redirect FROM (e.g. '/products/platform'). Matched locale-agnostically unless it already begins with a configured language segment.",
+  }),
   Schema.check(
     Schema.isPattern(/^\/[^\s?#]*$/, {
       message:
         "redirect 'from' must be a root-relative path starting with '/' and must not contain whitespace, '?' or '#'",
     })
-  ),
-  Schema.annotate({
-    description:
-      "Root-relative path to redirect FROM (e.g. '/products/platform'). Matched locale-agnostically unless it already begins with a configured language segment.",
-  })
+  )
 )
 
 /**

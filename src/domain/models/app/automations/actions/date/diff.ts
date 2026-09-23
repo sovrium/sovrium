@@ -40,8 +40,17 @@ import { DiffUnitProp, isValidTimezone, TimezoneProp } from './props'
  */
 export const DateDiffActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('date'),
-  operator: Schema.Literal('diff'),
+  type: Schema.Literal('date').pipe(
+    Schema.annotate({
+      description: "Constant value 'date' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('diff').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'date' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** The earlier end of the interval (the subtrahend). */
     from: TemplateStringSchema.pipe(
@@ -71,15 +80,19 @@ export const DateDiffActionSchema = Schema.Struct({
         })
       )
     ),
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter(({ timezone }) =>
-        timezone !== undefined && !isValidTimezone(timezone)
-          ? `Invalid IANA timezone: ${timezone}`
-          : undefined
+  })
+    .annotate({
+      description: 'The two dates to measure between, the unit of the answer, and the time zone.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter(({ timezone }) =>
+          timezone !== undefined && !isValidTimezone(timezone)
+            ? `Invalid IANA timezone: ${timezone}`
+            : undefined
+        )
       )
-    )
-  ),
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'DateDiffAction',

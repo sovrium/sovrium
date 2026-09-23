@@ -17,9 +17,12 @@ import {
 
 export const FormulaFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('formula'),
+    type: Schema.Literal('formula').pipe(
+      Schema.annotate({
+        description: "Constant value 'formula' for type discrimination in discriminated unions",
+      })
+    ),
     formula: Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'formula is required' })),
       Schema.annotate({
         description:
           'Formula expression to compute the value. Supports field references, operators, and functions.',
@@ -29,7 +32,8 @@ export const FormulaFieldSchema = BaseFieldSchema.pipe(
           "IF(status = 'active', 'Yes', 'No')",
           'ROUND(total * 0.15, 2)',
         ],
-      })
+      }),
+      Schema.check(Schema.isNonEmpty({ message: 'formula is required' }))
     ),
     resultType: Schema.optional(
       Schema.String.pipe(

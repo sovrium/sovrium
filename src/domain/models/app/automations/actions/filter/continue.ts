@@ -16,8 +16,17 @@ import { ActionBaseFields } from '../base'
  */
 export const FilterContinueActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('filter'),
-  operator: Schema.Literal('continue'),
+  type: Schema.Literal('filter').pipe(
+    Schema.annotate({
+      description: "Constant value 'filter' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('continue').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'filter' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     condition: ConditionGroupSchema,
     onFalse: Schema.optional(
@@ -28,6 +37,9 @@ export const FilterContinueActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description:
+      'The condition the run has to satisfy to carry on, and what happens when it does not.',
   }),
 }).pipe(
   Schema.annotate({

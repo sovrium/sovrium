@@ -36,8 +36,17 @@ import { ActionBaseFields } from '../base'
  */
 export const DelayQueueActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('delay'),
-  operator: Schema.Literal('queue'),
+  type: Schema.Literal('delay').pipe(
+    Schema.annotate({
+      description: "Constant value 'delay' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('queue').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'delay' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /**
      * Minimum time between processing each queued item.
@@ -45,12 +54,12 @@ export const DelayQueueActionSchema = Schema.Struct({
      * Examples: "500ms", "2s", "1m"
      */
     interval: Schema.String.pipe(
-      Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h)$/)),
       Schema.annotate({
         description:
           'Minimum delay between processing each queued item. Format: number + unit (ms, s, m, h)',
         examples: ['500ms', '2s', '1m', '30s'],
-      })
+      }),
+      Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h)$/))
     ),
 
     /**
@@ -60,13 +69,15 @@ export const DelayQueueActionSchema = Schema.Struct({
      */
     maxQueueSize: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
         Schema.annotate({
           description: 'Max items in queue before rejecting new entries (default: unlimited)',
           examples: [100, 1000, 10_000],
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
       )
     ),
+  }).annotate({
+    description: 'How often queued runs are released, and how many may wait at once.',
   }),
 }).pipe(
   Schema.annotate({

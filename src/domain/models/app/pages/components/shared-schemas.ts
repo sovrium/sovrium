@@ -213,10 +213,10 @@ export const MenuItemSchema = Schema.Struct({
   /** Sub-menu items (nested menus) */
   children: Schema.optional(
     Schema.Array(Schema.Record(Schema.String, Schema.Unknown)).pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Nested sub-menu items',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).annotate({
@@ -341,10 +341,10 @@ export const NavItemSchema: Schema.Codec<NavItem> = Schema.Struct({
   /** Child navigation items (for sub-menus or mega-menus) */
   children: Schema.optional(
     Schema.Array(Schema.suspend((): Schema.Codec<NavItem> => NavItemSchema)).pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Child navigation items forming a sub-menu or mega-menu',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).pipe(

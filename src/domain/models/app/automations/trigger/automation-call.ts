@@ -19,7 +19,12 @@ import { Schema } from 'effect'
  * - {{trigger.caller.depth}} — current call depth (for recursion awareness)
  */
 export const AutomationCallTriggerSchema = Schema.Struct({
-  type: Schema.Literal('automation-call'),
+  type: Schema.Literal('automation-call').pipe(
+    Schema.annotate({
+      description:
+        "Constant value 'automation-call' for type discrimination in discriminated unions",
+    })
+  ),
   inputSchema: Schema.optional(
     Schema.Record(Schema.String, Schema.Unknown).pipe(
       Schema.annotate({

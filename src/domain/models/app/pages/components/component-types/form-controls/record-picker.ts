@@ -97,11 +97,11 @@ export const RecordPickerSourceSchema = Schema.Struct({
    * gates on `type === 'select'` and the picker fell through.
    */
   table: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Table the candidates are searched in (validated against app.tables)',
       examples: ['companies', 'contacts'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /**
    * Row field that NAMES a candidate — what the reader searches and sees.
@@ -115,22 +115,23 @@ export const RecordPickerSourceSchema = Schema.Struct({
    */
   displayField: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Row field that names a candidate — what is searched and shown. Omit and the picker searches by id and says so, rather than guessing a column.',
         examples: ['name', 'title'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Row field supplying the linked VALUE. Defaults to `id`, which every table has. */
   valueField: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
+        defaultNote: 'id',
         description: "Row field supplying the linked value (default: 'id')",
         examples: ['id', 'slug'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -163,11 +164,11 @@ export const RecordPickerSourceSchema = Schema.Struct({
    */
   pageSize: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(100)),
       Schema.annotate({
         description: 'Candidates per page. Default 20, hard max 100 — a picker is a shortlist.',
         examples: [20, 50],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(100))
     )
   ),
 }).annotate({
@@ -216,12 +217,12 @@ export const recordPickerFields = {
    */
   maxLinked: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
         description:
           'Maximum linked records; the search closes at the cap. Only meaningful alongside `multiple: true`.',
         examples: [3, 10],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
   /** Placeholder shown while nothing is linked — "No company linked" rather than a blank box. */

@@ -102,20 +102,20 @@ const ISO_CALENDAR_DAY = /^\d{4}-\d{2}-\d{2}$/
 export const DecisionSchema = Schema.Struct({
   /** Register identifier, unique within the register. Any convention. */
   id: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description:
         'Register identifier, unique within app.decisions. Free-form: ADR-007, DEC-083, RFC-12 are all accepted',
       examples: ['ADR-007', 'DEC-083'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** One-line summary of what was decided */
   title: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'One-line summary of what was decided',
       examples: ['Postgres for the shared instance'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** Whether the decision stands, is proposed, or has been superseded */
   status: DecisionStatusSchema,
@@ -140,15 +140,25 @@ export const DecisionSchema = Schema.Struct({
     )
   ),
   /** Who took the decision — one entry per person */
-  deciders: Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))).pipe(
-    Schema.check(Schema.isMinLength(1)),
+  deciders: Schema.Array(
+    Schema.String.annotate({
+      description: 'One person who took the decision.',
+      examples: ['Léa Fontaine'],
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ).pipe(
     Schema.annotate({
       description: 'Who took the decision — one entry per person, never a joined string',
       examples: [['Léa Fontaine', 'Thomas']],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** What the decision was about, as the author wrote it. Never resolved against the config. */
-  touches: Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))).pipe(
+  touches: Schema.Array(
+    Schema.String.annotate({
+      description: 'One area of the configuration the decision was about, as free display text.',
+      examples: ['engine \u203a DATABASE_URL'],
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ).pipe(
     Schema.annotate({
       description:
         'What the decision was about, as free display text. Deliberately NOT resolved against the config: a superseded decision names config that is gone by definition',
@@ -157,39 +167,39 @@ export const DecisionSchema = Schema.Struct({
   ),
   /** The situation that forced a choice */
   context: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'The situation that forced a choice' })
+    Schema.annotate({ description: 'The situation that forced a choice' }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** What was chosen, stated in the active voice */
   decision: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'What was chosen, stated in the active voice' })
+    Schema.annotate({ description: 'What was chosen, stated in the active voice' }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** What follows from it, good and bad */
   consequences: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'What follows from the decision, good and bad' })
+    Schema.annotate({ description: 'What follows from the decision, good and bad' }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** The id of the decision this one replaces */
   supersedes: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Id of the decision this one replaces. The replaced record must declare supersededBy pointing back',
         examples: ['ADR-002'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** The id of the decision that replaced this one */
   supersededBy: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Id of the decision that replaced this one. Requires status: superseded, and the replacing record must declare supersedes pointing back',
         examples: ['ADR-007'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).annotate({

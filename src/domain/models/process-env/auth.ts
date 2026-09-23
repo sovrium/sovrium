@@ -42,7 +42,9 @@ export const AuthEnvSchema = Schema.Struct({
   adminName: Schema.optional(
     Schema.String.pipe(
       Schema.annotate({
-        description: 'Default admin display name (AUTH_ADMIN_NAME)',
+        description:
+          "Display name of the seeded administrator (AUTH_ADMIN_NAME). Defaults to 'Administrator'.",
+        defaultNote: 'Administrator',
         examples: ['System Administrator'],
       })
     )

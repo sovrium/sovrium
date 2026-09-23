@@ -47,10 +47,10 @@ export const ViewTransitionSchema = Schema.Struct({
   /** Animation duration in milliseconds */
   duration: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
         description: 'Animation duration in milliseconds',
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 }).pipe(

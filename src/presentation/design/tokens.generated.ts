@@ -8,7 +8,7 @@
 /**
  * The island fallback catalogue — the LITERAL every prestyled island inlines beside its `--sv-*` override hook.
  *
- * AUTO-GENERATED from `apps/admin/config/design.ts` — DO NOT EDIT.
+ * AUTO-GENERATED from `src/admin/config/design.ts` — DO NOT EDIT.
  *
  * Regenerate: `bun run build:default-design`
  */

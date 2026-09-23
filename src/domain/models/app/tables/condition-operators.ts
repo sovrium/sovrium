@@ -10,7 +10,9 @@ import { Schema } from 'effect'
 /**
  * Scalar accepted by the comparison operators.
  */
-const ConditionValueSchema = Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
+const ConditionValueSchema = Schema.Union([Schema.String, Schema.Finite, Schema.Boolean]).annotate({
+  description: 'A value the field is compared against — a string, a number or a boolean.',
+})
 
 /** Array of values for the set-membership operators (`in` / `notIn`). */
 const ConditionValueArraySchema = Schema.Array(ConditionValueSchema)
@@ -34,25 +36,35 @@ const ConditionValueArraySchema = Schema.Array(ConditionValueSchema)
  * `visibleWhen`. Co-locating it with the first of those would make the other
  * two import a page-component module to describe a table field.
  */
+const describedValue = (description: string) => ConditionValueSchema.annotate({ description })
+const describedValueArray = (description: string) =>
+  ConditionValueArraySchema.annotate({ description })
+
 export const ConditionOperatorsSchema = Schema.Struct({
   /** Equals */
-  eq: Schema.optional(ConditionValueSchema),
+  eq: Schema.optional(describedValue('Matches when the value is equal to this one.')),
   /** Not equals */
-  neq: Schema.optional(ConditionValueSchema),
+  neq: Schema.optional(describedValue('Matches when the value is different from this one.')),
   /** Value is one of the listed values (set membership) */
-  in: Schema.optional(ConditionValueArraySchema),
+  in: Schema.optional(describedValueArray('Matches when the value is one of the listed values.')),
   /** Value is NOT one of the listed values */
-  notIn: Schema.optional(ConditionValueArraySchema),
+  notIn: Schema.optional(
+    describedValueArray('Matches when the value is none of the listed values.')
+  ),
   /** Substring / collection containment */
-  contains: Schema.optional(ConditionValueSchema),
+  contains: Schema.optional(
+    describedValue('Matches when the value contains this text, or this entry for a list value.')
+  ),
   /** Greater than */
-  gt: Schema.optional(ConditionValueSchema),
+  gt: Schema.optional(describedValue('Matches when the value is greater than this one.')),
   /** Less than */
-  lt: Schema.optional(ConditionValueSchema),
+  lt: Schema.optional(describedValue('Matches when the value is less than this one.')),
   /** Greater than or equal */
-  gte: Schema.optional(ConditionValueSchema),
+  gte: Schema.optional(
+    describedValue('Matches when the value is greater than or equal to this one.')
+  ),
   /** Less than or equal */
-  lte: Schema.optional(ConditionValueSchema),
+  lte: Schema.optional(describedValue('Matches when the value is less than or equal to this one.')),
 }).annotate({
   title: 'Condition Operators',
   description:

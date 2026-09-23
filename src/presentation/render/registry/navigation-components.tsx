@@ -17,6 +17,7 @@ import {
 } from '../../design/navigation-default-classes'
 import { renderIcon } from '../elements/icon-renderer'
 import { resolveChildTranslation } from '../i18n/translation-handler'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -117,7 +118,7 @@ function renderBreadcrumb({
     { breadcrumbItems?: readonly BreadcrumbItem[]; separator?: string } | undefined
   const items = comp?.breadcrumbItems ?? []
   const separator = comp?.separator ?? '/'
-  const { 'data-testid': dataTestId, ...rest } = elementPropsWithSpacing
+  const { 'data-testid': dataTestId, ...rest } = omitInternalMarkers(elementPropsWithSpacing)
   const className = rest.className as string | undefined
   // THE AUTHOR'S LABEL WINS, and the default is what it always was.
   //
@@ -182,7 +183,7 @@ function renderButtonGroup({
     'data-label': _dataLabel,
     className,
     ...rest
-  } = elementProps as Record<string, unknown>
+  } = omitInternalMarkers(elementProps) as Record<string, unknown>
   const cn = className as string | undefined
   // [internal ref] (prestyled-by-default): the button-group container ships a
   // surface chrome (rounded + subtle shadow) from
@@ -289,7 +290,7 @@ function renderPagination({
   const currentPage = comp?.currentPage ?? 1
   const siblingCount = comp?.siblingCount ?? 1
   const pages = paginationPages(totalPages, currentPage, siblingCount)
-  const { 'data-testid': dataTestId, className, ...rest } = elementProps
+  const { 'data-testid': dataTestId, className, ...rest } = omitInternalMarkers(elementProps)
 
   const prevDisabled = currentPage <= 1
   const nextDisabled = currentPage >= totalPages

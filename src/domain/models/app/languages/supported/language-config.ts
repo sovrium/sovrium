@@ -23,16 +23,16 @@ import { Schema } from 'effect'
  * @see [internal ref]#/properties/code
  */
 export const LanguageCodeSchema = Schema.String.pipe(
-  Schema.check(
-    Schema.isPattern(/^[a-z]{2}$/, {
-      message: 'Language code must be ISO 639-1 format (2 lowercase letters, e.g., "en", "fr")',
-    })
-  ),
   Schema.annotate({
     title: 'Language Code',
     description: 'Short language code used for URLs and routing (ISO 639-1, 2 letters)',
     examples: ['en', 'fr', 'es', 'de', 'ar', 'he'],
-  })
+  }),
+  Schema.check(
+    Schema.isPattern(/^[a-z]{2}$/, {
+      message: 'Language code must be ISO 639-1 format (2 lowercase letters, e.g., "en", "fr")',
+    })
+  )
 )
 
 /**
@@ -51,16 +51,16 @@ export const LanguageCodeSchema = Schema.String.pipe(
  * @see [internal ref]#/properties/locale
  */
 export const LanguageLocaleSchema = Schema.String.pipe(
-  Schema.check(
-    Schema.isPattern(/^[a-z]{2}-[A-Z]{2}$/, {
-      message: 'Locale must be ISO 639-1 + ISO 3166-1 format (e.g., "en-US", "fr-FR")',
-    })
-  ),
   Schema.annotate({
     title: 'Language Locale',
     description: 'Full locale code used for HTML lang attribute and locale-specific formatting',
     examples: ['en-US', 'fr-FR', 'es-ES', 'de-DE', 'ar-SA', 'he-IL'],
-  })
+  }),
+  Schema.check(
+    Schema.isPattern(/^[a-z]{2}-[A-Z]{2}$/, {
+      message: 'Locale must be ISO 639-1 + ISO 3166-1 format (e.g., "en-US", "fr-FR")',
+    })
+  )
 )
 
 /**

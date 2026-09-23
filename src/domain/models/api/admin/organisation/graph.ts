@@ -34,7 +34,7 @@
  *    module names the fix — "an O1 widening of the endpoint (a `?node=`
  *    parameter), not a change to this component".
  *  - The Reach lens's "Structural position" block is per-principal and had
- *    nothing to select with (`apps/admin/config/pages/data/organisation-reach.ts`).
+ *    nothing to select with (`src/admin/config/pages/data/organisation-reach.ts`).
  *  - A record-bound drawer binds an endpoint with an id slot and fetches; there
  *    is no `…/graph/:id`, so it would open on a 404.
  *

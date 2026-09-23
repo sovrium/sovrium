@@ -18,8 +18,17 @@ import { ActionBaseFields } from '../base'
  */
 export const HttpPostActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('http'),
-  operator: Schema.Literal('post'),
+  type: Schema.Literal('http').pipe(
+    Schema.annotate({
+      description: "Constant value 'http' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('post').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'http' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     url: TemplateStringSchema.pipe(
       Schema.annotate({ description: 'Request URL (supports template variables)' })
@@ -39,6 +48,8 @@ export const HttpPostActionSchema = Schema.Struct({
     contentType: Schema.optional(
       Schema.Literals(['json', 'form', 'text', 'xml']).pipe(
         Schema.annotate({
+          howTo:
+            'Set it and the request carries the matching `Content-Type` AND encodes the body to match, so `form` URL-encodes a JSON-shaped body instead of announcing one encoding and sending another. Omit it and a JSON-shaped body is still sent as JSON. A `Content-Type` written in `headers` always wins.',
           description:
             'Content-Type shorthand. No default: when omitted, a JSON-shaped body still sends application/json, and a string body sends no Content-Type header',
         })
@@ -46,21 +57,25 @@ export const HttpPostActionSchema = Schema.Struct({
     ),
     timeout: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 120_000 })),
         Schema.annotate({
           description: 'Request timeout in ms (1000-120000, default: 15000)',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 120_000 }))
       )
     ),
     connection: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
         Schema.annotate({
+          howTo:
+            'Prefer a connection over writing a secret into `headers`: Sovrium attaches the right `Authorization` header for you, and refreshes OAuth2 tokens as they expire.',
           description:
             'Connection name for authentication (must reference app.connections[]). Auth headers are auto-injected.',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/))
       )
     ),
+  }).annotate({
+    description: 'The POST request: its address, headers, body and timeout.',
   }),
 }).pipe(
   Schema.annotate({

@@ -1,0 +1,23 @@
+{
+  "//": "Standalone. NOT referenced from the root tsconfig.json, and it must stay that way: the desktop frontend is a browser bundle with its own module resolution, its own dependency set and no path alias into src/. A reference would put the shell's DOM-typed sources into the engine's type graph, and would make `@/` resolve from here — which is the first step toward an import the shell must never have.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "types": ["vite/client"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["src"]
+}

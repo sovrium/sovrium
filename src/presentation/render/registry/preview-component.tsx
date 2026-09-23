@@ -32,7 +32,7 @@
  *
  * Deliberately NOT `data-design-specimen`. That attribute looks like the obvious
  * one and is not engine output at all: it is an authored prop the admin console
- * puts on a wrapper of its own (`apps/admin/config/pages/design-system/**`), so
+ * puts on a wrapper of its own (`src/admin/config/pages/design-system/**`), so
  * a preview on an ordinary app page would carry it only if that page's author
  * wrote it — and this type's contract would then depend on one consumer's
  * config.
@@ -52,6 +52,7 @@ import {
   computePreviewStageClasses,
   computePreviewValueClasses,
 } from '../../design/specialty-ssr-default-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
 
@@ -118,7 +119,7 @@ export const previewComponent: ComponentRenderer = ({
   const { type, option, value } = subjectOf(source)
   const caption = text(source, 'caption')
   const showValue = source['showValue'] !== false && option !== undefined && value !== undefined
-  const { className: authorClassName, ...rest } = elementPropsWithSpacing
+  const { className: authorClassName, ...rest } = omitInternalMarkers(elementPropsWithSpacing)
 
   return (
     <div

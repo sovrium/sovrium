@@ -78,7 +78,7 @@ const BANNER_DEFAULT_APP_VERSION = '1.0.0'
  * `description` occupies its OWN row rather than being joined to the header.
  * `DescriptionSchema` admits any non-newline text, so a joined
  * `<name> v<ver> — <description>` would put a second dash on the row for any
- * description that contains one — and Sovrium's own `apps/admin/app.ts` ships
+ * description that contains one — and Sovrium's own `src/admin/app.ts` ships
  * exactly that, so the render site cannot control the dash count.
  */
 /*

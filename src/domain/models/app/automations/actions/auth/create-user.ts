@@ -16,8 +16,17 @@ import { ActionBaseFields } from '../base'
  */
 export const AuthCreateUserActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('auth'),
-  operator: Schema.Literal('createUser'),
+  type: Schema.Literal('auth').pipe(
+    Schema.annotate({
+      description: "Constant value 'auth' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('createUser').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'auth' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     email: TemplateStringSchema.pipe(Schema.annotate({ description: 'New user email address' })),
     name: TemplateStringSchema.pipe(Schema.annotate({ description: 'New user display name' })),
@@ -31,6 +40,8 @@ export const AuthCreateUserActionSchema = Schema.Struct({
         Schema.annotate({ description: 'Role to assign (default: configured defaultRole)' })
       )
     ),
+  }).annotate({
+    description: 'The account to create: its email, name, password and role.',
   }),
 }).pipe(
   Schema.annotate({

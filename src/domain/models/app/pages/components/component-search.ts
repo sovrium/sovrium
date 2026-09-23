@@ -37,11 +37,11 @@ export const ComponentSearchSchema = Schema.Struct({
   /** Debounce delay in milliseconds */
   debounceMs: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
       Schema.annotate({
         description: 'Debounce delay for search input in ms (default: 300)',
         examples: [200, 300, 500],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
     )
   ),
   /** Highlight matched search terms in results */

@@ -18,7 +18,10 @@ import { Schema } from 'effect'
  * `success`/`error`/`warning`/`info`) used by component-library toast UIs.
  */
 export const FetchToastResponseSchema = Schema.Struct({
-  type: Schema.Literal('toast'),
+  type: Schema.Literal('toast').annotate({
+    description:
+      'What the component does once the action returns — navigate away, reset the form, show a message or a success page, send the reader to their role landing, or raise a toast.',
+  }),
   /** Message to display. Supports $variable references. */
   message: Schema.String.annotate({
     description: 'Toast notification message. Supports $variable references.',
@@ -32,11 +35,11 @@ export const FetchToastResponseSchema = Schema.Struct({
   /** Auto-dismiss duration in milliseconds */
   duration: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
         description: 'Auto-dismiss duration in milliseconds (default: 5000)',
         examples: [2000, 5000, 10_000],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
   /** Label of an optional action button rendered inside the toast */
@@ -293,6 +296,7 @@ export const FetchResponseEnvelopeSchema = Schema.Literals([
   'better-auth',
   'raw',
 ]).annotate({
+  defaultNote: 'sovrium',
   title: 'Fetch Response Envelope',
   description:
     'Response-envelope interpretation: sovrium (default), better-auth (always-200 enumeration-safe envelope at /api/auth/admin/*), raw (status-only, no body assumptions)',
@@ -368,7 +372,9 @@ export const FetchResponseEnvelopeSchema = Schema.Literals([
  * ```
  */
 export const FetchActionSchema = Schema.Struct({
-  type: Schema.Literal('fetch'),
+  type: Schema.Literal('fetch').annotate({
+    description: 'Which kind of action this is. It decides which of the other keys apply.',
+  }),
   /**
    * Target URL for the action (any absolute path or fully-qualified URL). Not
    * restricted to a `/api/admin/*` prefix — may target the Better-Auth admin
@@ -386,7 +392,8 @@ export const FetchActionSchema = Schema.Struct({
   /** HTTP method (defaults to GET) */
   method: Schema.optional(
     Schema.Literals(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).annotate({
-      description: 'HTTP method (defaults to GET)',
+      description:
+        'What the action performs: the authentication operation under `type: auth`, or the HTTP verb under `type: fetch` (default GET).',
     })
   ),
   /** Optional request headers */

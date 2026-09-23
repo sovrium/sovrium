@@ -78,6 +78,8 @@ export const DesignRadiusSchema = guardedKeyRecord(
     keyHint: 'A radius name is kebab-case (lowercase letters, digits and hyphens).',
     keyTitle: 'Border Radius Key',
     keyExamples: ['none', 'sm', 'base', 'full'],
+    description:
+      "The app's corner radii, by name. Each name becomes the suffix of every rounding utility.",
     retiredKeys: new Map([['DEFAULT', RADIUS_DEFAULT_RETIRED]]),
   }
 ).pipe(

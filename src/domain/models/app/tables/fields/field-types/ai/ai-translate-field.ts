@@ -41,7 +41,14 @@ export const AiTranslateFieldSchema = BaseFieldSchema.pipe(
           "Constant value 'ai-translate' for type discrimination in discriminated unions",
       })
     ),
-    sourceFields: Schema.Array(Schema.String).pipe(
+    sourceFields: Schema.Array(
+      Schema.String.annotate({
+        description: 'One field of this table whose value is fed to the model as input.',
+      })
+    ).pipe(
+      Schema.annotate({
+        description: 'Source field for translation. Must contain exactly one field name.',
+      }),
       Schema.check(
         Schema.isMinLength(1, {
           message: 'ai-translate sourceFields must contain exactly one (single) field name',
@@ -49,23 +56,20 @@ export const AiTranslateFieldSchema = BaseFieldSchema.pipe(
         Schema.isMaxLength(1, {
           message: 'ai-translate sourceFields must contain exactly one (single) field name',
         })
-      ),
-      Schema.annotate({
-        description: 'Source field for translation. Must contain exactly one field name.',
-      })
+      )
     ),
     targetLanguage: Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'ISO 639-1 language code for the target language (e.g., fr, es, de, ja, zh-CN)',
+        examples: ['fr', 'es', 'de', 'ja', 'zh-CN'],
+      }),
       Schema.check(
         Schema.isPattern(/^[a-z]{2}(-[A-Z]{2})?$/, {
           message:
             'ai-translate targetLanguage is required and must be an ISO 639-1 language code (e.g., fr, es, de, ja, zh-CN)',
         })
-      ),
-      Schema.annotate({
-        description:
-          'ISO 639-1 language code for the target language (e.g., fr, es, de, ja, zh-CN)',
-        examples: ['fr', 'es', 'de', 'ja', 'zh-CN'],
-      })
+      )
     ),
     prompt: Schema.optional(
       Schema.String.pipe(
@@ -84,30 +88,30 @@ export const AiTranslateFieldSchema = BaseFieldSchema.pipe(
     ),
     model: Schema.optional(
       Schema.String.pipe(
+        Schema.annotate({
+          description: 'AI model override (e.g., gpt-4o, claude-sonnet)',
+        }),
         Schema.check(
           Schema.isMinLength(1, {
             message: 'AI field model override must be a non-empty string',
           })
-        ),
-        Schema.annotate({
-          description: 'AI model override (e.g., gpt-4o, claude-sonnet)',
-        })
+        )
       )
     ),
     temperature: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
         Schema.annotate({
           description: 'Temperature override (0 to 1) for controlling translation creativity',
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))
       )
     ),
     maxTokens: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
         Schema.annotate({
           description: 'Maximum tokens for AI response',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
       )
     ),
     computeOn: Schema.Literals(['create', 'update', 'both']).pipe(

@@ -11,7 +11,11 @@ import { ARRAY_ITEM_TYPE_NAMES, isSupportedArrayItemType } from './array-item-ty
 
 export const ArrayFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('array'),
+    type: Schema.Literal('array').pipe(
+      Schema.annotate({
+        description: "Constant value 'array' for type discrimination in discriminated unions",
+      })
+    ),
     itemType: Schema.optional(
       Schema.String.pipe(
         // Annotated BEFORE the filter: Effect's JSON Schema generator reads
@@ -35,8 +39,8 @@ export const ArrayFieldSchema = BaseFieldSchema.pipe(
     ),
     maxItems: Schema.optional(
       Schema.Int.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
-        Schema.annotate({ description: 'Maximum number of items allowed' })
+        Schema.annotate({ description: 'Maximum number of items allowed' }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(1))
       )
     ),
   }),

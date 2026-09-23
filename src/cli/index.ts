@@ -57,7 +57,9 @@ import { Effect, Console } from 'effect'
 import { handleAdminCommand } from '@/cli/commands/admin'
 import { handleBuildCommand } from '@/cli/commands/build'
 import { handleDesignSystemCommand } from '@/cli/commands/design-system'
+import { handleDocsCommand } from '@/cli/commands/docs'
 import { handleInitCommand } from '@/cli/commands/init'
+import { handleMcpCommand } from '@/cli/commands/mcp'
 import { handleMigrateCommand } from '@/cli/commands/migrate'
 import { handleReloadCommand } from '@/cli/commands/reload'
 import { handleRestartCommand } from '@/cli/commands/restart'
@@ -105,8 +107,10 @@ const HELP_TEXT = [
   '  sovrium types                 Emit sovrium.d.ts + tsconfig.json for a .ts config',
   '  sovrium validate <config>     Validate a config file against AppSchema',
   '  sovrium design-system         Export the design system as an agent brief or DTCG JSON',
+  '  sovrium docs [address]        Read the platform manual out of this binary',
   '  sovrium seed [config]         Load seed/<table>.yaml data into the tables',
   '  sovrium migrate [config]      Bring the database schema forward, without booting',
+  '  sovrium mcp [--project <dir>] Serve the config read tools to an AI client over stdio',
   '',
   'Operate:',
   '  sovrium admin create <email>  Create an admin user',
@@ -120,7 +124,11 @@ const HELP_TEXT = [
   '  --watch, -w                   Watch config file and hot reload (start)',
   '  --output <path>               Write to a file (schema, design-system) or dir (types)',
   '  --typescript                  Scaffold a typed app.ts instead of app.yaml (init)',
-  '  --format <md|json>            Export format (design-system; default: md)',
+  '  --format <md|json|llms>       Export format (design-system, docs; default: md)',
+  '  --full                        Print the whole manual (docs)',
+  '  --list-sections               Print the section slugs and exit (docs)',
+  '  --lang <code>                 Manual locale — `en` only (docs)',
+  '  --section <slug>              Restrict to one section, repeatable (docs)',
   '  --template <name>             Bundled template, or <owner>/<repo>[#ref] from GitHub (init)',
   '  --name <name>                 App name (init)',
   '  --password <value>            Admin password (admin create; else prompted)',
@@ -130,6 +138,7 @@ const HELP_TEXT = [
   '  --table <name>                Restrict to one table, repeatable (seed)',
   '  --dry-run                     Report the plan and write nothing (seed, migrate)',
   '  --check                       Report whether the database is safe to migrate (migrate)',
+  '  --project <dir>               Directory to read the config from (mcp)',
   '',
   'Environment variables (all optional — Sovrium runs zero-config):',
   '  DATABASE_URL                  Postgres connection (omit → embedded SQLite)',
@@ -149,6 +158,8 @@ const HELP_TEXT = [
   '  sovrium build app.json                             # Build static site',
   '  sovrium schema --output app.schema.json            # Write JSON Schema',
   '  sovrium design-system app.ts --output DESIGN.md    # Brief an agent can read',
+  '  sovrium docs search llms                           # Find the article for a topic',
+  '  sovrium docs config tables[].fields[].type         # Look one option up',
   '  sovrium types                                      # Types for a .ts config, zero npm',
   '  sovrium init ./my-app --typescript                 # Scaffold a typed app.ts',
   '  sovrium init ./my-app --template blog              # Scaffold from template',
@@ -183,6 +194,8 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       forceFlag: parsed.forceFlag,
       appName: parsed.appName,
       typescript: parsed.typescript ?? false,
+      gitInit: parsed.gitInit ?? false,
+      fromUrl: parsed.fromUrl,
     }),
   admin: async () =>
     handleAdminCommand(parsed.subcommand, parsed.positionalArg, {
@@ -199,6 +212,11 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       dryRun: parsed.dryRun ?? false,
       check: parsed.check ?? false,
     }),
+  // An EXIT command, not a persistent one. It looks like a server and is not:
+  // it binds no port and owns no lifetime of its own — the CLIENT owns the
+  // lifetime, and the verb ends when that client closes the pipe. Exiting 0 on
+  // EOF is what makes "the client quit" a success rather than a crash.
+  mcp: async () => handleMcpCommand({ projectDir: parsed.projectDir }),
   '--version': async () => showVersion(),
   version: async () => showVersion(),
   '--help': async () => showHelp(),
@@ -219,12 +237,22 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
   build: async () => handleBuildCommand(parsed.configFile, parsed.publicDir),
   schema: async () => handleSchemaCommand(parsed.outputPath),
   types: async () => handleTypesCommand({ outputDir: parsed.outputPath }),
-  validate: async () => handleValidateCommand(parsed.configFile),
+  validate: async () => handleValidateCommand(parsed.configFile, parsed.json),
   'design-system': async () =>
     handleDesignSystemCommand({
       configFile: parsed.configFile,
       outputPath: parsed.outputPath,
       format: parsed.format,
+    }),
+  docs: async () =>
+    handleDocsCommand({
+      args: parsed.positionalArgs ?? [],
+      format: parsed.format,
+      lang: parsed.lang,
+      outputPath: parsed.outputPath,
+      full: parsed.full ?? false,
+      listSections: parsed.listSections ?? false,
+      sections: parsed.docsSections ?? [],
     }),
   seed: async () =>
     handleSeedCommand({

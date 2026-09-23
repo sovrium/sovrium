@@ -46,16 +46,16 @@ export const FontTransformSchema = Schema.Literals([
  * Font category name (alphabetic characters only: title, body, mono, etc.)
  */
 export const FontCategoryKeySchema = Schema.String.pipe(
-  Schema.check(
-    Schema.isPattern(/^[a-zA-Z]+$/, {
-      message: 'Font category key must contain only alphabetic characters (a-zA-Z)',
-    })
-  ),
   Schema.annotate({
     title: 'Font Category Key',
     description: 'Semantic font category name (alphabetic characters only)',
     examples: ['title', 'body', 'mono', 'heading', 'label'],
-  })
+  }),
+  Schema.check(
+    Schema.isPattern(/^[a-zA-Z]+$/, {
+      message: 'Font category key must contain only alphabetic characters (a-zA-Z)',
+    })
+  )
 )
 
 /**
@@ -82,7 +82,8 @@ export const FontConfigItemSchema = Schema.Struct({
     Schema.Array(FontWeightSchema).pipe(
       Schema.annotate({
         title: 'Font Weights',
-        description: 'Available font weights',
+        description:
+          'Superseded — reaches nothing. Only `weights[0]` was ever read, by a renderer since removed, and it never reached an `@font-face` rule. Declare the weight per step under `design.typeScale.steps`, and request the faces you need through `url`.',
         examples: [
           [400, 700],
           [300, 400, 500, 600, 700],
@@ -101,7 +102,8 @@ export const FontConfigItemSchema = Schema.Struct({
     Schema.String.pipe(
       Schema.annotate({
         title: 'Font Size',
-        description: 'Default font size',
+        description:
+          'Superseded — reaches nothing. It never became a CSS custom property and does not set the document base size. Declare the size per step under `design.typeScale.steps`.',
         examples: ['16px', '1rem', '14px'],
       })
     )
@@ -110,7 +112,8 @@ export const FontConfigItemSchema = Schema.Struct({
     Schema.String.pipe(
       Schema.annotate({
         title: 'Line Height',
-        description: 'Default line height',
+        description:
+          'Superseded — reaches nothing. No CSS custom property is emitted for it. Declare the leading per step under `design.typeScale.steps`.',
         examples: ['1.5', '1.75', '24px'],
       })
     )

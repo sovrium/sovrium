@@ -8,6 +8,7 @@
 import { resolveSessionTemplate } from '@/presentation/design/session-template'
 import { renderTextComponentMarkdown } from '@/presentation/render/markdown/text-component-markdown'
 import * as Renderers from '../elements'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import { kbdComponent } from './kbd-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 
@@ -104,7 +105,7 @@ export const textComponents: Partial<Record<DispatchableComponentType, Component
       const safeHtml = renderTextComponentMarkdown(content)
       return (
         <article
-          {...elementProps}
+          {...omitInternalMarkers(elementProps)}
           data-component="markdown"
           // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR one-shot; HTML is pre-rendered + canonically sanitised
           dangerouslySetInnerHTML={{ __html: safeHtml }}

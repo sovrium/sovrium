@@ -23,21 +23,40 @@ import { commonFieldProps } from '../form-field-props'
  * page via `formRef`.
  */
 export const TableBoundFieldSchema = Schema.Struct({
-  kind: Schema.Literal('table-field'),
+  kind: Schema.Literal('table-field').annotate({
+    description: 'Which kind of field this is. It decides which of the other keys apply.',
+  }),
   /** Column name on `submitTo.table`. */
-  column: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  column: Schema.String.annotate({
+    description: "Name of the column on the form's target table that this field reads and writes.",
+  }).pipe(Schema.check(Schema.isMinLength(1))),
   /** Comma-separated MIME types or extensions for attachment inputs. */
-  accept: Schema.optional(Schema.String),
+  accept: Schema.optional(
+    Schema.String.annotate({
+      description: 'Comma-separated MIME types or file extensions the file picker accepts.',
+    })
+  ),
   /** Maximum file size (bytes) for each uploaded file. */
   maxFileSize: Schema.optional(
-    Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))
+    Schema.Finite.pipe(
+      Schema.annotate({ description: 'Largest size, in bytes, accepted for each uploaded file.' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
+    )
   ),
   /** Maximum number of files for `multiple-attachments` columns. */
   maxFiles: Schema.optional(
-    Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))
+    Schema.Finite.pipe(
+      Schema.annotate({
+        description:
+          'Largest number of files the person may attach, for a multiple-attachments column.',
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
+    )
   ),
   /** Render a drag-and-drop zone alongside the file picker. */
-  dropZone: Schema.optional(Schema.Boolean),
+  dropZone: Schema.optional(
+    Schema.Boolean.annotate({ description: 'Shows a drag-and-drop area next to the file picker.' })
+  ),
   ...commonFieldProps,
 }).annotate({
   identifier: 'TableBoundField',

@@ -27,20 +27,19 @@ export const CheckConstraintSchema = Schema.Struct({
    * Constraint name (must be unique within the table)
    */
   name: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1), Schema.isPattern(/^[a-z][a-z0-9_]*$/)),
     Schema.annotate({
       title: 'Constraint Name',
       description:
         'Unique name for the CHECK constraint (lowercase, alphanumeric with underscores)',
       examples: ['chk_active_members_have_email', 'chk_price_positive', 'chk_end_after_start'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1), Schema.isPattern(/^[a-z][a-z0-9_]*$/))
   ),
 
   /**
    * SQL check expression
    */
   check: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Check Expression',
       description: 'PostgreSQL boolean expression that must evaluate to TRUE for valid data',
@@ -50,7 +49,8 @@ export const CheckConstraintSchema = Schema.Struct({
         'end_date > start_date',
         "(status = 'completed') OR (completed_at IS NULL)",
       ],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 })
 

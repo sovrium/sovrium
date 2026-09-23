@@ -93,10 +93,10 @@ export const ListItemTemplateSchema = Schema.Struct({
   /** Additional metadata fields in the item footer */
   metadata: Schema.optional(
     Schema.Array(ListItemMetadataSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Metadata fields displayed in the list item footer',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).annotate({
@@ -166,11 +166,11 @@ export const ListDisplaySchema = Schema.Struct({
   /** Maximum number of items to display */
   maxItems: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
         description: 'Maximum number of items to display',
         examples: [20, 50, 100],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 }).annotate({

@@ -63,8 +63,8 @@ export const TimelineDependencySchema = Schema.Struct({
 export const DataTimelineSchema = Schema.Struct({
   /** Field name containing the record's start date (required) */
   startField: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'Field name for the start date of each timeline bar' })
+    Schema.annotate({ description: 'Field name for the start date of each timeline bar' }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /** Field name containing the record's end date (omit for point markers) */
@@ -105,6 +105,7 @@ export const DataTimelineSchema = Schema.Struct({
 
   /** Whether to show a "today" marker line on the time axis */
   showToday: Schema.Boolean.annotate({
+    defaultNote: 'true',
     description: 'Display a vertical marker line at the current date (default true)',
   }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(true))),
 

@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const DataLookupActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('data'),
-  operator: Schema.Literal('lookup'),
+  type: Schema.Literal('data').pipe(
+    Schema.annotate({
+      description: "Constant value 'data' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('lookup').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'data' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Template reference to the array of records to search */
     input: TemplateStringSchema.pipe(
@@ -32,6 +41,8 @@ export const DataLookupActionSchema = Schema.Struct({
     value: TemplateStringSchema.pipe(
       Schema.annotate({ description: 'Value the key field must equal (supports templates)' })
     ),
+  }).annotate({
+    description: 'The list to search, the key to search on, and the value to find.',
   }),
 }).pipe(
   Schema.annotate({

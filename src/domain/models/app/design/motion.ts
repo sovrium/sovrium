@@ -67,7 +67,11 @@ import {
  * ```
  */
 export const AnimationConfigObjectSchema = Schema.Struct({
-  enabled: Schema.optional(Schema.Boolean),
+  enabled: Schema.optional(
+    Schema.Boolean.annotate({
+      description: 'Turns the animation off without deleting it, leaving the end state in place.',
+    })
+  ),
   // The DESIGN layer's own duration and easing grammars, deliberately, and not
   // the ones a page component's hover block uses.
   //
@@ -85,10 +89,23 @@ export const AnimationConfigObjectSchema = Schema.Struct({
   // arguments. Tightening the design grammar to match would be the better
   // repair, but it changes what `design.motion.easings` accepts and belongs in
   // its own change with its own specs.
-  duration: Schema.optional(DurationValueSchema),
-  easing: Schema.optional(EasingValueSchema),
-  delay: Schema.optional(DurationValueSchema),
-  keyframes: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  duration: Schema.optional(
+    DurationValueSchema.annotate({ description: 'How long one run of the animation takes.' })
+  ),
+  easing: Schema.optional(
+    EasingValueSchema.annotate({
+      description: 'How the animation accelerates and decelerates over its duration.',
+    })
+  ),
+  delay: Schema.optional(
+    DurationValueSchema.annotate({ description: 'How long to wait before the animation starts.' })
+  ),
+  keyframes: Schema.optional(
+    Schema.Record(Schema.String, Schema.Unknown).annotate({
+      description:
+        'The steps the animation moves through, written inline instead of naming one of the shared keyframe blocks.',
+    })
+  ),
 }).pipe(
   Schema.annotate({
     title: 'Animation Configuration Object',
@@ -123,20 +140,19 @@ const MOTION_NAME_HINT =
 export const DesignMotionSchema = Schema.Struct({
   /** The duration ladder — `fast`, `base`, `deliberate`. Becomes `duration-<name>`. */
   durations: Schema.optional(
-    ladderRecord(DurationValueSchema, 'design.motion.durations', 'Duration Step', [
-      'fast',
-      'base',
-      'slow',
-    ])
+    ladderRecord(DurationValueSchema, 'design.motion.durations', 'Duration Step', {
+      keyExamples: ['fast', 'base', 'slow'],
+      description:
+        'The named lengths animations are allowed to take, from the quickest to the slowest.',
+    })
   ),
 
   /** The curve set — `enter`, `exit`, `emphasized`. Becomes `ease-<name>`. */
   easings: Schema.optional(
-    ladderRecord(EasingValueSchema, 'design.motion.easings', 'Easing Step', [
-      'default',
-      'enter',
-      'exit',
-    ])
+    ladderRecord(EasingValueSchema, 'design.motion.easings', 'Easing Step', {
+      keyExamples: ['default', 'enter', 'exit'],
+      description: 'The named acceleration curves animations are allowed to use.',
+    })
   ),
 
   /** Named, reusable keyframe blocks. Each becomes an `@keyframes` rule. */
@@ -147,6 +163,8 @@ export const DesignMotionSchema = Schema.Struct({
       keyHint: MOTION_NAME_HINT,
       keyTitle: 'Keyframe Name',
       keyExamples: ['fadeIn', 'slideUp'],
+      description:
+        'Reusable sets of animation steps, each named, that the animations below refer to by name.',
     })
   ),
 
@@ -158,6 +176,8 @@ export const DesignMotionSchema = Schema.Struct({
       keyHint: MOTION_NAME_HINT,
       keyTitle: 'Animation Name',
       keyExamples: ['fadeIn', 'slideUp', 'modalOpen'],
+      description:
+        'The animations the app can play, each named and each spending one duration and one easing curve.',
     })
   ),
 }).pipe(

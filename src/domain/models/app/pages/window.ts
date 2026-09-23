@@ -74,12 +74,12 @@ export const PageWindowPresetSchema = Schema.Struct({
    * name and silently re-keys the published property universe.
    */
   id: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description:
         'Look-back span and URL value: a positive integer plus h, d or w (e.g. 24h, 7d, 30d)',
       examples: ['24h', '7d', '30d'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /**
    * Bucket width for a time series read at this window.
@@ -100,11 +100,11 @@ export const PageWindowPresetSchema = Schema.Struct({
    */
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Phrase naming this window in visible copy (default: derived from the span)',
         examples: ['last 7 days', '$t:analytics.window.7d'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).annotate({
@@ -221,27 +221,27 @@ export const PageWindowSchema = Schema.Struct({
    */
   param: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: "URL query key selecting the window (default: 'period')",
         examples: ['period', 'range'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Preset id used when the URL omits the parameter or supplies an undeclared one */
   default: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Preset id used when the URL omits the parameter or names an undeclared preset',
       examples: ['7d'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** The selectable windows, in selector order */
   presets: Schema.Array(PageWindowPresetSchema).pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Selectable look-back windows, in selector order; at least one required',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).annotate({
   identifier: 'PageWindow',

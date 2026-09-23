@@ -8,21 +8,13 @@
 import { Schema } from 'effect'
 
 /**
- * LlmsSchema configures the auto-generated `/llms.txt` and `/llms-full.txt`
- * routes (the llmstxt.org convention for surfacing site content to LLMs).
+ * Configuration for the auto-generated `/llms.txt` and `/llms-full.txt` routes.
  *
- * The routes are auto-derived whenever an app declares content-directory pages,
- * so this whole block is optional — operators only need it to disable the
- * feature or to override the generated heading/description.
- *
- * @example
- * ```typescript
- * // Disable the feature
- * llms: { enabled: false }
- *
- * // Override the heading + blockquote
- * llms: { title: 'Sovrium Docs', description: 'The official documentation' }
- * ```
+ * The reader-facing explanation — what the convention is, when the block is
+ * needed at all, and what the inherited defaults fall back to — lives in
+ * `llms.docs.md` beside this file, and its option table is expanded from the
+ * annotations below rather than transcribed. Keep behaviour notes here and
+ * prose there, so the two cannot come to disagree.
  */
 export const LlmsSchema = Schema.Struct({
   /**
@@ -45,8 +37,8 @@ export const LlmsSchema = Schema.Struct({
    */
   title: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Override the H1 title at the top of /llms.txt' })
+      Schema.annotate({ description: 'Override the H1 title at the top of /llms.txt' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 
@@ -56,8 +48,8 @@ export const LlmsSchema = Schema.Struct({
    */
   description: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Override the blockquote description in /llms.txt' })
+      Schema.annotate({ description: 'Override the blockquote description in /llms.txt' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 
@@ -67,7 +59,10 @@ export const LlmsSchema = Schema.Struct({
    */
   full: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotate({ description: 'Serve /llms-full.txt with concatenated bodies' })
+      Schema.annotate({
+        defaultNote: 'true',
+        description: 'Serve /llms-full.txt with concatenated bodies',
+      })
     )
   ),
 }).pipe(

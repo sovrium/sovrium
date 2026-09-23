@@ -53,33 +53,33 @@ export const ComponentGuidanceSchema = Schema.Struct({
   /** What this component is. */
   usage: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1, { message: 'Component usage must not be empty' })),
       Schema.annotate({
         description: 'What this component is',
         examples: ['A titled band introducing a page section.'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1, { message: 'Component usage must not be empty' }))
     )
   ),
 
   /** The situation that selects this component over its neighbours. */
   when: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1, { message: 'Component `when` must not be empty' })),
       Schema.annotate({
         description: 'The situation that selects this component over its neighbours',
         examples: ['Use above any section carrying more than three children.'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1, { message: 'Component `when` must not be empty' }))
     )
   ),
 
   /** The misuse to refuse. */
   dont: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1, { message: 'Component `dont` must not be empty' })),
       Schema.annotate({
         description: 'The misuse to refuse',
         examples: ['Never nest one inside another — the heading levels collide.'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1, { message: 'Component `dont` must not be empty' }))
     )
   ),
 }).pipe(

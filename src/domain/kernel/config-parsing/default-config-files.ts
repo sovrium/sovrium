@@ -58,6 +58,11 @@ export const formatDiscoveredConfigNotice = (filename: string): string =>
  * The line a refusal prints to say what it probed for, and where.
  *
  * Without it the user is told a config is missing but not what to call one.
+ *
+ * `root` is the PROJECT directory rather than the working directory, and the
+ * two differ whenever a supervisor set `SOVRIUM_PROJECT_DIR`. Naming the
+ * working directory there would send the user to look in a folder the engine
+ * never probed.
  */
-export const formatConfigCandidatesLine = (cwd: string): string =>
-  `Looked for ${DEFAULT_CONFIG_FILENAMES.join(', ')} in ${cwd}.`
+export const formatConfigCandidatesLine = (root: string): string =>
+  `Looked for ${DEFAULT_CONFIG_FILENAMES.join(', ')} in ${root}.`

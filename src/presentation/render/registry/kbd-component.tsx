@@ -33,6 +33,7 @@ import {
   computeKbdChordClasses,
   computeKbdSeparatorClasses,
 } from '../../design/interactive-content-default-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
@@ -85,7 +86,7 @@ export const kbdComponent: ComponentRenderer = ({ elementPropsWithSpacing, compo
     : []
   const declaredSeparator = source['separator']
   const separator = typeof declaredSeparator === 'string' ? declaredSeparator : undefined
-  const { className: authorClassName, ...rest } = elementPropsWithSpacing
+  const { className: authorClassName, ...rest } = omitInternalMarkers(elementPropsWithSpacing)
 
   return (
     <span

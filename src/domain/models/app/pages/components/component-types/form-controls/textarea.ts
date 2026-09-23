@@ -18,14 +18,14 @@ export const textareaFields = {
   ...i18nFields,
   rows: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Number of visible text rows for textarea' })
+      Schema.annotate({ description: 'Number of visible text rows for textarea' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
   maxLength: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Maximum character count for textarea' })
+      Schema.annotate({ description: 'Maximum character count for textarea' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
   autoResize: Schema.optional(

@@ -45,15 +45,38 @@ import {
  */
 export const LinkUpdateActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('link'),
-  operator: Schema.Literal('update'),
+  type: Schema.Literal('link').pipe(
+    Schema.annotate({
+      description: "Constant value 'link' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('update').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'link' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     slug: LinkActionSlugSchema,
     destination: Schema.optional(LinkActionDestinationSchema),
-    title: Schema.optional(Schema.NullOr(LinkActionTitleSchema)),
+    // The `NullOr` wrapper is a NEW node and the description on the schema it
+    // wraps does not reach it, so each one states its own sparse-edit contract.
+    title: Schema.optional(
+      Schema.NullOr(LinkActionTitleSchema).annotate({
+        description:
+          'New human-facing name, shown in the admin console. Templated; `null` clears the name, omitting the key leaves it alone.',
+      })
+    ),
     tags: Schema.optional(LinkActionTagsSchema),
-    notes: Schema.optional(Schema.NullOr(LinkActionNotesSchema)),
+    notes: Schema.optional(
+      Schema.NullOr(LinkActionNotesSchema).annotate({
+        description:
+          'New operator notes, shown in the admin console only. Templated; `null` clears them, omitting the key leaves them alone.',
+      })
+    ),
     utm: Schema.optional(LinkActionUtmPatchSchema),
+  }).annotate({
+    description: 'The short link to change, and the new destination, notes or tracking.',
   }),
 }).pipe(
   Schema.annotate({

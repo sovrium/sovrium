@@ -41,33 +41,60 @@ export type RowLevelFilterOperator = Schema.Schema.Type<typeof RowLevelFilterOpe
  */
 export const RowLevelPredicateSchema = Schema.Struct({
   field: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Table field (or relation chain like "project.client_id") to filter on',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   operator: RowLevelFilterOperatorSchema,
   value: Schema.Union([
     Schema.String,
     Schema.Finite,
     Schema.Boolean,
-    Schema.Array(Schema.String),
-    Schema.Array(Schema.Finite),
+    Schema.Array(
+      Schema.String.annotate({
+        description: 'One of the values the field is matched against, for the `in` operator.',
+      })
+    ),
+    Schema.Array(
+      Schema.Finite.annotate({
+        description: 'One of the values the field is matched against, for the `in` operator.',
+      })
+    ),
     Schema.Struct({
-      kind: Schema.Literal('currentUser'),
+      kind: Schema.Literal('currentUser').annotate({
+        description:
+          'Marks the value as a reference to the signed-in person rather than a literal, resolved per request from their session.',
+      }),
       path: Schema.Union([
         Schema.Struct({
-          kind: Schema.Literal('scalar'),
-          name: Schema.Literals(['id', 'email', 'role', 'isUnrestricted']),
+          kind: Schema.Literal('scalar').annotate({
+            description:
+              'Which part of the signed-in person is read: `scalar` one of their own properties, `assignment` the ids of the records they are assigned to in `tableSlug`, `activeAssignment` their currently active assignment.',
+          }),
+          name: Schema.Literals(['id', 'email', 'role', 'isUnrestricted']).annotate({
+            description: 'Which property of the signed-in person the value is taken from.',
+          }),
         }),
         Schema.Struct({
-          kind: Schema.Literal('assignment'),
-          tableSlug: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+          kind: Schema.Literal('assignment').annotate({
+            description:
+              'Which part of the signed-in person is read: `scalar` one of their own properties, `assignment` the ids of the records they are assigned to in `tableSlug`, `activeAssignment` their currently active assignment.',
+          }),
+          tableSlug: Schema.String.annotate({
+            description: 'Table the signed-in person is assigned through.',
+          }).pipe(Schema.check(Schema.isMinLength(1))),
         }),
         Schema.Struct({
-          kind: Schema.Literal('activeAssignment'),
+          kind: Schema.Literal('activeAssignment').annotate({
+            description:
+              'Which part of the signed-in person is read: `scalar` one of their own properties, `assignment` the ids of the records they are assigned to in `tableSlug`, `activeAssignment` their currently active assignment.',
+          }),
         }),
-      ]),
+      ]).annotate({
+        description:
+          'Which part of the signed-in person the value is read from: one of their own properties, the records they are assigned to in a table, or their currently active assignment.',
+      }),
     }),
   ]).pipe(
     Schema.annotate({
@@ -135,10 +162,10 @@ export const RowLevelPredicateGroupSchema: Schema.Codec<RowLevelPredicateGroup> 
       Schema.suspend((): Schema.Codec<RowLevelPredicateGroup> => RowLevelPredicateGroupSchema),
     ])
   ).pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'One or more predicates (each a triple or a nested group) to combine',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).pipe(
   Schema.annotate({
@@ -214,13 +241,29 @@ export type RowLevelWhen = Schema.Schema.Type<typeof RowLevelWhenSchema>
  */
 export const RowLevelPermissionsSchema = Schema.Struct({
   /** Records visible to the requester (filters SELECT/list/get-by-id) */
-  read: Schema.optional(Schema.Struct({ when: RowLevelWhenSchema })),
+  read: Schema.optional(
+    Schema.Struct({ when: RowLevelWhenSchema }).annotate({
+      description: 'Which records the requester may see at all; the others are filtered out.',
+    })
+  ),
   /** Records the requester may modify (filters UPDATE) */
-  write: Schema.optional(Schema.Struct({ when: RowLevelWhenSchema })),
+  write: Schema.optional(
+    Schema.Struct({ when: RowLevelWhenSchema }).annotate({
+      description: 'Which existing records the requester may change.',
+    })
+  ),
   /** Constraints on records the requester may insert (validates new row) */
-  create: Schema.optional(Schema.Struct({ when: RowLevelWhenSchema })),
+  create: Schema.optional(
+    Schema.Struct({ when: RowLevelWhenSchema }).annotate({
+      description: 'What a record the requester creates has to satisfy.',
+    })
+  ),
   /** Records the requester may soft-delete */
-  delete: Schema.optional(Schema.Struct({ when: RowLevelWhenSchema })),
+  delete: Schema.optional(
+    Schema.Struct({ when: RowLevelWhenSchema }).annotate({
+      description: 'Which records the requester may delete.',
+    })
+  ),
 }).pipe(
   Schema.annotate({
     identifier: 'RowLevelPermissions',

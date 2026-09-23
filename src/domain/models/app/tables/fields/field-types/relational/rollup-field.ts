@@ -16,14 +16,18 @@ import { BaseFieldSchema } from '../base-field'
 
 export const RollupFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('rollup'),
+    type: Schema.Literal('rollup').pipe(
+      Schema.annotate({
+        description: "Constant value 'rollup' for type discrimination in discriminated unions",
+      })
+    ),
     relationshipField: Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'relationshipField is required' })),
-      Schema.annotate({ description: 'Name of the relationship field to aggregate from' })
+      Schema.annotate({ description: 'Name of the relationship field to aggregate from' }),
+      Schema.check(Schema.isNonEmpty({ message: 'relationshipField is required' }))
     ),
     relatedField: Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'relatedField is required' })),
-      Schema.annotate({ description: 'Name of the field in the related table to aggregate' })
+      Schema.annotate({ description: 'Name of the field in the related table to aggregate' }),
+      Schema.check(Schema.isNonEmpty({ message: 'relatedField is required' }))
     ),
     aggregation: Schema.String.pipe(
       Schema.annotate({

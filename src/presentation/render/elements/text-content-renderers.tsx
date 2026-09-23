@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ElementProps } from './html-element-renderer'
 
 // NOTE ([internal ref] cleanup): `renderContent` was removed because no consumer
@@ -20,7 +21,7 @@ export function renderParagraph(
   content: string | undefined,
   children: readonly React.ReactNode[]
 ): ReactElement {
-  return <p {...props}>{content || children}</p>
+  return <p {...omitInternalMarkers(props)}>{content || children}</p>
 }
 
 /**
@@ -31,7 +32,7 @@ export function renderCode(
   content: string | undefined,
   children: readonly React.ReactNode[]
 ): ReactElement {
-  return <code {...props}>{content || children}</code>
+  return <code {...omitInternalMarkers(props)}>{content || children}</code>
 }
 
 /**
@@ -42,7 +43,7 @@ export function renderPre(
   content: string | undefined,
   children: readonly React.ReactNode[]
 ): ReactElement {
-  return <pre {...props}>{content || children}</pre>
+  return <pre {...omitInternalMarkers(props)}>{content || children}</pre>
 }
 
 /**
@@ -53,5 +54,5 @@ export function renderBlockquote(
   content: string | undefined,
   children: readonly React.ReactNode[]
 ): ReactElement {
-  return <blockquote {...props}>{content || children}</blockquote>
+  return <blockquote {...omitInternalMarkers(props)}>{content || children}</blockquote>
 }

@@ -21,6 +21,7 @@ import { AppSchema } from '@/domain/models/app'
 import { writePrecompiledCSS } from '@/infrastructure/css/cache/css-cache-service'
 import { getVersionedCssFileName } from '@/infrastructure/css/versioned-css-path'
 import { logDebug } from '@/infrastructure/logging'
+import { generateLlmsFiles } from './generate-llms-files'
 import {
   fs,
   path,
@@ -32,7 +33,6 @@ import {
   applyHtmlOptimizations,
   generateSitemapFile,
   generateRobotsFile,
-  generateLlmsFiles,
   generateGitHubPagesFiles,
   type FileSystemLike,
 } from './generate-static-helpers'

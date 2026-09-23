@@ -384,11 +384,11 @@ export const PageSchema = Schema.Struct({
         /** Maximum number of items in the RSS feed */
         limit: Schema.optional(
           Schema.Finite.pipe(
-            Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
             Schema.annotate({
               description: 'Maximum number of items in the RSS feed',
               examples: [10, 20, 50],
-            })
+            }),
+            Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
           )
         ),
       }),
@@ -568,6 +568,11 @@ export const PageSchema = Schema.Struct({
     Schema.Struct({
       /** Redirect target with `{field}` placeholders resolved from the first row */
       hrefTemplate: Schema.String.pipe(
+        Schema.annotate({
+          description:
+            'Redirect target path with {field} placeholders filled from the first resolved row',
+          examples: ['/tables/{name}', '/_admin/data/forms/{slug}'],
+        }),
         Schema.check(
           Schema.isMinLength(1),
           Schema.isPattern(/^\//, { message: 'hrefTemplate must be a path starting with /' }),
@@ -575,12 +580,7 @@ export const PageSchema = Schema.Struct({
             message:
               'hrefTemplate must carry at least one {field} placeholder resolved from the first row — a constant target needs no redirectToFirst',
           })
-        ),
-        Schema.annotate({
-          description:
-            'Redirect target path with {field} placeholders filled from the first resolved row',
-          examples: ['/tables/{name}', '/_admin/data/forms/{slug}'],
-        })
+        )
       ),
     }).annotate({
       identifier: 'PageRedirectToFirst',

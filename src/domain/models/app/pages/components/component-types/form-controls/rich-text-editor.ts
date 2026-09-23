@@ -98,12 +98,12 @@ export const richTextEditorFields = {
    */
   name: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Form field name. The editor keeps a hidden input under it holding the sanitised HTML, so an enclosing form submits the value. Omit for a display-only editor.',
         examples: ['notes'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** The HTML the editor opens with. */
@@ -160,13 +160,13 @@ export const richTextEditorFields = {
    */
   imageBucket: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Image Bucket',
         description:
           'Bucket the image button and the paste handler upload into (default: `default`). The uploaded URL is inserted, never base64. Unread — INERT, not refused — under a `toolbar` that omits `image`, since there is then no button to upload from.',
         examples: ['attachments'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 } as const

@@ -19,17 +19,17 @@ import { Schema } from 'effect'
  * ```
  */
 export const TranslationKeySchema = Schema.String.pipe(
+  Schema.annotate({
+    title: 'Translation Key',
+    description: 'Key for centralized translations dictionary',
+    examples: ['common.save', 'nav.home', 'homepage.hero.title', 'errors.404'],
+  }),
   Schema.check(
     Schema.isPattern(/^[a-zA-Z0-9._-]+$/, {
       message:
         'Translation key must contain only alphanumeric characters, dots, hyphens, and underscores',
     })
-  ),
-  Schema.annotate({
-    title: 'Translation Key',
-    description: 'Key for centralized translations dictionary',
-    examples: ['common.save', 'nav.home', 'homepage.hero.title', 'errors.404'],
-  })
+  )
 )
 
 /**

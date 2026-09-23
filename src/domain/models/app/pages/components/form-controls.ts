@@ -16,11 +16,11 @@ import { OptionItemSchema } from './shared-schemas'
  * Array of option items for selection-based form controls
  */
 export const OptionsSchema = Schema.Array(OptionItemSchema).pipe(
-  Schema.check(Schema.isMinLength(1)),
   Schema.annotate({
     title: 'Options',
     description: 'Array of selectable options for select, radio-group, or combobox',
-  })
+  }),
+  Schema.check(Schema.isMinLength(1))
 )
 
 // ---------------------------------------------------------------------------

@@ -49,7 +49,11 @@ export const DesignSpacingSchema = ladderRecord(
   ),
   'design.spacing',
   'Spacing Step',
-  ['0', 'px', '0-5', '4']
+  {
+    keyExamples: ['0', 'px', '0-5', '4'],
+    description:
+      "The app's spacing ladder. Each step's name becomes the suffix of every spacing utility — padding, margin, gap and the rest.",
+  }
 ).pipe(
   Schema.annotate({
     identifier: 'DesignSpacing',

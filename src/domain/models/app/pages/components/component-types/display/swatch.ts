@@ -75,13 +75,13 @@ export const swatchFields = {
    * the value itself rather than a reference to one.
    */
   token: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Token',
       description:
         'The token to draw: a `--sv-*` custom-property name or a `design.ramps` step for a colour, or an easing name / `cubic-bezier(...)` literal under variant: curve',
       examples: ['--sv-color-primary', 'neutral-500', 'enter'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** Caption under the swatch. Falls back to the token name. */
   label: Schema.optional(

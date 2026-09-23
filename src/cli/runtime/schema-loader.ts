@@ -12,6 +12,7 @@
  * Orchestrates domain and infrastructure layers.
  */
 
+import { join, resolve as resolvePath } from 'node:path'
 import { Effect } from 'effect'
 import {
   formatConfigCandidatesLine,
@@ -25,6 +26,11 @@ import {
 } from '@/domain/kernel/config-parsing/format-detection'
 import { parseJsonContent, parseYamlContent } from '@/domain/models/app/app-content-parsing'
 import {
+  parseConfigFileName,
+  parseProjectDir,
+  resolveInProjectDir,
+} from '@/domain/models/process-env/desktop'
+import {
   loadSchemaFromFile as loadFromFile,
   loadSchemaGraphFromFile,
   fileExists,
@@ -33,7 +39,7 @@ import {
 } from '@/infrastructure/config'
 import { printStderr, renderStderr } from '@/infrastructure/logging/cli-output'
 import type { AppEncoded } from '@/domain/models/app'
-import type { LoadedConfigGraph } from '@/infrastructure/config'
+import type { ConfigGraphLoadOptions, LoadedConfigGraph } from '@/infrastructure/config'
 
 /**
  * Load schema from file with CLI error handling (calls process.exit on error)
@@ -100,9 +106,19 @@ export const loadSchemaFromFile = async (
  * from — because a reload must both evaluate a `.ts` root fresh (a plain
  * `import()` hands back the module cached at boot) and re-derive the set of
  * files the watcher follows (a reload can add or drop an import or a `$ref`).
+ *
+ * A second caller now takes the same path for a different question.
+ * `_config_write_file` ([internal ref] A8 surface 10) passes a `readFile` OVERLAY so a
+ * candidate edit stands in for one file of the graph, and asks whether the
+ * resulting app still decodes — before any of it reaches the disk. The overlay
+ * is what makes editing a `$ref` PARTIAL safe: `config/tables/visits.yaml` is
+ * then judged as part of the app it belongs to rather than as a standalone
+ * document that happens to parse.
  */
-export const loadSchemaGraphForReload = async (filePath: string): Promise<LoadedConfigGraph> =>
-  loadSchemaGraphFromFile(filePath)
+export const loadSchemaGraphForReload = async (
+  filePath: string,
+  options: ConfigGraphLoadOptions = {}
+): Promise<LoadedConfigGraph> => loadSchemaGraphFromFile(filePath, options)
 
 /**
  * Parse schema from environment variable value
@@ -152,7 +168,7 @@ const showNoConfigError = (command: string): never => {
       // Name what was probed AND where. "No configuration provided" alone tells
       // the user a config is missing but not what to call one — the exact gap
       // that made the `sovrium init` → `sovrium start` flow unrecoverable.
-      yield* renderStderr(formatConfigCandidatesLine(process.cwd()))
+      yield* renderStderr(formatConfigCandidatesLine(parseProjectDir()))
       yield* renderStderr('')
       yield* renderStderr('Usage:')
       yield* renderStderr(`  sovrium ${command} <config.yaml>`)
@@ -161,6 +177,32 @@ const showNoConfigError = (command: string): never => {
       yield* renderStderr(`  APP_SCHEMA='{"name":"My App"}' sovrium ${command}`)
       yield* renderStderr('')
       yield* renderStderr("Run 'sovrium init' to scaffold a new project.")
+    })
+  )
+  // eslint-disable-next-line functional/no-expression-statements
+  process.exit(1)
+}
+
+/**
+ * Refuse a `SOVRIUM_CONFIG_FILE` that resolves out of the project directory.
+ *
+ * Refused BEFORE any read, which is the whole point: the value names a file in
+ * the project, so a traversing one is either a mistake or an attempt to make a
+ * supervised engine read something the supervisor never handed it. Either way
+ * the contents must not reach the output.
+ */
+const showConfigFileEscapedError = (value: string, projectDir: string): never => {
+  Effect.runSync(
+    Effect.gen(function* () {
+      yield* renderStderr(`Error: SOVRIUM_CONFIG_FILE resolves outside the project directory`)
+      yield* renderStderr('')
+      yield* renderStderr(`  SOVRIUM_CONFIG_FILE: ${value}`)
+      yield* renderStderr(`  Project directory:   ${projectDir}`)
+      yield* renderStderr('')
+      yield* renderStderr(
+        'It names a config file within the project directory, so it must stay inside it.'
+      )
+      yield* renderStderr('To run a config elsewhere, point SOVRIUM_PROJECT_DIR at its folder.')
     })
   )
   // eslint-disable-next-line functional/no-expression-statements
@@ -251,14 +293,52 @@ export const resolveAppSchema = async (
   // config has to anchor `public/`, the config hash, `SOVRIUM_CONTENT_DIR` and
   // `--watch` exactly as a named one does. That equivalence IS the acceptance
   // criterion, not an implementation nicety.
-  const discovered = await discoverDefaultConfigFile(process.cwd())
-  if (discovered) {
-    printStderr(formatDiscoveredConfigNotice(discovered))
-    return { app: await loadSchemaFromFile(discovered, command), configFile: discovered }
+  //
+  // The root probed is the PROJECT directory, which is the working directory
+  // unless a supervisor named another one. Steps 1–3 above are untouched by
+  // that variable on purpose: it moves where an IMPLICIT config is looked for,
+  // never what an explicit one resolves to.
+  const inProject = await resolveConfigInProjectDir()
+  if (inProject) {
+    return { app: await loadSchemaFromFile(inProject, command), configFile: inProject }
   }
 
   // No configuration provided
   return showNoConfigError(command)
+}
+
+/**
+ * Step 4 of the resolution order: find the config inside the project directory.
+ *
+ * Returns the path to load, or `undefined` when the directory holds none —
+ * refusing outright only for a `SOVRIUM_CONFIG_FILE` that escapes the project,
+ * which is a stated instruction the engine cannot honour rather than an absence
+ * it can report.
+ */
+const resolveConfigInProjectDir = async (): Promise<string | undefined> => {
+  const projectDir = parseProjectDir()
+
+  // A named config file REPLACES the candidate probe rather than joining it: a
+  // supervisor that says `staging.yaml` means that file, and falling back to
+  // `app.yaml` would boot something it never asked for.
+  const namedConfigFile = parseConfigFileName()
+  if (namedConfigFile) {
+    const inProject = resolveInProjectDir(namedConfigFile)
+    if (!inProject) return showConfigFileEscapedError(namedConfigFile, projectDir)
+    printStderr(formatDiscoveredConfigNotice(namedConfigFile))
+    return inProject
+  }
+
+  const discovered = await discoverDefaultConfigFile(projectDir)
+  if (!discovered) return undefined
+
+  printStderr(formatDiscoveredConfigNotice(discovered))
+  // The BARE filename when the project directory is the working directory —
+  // the shape every invocation resolves to today, and what the watch banner,
+  // the config hash and the public-dir anchor have always seen. Joined only
+  // when a supervisor moved the root, where a bare name would resolve against
+  // the wrong directory.
+  return projectDir === resolvePath('.') ? discovered : join(projectDir, discovered)
 }
 
 /**

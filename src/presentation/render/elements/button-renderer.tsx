@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import {
   buildAuthDataAttributes,
   buildAutomationDataAttributes,
@@ -28,10 +29,17 @@ import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 import type { Tables } from '@/domain/models/app/tables'
 
 /**
- * Render an action-bearing button: strips the synthetic `label` / `_record` /
- * `_dataSourceBound` props, resolves the visible content (content → children →
- * label fallback), and merges the action's data attributes onto the element.
- * Shared by the automation / auth / fetch renderers so each stays a one-liner.
+ * Render an action-bearing button: strips the synthetic `label` prop and the
+ * internal data-source markers, resolves the visible content (content →
+ * children → label fallback), and merges the action's data attributes onto the
+ * element. Shared by the automation / auth / fetch renderers so each stays a
+ * one-liner.
+ *
+ * The marker strip goes through `omitInternalMarkers` rather than naming keys:
+ * this function used to destructure `_record` and `_dataSourceBound` only, so a
+ * button inside a read-only CRUD form still put `_readOnly` on the element and
+ * React still warned. Naming keys here means re-finding this function every time
+ * the resolve pipeline gains a marker.
  */
 function renderActionButton(
   props: ElementProps,
@@ -43,10 +51,8 @@ function renderActionButton(
   const {
     label: _label,
     'data-label': _dataLabel,
-    _record: _rec,
-    _dataSourceBound: _dsb,
     ...restProps
-  } = props as Record<string, unknown>
+  } = omitInternalMarkers(props) as Record<string, unknown>
   const buttonContent = content || (children.length > 0 ? children : undefined) || label
   // When a destructive `confirm` prompt gates this button (overlaid onto the
   // element props as `data-confirm` by the schema-fallback layer), expose the
@@ -206,7 +212,14 @@ export function renderButton({
 
   // Extract label from props as fallback button text
   const label = (props.label ?? props['data-label']) as string | undefined
-  const { label: _label, 'data-label': _dataLabel, ...restProps } = props as Record<string, unknown>
+  // The plain (action-less) button is a DOM boundary like any other: a button
+  // inside a data-bound container carries the markers too, and this branch used
+  // to strip none of them.
+  const {
+    label: _label,
+    'data-label': _dataLabel,
+    ...restProps
+  } = omitInternalMarkers(props) as Record<string, unknown>
 
   // Store interaction data in data attributes for client-side JavaScript handler
   const buttonProps = clickInteraction

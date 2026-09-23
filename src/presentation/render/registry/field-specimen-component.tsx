@@ -50,6 +50,7 @@
  */
 
 import { fieldSpecimenMarkup } from '@/presentation/render/resolve/field-specimen-resolver'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
 
@@ -95,7 +96,7 @@ export const fieldSpecimenComponent: ComponentRenderer = ({
 
   return (
     <div
-      {...elementPropsWithSpacing}
+      {...omitInternalMarkers(elementPropsWithSpacing)}
       {...attributes}
       // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- the markup IS the specimen; a stateless SSR renderer emitting it once, on the same footing as the swatch painting its own colour. The HTML comes from the crud-form renderer over a decoded `fieldType` the boot rule already checked against the field catalogue, never from user input — and `content` is not an alternative, since its rich-text allowlist sanitiser drops every interactive element and would strip the specimen to bare label text.
       dangerouslySetInnerHTML={{ __html: html }}

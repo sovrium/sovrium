@@ -39,34 +39,59 @@ export const StandaloneInputTypeSchema = Schema.Literals([
  * forms that route only to automations or the submission ledger.
  */
 export const StandaloneFieldSchema = Schema.Struct({
-  kind: Schema.Literal('standalone'),
+  kind: Schema.Literal('standalone').annotate({
+    description: 'Which kind of field this is. It decides which of the other keys apply.',
+  }),
   /** Field name unique within the form. */
-  name: Schema.String.pipe(
-    Schema.check(Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_-]*$/), Schema.isMaxLength(64))
-  ),
+  name: Schema.String.annotate({
+    description:
+      'Identifier for this field within the form; it is the key the answer is stored and reported under.',
+  }).pipe(Schema.check(Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_-]*$/), Schema.isMaxLength(64))),
   /** Input control type. */
   inputType: StandaloneInputTypeSchema,
   /** Choices for select / multi-select / radio fields. */
   options: Schema.optional(
     Schema.Array(
       Schema.Struct({
-        value: Schema.String,
-        label: Schema.optional(Schema.String),
+        value: Schema.String.annotate({
+          description: 'Value stored when this choice is selected.',
+        }),
+        label: Schema.optional(
+          Schema.String.annotate({
+            description: 'Text shown for this choice; the value itself is shown when omitted.',
+          })
+        ),
+      }).annotate({
+        description: 'One choice: the value it stores, and the text it shows.',
       })
-    )
+    ).annotate({
+      description: 'Choices offered by a select, multi-select or radio field.',
+    })
   ),
   /** Accepted MIME types for attachment fields. */
-  accept: Schema.optional(Schema.String),
+  accept: Schema.optional(
+    Schema.String.annotate({
+      description: 'Comma-separated MIME types or file extensions the file picker accepts.',
+    })
+  ),
   /** Max files for attachment fields. */
   maxFiles: Schema.optional(
-    Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))
+    Schema.Finite.pipe(
+      Schema.annotate({ description: 'Largest number of files the person may attach.' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
+    )
   ),
   /** Maximum file size (bytes) for each uploaded file. */
   maxFileSize: Schema.optional(
-    Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))
+    Schema.Finite.pipe(
+      Schema.annotate({ description: 'Largest size, in bytes, accepted for each uploaded file.' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
+    )
   ),
   /** Render a drag-and-drop zone alongside the file picker. */
-  dropZone: Schema.optional(Schema.Boolean),
+  dropZone: Schema.optional(
+    Schema.Boolean.annotate({ description: 'Shows a drag-and-drop area next to the file picker.' })
+  ),
   ...commonFieldProps,
 }).annotate({
   identifier: 'StandaloneField',

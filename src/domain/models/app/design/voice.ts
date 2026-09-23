@@ -16,6 +16,9 @@ import { Schema } from 'effect'
  * it looks like guidance that was lost rather than guidance never written.
  */
 const GuidanceLineSchema = Schema.String.pipe(
+  Schema.annotate({
+    description: 'One writing rule, stated as an instruction a writer can obey',
+  }),
   Schema.check(Schema.isMinLength(1, { message: 'A voice guidance line must not be empty' }))
 )
 
@@ -31,13 +34,13 @@ const GuidanceLineSchema = Schema.String.pipe(
  * first app authored in a language whose register it never enumerated.
  */
 export const VoicePronounSchema = Schema.String.pipe(
-  Schema.check(Schema.isMinLength(1, { message: 'Voice pronoun must not be empty' })),
   Schema.annotate({
     title: 'Address Pronoun',
     description:
       "How the system addresses the reader (e.g. 'tu', 'vous', 'you'). Free-form, because the register contract is per-language.",
     examples: ['tu', 'vous', 'you'],
-  })
+  }),
+  Schema.check(Schema.isMinLength(1, { message: 'Voice pronoun must not be empty' }))
 )
 
 /**
@@ -62,15 +65,38 @@ export const VoicePronounSchema = Schema.String.pipe(
  */
 export const VoiceToneSchema = Schema.Struct({
   /** Moment 1 — a table with zero rows, a feature never used. */
-  empty: Schema.optional(GuidanceLineSchema),
+  empty: Schema.optional(
+    GuidanceLineSchema.annotate({
+      description:
+        'How to write the moment there is nothing to show: a table with no rows, a feature never used.',
+    })
+  ),
   /** Moment 2 — a long-running task the operator is waiting on. */
-  loading: Schema.optional(GuidanceLineSchema),
+  loading: Schema.optional(
+    GuidanceLineSchema.annotate({
+      description: 'How to write the moment the reader is waiting on something to finish.',
+    })
+  ),
   /** Moment 3 — anything that stops the reader: validation, network, refusal. */
-  error: Schema.optional(GuidanceLineSchema),
+  error: Schema.optional(
+    GuidanceLineSchema.annotate({
+      description:
+        'How to write the moment something stops the reader: a refused value, a failed request, a permission denied.',
+    })
+  ),
   /** Moment 4 — a save confirmed, a deploy finished. */
-  success: Schema.optional(GuidanceLineSchema),
+  success: Schema.optional(
+    GuidanceLineSchema.annotate({
+      description: 'How to write the moment something the reader asked for has completed.',
+    })
+  ),
   /** The fifth moment — a confirmation that must name the consequence. */
-  destructive: Schema.optional(GuidanceLineSchema),
+  destructive: Schema.optional(
+    GuidanceLineSchema.annotate({
+      description:
+        'How to write the confirmation before something irreversible: it has to name what is lost and how much.',
+    })
+  ),
 }).pipe(
   Schema.annotate({
     identifier: 'VoiceTone',

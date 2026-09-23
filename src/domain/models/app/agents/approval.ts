@@ -14,18 +14,18 @@ import { Schema } from 'effect'
 export const AgentApprovalEscalationSchema = Schema.Struct({
   /** Seconds before escalation triggers (must be less than parent timeout) */
   after: Schema.Finite.pipe(
-    Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
     Schema.annotate({
       description: 'Seconds before escalation triggers (must be less than timeout)',
-    })
+    }),
+    Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
   ),
 
   /** Role to escalate to (must exist in auth.roles) */
   to: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Role to escalate to (must reference a role defined in auth.roles)',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).pipe(
   Schema.annotate({
@@ -61,8 +61,8 @@ export const AgentApprovalSchema = Schema.Struct({
   required: Schema.optional(
     Schema.Array(
       Schema.String.pipe(
-        Schema.check(Schema.isMinLength(1)),
-        Schema.annotate({ description: 'Action type requiring approval' })
+        Schema.annotate({ description: 'Action type requiring approval' }),
+        Schema.check(Schema.isMinLength(1))
       )
     ).pipe(
       Schema.annotate({
@@ -76,10 +76,11 @@ export const AgentApprovalSchema = Schema.Struct({
   /** Seconds before pending approval expires (defaults to 3600 = 1 hour) */
   timeout: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
-        description: 'Seconds before pending approval expires (defaults to 3600)',
-      })
+        defaultNote: '3600',
+        description: 'Seconds before a pending approval expires unexecuted',
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 

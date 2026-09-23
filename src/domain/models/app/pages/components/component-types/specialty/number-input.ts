@@ -28,8 +28,8 @@ export const numberInputFields = {
   ),
   step: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Step increment for number input' })
+      Schema.annotate({ description: 'Step increment for number input' }),
+      Schema.check(Schema.isGreaterThan(0))
     )
   ),
   showStepper: Schema.optional(

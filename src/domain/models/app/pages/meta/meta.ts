@@ -85,7 +85,12 @@ export const MetaSchema = Schema.Struct({
     })
   ),
   favicon: Schema.optional(FaviconSchema),
-  favicons: Schema.optional(Schema.Union([FaviconSetSchema, FaviconsConfigSchema])),
+  favicons: Schema.optional(
+    Schema.Union([FaviconSetSchema, FaviconsConfigSchema]).annotate({
+      description:
+        'Icons for this page, in either of two forms: an explicit set naming each size and file, or the generated form that derives every size from one source image.',
+    })
+  ),
   stylesheet: Schema.optional(
     Schema.String.annotate({
       description: 'Path to the main stylesheet',
@@ -99,21 +104,31 @@ export const MetaSchema = Schema.Struct({
   ),
   openGraph: Schema.optional(OpenGraphSchema),
   twitter: Schema.optional(TwitterCardSchema),
-  schema: Schema.optional(
-    Schema.Unknown.annotate({
+  schema: Schema.optionalKey(
+    // `Schema.Unknown` discards its own annotations when emitted to JSON
+    // Schema, so the description rides on the `UndefinedOr` wrapper that
+    // `Schema.optional` would have built anyway.
+    Schema.UndefinedOr(Schema.Unknown).annotate({
       description:
-        'Schema.org structured data - accepts orchestrator format (organization, faqPage, etc.) or direct Schema.org object (@context, @type, ...)',
+        'Schema.org structured data describing this page, either in the shorthand form (organization, faqPage, …) or as a full Schema.org object.',
     })
   ),
   preload: Schema.optional(PreloadSchema),
   dnsPrefetch: Schema.optional(DnsPrefetchSchema),
   analytics: Schema.optional(
-    Schema.Union([Schema.Record(Schema.String, Schema.Unknown), AnalyticsSchema])
+    Schema.Union([Schema.Record(Schema.String, Schema.Unknown), AnalyticsSchema]).annotate({
+      description:
+        'Analytics loaded on this page: the `providers` form, or a free-form object passed through for a provider the schema does not model.',
+    })
   ),
   customElements: Schema.optional(CustomElementsSchema),
   // Aliases for test compatibility
   twitterCard: Schema.optional(TwitterCardSchema),
-  structuredData: Schema.optional(Schema.Unknown),
+  structuredData: Schema.optionalKey(
+    Schema.UndefinedOr(Schema.Unknown).annotate({
+      description: 'Alias of `schema`, kept for configs written against the older name.',
+    })
+  ),
   'og:site_name': Schema.optional(
     Schema.String.annotate({
       description: 'OpenGraph site name (shorthand for openGraph.siteName)',

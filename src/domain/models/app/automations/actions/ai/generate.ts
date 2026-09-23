@@ -18,8 +18,17 @@ import { AiActionProviderSchema } from './provider'
  */
 export const AiGenerateActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('ai'),
-  operator: Schema.Literal('generate'),
+  type: Schema.Literal('ai').pipe(
+    Schema.annotate({
+      description: "Constant value 'ai' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('generate').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'ai' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** LLM provider — optional, advisory (see {@link AiActionProviderSchema}) */
     provider: AiActionProviderSchema,
@@ -50,30 +59,30 @@ export const AiGenerateActionSchema = Schema.Struct({
     /** Connection name for API authentication */
     connection: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
         Schema.annotate({
           description: 'Connection name for API auth (must reference app.connections[])',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/))
       )
     ),
 
     /** Sampling temperature */
     temperature: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isBetween({ minimum: 0, maximum: 2 })),
         Schema.annotate({
           description: 'Sampling temperature (0-2, default: provider default)',
-        })
+        }),
+        Schema.check(Schema.isBetween({ minimum: 0, maximum: 2 }))
       )
     ),
 
     /** Maximum tokens to generate */
     maxTokens: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 1_000_000 })),
         Schema.annotate({
           description: 'Maximum tokens to generate (1-1000000)',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 1_000_000 }))
       )
     ),
 
@@ -85,6 +94,8 @@ export const AiGenerateActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description: 'What to generate: the prompt, the model, and the limits on the answer.',
   }),
 }).pipe(
   Schema.annotate({

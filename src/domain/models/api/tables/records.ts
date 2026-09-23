@@ -51,7 +51,9 @@ const wrapFlatFieldsBody = (input: unknown): unknown => {
 export const createRecordRequestSchema = preprocessed(
   wrapFlatFieldsBody,
   Schema.Struct({
-    fields: Schema.Record(Schema.String, fieldValueSchema).pipe(withDefault({})),
+    fields: Schema.Record(Schema.String, fieldValueSchema)
+      .annotate({ description: 'Field values keyed by field name' })
+      .pipe(withDefault({})),
   })
 )
 
@@ -97,8 +99,15 @@ const wrapUpdateBody = (input: unknown): unknown => {
 export const updateRecordRequestSchema = preprocessed(
   wrapUpdateBody,
   Schema.Struct({
-    fields: Schema.Record(Schema.String, fieldValueSchema).pipe(withDefault({})),
-    updatedAt: optionalField(Schema.String),
+    fields: Schema.Record(Schema.String, fieldValueSchema)
+      .annotate({ description: 'Field values to write; omitted fields are left unchanged' })
+      .pipe(withDefault({})),
+    updatedAt: optionalField(
+      Schema.String.annotate({
+        description:
+          'Optimistic-locking token: the `updatedAt` the caller last read. A stale token is refused with 409; an absent one skips the check',
+      })
+    ),
   })
 )
 
@@ -125,16 +134,24 @@ export const batchCreateRecordsRequestSchema = Schema.Struct({
     preprocessed(
       wrapFlatFieldsBody,
       Schema.Struct({
-        fields: Schema.Record(Schema.String, fieldValueSchema).pipe(withDefault({})),
+        fields: Schema.Record(Schema.String, fieldValueSchema)
+          .annotate({ description: 'Field values keyed by field name' })
+          .pipe(withDefault({})),
+      }).annotate({
+        description: 'One record of the batch. A bare map of field values is accepted too.',
       })
     )
-  ).pipe(
-    Schema.check(
-      Schema.isMinLength(1).annotate({ message: 'At least one record is required' }),
-      Schema.isMaxLength(1000).annotate({ message: 'Maximum 1000 records per batch' })
-    )
-  ),
-  returnRecords: Schema.Boolean.pipe(withDefault(false)),
+  )
+    .annotate({ description: 'Records to create, 1 to 1000 per request' })
+    .pipe(
+      Schema.check(
+        Schema.isMinLength(1).annotate({ message: 'At least one record is required' }),
+        Schema.isMaxLength(1000).annotate({ message: 'Maximum 1000 records per batch' })
+      )
+    ),
+  returnRecords: Schema.Boolean.annotate({
+    description: 'Return the affected records in the response rather than only a summary',
+  }).pipe(withDefault(false)),
 })
 
 /**
@@ -155,15 +172,21 @@ export const batchUpdateRecordsRequestSchema = Schema.Struct({
         Schema.String,
         (val) => String(val)
       ),
-      fields: Schema.Record(Schema.String, fieldValueSchema).pipe(withDefault({})),
+      fields: Schema.Record(Schema.String, fieldValueSchema)
+        .annotate({ description: 'Field values to write; omitted fields are left unchanged' })
+        .pipe(withDefault({})),
     })
-  ).pipe(
-    Schema.check(
-      Schema.isMinLength(1).annotate({ message: 'At least one record is required' }),
-      Schema.isMaxLength(100).annotate({ message: 'Maximum 100 records per batch' })
-    )
-  ),
-  returnRecords: Schema.Boolean.pipe(withDefault(false)),
+  )
+    .annotate({ description: 'Records to update, each naming its `id`, 1 to 100 per request' })
+    .pipe(
+      Schema.check(
+        Schema.isMinLength(1).annotate({ message: 'At least one record is required' }),
+        Schema.isMaxLength(100).annotate({ message: 'Maximum 100 records per batch' })
+      )
+    ),
+  returnRecords: Schema.Boolean.annotate({
+    description: 'Return the affected records in the response rather than only a summary',
+  }).pipe(withDefault(false)),
 })
 
 /**
@@ -186,13 +209,20 @@ export const batchDeleteRecordsRequestSchema = Schema.Struct({
       Schema.String,
       (val) => String(val)
     )
-  ).pipe(
-    Schema.check(
-      Schema.isMinLength(1).annotate({ message: 'At least one ID is required' }),
-      Schema.isMaxLength(100).annotate({ message: 'Maximum 100 IDs per batch' })
-    )
+  )
+    .annotate({ description: 'Identifiers of the records to delete, 1 to 100 per request' })
+    .pipe(
+      Schema.check(
+        Schema.isMinLength(1).annotate({ message: 'At least one ID is required' }),
+        Schema.isMaxLength(100).annotate({ message: 'Maximum 100 IDs per batch' })
+      )
+    ),
+  permanent: optionalField(
+    Schema.Boolean.annotate({
+      description:
+        'Hard-delete instead of trashing. Read from the body on this route, never from the query string. Admin only',
+    })
   ),
-  permanent: optionalField(Schema.Boolean),
 })
 
 /**
@@ -210,12 +240,14 @@ export const batchRestoreRecordsRequestSchema = Schema.Struct({
       Schema.String,
       (val) => String(val)
     )
-  ).pipe(
-    Schema.check(
-      Schema.isMinLength(1).annotate({ message: 'At least one ID is required' }),
-      Schema.isMaxLength(100).annotate({ message: 'Maximum 100 IDs per batch' })
-    )
-  ),
+  )
+    .annotate({ description: 'Identifiers of the records to restore, 1 to 100 per request' })
+    .pipe(
+      Schema.check(
+        Schema.isMinLength(1).annotate({ message: 'At least one ID is required' }),
+        Schema.isMaxLength(100).annotate({ message: 'Maximum 100 IDs per batch' })
+      )
+    ),
 })
 
 /**
@@ -240,20 +272,37 @@ export const upsertRecordsRequestSchema = preprocessed(
   Schema.Struct({
     records: Schema.Array(
       Schema.Struct({
-        fields: Schema.Record(Schema.String, fieldValueSchema).pipe(withDefault({})),
+        fields: Schema.Record(Schema.String, fieldValueSchema)
+          .annotate({ description: 'Field values keyed by field name' })
+          .pipe(withDefault({})),
+      }).annotate({
+        description: 'One record to create or update.',
       })
-    ).pipe(
-      Schema.check(
-        Schema.isMinLength(1).annotate({ message: 'At least one record is required' }),
-        Schema.isMaxLength(100).annotate({ message: 'Maximum 100 records per batch' })
-      )
-    ),
-    fieldsToMergeOn: Schema.Array(Schema.String).pipe(
-      Schema.check(
-        Schema.isMinLength(1).annotate({ message: 'At least one merge field is required' })
-      )
-    ),
-    returnRecords: Schema.Boolean.pipe(withDefault(false)),
+    )
+      .annotate({ description: 'Records to create or update, 1 to 100 per request' })
+      .pipe(
+        Schema.check(
+          Schema.isMinLength(1).annotate({ message: 'At least one record is required' }),
+          Schema.isMaxLength(100).annotate({ message: 'Maximum 100 records per batch' })
+        )
+      ),
+    fieldsToMergeOn: Schema.Array(
+      Schema.String.annotate({
+        description: 'One field of the merge key.',
+      })
+    )
+      .annotate({
+        description:
+          'Field names forming the merge key. An existing row matching on all of them is updated, otherwise one is created. Also accepted as `matchFields`',
+      })
+      .pipe(
+        Schema.check(
+          Schema.isMinLength(1).annotate({ message: 'At least one merge field is required' })
+        )
+      ),
+    returnRecords: Schema.Boolean.annotate({
+      description: 'Return the affected records in the response rather than only the counts',
+    }).pipe(withDefault(false)),
   })
 )
 

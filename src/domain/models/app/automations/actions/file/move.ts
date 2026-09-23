@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const FileMoveActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('move'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('move').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Storage key of the file to move */
     sourceKey: TemplateStringSchema.pipe(
@@ -33,6 +42,8 @@ export const FileMoveActionSchema = Schema.Struct({
         description: 'New storage key',
       })
     ),
+  }).annotate({
+    description: 'The file to move, and where it is moved to.',
   }),
 }).pipe(
   Schema.annotate({

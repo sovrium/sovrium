@@ -128,61 +128,61 @@ export const DiffUnitProp = Schema.Literals([
 export const DurationProps = {
   years: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt()),
       Schema.annotate({
         description: 'Whole years to shift by, on the calendar (DST-aware, wall clock preserved)',
-      })
+      }),
+      Schema.check(Schema.isInt())
     )
   ),
   months: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt()),
       Schema.annotate({
         description:
           'Whole months to shift by, on the calendar (DST-aware; 31 Jan + 1 month is 28 Feb)',
-      })
+      }),
+      Schema.check(Schema.isInt())
     )
   ),
   weeks: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt()),
       Schema.annotate({
         description: 'Whole weeks to shift by, on the calendar (DST-aware, wall clock preserved)',
-      })
+      }),
+      Schema.check(Schema.isInt())
     )
   ),
   days: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt()),
       Schema.annotate({
         description:
           'Whole days to shift by, on the calendar (DST-aware: a day across a DST change is 23 or 25 real hours)',
-      })
+      }),
+      Schema.check(Schema.isInt())
     )
   ),
   hours: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt()),
       Schema.annotate({
         description:
           'Whole hours to shift by, as fixed elapsed time (an hour is always 60 minutes)',
-      })
+      }),
+      Schema.check(Schema.isInt())
     )
   ),
   minutes: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt()),
       Schema.annotate({
         description: 'Whole minutes to shift by, as fixed elapsed time (unaffected by DST)',
-      })
+      }),
+      Schema.check(Schema.isInt())
     )
   ),
   seconds: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt()),
       Schema.annotate({
         description: 'Whole seconds to shift by, as fixed elapsed time (unaffected by DST)',
-      })
+      }),
+      Schema.check(Schema.isInt())
     )
   ),
 }

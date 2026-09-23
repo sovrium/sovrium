@@ -45,8 +45,17 @@ import {
  */
 export const LinkCreateActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('link'),
-  operator: Schema.Literal('create'),
+  type: Schema.Literal('link').pipe(
+    Schema.annotate({
+      description: "Constant value 'link' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('create').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'link' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     slug: LinkActionSlugSchema,
     destination: LinkActionDestinationSchema,
@@ -60,6 +69,9 @@ export const LinkCreateActionSchema = Schema.Struct({
      * mapping layer.
      */
     utm: Schema.optional(LinkUtmSchema),
+  }).annotate({
+    description:
+      'The short link to create: its slug, its destination, and the notes and tracking kept with it.',
   }),
 }).pipe(
   Schema.annotate({

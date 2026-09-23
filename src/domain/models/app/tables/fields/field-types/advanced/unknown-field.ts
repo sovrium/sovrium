@@ -97,6 +97,12 @@ export const KNOWN_FIELD_TYPES = [
 export const UnknownFieldSchema = Schema.Struct({
   ...BaseFieldSchema.fields,
   type: Schema.String.pipe(
+    // The annotation precedes the check deliberately: piped after one it would
+    // land on the check and reach no reader.
+    Schema.annotate({
+      description:
+        'A field type this build does not recognise. The branch exists so an unknown type is reported as an unknown type rather than as a malformed field, and it accepts any string a known type does not already claim.',
+    }),
     Schema.check(
       Schema.makeFilter(
         (t) => !KNOWN_FIELD_TYPES.includes(t as (typeof KNOWN_FIELD_TYPES)[number]),

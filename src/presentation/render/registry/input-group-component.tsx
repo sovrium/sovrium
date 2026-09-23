@@ -42,6 +42,7 @@ import {
   computeInputGroupRootClasses,
   computeInputGroupRowClasses,
 } from '../../design/forms-default-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
@@ -149,7 +150,7 @@ export const inputGroupComponent: ComponentRenderer = ({ elementPropsWithSpacing
   const source = (component ?? {}) as unknown as Readonly<Record<string, unknown>>
   const label = text(source, 'label')
   const fieldId = fieldIdOf(text(source, 'name'), label)
-  const { className: authorClassName, ...rest } = elementPropsWithSpacing
+  const { className: authorClassName, ...rest } = omitInternalMarkers(elementPropsWithSpacing)
 
   return (
     <div

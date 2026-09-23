@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { type Hono } from 'hono'
+import { type Context, type Hono } from 'hono'
 import {
   generateSitemapContent,
   generateRobotsContent,
@@ -81,6 +81,30 @@ const isLlmsEnabled = (app: App): boolean => {
   return pages.some((page) => page.contentDir !== undefined)
 }
 
+/** Serve the llmstxt.org index for one locale (or every page when `undefined`). */
+const respondWithLlmsIndex = async (
+  c: Context,
+  app: App,
+  language: string | undefined
+): Promise<Response> => {
+  const baseUrl = resolveLlmsBaseUrl(
+    c.req.header('X-Forwarded-Host'),
+    c.req.header('X-Forwarded-Proto')
+  )
+  const body = await generateLlmsTxtContent(app, baseUrl, language)
+  return c.body(body, 200, { 'Content-Type': 'text/plain; charset=utf-8' })
+}
+
+/** Serve the concatenated bodies for one locale (or every page when `undefined`). */
+const respondWithLlmsFull = async (
+  c: Context,
+  app: App,
+  language: string | undefined
+): Promise<Response> => {
+  const body = await generateLlmsFullTxtContent(app, language)
+  return c.body(body, 200, { 'Content-Type': 'text/plain; charset=utf-8' })
+}
+
 /**
  * Setup live SEO routes (`/sitemap.xml`, `/robots.txt`, `/llms.txt`,
  * `/llms-full.txt`) for server mode.
@@ -96,6 +120,13 @@ const isLlmsEnabled = (app: App): boolean => {
  * pages exist and `app.llms.enabled` is not `false`. When disabled, the routes
  * are never registered, so a request falls through to the public catch-all (a
  * 404 when no same-named static file exists).
+ *
+ * They are also LOCALE-SCOPED. The root pair serves `languages.default`, and
+ * every declared `languages.supported[].code` gets its own pair at
+ * `/{lang}/llms.txt` + `/{lang}/llms-full.txt` — so an agent reads one corpus
+ * in the language it asked for rather than one document carrying every
+ * translation. An app declaring no `languages` registers the root pair alone
+ * and serves every content-directory page there, exactly as before.
  *
  * @param honoApp - Hono application instance
  * @param app - Application configuration
@@ -124,23 +155,35 @@ export function setupSeoRoutes(honoApp: Readonly<Hono>, app: App): Readonly<Hono
   if (!isLlmsEnabled(app)) return withSeo
 
   const fullEnabled = app.llms?.full !== false
+  const defaultLanguage = app.languages?.default
 
-  return withSeo
-    .get('/llms.txt', async (c) => {
-      const baseUrl = resolveLlmsBaseUrl(
-        c.req.header('X-Forwarded-Host'),
-        c.req.header('X-Forwarded-Proto')
-      )
-      const body = await generateLlmsTxtContent(app, baseUrl)
-      return c.body(body, 200, {
-        'Content-Type': 'text/plain; charset=utf-8',
-      })
-    })
+  const withRootLlms = withSeo
+    .get('/llms.txt', (c) => respondWithLlmsIndex(c, app, defaultLanguage))
     .get('/llms-full.txt', async (c) => {
       if (!fullEnabled) return c.notFound()
-      const body = await generateLlmsFullTxtContent(app)
-      return c.body(body, 200, {
-        'Content-Type': 'text/plain; charset=utf-8',
-      })
+      return respondWithLlmsFull(c, app, defaultLanguage)
     })
+
+  // One pair per DECLARED language code, the default included, so an agent can
+  // build the address from a language code with no special case. An app that
+  // declares no `languages` registers none, and `/en/llms.txt` then falls
+  // through to the dynamic-page catch-all exactly as `/en/docs` would — a 404.
+  //
+  // Registration position is load-bearing and already satisfied by the caller:
+  // `compose-hono-app.ts` chains `setupSeoRoutes` INSIDE `setupPageRoutes`, so
+  // these register before the `/:lang/*` page route that would otherwise claim
+  // the path. Same constraint `markdown-export-routes.ts` documents for the
+  // `.md` twins.
+  const declaredCodes = app.languages?.supported.map((language) => language.code) ?? []
+
+  return declaredCodes.reduce<Readonly<Hono>>(
+    (chained, code) =>
+      chained
+        .get(`/${code}/llms.txt`, (c) => respondWithLlmsIndex(c, app, code))
+        .get(`/${code}/llms-full.txt`, async (c) => {
+          if (!fullEnabled) return c.notFound()
+          return respondWithLlmsFull(c, app, code)
+        }),
+    withRootLlms
+  )
 }

@@ -82,7 +82,10 @@ export const ContainerRepeatSchema = Schema.Struct({
    * holding a non-array, renders ZERO copies -- never the unsubstituted
    * template, which would ship `$record.` tokens to the browser as text.
    */
-  record: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  record: Schema.String.annotate({
+    description:
+      "Field of the bound record holding a list; the container's children are drawn once per entry.",
+  }).pipe(Schema.check(Schema.isMinLength(1))),
 }).annotate({
   title: 'Container Repeat',
   description:

@@ -18,16 +18,25 @@ import { ActionBaseFields } from '../base'
  */
 export const AiAgentActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('ai'),
-  operator: Schema.Literal('agent'),
+  type: Schema.Literal('ai').pipe(
+    Schema.annotate({
+      description: "Constant value 'ai' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('agent').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'ai' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Agent name referencing app.agents[].name */
     agent: Schema.String.pipe(
-      Schema.check(Schema.isPattern(/^[a-z0-9]+(-[a-z0-9]+)*$/)),
       Schema.annotate({
         description:
           'Agent name (must reference app.agents[].name). Lowercase alphanumeric with hyphens.',
-      })
+      }),
+      Schema.check(Schema.isPattern(/^[a-z0-9]+(-[a-z0-9]+)*$/))
     ),
 
     /** Task description for the agent */
@@ -49,10 +58,10 @@ export const AiAgentActionSchema = Schema.Struct({
     /** Maximum number of steps the agent can take */
     maxSteps: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 100 })),
         Schema.annotate({
           description: 'Maximum number of steps the agent can take (1-100, default: 10)',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 100 }))
       )
     ),
 
@@ -68,22 +77,25 @@ export const AiAgentActionSchema = Schema.Struct({
     /** Timeout in seconds */
     timeout: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
         Schema.annotate({
           description: 'Timeout in seconds for agent execution',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
       )
     ),
 
     /** Connection name for API authentication */
     connection: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
         Schema.annotate({
           description: 'Connection name for API auth (must reference app.connections[])',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/))
       )
     ),
+  }).annotate({
+    description:
+      'What the agent is asked to do: which agent, the task, any context it is given, and the limits on how far it may go.',
   }),
 }).pipe(
   Schema.annotate({

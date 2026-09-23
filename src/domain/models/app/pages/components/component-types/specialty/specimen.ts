@@ -118,20 +118,20 @@ export const SpecimenTypeLiteral = Schema.Literal('specimen')
  */
 const SpecimenAnnotationSchema = Schema.Struct({
   part: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Component Part',
       description:
         "Name of the part being labelled — the SAME vocabulary `design.components` uses, so anatomy and styling speak one language. `root` on every type, plus that type's own inner elements.",
       examples: ['root', 'label', 'icon'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   label: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Callout',
       description: 'What this part is, in the words a reader needs',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).annotate({
   identifier: 'SpecimenAnnotation',
@@ -167,13 +167,13 @@ const axisField = (title: string, description: string, examples: readonly string
 const SpecimenSubjectSchema = Schema.Struct({
   type: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Subject Type',
         description:
           'The component type to draw, using the engine’s own catalogue specimen for it. A catalogued type name; `$param.<name>` naming a segment of the host page’s path; or `$record.<field>` naming a column of the row this specimen is expanded from, which requires a record-binding ancestor. Mutually exclusive with `component`.',
         examples: ['button', '$param.type', '$record.type'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -213,13 +213,13 @@ const SpecimenSubjectSchema = Schema.Struct({
    */
   component: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Subject Template',
         description:
           'A reusable template from `components[]` to draw on its own, by name — the operator’s own component rather than an engine type. Under an admin mount the name resolves against the documented app’s templates. Mutually exclusive with `type`.',
         examples: ['site-header', '$record.name'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**

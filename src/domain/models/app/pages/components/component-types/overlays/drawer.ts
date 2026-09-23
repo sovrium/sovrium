@@ -57,9 +57,11 @@ export const drawerFields = {
    */
   dataSource: Schema.optional(
     Schema.Union([
-      Schema.Struct({ table: Schema.String }).pipe(
-        Schema.annotate({ identifier: 'RecordDrawerDataSource' })
-      ),
+      Schema.Struct({
+        table: Schema.String.annotate({
+          description: 'Table the drawer loads its record from.',
+        }),
+      }).pipe(Schema.annotate({ identifier: 'RecordDrawerDataSource' })),
       Schema.Struct({
         /** System detail-endpoint binding (mutually exclusive with the DB-table form) */
         system: SystemDetailSourceSchema,
@@ -74,9 +76,18 @@ export const drawerFields = {
     })
   ),
   /** Schema-derived field list (one control per field), authored at render time. */
-  recordFields: Schema.optional(Schema.Array(RecordDrawerFieldSchema)),
+  recordFields: Schema.optional(
+    Schema.Array(RecordDrawerFieldSchema).annotate({
+      description:
+        'Fields the drawer shows for the record, in order, each with its own label and rendering.',
+    })
+  ),
   /** F6 tier read/edit split: `false` renders a read-only record (no save). */
-  canEdit: Schema.optional(Schema.Boolean),
+  canEdit: Schema.optional(
+    Schema.Boolean.annotate({
+      description: 'Lets the reader change the record from the drawer; `false` makes it read-only.',
+    })
+  ),
   /**
    * Footer action slot (CAP-1). One or more button-shaped actions rendered
    * below the record body. Each fires against the drawer's LOADED record

@@ -78,7 +78,11 @@ export const AnalyticsProviderSchema = Schema.Struct({
       default: true,
     })
   ),
-  scripts: Schema.optional(Schema.Array(AnalyticsScriptSchema)),
+  scripts: Schema.optional(
+    Schema.Array(AnalyticsScriptSchema).annotate({
+      description: 'Scripts this provider injects into the page.',
+    })
+  ),
   initScript: Schema.optional(
     Schema.String.annotate({
       description: 'Inline JavaScript to initialize the analytics',
@@ -105,7 +109,9 @@ export const AnalyticsProviderSchema = Schema.Struct({
  * Manages analytics tracking across one or more analytics platforms.
  */
 export const AnalyticsSchema = Schema.Struct({
-  providers: Schema.Array(AnalyticsProviderSchema),
+  providers: Schema.Array(AnalyticsProviderSchema).annotate({
+    description: 'Third-party analytics providers loaded on the page.',
+  }),
 }).annotate({
   title: 'Analytics Configuration',
   description: 'Configuration for analytics providers',

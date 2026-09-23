@@ -10,8 +10,17 @@ import { BaseFieldSchema } from '../base-field'
 
 export const JsonFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('json'),
-    schema: Schema.optional(Schema.Struct({})),
+    type: Schema.Literal('json').pipe(
+      Schema.annotate({
+        description: "Constant value 'json' for type discrimination in discriminated unions",
+      })
+    ),
+    schema: Schema.optional(
+      Schema.Struct({}).annotate({
+        description:
+          'JSON Schema the stored value is checked against, so a malformed payload is refused on write.',
+      })
+    ),
   }),
   Schema.annotate({
     title: 'JSON Field',

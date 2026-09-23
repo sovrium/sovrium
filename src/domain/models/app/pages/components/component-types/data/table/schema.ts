@@ -195,8 +195,8 @@ export const tableFields = {
   dataSource: Schema.optional(DataTableDataSourceSchema),
   columns: Schema.optional(
     Schema.Array(DataTableColumnSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Column definitions for table component' })
+      Schema.annotate({ description: 'Column definitions for table component' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -252,15 +252,15 @@ export const tableFields = {
   groupBy: Schema.optional(DataTableGroupBySchema),
   summary: Schema.optional(
     Schema.Array(DataTableSummaryItemSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Summary row with aggregate computations' })
+      Schema.annotate({ description: 'Summary row with aggregate computations' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   toolbar: Schema.optional(DataTableToolbarSchema),
   bulkActions: Schema.optional(
     Schema.Array(DataTableBulkActionSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Actions available when rows are selected' })
+      Schema.annotate({ description: 'Actions available when rows are selected' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   rowHeight: Schema.optional(RowHeightSchema),

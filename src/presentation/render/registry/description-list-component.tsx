@@ -44,6 +44,7 @@ import {
   computeDescriptionTermClasses,
   type DescriptionListLayout,
 } from '../../design/display-default-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
@@ -157,7 +158,7 @@ export const descriptionListComponent: ComponentRenderer = ({
     : []
   const layout: DescriptionListLayout = source['layout'] === 'stacked' ? 'stacked' : 'rows'
   const dividers = dividersOf(source, layout)
-  const { className: authorClassName, ...rest } = elementPropsWithSpacing
+  const { className: authorClassName, ...rest } = omitInternalMarkers(elementPropsWithSpacing)
 
   return (
     <div

@@ -29,12 +29,21 @@ import { ActionBaseFields } from '../base'
  */
 export const RecordReadActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('record'),
-  operator: Schema.Literal('read'),
+  type: Schema.Literal('record').pipe(
+    Schema.annotate({
+      description: "Constant value 'record' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('read').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'record' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     table: Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Target table name' })
+      Schema.annotate({ description: 'Target table name' }),
+      Schema.check(Schema.isMinLength(1))
     ),
     /**
      * Primary key of the record to fetch. Dispatches straight to
@@ -45,6 +54,8 @@ export const RecordReadActionSchema = Schema.Struct({
     id: TemplateStringSchema.pipe(
       Schema.annotate({ description: 'Record id (or template) to fetch by primary key' })
     ),
+  }).annotate({
+    description: 'The table, and the id of the record to read.',
   }),
 }).pipe(
   Schema.annotate({

@@ -108,10 +108,10 @@ export const FormFieldConfigSchema = Schema.Struct({
         ),
       })
     ).pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Dropdown options for a control: select field ({ value, label? })',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -182,12 +182,12 @@ export const FormFieldConfigSchema = Schema.Struct({
    */
   description: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'description must not be empty' })),
       Schema.annotate({
         description:
           "Guidance text rendered beside the control and linked via aria-describedby (overrides the bound field's description). Required to describe a control on an endpoint-bound form, which has no table field schema to resolve from. Unlike a placeholder it persists once the user starts typing.",
         examples: ['Excluding VAT, in euros.', 'Format: SIRET, 14 digits, no spaces.'],
-      })
+      }),
+      Schema.check(Schema.isNonEmpty({ message: 'description must not be empty' }))
     )
   ),
   /** Placeholder hint text */
@@ -244,11 +244,11 @@ export const FormFieldConfigSchema = Schema.Struct({
   /** Maximum number of files for multi-file upload fields */
   maxFiles: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
         description: 'Maximum number of files allowed (for multiple-attachments fields)',
         examples: [1, 5, 10],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 }).annotate({
@@ -297,10 +297,10 @@ export const FormFieldGroupSchema = Schema.Struct({
   }),
   /** Field names belonging to this group */
   fields: Schema.Array(Schema.String).pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Array of field names belonging to this group',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).annotate({
   title: 'Form Field Group',

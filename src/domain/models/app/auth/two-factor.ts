@@ -48,13 +48,13 @@ export const TwoFactorConfigSchema = Schema.Union([
      */
     digits: Schema.optional(
       Schema.Literals([6, 8]).pipe(
-        Schema.annotate({ description: 'Number of digits in TOTP code (6 or 8)' })
+        Schema.annotate({ defaultNote: '6', description: 'Number of digits in TOTP code (6 or 8)' })
       )
     ),
     period: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isGreaterThan(0)),
-        Schema.annotate({ description: 'Code rotation period in seconds' })
+        Schema.annotate({ defaultNote: '30', description: 'Code rotation period in seconds' }),
+        Schema.check(Schema.isGreaterThan(0))
       )
     ),
   }),

@@ -76,18 +76,18 @@ export const ComponentPropValueSchema: Schema.Codec<
  */
 export const ComponentPropsSchema = Schema.Record(
   Schema.String.pipe(
-    Schema.check(
-      Schema.isPattern(/^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$/, {
-        message:
-          'Property key must be camelCase (e.g., className, maxWidth) or kebab-case with data-/aria- prefix (e.g., data-testid, aria-label)',
-      })
-    ),
     Schema.annotate({
       title: 'Component Prop Key',
       description:
         'Valid JavaScript property name (camelCase) or HTML data-*/aria-* attribute (kebab-case)',
       examples: ['className', 'size', 'enabled', 'maxWidth', 'data-testid', 'aria-label'],
-    })
+    }),
+    Schema.check(
+      Schema.isPattern(/^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$/, {
+        message:
+          'Property key must be camelCase (e.g., className, maxWidth) or kebab-case with data-/aria- prefix (e.g., data-testid, aria-label)',
+      })
+    )
   ),
   ComponentPropValueSchema
 ).pipe(

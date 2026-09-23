@@ -55,8 +55,8 @@ export const FormLayoutModeSchema = Schema.Literals([
 export const FormSchema = Schema.Struct({
   /** Numeric server-internal identifier (positive integer). */
   id: Schema.Finite.pipe(
-    Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-    Schema.annotate({ description: 'Numeric form identifier (positive integer, unique)' })
+    Schema.annotate({ description: 'Numeric form identifier (positive integer, unique)' }),
+    Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
   ),
   /** Kebab-case unique name used in cross-references. */
   name: FormNameSchema,
@@ -65,7 +65,12 @@ export const FormSchema = Schema.Struct({
     description: 'Form title shown to submitters (supports $t: i18n keys)',
   }),
   /** Optional description / intro shown above the first field. */
-  description: Schema.optional(Schema.String),
+  description: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Introduction shown above the first field. Accepts a `$t:` key to use a translated text.',
+    })
+  ),
   /**
    * Optional public URL path. When set, the form is reachable at this path
    * AND at the canonical `/forms/{name}` route. When omitted, only the
@@ -76,16 +81,28 @@ export const FormSchema = Schema.Struct({
   submitTo: SubmitToSchema,
   /** Field definitions. At least one field required. */
   fields: Schema.Array(FormFieldSchema).pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'Form fields in render order' })
+    Schema.annotate({ description: 'Form fields in render order' }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** Layout mode. Default `single-page`. */
   layout: Schema.optional(FormLayoutModeSchema),
   /** Multi-step / one-question step definitions. */
-  steps: Schema.optional(Schema.Array(FormStepSchema).pipe(Schema.check(Schema.isMinLength(1)))),
+  steps: Schema.optional(
+    Schema.Array(FormStepSchema)
+      .annotate({
+        description:
+          'Splits the form into successive steps, each showing a subset of the fields. Read only when the layout is multi-step or one-question.',
+      })
+      .pipe(Schema.check(Schema.isMinLength(1)))
+  ),
   /** Field grouping inside single-page layouts. */
   fieldGroups: Schema.optional(
-    Schema.Array(FormFieldGroupSchema).pipe(Schema.check(Schema.isMinLength(1)))
+    Schema.Array(FormFieldGroupSchema)
+      .annotate({
+        description:
+          'Groups fields under headings within a single-page form, without splitting it into steps.',
+      })
+      .pipe(Schema.check(Schema.isMinLength(1)))
   ),
   /** Display / cosmetic options. */
   display: Schema.optional(FormDisplaySchema),

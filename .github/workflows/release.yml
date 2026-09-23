@@ -15,6 +15,10 @@ permissions:
   contents: write
   id-token: write
   packages: write
+  # Build provenance for the desktop installers. An installer is downloaded by
+  # someone who has no way to rebuild it, so "this file came out of this
+  # workflow, from this commit" is the only thing they can check.
+  attestations: write
 
 jobs:
   # ── Create GitHub Release (entry point for all other jobs) ───
@@ -183,6 +187,23 @@ jobs:
               --clobber
           done
 
+      # The desktop bundle embeds this same binary as its sidecar. Handed over
+      # as a WORKFLOW ARTIFACT rather than re-downloaded from the release: the
+      # release is still a draft at this point, and GitHub serves 404 on draft
+      # assets to unauthenticated clients — the same trap that already forces
+      # update-homebrew to wait for publish-release. An artifact has no such
+      # rule, costs one upload, and keeps `build-desktop` independent of when
+      # the release stops being a draft.
+      - name: Upload the engines for the desktop bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-darwin
+          if-no-files-found: error
+          retention-days: 1
+          path: |
+            sovrium-darwin-arm64
+            sovrium-darwin-x64
+
   # ── Build Linux binaries (cross-compile on ubuntu) ──────────
   build-binary-linux:
     name: Build Linux Binary (${{ matrix.target }})
@@ -251,6 +272,18 @@ jobs:
           fi
           echo "OK: binary served $(printf '%s' "$CSS" | wc -c) bytes of compiled CSS"
 
+      # BEFORE the packaging step below, which renames the file to a bare
+      # `sovrium`. Only x64: the desktop bundle has no Linux arm64 lane yet.
+      # See the macOS job for why this is an artifact and not a release download.
+      - name: Upload the engine for the desktop bundle
+        if: matrix.target == 'linux-x64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-linux-x64
+          if-no-files-found: error
+          retention-days: 1
+          path: sovrium-linux-x64
+
       - name: Package binary
         run: |
           VERSION="${{ steps.version.outputs.version }}"
@@ -276,14 +309,41 @@ jobs:
             "sovrium-${VERSION}-${{ matrix.target }}.sha256" \
             --clobber
 
-  # ── Build Windows binary (cross-compile on ubuntu) ──────────
+  # ── Build Windows binary (NATIVE on windows-latest) ─────────
+  #
+  # Moved off the ubuntu cross-compile on 2026-09-22, and the reason is a
+  # documented Bun limitation rather than a preference. Bun's executable
+  # metadata flags — `--windows-title`, `--windows-publisher`,
+  # `--windows-version`, `--windows-description`, `--windows-copyright`,
+  # `--windows-icon` — set PE version resources through Windows APIs, and
+  # bun.com/docs/bundler/executables says in as many words: "Except for
+  # `hideConsole`, you do not have access to these flags when cross-compiling
+  # because they depend on Windows APIs."
+  #
+  # A cross-compiled `sovrium.exe` therefore ships with Bun's own file
+  # properties and no version at all. That was cosmetic while the binary was
+  # something a developer downloaded deliberately; it stops being cosmetic the
+  # moment the same file is bundled INSIDE a signed desktop installer, where an
+  # unnamed, unversioned executable is what a user is shown when Windows asks
+  # them to approve it.
+  #
+  # `scripts/build/build-binary.ts` applies the flags only when it is RUNNING on
+  # Windows, so a cross-compile still succeeds and simply omits them — moving
+  # this job is what makes them take effect.
   build-binary-windows:
     name: Build Windows Binary
     needs: [release]
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     # Cap runtime so a wedged runner cannot hang the run and hold the
     # `concurrency: release` lock indefinitely.
     timeout-minutes: 45
+    defaults:
+      run:
+        # One shell across every lane of this workflow. `windows-latest` defaults
+        # to pwsh, and the steps below are the same `$VAR`/`sha256sum` shell as
+        # their macOS and Linux siblings — a per-OS dialect here is how a release
+        # step works on two platforms and silently does nothing on the third.
+        shell: bash
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -304,6 +364,15 @@ jobs:
 
       - name: Build binary
         run: bun run build:binary -- --target windows-x64
+
+      # See the macOS job for why this is an artifact and not a release download.
+      - name: Upload the engine for the desktop bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-windows-x64
+          if-no-files-found: error
+          retention-days: 1
+          path: sovrium-windows-x64.exe
 
       - name: Package binary
         run: |
@@ -326,10 +395,606 @@ jobs:
             "sovrium-${VERSION}-windows-x64.sha256" \
             --clobber
 
+  # ── Build the desktop installers ────────────────────────────
+  #
+  # The free downloadable app. It is a window and a tray around the SAME engine
+  # binary the three jobs above just built — which is why this job `needs` them
+  # and reuses their output as a sidecar rather than compiling a second copy.
+  #
+  # Signing is gated on the secrets EXISTING, and the reason is that this whole
+  # pipeline had to work before the founder's Apple and Azure enrolments
+  # completed (each has a lead time measured in weeks). An unsigned lane still
+  # produces a real, installable, smoke-tested bundle; it simply produces one
+  # the operating system will warn about. The alternative — a job that fails
+  # until a certificate exists — would have meant no desktop CI at all for the
+  # entire enrolment window, which is exactly when it is most needed.
+  #
+  # `secrets` is NOT available in a job-level or step-level `if`, so presence is
+  # detected in a step that reads the secret through `env` and writes a plain
+  # output. Every gated step then keys off that output. This is the documented
+  # workaround, not a preference.
+  build-desktop:
+    name: Build Desktop (${{ matrix.label }})
+    needs: [build-binary-macos, build-binary-linux, build-binary-windows]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 75
+    defaults:
+      run:
+        # One shell for four lanes. See build-binary-windows for why.
+        shell: bash
+    strategy:
+      # A red Windows lane must not cancel a macOS one that was about to
+      # produce a perfectly good dmg. The publish gate below decides what a
+      # partial result means; this flag only decides what gets built.
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS arm64
+            runner: macos-14
+            slug: mac-arm64
+            engine-artifact: engine-darwin
+            engine-file: sovrium-darwin-arm64
+            rust-target: aarch64-apple-darwin
+            bundles: app,dmg
+            updater-platform: darwin-aarch64
+          - label: macOS x64
+            runner: macos-14
+            slug: mac-x64
+            engine-artifact: engine-darwin
+            engine-file: sovrium-darwin-x64
+            rust-target: x86_64-apple-darwin
+            bundles: app,dmg
+            updater-platform: darwin-x86_64
+          - label: Windows x64
+            runner: windows-latest
+            slug: windows-x64
+            engine-artifact: engine-windows-x64
+            engine-file: sovrium-windows-x64.exe
+            rust-target: x86_64-pc-windows-msvc
+            bundles: nsis
+            updater-platform: windows-x86_64
+          # 22.04, not latest: an AppImage links against the glibc of the machine
+          # that built it, so the oldest supported runner is the correct choice —
+          # building on a newer one ships an installer that refuses to start on
+          # every older distribution.
+          - label: Linux x64
+            runner: ubuntu-22.04
+            slug: linux-x64
+            engine-artifact: engine-linux-x64
+            engine-file: sovrium-linux-x64
+            rust-target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
+            updater-platform: linux-x86_64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential curl wget file \
+            libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev \
+            xvfb
+
+      - name: Add the Rust target
+        run: rustup target add ${{ matrix.rust-target }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: ${{ matrix.rust-target }}
+
+      - name: Install dependencies
+        run: |
+          bun install --frozen-lockfile
+          bun install --frozen-lockfile --cwd desktop
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      # The engine, as built by this same run. Never rebuilt here: a second
+      # compile would produce a second binary, and "the installer contains the
+      # binary we published" would stop being a fact about the release.
+      - name: Download the engine
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.engine-artifact }}
+          path: .
+
+      - name: Stage the sidecar
+        run: |
+          chmod +x "./${{ matrix.engine-file }}" || true
+          bun run scripts/build/stage-desktop-sidecar.ts \
+            --from "./${{ matrix.engine-file }}" \
+            --triple ${{ matrix.rust-target }}
+
+      # Which secrets are present. Read through `env` because `secrets` is not
+      # available in an `if` — the value itself is never printed, only whether
+      # it is empty.
+      - name: Detect signing secrets
+        id: secrets
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          have() { [ -n "$1" ] && echo true || echo false; }
+          {
+            echo "apple=$(have "$APPLE_CERTIFICATE")"
+            echo "azure=$(have "$AZURE_CLIENT_ID")"
+            echo "updater=$(have "$TAURI_SIGNING_PRIVATE_KEY")"
+          } >> "$GITHUB_OUTPUT"
+          echo "apple=$(have "$APPLE_CERTIFICATE") azure=$(have "$AZURE_CLIENT_ID") updater=$(have "$TAURI_SIGNING_PRIVATE_KEY")"
+
+      # A dedicated, throwaway keychain rather than the login one: the login
+      # keychain on a GitHub runner is shared with whatever else the job does,
+      # and `set-key-partition-list` on it would unlock more than this build
+      # needs. The keychain is created here rather than left to the Tauri CLI
+      # because the SIDECAR has to be signed before `tauri build` runs, which
+      # means the identity must already be findable.
+      - name: Import the Apple certificate
+        if: runner.os == 'macOS' && steps.secrets.outputs.apple == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN="${RUNNER_TEMP}/sovrium-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          security create-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN}"
+          security set-keychain-settings -lut 21600 "${KEYCHAIN}"
+          security unlock-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN}"
+          printf '%s' "${APPLE_CERTIFICATE}" | base64 --decode > "${RUNNER_TEMP}/certificate.p12"
+          security import "${RUNNER_TEMP}/certificate.p12" \
+            -k "${KEYCHAIN}" -P "${APPLE_CERTIFICATE_PASSWORD}" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "${KEYCHAIN_PASSWORD}" "${KEYCHAIN}" > /dev/null
+          # Put it on the search list WITHOUT dropping the system keychains,
+          # which hold the Apple intermediate certificates the signature chains
+          # to. Replacing the list outright is how a signature comes out valid
+          # locally and untrusted everywhere else.
+          EXISTING=()
+          while IFS= read -r line; do
+            EXISTING+=("$(printf '%s' "${line}" | tr -d '" ')")
+          done < <(security list-keychains -d user)
+          security list-keychain -d user -s "${KEYCHAIN}" "${EXISTING[@]}"
+          rm -f "${RUNNER_TEMP}/certificate.p12"
+          security find-identity -v -p codesigning "${KEYCHAIN}"
+
+      # The entitlements are the load-bearing part, and they are why the sidecar
+      # is signed separately rather than by a `--deep` pass over the bundle: a
+      # deep signature does NOT apply entitlements to a nested Mach-O, and
+      # JavaScriptCore is a JIT. Without `allow-jit` and
+      # `allow-unsigned-executable-memory` the hardened runtime has the kernel
+      # kill the engine at launch, with no message — which reaches the user as
+      # "the app does nothing when I open it".
+      - name: Sign the sidecar (macOS)
+        if: runner.os == 'macOS'
+        env:
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          SIDECAR="desktop/src-tauri/sovrium-${{ matrix.rust-target }}"
+          # `-` is codesign's own spelling for ad-hoc, which is what an
+          # unsigned release candidate gets.
+          SIGN_AS="${IDENTITY:--}"
+          codesign --force --options runtime --timestamp \
+            --entitlements desktop/src-tauri/entitlements.plist \
+            --sign "${SIGN_AS}" "${SIDECAR}"
+          codesign -d --entitlements - "${SIDECAR}"
+
+      - name: Install the Windows signing tool
+        if: runner.os == 'Windows' && steps.secrets.outputs.azure == 'true'
+        run: cargo install artifact-signing-cli --locked
+
+      # The sidecar again, for the same reason as on macOS: Tauri's own
+      # `signCommand` covers the executables IT produces, and the engine is a
+      # file it copies rather than builds. An unsigned nested .exe inside a
+      # signed installer is what SmartScreen reports on.
+      - name: Sign the sidecar (Windows)
+        if: runner.os == 'Windows' && steps.secrets.outputs.azure == 'true'
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
+        run: |
+          artifact-signing-cli -e "${ENDPOINT}" -a "${ACCOUNT}" -c "${PROFILE}" -d Sovrium \
+            "desktop/src-tauri/sovrium-${{ matrix.rust-target }}.exe"
+
+      # One overlay file rather than three variants of the build command.
+      # `createUpdaterArtifacts` is deliberately NOT in the committed
+      # tauri.conf.json: with it on and no signing key, `tauri build` fails
+      # outright, which would break every unsigned build including the PR
+      # workflow and a developer's local one. It belongs to the lane that has
+      # the key, and nowhere else.
+      - name: Compose the build config overlay
+        id: overlay
+        env:
+          # The three that NAME the signing account — not the three that
+          # authenticate to it, which reach `artifact-signing-cli` through the
+          # build step's own environment. Nothing here is a credential.
+          ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
+        run: |
+          OVERLAY="${RUNNER_TEMP}/tauri.overlay.json"
+          echo '{}' > "${OVERLAY}"
+          if [ "${{ steps.secrets.outputs.updater }}" = "true" ]; then
+            jq '.bundle.createUpdaterArtifacts = true' "${OVERLAY}" > "${OVERLAY}.tmp"
+            mv "${OVERLAY}.tmp" "${OVERLAY}"
+          fi
+          if [ "${{ runner.os }}" = "Windows" ] && [ "${{ steps.secrets.outputs.azure }}" = "true" ]; then
+            # `%1` is Tauri's placeholder for the file being signed.
+            jq --arg cmd "artifact-signing-cli -e ${ENDPOINT} -a ${ACCOUNT} -c ${PROFILE} -d Sovrium %1" \
+              '.bundle.windows.signCommand = $cmd' "${OVERLAY}" > "${OVERLAY}.tmp"
+            mv "${OVERLAY}.tmp" "${OVERLAY}"
+          fi
+          cat "${OVERLAY}"
+          echo "path=${OVERLAY}" >> "$GITHUB_OUTPUT"
+
+      # Notarization happens INSIDE this step when the Apple API key is present:
+      # the Tauri CLI submits the bundle to Apple's notary service and staples
+      # the ticket. `APPLE_API_KEY_PATH` points at a file written from a secret
+      # rather than being a secret itself — a path is not a credential, and the
+      # .p8 has to exist on disk for `notarytool`.
+      - name: Build the bundle
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ] && [ -n "${APPLE_API_KEY_P8}" ]; then
+            printf '%s' "${APPLE_API_KEY_P8}" | base64 --decode > "${RUNNER_TEMP}/AuthKey.p8"
+            export APPLE_API_KEY_PATH="${RUNNER_TEMP}/AuthKey.p8"
+          fi
+          # An ad-hoc identity when there is no certificate, so the unsigned
+          # lane still produces a bundle macOS will at least launch locally.
+          if [ "${{ runner.os }}" = "macOS" ] && [ -z "${APPLE_SIGNING_IDENTITY}" ]; then
+            export APPLE_SIGNING_IDENTITY='-'
+          fi
+          bun run --cwd desktop tauri build \
+            --target ${{ matrix.rust-target }} \
+            --bundles ${{ matrix.bundles }} \
+            --config "${{ steps.overlay.outputs.path }}"
+          rm -f "${RUNNER_TEMP}/AuthKey.p8"
+
+      # Signature, notarization ticket, Gatekeeper verdict — asserted rather
+      # than assumed. Each answers a different question, and a release that
+      # skipped these would discover a broken signature from a user.
+      - name: Verify the macOS signature
+        if: runner.os == 'macOS' && steps.secrets.outputs.apple == 'true'
+        run: |
+          APP="desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle/macos/Sovrium.app"
+          codesign --verify --deep --strict --verbose=2 "${APP}"
+          spctl -a -vv "${APP}"
+          xcrun stapler validate "${APP}"
+          DMG=$(find "desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle/dmg" -maxdepth 1 -name '*.dmg' | head -n 1)
+          xcrun stapler validate "${DMG}"
+
+      # ── Smoke test: run the artefact, not the crate ──────────
+      - name: Smoke test the bundle (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          APP="desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle/macos/Sovrium.app"
+          test -x "$APP/Contents/MacOS/sovrium" \
+            || { echo "FAIL: no sidecar at $APP/Contents/MacOS/sovrium"; exit 1; }
+          # The main executable is read from Info.plist rather than guessed. It
+          # is `sovrium-desktop` (the crate name), NOT `Sovrium` — and that
+          # distinction is load-bearing on macOS, whose default filesystem is
+          # case-INSENSITIVE: a path of `Contents/MacOS/Sovrium` silently
+          # resolves to the SIDECAR `sovrium` sitting beside it. Doing exactly
+          # that is how this step first "ran the app" and got
+          # `Error: No configuration provided` from the engine.
+          #
+          # It also means `bundle.mainBinaryName` must never be set to
+          # `Sovrium`: the shell and the sidecar would then be the same path.
+          EXE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")
+          if [ "$(printf '%s' "$EXE_NAME" | tr '[:upper:]' '[:lower:]')" = "sovrium" ]; then
+            echo "FAIL: the shell executable is named '${EXE_NAME}', which collides with the"
+            echo "      sidecar 'sovrium' on a case-insensitive filesystem. One has overwritten"
+            echo "      the other. Do not set bundle.mainBinaryName to the product name."
+            exit 1
+          fi
+          bun run scripts/build/smoke-desktop-app.ts --exe "$APP/Contents/MacOS/${EXE_NAME}"
+
+      - name: Smoke test the installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem -Path "desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle/nsis" -Filter *-setup.exe | Select-Object -First 1
+          if (-not $setup) { throw "no NSIS installer was produced" }
+          Start-Process -FilePath $setup.FullName -ArgumentList '/S' -Wait
+          # The SIDECAR is the anchor, not the shell. Its name is ours —
+          # `externalBin: ["sovrium"]` — whereas the shell's comes from Tauri's
+          # `mainBinaryName`, which defaults to the crate name and is exactly the
+          # kind of thing a Tauri release changes. Finding the install directory
+          # by the file we named, then taking the other executable in it, is
+          # correct whatever the shell ends up being called.
+          $sidecar = Get-ChildItem -Path $env:LOCALAPPDATA -Filter 'sovrium.exe' -Recurse -Depth 3 -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $sidecar) { throw "the installer shipped no sidecar under $env:LOCALAPPDATA" }
+          $shell = Get-ChildItem -Path $sidecar.Directory.FullName -Filter '*.exe' | Where-Object { $_.Name -ne $sidecar.Name } | Select-Object -First 1
+          # Windows is case-insensitive, so a shell named `Sovrium.exe` would BE
+          # the sidecar `sovrium.exe` — one would have overwritten the other and
+          # there would be exactly one .exe here. That is the failure this
+          # branch names rather than letting the smoke test report a confusing
+          # engine error.
+          if (-not $shell) {
+            throw "only one executable in $($sidecar.Directory.FullName) — the shell and the sidecar have collided on a case-insensitive filesystem. Do not set bundle.mainBinaryName to the product name."
+          }
+          Write-Host "installed shell: $($shell.FullName)"
+          bun run scripts/build/smoke-desktop-app.ts --exe $shell.FullName
+
+      - name: Smoke test the AppImage (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          BUNDLE="desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle"
+          APPIMAGE=$(find "$BUNDLE/appimage" -maxdepth 1 -name '*.AppImage' | head -n 1)
+          test -n "$APPIMAGE" || { echo "FAIL: no AppImage was produced"; exit 1; }
+          chmod +x "$APPIMAGE"
+          # Extracted rather than executed: ubuntu-22.04 runners have no FUSE 2,
+          # so running it directly fails on the mount rather than on anything
+          # this test is about.
+          (cd "$(dirname "$APPIMAGE")" && "./$(basename "$APPIMAGE")" --appimage-extract > /dev/null)
+          ROOT="$(dirname "$APPIMAGE")/squashfs-root"
+          test -x "$ROOT/usr/bin/sovrium" \
+            || { echo "FAIL: no sidecar at $ROOT/usr/bin/sovrium"; ls -la "$ROOT/usr/bin"; exit 1; }
+          # The sidecar is the anchor; the shell is whatever else is in there.
+          # Its name comes from Tauri's `mainBinaryName` (the crate name today),
+          # which is not ours to depend on.
+          EXE=$(find "$ROOT/usr/bin" -maxdepth 1 -type f ! -name 'sovrium' | head -n 1)
+          test -n "$EXE" || { echo "FAIL: no shell executable beside the sidecar in $ROOT/usr/bin"; ls -la "$ROOT/usr/bin"; exit 1; }
+          xvfb-run -a bun run scripts/build/smoke-desktop-app.ts --exe "$EXE"
+
+      # ── Name the assets ─────────────────────────────────────
+      # Tauri names its output after the product and the Rust arch
+      # (`Sovrium_0.25.0_aarch64.dmg`). The download page and the installed base
+      # need two other names: a VERSIONED one, which is immutable and is what
+      # `latest.json` and the checksums reference, and a VERSION-LESS one, which
+      # is what `sovrium.com/download/...` redirects to and therefore must keep
+      # working across releases without the page being edited.
+      - name: Name the assets
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BUNDLE="desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle"
+          OUT="${RUNNER_TEMP}/release"
+          mkdir -p "${OUT}"
+          # The checksum patterns go to a FILE rather than to a step output.
+          # An output interpolated into a shell command is glob-expanded by the
+          # shell before the script ever sees it, and `Sovrium-1.2.3-mac-arm64.*`
+          # is exactly the shape that would silently resolve against the checkout
+          # instead of being passed through.
+          PATTERNS="${RUNNER_TEMP}/checksum-patterns.txt"
+          : > "${PATTERNS}"
+          take() { # take <source> <versioned> [version-less]
+            [ -f "$1" ] || { echo "FAIL: expected artefact missing: $1"; exit 1; }
+            cp "$1" "${OUT}/$2"
+            # An `if` rather than `[ -n ... ] && cp`: under `bash -e` a trailing
+            # AND-list that evaluates false is a failed statement, and the two
+            # `take` calls with no third argument are the common case.
+            if [ -n "${3:-}" ]; then cp "$1" "${OUT}/$3"; fi
+            echo "  $(basename "$1") -> $2${3:+ + $3}"
+          }
+          case "${{ matrix.slug }}" in
+            mac-*)
+              ARCH="${{ matrix.slug }}"
+              take "$(find "${BUNDLE}/dmg" -maxdepth 1 -name '*.dmg' | head -n 1)" \
+                "Sovrium-${VERSION}-${ARCH}.dmg" "Sovrium-${ARCH}.dmg"
+              if [ -f "${BUNDLE}/macos/Sovrium.app.tar.gz" ]; then
+                take "${BUNDLE}/macos/Sovrium.app.tar.gz" "Sovrium-${VERSION}-${ARCH}.app.tar.gz"
+                take "${BUNDLE}/macos/Sovrium.app.tar.gz.sig" "Sovrium-${VERSION}-${ARCH}.app.tar.gz.sig"
+              fi
+              printf '%s\n' "Sovrium-${VERSION}-${ARCH}.*" >> "${PATTERNS}"
+              ;;
+            windows-x64)
+              SETUP=$(find "${BUNDLE}/nsis" -maxdepth 1 -name '*-setup.exe' | head -n 1)
+              take "${SETUP}" "Sovrium-${VERSION}-windows-x64-setup.exe" "Sovrium-windows-x64-setup.exe"
+              if [ -f "${SETUP}.sig" ]; then
+                take "${SETUP}.sig" "Sovrium-${VERSION}-windows-x64-setup.exe.sig"
+              fi
+              printf '%s\n' "Sovrium-${VERSION}-windows-x64-setup.*" >> "${PATTERNS}"
+              ;;
+            linux-x64)
+              APPIMAGE=$(find "${BUNDLE}/appimage" -maxdepth 1 -name '*.AppImage' | head -n 1)
+              take "${APPIMAGE}" "Sovrium-${VERSION}-linux-x64.AppImage" "Sovrium-linux-x64.AppImage"
+              if [ -f "${APPIMAGE}.sig" ]; then
+                take "${APPIMAGE}.sig" "Sovrium-${VERSION}-linux-x64.AppImage.sig"
+              fi
+              take "$(find "${BUNDLE}/deb" -maxdepth 1 -name '*.deb' | head -n 1)" \
+                "sovrium-${VERSION}-linux-amd64.deb" "sovrium-linux-amd64.deb"
+              printf '%s\n' "Sovrium-${VERSION}-linux-x64.*" "sovrium-${VERSION}-linux-amd64.deb" >> "${PATTERNS}"
+              ;;
+          esac
+          ls -la "${OUT}"
+
+      # `generate-checksums.ts` rather than an inline `shasum` loop: it fails
+      # LOUDLY and by name on a pattern that matches nothing, where a glob that
+      # matches nothing produces an empty file and a green step. The output name
+      # is chosen so the existing `sovrium-${VERSION}-*.sha256` aggregation
+      # picks it up without a second mechanism.
+      - name: Checksum the assets
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARGS=()
+          while IFS= read -r pattern; do
+            [ -n "${pattern}" ] && ARGS+=(--pattern "${pattern}")
+          done < "${RUNNER_TEMP}/checksum-patterns.txt"
+          bun run scripts/build/generate-checksums.ts \
+            --dir "${RUNNER_TEMP}/release" \
+            --output "sovrium-${VERSION}-desktop-${{ matrix.slug }}.sha256" \
+            "${ARGS[@]}"
+          cat "${RUNNER_TEMP}/release/sovrium-${VERSION}-desktop-${{ matrix.slug }}.sha256"
+
+      # An installer is downloaded by someone with no way to rebuild it. The
+      # attestation is what lets them check that the file came out of this
+      # workflow, from this commit, rather than from a mirror that was edited.
+      #
+      # One glob over the whole staging directory rather than four per-extension
+      # ones: this lane produces two of the four, and a `subject-path` entry
+      # matching nothing is how the step fails on the lane it was written for.
+      # It therefore attests the checksum file and any updater signature too,
+      # which is correct — they are published assets as well.
+      - name: Attest the installers
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ runner.temp }}/release/*
+
+      # To the DRAFT release, like every other asset in this workflow: a
+      # published GitHub release is immutable and rejects uploads, and
+      # `latest.json` in particular has to land before the draft is flipped.
+      - name: Upload to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          cd "${RUNNER_TEMP}/release"
+          gh release upload "${TAG}" ./* --repo "${{ github.repository }}" --clobber
+
+      # The updater signatures, handed to `assemble-updater-manifest` as an
+      # artifact. `ignore` rather than `error`: an unsigned lane legitimately
+      # produces none, and the manifest job refuses on its own terms when a
+      # platform is missing.
+      - name: Upload the updater signatures
+        uses: actions/upload-artifact@v4
+        with:
+          name: updater-sigs-${{ matrix.slug }}
+          if-no-files-found: ignore
+          retention-days: 1
+          path: ${{ runner.temp }}/release/*.sig
+
+  # ── Assemble the updater manifest ───────────────────────────
+  #
+  # ONE job rather than a step in each matrix lane, and that is the whole reason
+  # it exists separately: four lanes appending to one `latest.json` is a
+  # read-modify-write race with no lock, and the loser's platform silently stops
+  # receiving updates. Here the four signatures arrive as artifacts and one
+  # process writes one file.
+  #
+  # It runs while the release is still a draft, because a published GitHub
+  # release rejects new assets — and an updater manifest that cannot be uploaded
+  # after the fact is an updater that never starts.
+  assemble-updater-manifest:
+    name: Assemble Updater Manifest
+    needs: [build-desktop]
+    if: always() && needs.build-desktop.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Detect the updater signing key
+        id: secrets
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY}" ]; then
+            echo "updater=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "updater=false" >> "$GITHUB_OUTPUT"
+            echo "No TAURI_SIGNING_PRIVATE_KEY secret — no updater artifacts were built,"
+            echo "so there is no manifest to assemble. The installers in this release are"
+            echo "complete and installable; they simply will not self-update."
+            echo "See docs/infrastructure/release/release-script.md for the key custody rule."
+          fi
+
+      - name: Download the updater signatures
+        if: steps.secrets.outputs.updater == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: updater-sigs-*
+          merge-multiple: true
+          path: sigs
+
+      # Every platform or none. A manifest missing one key is not a smaller
+      # manifest — it is an updater that reports "you are up to date" forever to
+      # everyone on that platform, which is indistinguishable from working.
+      - name: Write latest.json
+        if: steps.secrets.outputs.updater == 'true'
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          BASE="https://github.com/${{ github.repository }}/releases/download/${TAG}"
+
+          # A two-column table read line by line rather than an associative
+          # array. `declare -A` needs bash 4, which this runner has and macOS's
+          # system bash (3.2) does not — and a release-critical script nobody can
+          # run on their own machine is one nobody checks before it matters.
+          #
+          # Note which artefact each platform points at. On Windows and Linux the
+          # updater downloads the same file a human would; on macOS it does NOT —
+          # it replaces the .app bundle from a tarball, so the .dmg is the
+          # download and the .app.tar.gz is the update.
+          PLATFORMS='{}'
+          MISSING=0
+          while read -r KEY ASSET; do
+            [ -n "${KEY}" ] || continue
+            FILE="sigs/${ASSET}.sig"
+            if [ ! -s "${FILE}" ]; then
+              echo "MISSING: ${FILE}"
+              MISSING=1
+              continue
+            fi
+            PLATFORMS=$(jq -n \
+              --argjson acc "${PLATFORMS}" \
+              --arg key "${KEY}" \
+              --arg sig "$(cat "${FILE}")" \
+              --arg url "${BASE}/${ASSET}" \
+              '$acc + {($key): {signature: $sig, url: $url}}')
+          done <<EOF
+          darwin-aarch64 Sovrium-${VERSION}-mac-arm64.app.tar.gz
+          darwin-x86_64 Sovrium-${VERSION}-mac-x64.app.tar.gz
+          windows-x86_64 Sovrium-${VERSION}-windows-x64-setup.exe
+          linux-x86_64 Sovrium-${VERSION}-linux-x64.AppImage
+          EOF
+          if [ "${MISSING}" -ne 0 ]; then
+            echo "FAIL: at least one platform has no updater signature. A partial latest.json"
+            echo "      would leave that platform silently un-updatable, so none is written."
+            exit 1
+          fi
+
+          jq -n \
+            --arg version "${VERSION}" \
+            --arg notes "https://github.com/${{ github.repository }}/releases/tag/${TAG}" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson platforms "${PLATFORMS}" \
+            '{version: $version, notes: $notes, pub_date: $pub_date, platforms: $platforms}' \
+            > latest.json
+          cat latest.json
+
+      - name: Upload latest.json to the draft release
+        if: steps.secrets.outputs.updater == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.ref_name }}" latest.json \
+            --repo "${{ github.repository }}" --clobber
+
   # ── Aggregate checksums after all binaries are built ────────
   aggregate-checksums:
     name: Aggregate Checksums
-    needs: [build-binary-macos, build-binary-linux, build-binary-windows]
+    needs: [build-binary-macos, build-binary-linux, build-binary-windows, build-desktop]
+    # `always()` so a red desktop lane still produces the combined checksums for
+    # the five binaries. The per-target downloads below are already `|| true`,
+    # so a missing desktop file shortens the list rather than failing the job —
+    # which is the right trade for a convenience artefact that nothing gates on.
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Read version from tag
@@ -349,6 +1014,15 @@ jobs:
             gh release download "${TAG}" \
               --repo "${{ github.repository }}" \
               --pattern "sovrium-${VERSION}-${TARGET}.sha256" \
+              --clobber || true
+          done
+          # The desktop installers. Named `sovrium-<version>-desktop-<slug>.sha256`
+          # precisely so the `cat sovrium-${VERSION}-*.sha256` below picks them up
+          # with no second mechanism.
+          for SLUG in mac-arm64 mac-x64 windows-x64 linux-x64; do
+            gh release download "${TAG}" \
+              --repo "${{ github.repository }}" \
+              --pattern "sovrium-${VERSION}-desktop-${SLUG}.sha256" \
               --clobber || true
           done
 
@@ -730,12 +1404,26 @@ jobs:
       - build-binary-linux
       - build-binary-windows
       - aggregate-checksums
+      - build-desktop
+      - assemble-updater-manifest
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Verify all binary assets present
         env:
           GH_TOKEN: ${{ github.token }}
+          # The desktop installers are required only when the job that builds
+          # them SUCCEEDED. The alternative — requiring them unconditionally —
+          # would mean a broken desktop lane blocks the engine release too, and
+          # the engine is what every existing install and every Docker pull
+          # depends on. A failed lane still turns the whole run red; it just
+          # does not hold the binaries hostage.
+          #
+          # This IS a product trade-off and it is worth naming: a release can
+          # publish with five binaries and no installers, and the download page
+          # would then serve the previous version's installers through its
+          # version-less redirects. The run being red is the only signal.
+          DESKTOP_RESULT: ${{ needs.build-desktop.result }}
         run: |
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
@@ -746,6 +1434,24 @@ jobs:
             "sovrium-${VERSION}-linux-arm64.tar.gz"
             "sovrium-${VERSION}-windows-x64.zip"
           )
+          if [ "${DESKTOP_RESULT}" = "success" ]; then
+            REQUIRED+=(
+              "Sovrium-${VERSION}-mac-arm64.dmg"
+              "Sovrium-mac-arm64.dmg"
+              "Sovrium-${VERSION}-mac-x64.dmg"
+              "Sovrium-mac-x64.dmg"
+              "Sovrium-${VERSION}-windows-x64-setup.exe"
+              "Sovrium-windows-x64-setup.exe"
+              "Sovrium-${VERSION}-linux-x64.AppImage"
+              "Sovrium-linux-x64.AppImage"
+              "sovrium-${VERSION}-linux-amd64.deb"
+              "sovrium-linux-amd64.deb"
+            )
+            echo "Desktop lane succeeded — its 10 installer assets are required."
+          else
+            echo "Desktop lane result is '${DESKTOP_RESULT}' — installers are not required."
+            echo "The release will publish the engine binaries only, and this run is red."
+          fi
           ASSETS=$(gh release view "${TAG}" \
             --repo "${{ github.repository }}" \
             --json assets \
@@ -758,10 +1464,10 @@ jobs:
             fi
           done
           if [ "${MISSING}" -ne 0 ]; then
-            echo "FAIL: one or more binary archives are missing — release stays a recoverable draft"
+            echo "FAIL: one or more required assets are missing — release stays a recoverable draft"
             exit 1
           fi
-          echo "OK: all 5 platform archives present"
+          echo "OK: ${#REQUIRED[@]} required assets present"
 
       - name: Publish release (un-draft)
         env:

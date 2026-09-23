@@ -23,17 +23,26 @@ import { ActionBaseFields } from '../base'
  */
 export const DelayWaitActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('delay'),
-  operator: Schema.Literal('wait'),
+  type: Schema.Literal('delay').pipe(
+    Schema.annotate({
+      description: "Constant value 'delay' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('wait').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'delay' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Fixed delay duration (e.g., "30s", "5m", "24h", "7d") */
     duration: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h|d)$/)),
         Schema.annotate({
           description:
             'Delay duration: number + unit (ms, s, m, h, d). Examples: "30s", "5m", "24h", "7d"',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h|d)$/))
       )
     ),
 
@@ -46,21 +55,25 @@ export const DelayWaitActionSchema = Schema.Struct({
         })
       )
     ),
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter((props) => {
-        const hasDuration = props.duration !== undefined
-        const hasUntil = props.until !== undefined
-        if (hasDuration && hasUntil) {
-          return 'Provide either "duration" or "until", not both'
-        }
-        if (!hasDuration && !hasUntil) {
-          return 'One of "duration" or "until" is required'
-        }
-        return true
-      })
-    )
-  ),
+  })
+    .annotate({
+      description: 'How long to pause for, or the moment to resume at.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter((props) => {
+          const hasDuration = props.duration !== undefined
+          const hasUntil = props.until !== undefined
+          if (hasDuration && hasUntil) {
+            return 'Provide either "duration" or "until", not both'
+          }
+          if (!hasDuration && !hasUntil) {
+            return 'One of "duration" or "until" is required'
+          }
+          return true
+        })
+      )
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'DelayWaitAction',

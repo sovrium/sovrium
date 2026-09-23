@@ -859,6 +859,188 @@ const discriminantLines = (finding: UnknownDiscriminantFinding): readonly [strin
   `    Accepted ${finding.discriminant} values: ${finding.accepted.join(', ')}`,
 ]
 
+/**
+ * One finding in the vocabulary every MACHINE-readable channel speaks.
+ *
+ * `DecodeFinding` is a union of three shapes, each carrying the fields its own
+ * report line needs. That is right for rendering prose and wrong for a program:
+ * a caller would have to switch on `kind` and learn three field names for the
+ * one question it is asking, which is "where, what, and what may I write
+ * instead". So this is the flattened projection — the same three answers in the
+ * same three fields whatever the decoder actually complained about.
+ *
+ * The same shape is published by `sovrium validate --json`, by the status file
+ * a running instance writes, and by the message a refused `--watch` save pushes
+ * to an open page. One vocabulary, because a caller that ASKED and a caller that
+ * was TOLD are reading about the same mistake and should not need two parsers.
+ * @public
+ */
+export interface ConfigFinding {
+  /**
+   * Dotted/indexed path from the config root, e.g. `pages[0].components[0]`.
+   *
+   * `''` for a finding about the config as a whole — a rule that relates two
+   * distant declarations has no single position to underline, and inventing one
+   * would send an editor to the wrong line.
+   */
+  readonly path: string
+  /** What is wrong, in one line, naming the offending value where there is one. */
+  readonly message: string
+  /**
+   * What may be written here instead, IN FULL and never elided.
+   *
+   * The only field that tells a caller what to do rather than what went wrong.
+   * A truncated list reads as the complete set — see `unionDiscriminantValues`
+   * for why the producers are all-or-nothing about it.
+   */
+  readonly accepted?: readonly string[]
+  /** The `$ref` partial the mistake lives in, when the config is split. */
+  readonly sourceFile?: string
+  /**
+   * Always `'error'` today: every decode finding is fatal (see the SEVERITY note
+   * in `decode-app-config.ts`). The field exists so a reader can branch on it
+   * without re-deriving the rule from the channel it arrived on — notices travel
+   * separately and deliberately.
+   */
+  readonly severity: 'error'
+}
+
+/** The headline of a finding, reusing the exact wording its report line uses. */
+const findingMessage = (finding: DecodeFinding): string => {
+  if (finding.kind === 'unknown-discriminant') return discriminantLines(finding)[0].trim()
+  if (finding.kind === 'union-mismatch') return mismatchLines(finding)[0].trim()
+  return `Unknown property '${finding.key}'${finding.nodeLabel ? ` on ${finding.nodeLabel}` : ''}`
+}
+
+/** What may be written at this node — the values, the keys, or the variants. */
+const findingAccepted = (finding: DecodeFinding): readonly string[] =>
+  finding.kind === 'union-mismatch' ? finding.variants : finding.accepted
+
+// =============================================================================
+// THE ECHO RULE
+// =============================================================================
+//
+// A finding may name a rejected VALUE only where that value was checked against
+// a closed set of writable literals which the same finding publishes in full
+// under `accepted`. Everywhere else the value is dropped and the finding keeps
+// the path, the complaint and the expected shape.
+//
+// WHY IT LIVES HERE AND NOWHERE ELSE. Four channels carry these findings, and
+// none of their readers is the operator holding the keyboard: the `status.json`
+// a running instance leaves on disk, the unauthenticated `/__sovrium_dev/reload`
+// stream, `sovrium validate --json`, and the `_config_validate` MCP tool. They
+// share this vocabulary precisely so a caller that ASKED and a caller that was
+// TOLD need one parser — so a strip applied to one channel and not another would
+// end the property that makes `ConfigFinding` worth having. Applied at the two
+// producers, every present and future channel inherits it.
+//
+// The PROSE report is deliberately unchanged: `formatDecodeReport` still echoes
+// everything, because its reader wrote the file and the value is the part they
+// act on. `reportInput` in `decode-app-config.ts` says the same thing from the
+// other end.
+//
+// WHY THE LINE IS `accepted` AND NOT A JUDGEMENT ABOUT THE STRING. Deciding
+// whether a value "looks like a secret" needs a classifier, and the only one in
+// the codebase is path-based over a DECODED config — which by definition does
+// not exist when the decode failed. So the discriminant is the finding's own
+// provenance, and the finding's `kind` names it:
+//
+//  - `unknown-discriminant` — `accepted` comes from `unionDiscriminantValues`,
+//    which is all-or-nothing over literals read off the AST. So a value here was
+//    provably compared against an enumerated list of names the finding also
+//    carries, and it is a failed member NAME. KEPT.
+//  - `union-mismatch` — `variants` are the members' human `title` annotations,
+//    which no author can write into a config. The input was compared against
+//    SHAPES, and what fits none of them is arbitrary data whose leaves are
+//    whatever happened to be in the file. DROPPED.
+//  - `excess-property` — the message names a KEY, never a value. Structural, and
+//    the thing the author has to delete. Unchanged.
+//
+// Over-stripping is the cheaper mistake to make and costs a real thing: the
+// browser error overlay is built around painting the rejected component type,
+// and a reader told only "unknown component type" has to reopen the file to find
+// out which one. [internal ref] is the control that keeps the line where it is.
+//
+// RESIDUAL RISK, ACCEPTED. A credential pasted over a component `type` is still
+// echoed. It is bounded to one string at a position expecting one of about
+// ninety enum names, and the same paste has already written the credential into
+// the config file the finding is about.
+
+/**
+ * The same finding with any rejected value that the rule does not permit
+ * removed. Pure.
+ *
+ * A projection rather than a flag, so `findingMessage` stays the one place the
+ * wording of a headline is decided and the two channels cannot come to disagree
+ * about anything but the value.
+ */
+const withoutEchoedValue = (finding: DecodeFinding): DecodeFinding =>
+  finding.kind === 'union-mismatch' ? { ...finding, got: undefined } : finding
+
+/**
+ * Where the decoder appends a rejected value to its OWN message.
+ *
+ * Upstream builds it in exactly one place — `SchemaIssue.ts`, whose whole
+ * construction is `input === undefined ? \`Expected ${expected}\` : \`Expected
+ * ${expected}, got ${input}\`` — so this matches a documented format rather than
+ * guessing at prose. Read, do not re-derive: `vendor/effect`, `SchemaIssue.ts`.
+ *
+ * Anchored to the FIRST occurrence and run to the end of the line, because a
+ * rendered value may itself contain `, got ` and this has to fail toward
+ * stripping. What survives is `Expected <type>`, which is the half a reader
+ * needs.
+ */
+const REPORTED_INPUT_CLAUSE = /, got .*$/
+
+/** Every line of a message with its reported-input clause removed. Pure. */
+const withoutReportedInput = (message: string): string =>
+  message
+    .split('\n')
+    .map((line) => line.replace(REPORTED_INPUT_CLAUSE, ''))
+    .join('\n')
+
+/**
+ * Project decode findings into the machine-readable vocabulary, attributing each
+ * one to the `$ref` partial it came from. Pure.
+ *
+ * Subject to THE ECHO RULE above: the projection is taken from a finding whose
+ * unpermitted value has already been dropped, so no channel reading `findings`
+ * has to know the rule exists.
+ */
+export const toConfigFindings = (
+  findings: readonly DecodeFinding[],
+  refSources: ReadonlyMap<string, string>
+): readonly ConfigFinding[] =>
+  findings.map((finding) => {
+    const sourceFile = attributeSourceFile(finding.path, refSources)
+    return {
+      path: finding.path,
+      message: findingMessage(withoutEchoedValue(finding)),
+      accepted: findingAccepted(finding),
+      ...(sourceFile !== undefined && { sourceFile }),
+      severity: 'error' as const,
+    }
+  })
+
+/**
+ * A message with no position, as a finding.
+ *
+ * The fallback for every refusal this module cannot locate — a cross-field rule,
+ * a parse failure, a boot that threw. A caller reading `findings` must not have
+ * to ALSO read a prose list to be sure it has seen everything, so an unlocatable
+ * complaint is published with an empty path rather than dropped. Pure.
+ *
+ * Publishes no `accepted`, and so by THE ECHO RULE above carries no value: this
+ * is the path an `env:` block written as a mapping takes, where the decoder's own
+ * `Expected array | undefined, got {"STRIPE_SECRET_KEY":"…"}` is the message and
+ * the rejected value is a credential by definition.
+ */
+export const messageAsConfigFinding = (message: string): ConfigFinding => ({
+  path: '',
+  message: withoutReportedInput(message),
+  severity: 'error',
+})
+
 export const formatDecodeReport = (
   findings: readonly DecodeFinding[],
   refSources: ReadonlyMap<string, string>

@@ -62,12 +62,12 @@ export const codeEditorFields = {
    */
   name: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Form field name. The editor keeps a hidden input under it holding the current text, so an enclosing form submits the value. Omit for a display-only editor.',
         examples: ['formula'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** The text the editor opens with. */
@@ -86,7 +86,6 @@ export const codeEditorFields = {
    */
   language: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Language',
         description:
@@ -104,7 +103,8 @@ export const codeEditorFields = {
           'python',
           'yaml',
         ],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Draw the line-number gutter. */

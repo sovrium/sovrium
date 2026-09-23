@@ -19,8 +19,17 @@ import { ActionBaseFields } from '../base'
  */
 export const DataMergeActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('data'),
-  operator: Schema.Literal('merge'),
+  type: Schema.Literal('data').pipe(
+    Schema.annotate({
+      description: "Constant value 'data' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('merge').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'data' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Template reference to the first (left) array */
     left: TemplateStringSchema.pipe(
@@ -40,6 +49,8 @@ export const DataMergeActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description: 'The two lists to join, and the key they are joined on.',
   }),
 }).pipe(
   Schema.annotate({

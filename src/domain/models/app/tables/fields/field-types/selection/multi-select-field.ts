@@ -30,28 +30,34 @@ import { createOptionsSchema } from '../validation-utils'
  */
 export const MultiSelectFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('multi-select'),
+    type: Schema.Literal('multi-select').pipe(
+      Schema.annotate({
+        description:
+          "Constant value 'multi-select' for type discrimination in discriminated unions",
+      })
+    ),
     options: createOptionsSchema('multi-select'),
     maxSelections: Schema.optional(
       Schema.Int.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
         Schema.annotate({
           description: 'Maximum number of selections allowed',
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(1))
       )
     ),
     default: Schema.optional(
-      Schema.Array(Schema.String).pipe(Schema.annotate({ title: 'Default Selections' }))
+      Schema.Array(
+        Schema.String.annotate({
+          description: 'One choice a new record starts with. It has to be one of the options.',
+        })
+      ).pipe(
+        Schema.annotate({
+          title: 'Default Selections',
+          description: 'Choices a new record starts with. Each one has to be one of the options.',
+        })
+      )
     ),
   }),
-  Schema.check(
-    Schema.makeFilter((field) => {
-      if (field.maxSelections !== undefined && field.maxSelections > field.options.length) {
-        return 'maxSelections exceeds available options'
-      }
-      return true
-    })
-  ),
   Schema.annotate({
     title: 'Multi Select Field',
     description: 'Allows selection of multiple options from predefined list.',
@@ -64,7 +70,15 @@ export const MultiSelectFieldSchema = BaseFieldSchema.pipe(
         maxSelections: 3,
       },
     ],
-  })
+  }),
+  Schema.check(
+    Schema.makeFilter((field) => {
+      if (field.maxSelections !== undefined && field.maxSelections > field.options.length) {
+        return 'maxSelections exceeds available options'
+      }
+      return true
+    })
+  )
 )
 
 /** @public */

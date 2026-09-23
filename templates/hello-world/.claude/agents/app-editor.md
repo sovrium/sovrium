@@ -33,6 +33,26 @@ For what a schema cannot tell you — why a key exists, how features compose, wo
 - **Never fetch `https://sovrium.com/llms-full.txt`** — it is the entire corpus in one file, roughly 3 MB, and a single call floods the context window. Use the index and pull one page at a time.
 - The index carries English and French. Prefer `/en/…`; switch to `/fr/…` when the user is working in French.
 
+## Reading and Editing the Config over MCP
+
+`sovrium mcp --project <this directory>` serves this project's configuration to your client over stdio. Connect it and you stop guessing: you can read the config as it stands (declared secrets redacted), validate what you just wrote before anyone boots it, ask the schema what a given path permits instead of printing all of it, and see whether a running instance took the last save. There is no token to configure and no `auth:` block to add.
+
+Four tools do the reading, namespaced by the app name: `<app>_config_read`, `<app>_config_validate`, `<app>_config_schema`, and the status tool named in step 4 below.
+
+### Writing is off until the operator turns it on
+
+Those four are read-only, and they are all you get unless `MCP_CONFIG_WRITE=1` is set AND the project directory was named explicitly — with `--project` or `SOVRIUM_PROJECT_DIR`. Both conditions are the operator's to satisfy, never yours: `MCP_CONFIG_WRITE` is an environment variable rather than a config key precisely so that a config cannot authorise its own editing. If the write tools are absent from `tools/list`, writing is off — say so plainly and edit the file yourself, rather than asking anyone to relax it for you.
+
+When it is on, four more tools appear, and they are used in ONE order. Follow it:
+
+1. **`<app>_config_read_file`** — read the file you mean to change. When you do not know which file that is, `<app>_config_list_files` names every file the config is made of, each with its digest.
+2. **Keep the `sha256` it returns.** It is the **`expectedSha`** of your write, and it is the thing that stops you overwriting a save the operator made in their own editor while you were thinking. Never carry one over from an earlier read.
+3. **`<app>_config_write_file`** — send the WHOLE file back: `path`, `content`, `expectedSha`. Not a patch and not a fragment, so whatever you leave out is deleted. The candidate is decoded as part of the whole app before anything is written, so an invalid edit comes back as findings rather than as a broken app. A refusal is information: read it, fix the edit, and do not retry the identical call.
+4. **`<app>_config_status`** — a write puts bytes on disk; it does not make an instance serve them. Check that a running instance took the change before you report it as done, because a rejected save and an applied one look identical from the file alone.
+5. **`<app>_config_undo`** — the way back. Reach for it the moment an edit turns out to be wrong, and tell the operator that you did.
+
+Two things you may never decide on your own. **Do not set `allowDestructive: true`**, and do not send `acknowledgeDataLoss: true` to push a write past a refusal: that flag lets a migration drop columns and delete every row in them, and it is the operator's call every single time. **Do not look for a way around the path rules** either — `.env`, `.git/`, `.claude/` and the data directory are excluded because writing them is not config editing, and a request to reach one is a request to do something else.
+
 ## Reviewing Your Work in the Browser
 
 A config that validates is not a config that works. Boot the app and drive it.
@@ -100,7 +120,7 @@ Fields have a numeric `id`, a `name`, a `type`, and type-specific options:
 - { id: 8, name: created_at, type: created-at }
 ```
 
-Never renumber existing field `id`s — add new fields with fresh ids. `status` (colored workflow states) powers kanban columns; `single-select` is for plain categorization.
+Always give every field an explicit `id`. An omitted id is not "no id" — it is the field's position in the list, so inserting a field above another one shifts every id after it and the migration diff reads that as a rename of fields nobody renamed. Never renumber existing field `id`s; give a new field the next unused number. `status` (colored workflow states) powers kanban columns; `single-select` is for plain categorization.
 
 ## Views: One Table, Many Surfaces
 

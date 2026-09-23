@@ -52,8 +52,8 @@ export const kpiFields = {
   kpiFormat: Schema.optional(KPIFormatSchema),
   thresholds: Schema.optional(
     Schema.Array(KPIThresholdSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Conditional color thresholds for KPI value' })
+      Schema.annotate({ description: 'Conditional color thresholds for KPI value' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   sparkline: Schema.optional(KPISparklineSchema),

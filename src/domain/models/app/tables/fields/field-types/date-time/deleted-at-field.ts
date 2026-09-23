@@ -34,7 +34,11 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const DeletedAtFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('deleted-at'),
+    type: Schema.Literal('deleted-at').pipe(
+      Schema.annotate({
+        description: "Constant value 'deleted-at' for type discrimination in discriminated unions",
+      })
+    ),
   }),
   Schema.annotate({
     title: 'Deleted At Field',

@@ -28,7 +28,11 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const DurationFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('duration'),
+    type: Schema.Literal('duration').pipe(
+      Schema.annotate({
+        description: "Constant value 'duration' for type discrimination in discriminated unions",
+      })
+    ),
     format: Schema.optional(
       Schema.String.pipe(
         Schema.annotate({

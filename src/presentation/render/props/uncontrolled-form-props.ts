@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { omitInternalMarkers } from './internal-marker-props'
 import type { ElementProps } from '../elements/html-element-renderer'
 
 /**
@@ -70,9 +71,16 @@ const HAS_READ_ONLY_VALUE: ReadonlySet<string> = new Set([
  *     is a legitimate display-only field.
  */
 export function toUncontrolledFormProps(props: ElementProps): ElementProps {
-  if (isSupplied(props['onChange']) || isSupplied(props['onInput'])) return props
-  if (props['readOnly'] === true || props['disabled'] === true) return props
-  return foldValue(foldChecked(props))
+  // The internal data-source markers are stripped here for the same reason the
+  // value/checked fold happens here: this is the DOM boundary every native form
+  // control passes through, and a control inside a data-bound container carries
+  // the markers exactly as its container does. Folding both concerns into one
+  // pass keeps callers from having to remember two helpers in the right order.
+  // See `internal-marker-props.ts`.
+  const domProps = omitInternalMarkers(props)
+  if (isSupplied(domProps['onChange']) || isSupplied(domProps['onInput'])) return domProps
+  if (domProps['readOnly'] === true || domProps['disabled'] === true) return domProps
+  return foldValue(foldChecked(domProps))
 }
 
 /**

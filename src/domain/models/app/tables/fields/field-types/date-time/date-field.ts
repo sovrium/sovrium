@@ -29,7 +29,11 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const DateFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('date'),
+    type: Schema.Literal('date').pipe(
+      Schema.annotate({
+        description: "Constant value 'date' for type discrimination in discriminated unions",
+      })
+    ),
     format: Schema.optional(
       Schema.String.pipe(
         Schema.annotate({
@@ -54,7 +58,11 @@ export const DateFieldSchema = BaseFieldSchema.pipe(
         })
       )
     ),
-    includeTime: Schema.optional(Schema.Boolean),
+    includeTime: Schema.optional(
+      Schema.Boolean.annotate({
+        description: 'Stores a time alongside the date and offers a time picker when editing.',
+      })
+    ),
     timezone: Schema.optional(
       Schema.String.pipe(
         Schema.annotate({
@@ -71,7 +79,11 @@ export const DateFieldSchema = BaseFieldSchema.pipe(
         })
       )
     ),
-    default: Schema.optional(Schema.String),
+    default: Schema.optional(
+      Schema.String.annotate({
+        description: 'Date a new record starts on, written the way the field is formatted.',
+      })
+    ),
   }),
   Schema.annotate({
     title: 'Date Field',

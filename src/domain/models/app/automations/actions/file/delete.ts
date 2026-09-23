@@ -16,8 +16,17 @@ import { ActionBaseFields } from '../base'
  */
 export const FileDeleteActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('delete'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('delete').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Storage key of the file to delete */
     key: TemplateStringSchema.pipe(
@@ -25,6 +34,8 @@ export const FileDeleteActionSchema = Schema.Struct({
         description: 'Storage key of the file to delete',
       })
     ),
+  }).annotate({
+    description: 'The file to delete.',
   }),
 }).pipe(
   Schema.annotate({

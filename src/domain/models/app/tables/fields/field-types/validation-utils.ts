@@ -73,10 +73,15 @@ const OPTION_COLOR_HEX = /^#[0-9a-fA-F]{6}$/
 export const SelectOptionSchema = Schema.Union([
   Schema.String,
   Schema.Struct({
-    value: Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'option value is required' }))
+    value: Schema.String.annotate({
+      description: 'Value stored in the record when this option is chosen.',
+    }).pipe(Schema.check(Schema.isNonEmpty({ message: 'option value is required' }))),
+    label: Schema.optional(
+      Schema.String.annotate({
+        description:
+          'Text shown for this option; the value itself is shown when omitted. Accepts a `$t:` key to translate it.',
+      })
     ),
-    label: Schema.optional(Schema.String),
     color: Schema.optional(
       Schema.String.pipe(
         Schema.check(
@@ -129,28 +134,33 @@ export type SelectOption = Schema.Schema.Type<typeof SelectOptionSchema>
  * ```
  */
 export const createOptionsSchema = (fieldType: 'single-select' | 'multi-select') =>
-  Schema.Array(SelectOptionSchema).pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({
-      // EFFECT 4: `Annotations.Filter.message` is a `string`, where v3 took a
-      // `() => string` thunk. A thunk here is not rejected at runtime, it is
-      // simply not a string — so the custom line silently vanished and authors
-      // got the generic "Expected a value with a length of at least 1" instead.
-      // `fieldType` is a parameter of this factory, so nothing is lost by
-      // interpolating eagerly.
-      title: 'Options',
-      message: `At least one option is required for ${fieldType} field`,
-    }),
-    Schema.check(
-      Schema.makeFilter((options) => {
-        const values = options.map(optionValue)
-        const uniqueValues = new Set(values)
-        return (
-          values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
-        )
-      })
+  Schema.Array(SelectOptionSchema)
+    .annotate({
+      description:
+        'Choices the field accepts. Each one is a plain value, or a value carrying its own label and colour.',
+    })
+    .pipe(
+      Schema.check(Schema.isMinLength(1)),
+      Schema.annotate({
+        // EFFECT 4: `Annotations.Filter.message` is a `string`, where v3 took a
+        // `() => string` thunk. A thunk here is not rejected at runtime, it is
+        // simply not a string — so the custom line silently vanished and authors
+        // got the generic "Expected a value with a length of at least 1" instead.
+        // `fieldType` is a parameter of this factory, so nothing is lost by
+        // interpolating eagerly.
+        title: 'Options',
+        message: `At least one option is required for ${fieldType} field`,
+      }),
+      Schema.check(
+        Schema.makeFilter((options) => {
+          const values = options.map(optionValue)
+          const uniqueValues = new Set(values)
+          return (
+            values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
+          )
+        })
+      )
     )
-  )
 
 /**
  * Creates a reusable options array schema for `status` fields.
@@ -184,19 +194,24 @@ export const createOptionsSchema = (fieldType: 'single-select' | 'multi-select')
  * ```
  */
 export const createStatusOptionsSchema = () =>
-  Schema.Array(SelectOptionSchema).pipe(
-    Schema.check(Schema.isMinLength(1, { message: 'at least one option required' })),
-    Schema.annotate({ title: 'Status Options' }),
-    Schema.check(
-      Schema.makeFilter((options) => {
-        const values = options.map(optionValue)
-        const uniqueValues = new Set(values)
-        return (
-          values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
-        )
-      })
+  Schema.Array(SelectOptionSchema)
+    .annotate({
+      description:
+        'States a record can be in. Each one is a plain value, or a value carrying its own label and colour for the status chip.',
+    })
+    .pipe(
+      Schema.check(Schema.isMinLength(1, { message: 'at least one option required' })),
+      Schema.annotate({ title: 'Status Options' }),
+      Schema.check(
+        Schema.makeFilter((options) => {
+          const values = options.map(optionValue)
+          const uniqueValues = new Set(values)
+          return (
+            values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
+          )
+        })
+      )
     )
-  )
 
 /**
  * Validates that button fields have required properties based on their action type.

@@ -19,7 +19,7 @@
  * ─── WHY THE VALUES ARE REPEATED HERE, STATED HONESTLY ──────────────────────
  *
  * They no longer are. Every table below is GENERATED from the ONE source at
- * `apps/admin/config/design.ts` — the same source the
+ * `src/admin/config/design.ts` — the same source the
  * CSS token layer and the island `TOKENS` catalogue are emitted from — and
  * `[internal ref]` now compares three DERIVATIONS against that
  * source rather than three copies against each other. Regenerate with

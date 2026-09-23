@@ -130,7 +130,12 @@ export const OAuth2PropsSchema = Schema.Struct({
    */
   _test: Schema.optional(
     Schema.Struct({
-      seedExpired: Schema.optional(Schema.Boolean),
+      seedExpired: Schema.optional(
+        Schema.Boolean.annotate({
+          description:
+            'Internal test hint: seeds an already-expired token so the refresh path can be exercised. Ignored in production.',
+        })
+      ),
       /**
        * Per-user variant: only seed an expired token for the listed
        * email addresses; other users get the default (sentinel or
@@ -138,7 +143,12 @@ export const OAuth2PropsSchema = Schema.Struct({
        * cross-user-isolation specs to
        * fail Alice's refresh while leaving Bob's row untouched.
        */
-      seedExpiredFor: Schema.optional(Schema.Array(Schema.String)),
+      seedExpiredFor: Schema.optional(
+        Schema.Array(Schema.String).annotate({
+          description:
+            'Internal test hint: seeds the expired token only for these email addresses. Ignored in production.',
+        })
+      ),
     }).pipe(
       Schema.annotate({
         description:

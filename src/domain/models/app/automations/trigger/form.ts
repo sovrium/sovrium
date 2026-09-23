@@ -23,7 +23,11 @@ import { FormNameSchema } from '../../forms/name'
  * the mismatch.
  */
 export const FormTriggerSchema = Schema.Struct({
-  type: Schema.Literal('form'),
+  type: Schema.Literal('form').pipe(
+    Schema.annotate({
+      description: "Constant value 'form' for type discrimination in discriminated unions",
+    })
+  ),
   /** Top-level form name from app.forms[].name. Cross-validated. */
   form: FormNameSchema,
 }).pipe(

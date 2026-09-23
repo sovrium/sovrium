@@ -16,8 +16,17 @@ import { ActionBaseFields } from '../base'
  */
 export const EmailSendActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('email'),
-  operator: Schema.Literal('send'),
+  type: Schema.Literal('email').pipe(
+    Schema.annotate({
+      description: "Constant value 'email' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('send').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'email' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     to: TemplateStringSchema.pipe(
       Schema.annotate({ description: 'Recipient email (supports template variables)' })
@@ -56,6 +65,8 @@ export const EmailSendActionSchema = Schema.Struct({
         Schema.annotate({ description: 'Reply-To recipient(s) — single string or array' })
       )
     ),
+  }).annotate({
+    description: 'The message to send: its recipients, subject, body and sender.',
   }),
 }).pipe(
   Schema.annotate({

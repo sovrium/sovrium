@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const FileListActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('list'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('list').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Storage key prefix to list files under */
     prefix: TemplateStringSchema.pipe(
@@ -30,12 +39,14 @@ export const FileListActionSchema = Schema.Struct({
     /** Maximum number of files to return */
     limit: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isGreaterThan(0), Schema.isInt()),
         Schema.annotate({
           description: 'Maximum number of files to return',
-        })
+        }),
+        Schema.check(Schema.isGreaterThan(0), Schema.isInt())
       )
     ),
+  }).annotate({
+    description: 'Which files are listed, and how many at most.',
   }),
 }).pipe(
   Schema.annotate({

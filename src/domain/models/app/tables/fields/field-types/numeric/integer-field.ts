@@ -66,7 +66,6 @@ export const IntegerFieldSchema = BaseFieldSchema.pipe(
       )
     ),
   }),
-  Schema.check(Schema.makeFilter(validateMinMaxRange)),
   Schema.annotate({
     title: 'Integer Field',
     description:
@@ -90,7 +89,8 @@ export const IntegerFieldSchema = BaseFieldSchema.pipe(
         max: 150,
       },
     ],
-  })
+  }),
+  Schema.check(Schema.makeFilter(validateMinMaxRange))
 )
 
 /** @public */

@@ -18,8 +18,17 @@ import { ActionBaseFields } from '../base'
  */
 export const DigestCollectActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('digest'),
-  operator: Schema.Literal('collect'),
+  type: Schema.Literal('digest').pipe(
+    Schema.annotate({
+      description: "Constant value 'digest' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('collect').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'digest' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Digest bucket identifier */
     digestKey: TemplateStringSchema.pipe(
@@ -45,6 +54,8 @@ export const DigestCollectActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description: 'Which digest the item is added to, and what counts as a duplicate.',
   }),
 }).pipe(
   Schema.annotate({

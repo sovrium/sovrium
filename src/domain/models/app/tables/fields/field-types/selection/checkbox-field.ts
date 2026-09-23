@@ -28,8 +28,14 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const CheckboxFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('checkbox'),
-    default: Schema.optional(Schema.Boolean),
+    type: Schema.Literal('checkbox').pipe(
+      Schema.annotate({
+        description: "Constant value 'checkbox' for type discrimination in discriminated unions",
+      })
+    ),
+    default: Schema.optional(
+      Schema.Boolean.annotate({ description: 'Whether a new record starts out ticked.' })
+    ),
   }),
   Schema.annotate({
     title: 'Checkbox Field',

@@ -38,11 +38,13 @@
  * against effect 4.0.0-rc.108 rather than assumed.
  */
 
+import { Schema } from 'effect'
 import {
   astOf,
   decodedDefaults,
   fieldBagOf,
   isSpread,
+  proseAnnotationOf,
   unwrapOptional,
   type SchemaNode,
 } from './type-introspection'
@@ -98,6 +100,29 @@ export interface SchemaOption {
   readonly defaultValue?: string
   /** The schema's own words, resolved through indirection. Never invented. */
   readonly description?: string
+  /**
+   * What the option falls back to, STATED by the schema rather than decoded.
+   *
+   * {@link defaultValue} is what the decoder produces for `{}`, and measured on
+   * this catalogue it answers for a top-level option or not at all — a nested
+   * `withDefault` is unreachable that way. The annotation is how a schema states
+   * a default no decode can surface, so the two are complements and neither
+   * replaces the other.
+   *
+   * Never emitted to JSON Schema (probed on `effect@4.0.0-rc.108`: adding 53 of
+   * them left `app.json` byte-identical), so it costs nothing in the byte-gated
+   * document and is readable only by an AST walk — this one.
+   */
+  readonly defaultNote?: string
+  /**
+   * Per-option guidance: when to reach for it, what it interacts with.
+   *
+   * Distinct from {@link description}, which says what the option IS. Kept
+   * apart rather than folded into that sentence because a table cell wants the
+   * definition and a reader configuring the option wants the advice, and one
+   * paragraph serving both serves neither. AST-only, like {@link defaultNote}.
+   */
+  readonly howTo?: string
   /** Set only on a subtree the depth limit cut. Absent — never `false` — otherwise. */
   readonly truncated?: boolean
 }
@@ -173,8 +198,45 @@ interface RawOption {
   readonly kind: string
   readonly values?: readonly string[]
   readonly description?: string
+  readonly defaultNote?: string
+  readonly howTo?: string
   readonly truncated?: boolean
 }
+
+/**
+ * The prose keys a node publishes, in the order a merge has to arbitrate them.
+ *
+ * One list, so a key added to {@link SchemaOption} cannot reach the reading and
+ * miss the merge — the failure shape being a sentence that survives one branch
+ * and vanishes the moment a second branch is added to the union beside it.
+ */
+const PROSE_KEYS = ['description', 'defaultNote', 'howTo'] as const
+
+/** The prose a row carries, before it is merged with rows at the same path. */
+type ProseAnnotations = {
+  readonly [Key in (typeof PROSE_KEYS)[number]]?: string
+}
+
+/**
+ * How far a walk may still descend, and what it has already expanded.
+ *
+ * Carried as one object rather than three parameters because the depth limit
+ * became a CALLER's choice when {@link schemaOptionTreeFor} landed: a docs page
+ * asking for two levels and a Configuration section asking for four are the
+ * same walk with a different ceiling, and a ceiling read off a module constant
+ * cannot be either.
+ */
+interface WalkContext {
+  /** Levels descended so far. A bag's own fields start at 1. */
+  readonly depth: number
+  /** The `Suspend` nodes already expanded on this path — a second visit would not terminate. */
+  readonly expanded: readonly SchemaNode[]
+  /** The ceiling {@link depth} is compared against. Defaults to {@link MAX_DEPTH}. */
+  readonly maxDepth: number
+}
+
+/** The same context, one level down. */
+const deeper = (context: WalkContext): WalkContext => ({ ...context, depth: context.depth + 1 })
 
 /** The primitive a node accepts, in the vocabulary an author writes. */
 const PRIMITIVE_KINDS: Readonly<Record<string, string>> = {
@@ -195,11 +257,19 @@ const PRIMITIVE_KINDS: Readonly<Record<string, string>> = {
 const kindOf = (node: SchemaNode): string =>
   PRIMITIVE_KINDS[node._tag ?? ''] ?? (node._tag ?? 'unknown').toLowerCase()
 
-/** One annotation of a node, when it is a string. */
-const annotationOf = (node: SchemaNode, key: string): string | undefined => {
-  const value = node.annotations?.[key]
-  return typeof value === 'string' ? value : undefined
-}
+/**
+ * One annotation of a node, when it is a string.
+ *
+ * Delegates to {@link proseAnnotationOf}, so a node's own `checks` are read
+ * after the node itself. The indirection buys more than it looks like: in
+ * Effect 4 `Schema.Finite` and `Schema.Int` ARE checks on a `Number`, so an
+ * `annotate` written after one lands on the check and not on the node — and
+ * without the fallback the table row for such an option publishes no prose at
+ * all, however carefully it was written. [internal ref] makes that a rule rather than
+ * a repair: a description carried by a node's own checks IS the node's.
+ */
+const annotationOf = (node: SchemaNode, key: string): string | undefined =>
+  proseAnnotationOf(node, key)
 
 /** A literal node's value as a string, or `undefined` when it carries none. */
 const literalText = (node: SchemaNode): string | undefined => {
@@ -247,11 +317,18 @@ const isContainer = (node: SchemaNode): boolean =>
  *
  * `inner` wins because the wrapper is plumbing — every field in every bag is
  * `Schema.optional(...)`, and the optional wrapper describes nothing.
+ *
+ * All three prose keys resolve by the same rule, and deliberately so: a
+ * `defaultNote` written on the wrapper and a `description` written on the
+ * member would otherwise be found by different lookups, and the pair that
+ * disagreed would be the one nobody re-read.
  */
-const describedBy = (node: SchemaNode, inner: SchemaNode): { readonly description?: string } => {
-  const description = annotationOf(inner, 'description') ?? annotationOf(node, 'description')
-  return description === undefined ? {} : { description }
-}
+const describedBy = (node: SchemaNode, inner: SchemaNode): ProseAnnotations =>
+  Object.fromEntries(
+    PROSE_KEYS.map((key) => [key, annotationOf(inner, key) ?? annotationOf(node, key)]).filter(
+      (entry) => entry[1] !== undefined
+    )
+  )
 
 /**
  * The row a node contributes when it is a CLOSED set of values, else nothing.
@@ -264,7 +341,7 @@ const describedBy = (node: SchemaNode, inner: SchemaNode): { readonly descriptio
 const closedValueRow = (
   inner: SchemaNode,
   path: string,
-  described: { readonly description?: string }
+  described: ProseAnnotations
 ): RawOption | undefined => {
   const values = enumValuesOf(inner)
   if (values !== undefined) return { path, kind: 'enum', values, ...described }
@@ -308,24 +385,23 @@ const closedValueRow = (
 const walk = (
   node: SchemaNode | undefined,
   path: string,
-  depth: number,
-  expanded: readonly SchemaNode[]
+  context: WalkContext
 ): readonly RawOption[] => {
   if (node === undefined) return []
   const inner = unwrapOptional(node)
-  if (inner._tag === 'Suspend') return walkSuspend(inner, path, depth, expanded)
+  if (inner._tag === 'Suspend') return walkSuspend(inner, path, context)
 
   const described = describedBy(node, inner)
   const closed = closedValueRow(inner, path, described)
   if (closed !== undefined) return [closed]
 
   if (inner._tag === 'Union')
-    return withFieldWords(walkUnion(inner, path, depth, expanded), path, described)
+    return withFieldWords(walkUnion(inner, path, context), path, described)
 
   const self: RawOption = { path, kind: kindOf(inner), ...described }
   if (!isContainer(inner)) return [self]
-  if (depth >= MAX_DEPTH) return [{ ...self, truncated: true }]
-  return [self, ...walkChildren(inner, path, depth, expanded)]
+  if (context.depth >= context.maxDepth) return [{ ...self, truncated: true }]
+  return [self, ...walkChildren(inner, path, context)]
 }
 
 /**
@@ -336,15 +412,10 @@ const walk = (
  * branch does. A union row would carry no kind the merge does not already have.
  * What it does contribute is its words; see {@link withFieldWords}.
  */
-const walkUnion = (
-  inner: SchemaNode,
-  path: string,
-  depth: number,
-  expanded: readonly SchemaNode[]
-): readonly RawOption[] =>
+const walkUnion = (inner: SchemaNode, path: string, context: WalkContext): readonly RawOption[] =>
   (inner.types ?? [])
     .filter((member) => member._tag !== 'Undefined' && member._tag !== 'Null')
-    .flatMap((member) => walk(member, path, depth, expanded))
+    .flatMap((member) => walk(member, path, context))
 
 /**
  * Let the field's OWN sentence outrank the sentences of its branches.
@@ -369,7 +440,7 @@ const walkUnion = (
  * module treats as worse than silence.
  *
  * Stamping rather than adding a second row is also what keeps
- * {@link agreedDescription} honest: the rows at this path genuinely agree
+ * {@link agreedProse} honest: the rows at this path genuinely agree
  * afterwards instead of being forced to. Rows BELOW the path are untouched,
  * because a sentence about the field is not a sentence about its parts.
  *
@@ -380,9 +451,9 @@ const walkUnion = (
 const withFieldWords = (
   rows: readonly RawOption[],
   path: string,
-  described: { readonly description?: string }
+  described: ProseAnnotations
 ): readonly RawOption[] =>
-  described.description === undefined
+  Object.keys(described).length === 0
     ? rows
     : rows.map((row) => (row.path === path ? { ...row, ...described } : row))
 
@@ -390,25 +461,26 @@ const withFieldWords = (
 const walkSuspend = (
   inner: SchemaNode,
   path: string,
-  depth: number,
-  expanded: readonly SchemaNode[]
+  context: WalkContext
 ): readonly RawOption[] =>
-  expanded.includes(inner) || depth >= MAX_DEPTH
+  context.expanded.includes(inner) || context.depth >= context.maxDepth
     ? [{ path, kind: 'object', truncated: true }]
-    : walk(suspendedNode(inner), path, depth + 1, [...expanded, inner])
+    : walk(suspendedNode(inner), path, {
+        ...deeper(context),
+        expanded: [...context.expanded, inner],
+      })
 
 /** The rows a container contributes BELOW itself, one level deeper. */
 const walkChildren = (
   inner: SchemaNode,
   path: string,
-  depth: number,
-  expanded: readonly SchemaNode[]
+  context: WalkContext
 ): readonly RawOption[] =>
   inner._tag === 'Objects'
     ? (inner.propertySignatures ?? []).flatMap((property) =>
-        walk(property.type, `${path}.${String(property.name)}`, depth + 1, expanded)
+        walk(property.type, `${path}.${String(property.name)}`, deeper(context))
       )
-    : walk(elementOf(inner), `${path}[]`, depth + 1, expanded)
+    : walk(elementOf(inner), `${path}[]`, deeper(context))
 
 /**
  * The description a merged group may publish: the one every describing branch
@@ -435,13 +507,24 @@ const walkChildren = (
  * that path, so the group agrees and this returns it — the field's own words,
  * not a branch's, and never a race between them.
  */
-const agreedDescription = (group: readonly RawOption[]): string | undefined => {
+const agreedProse = (
+  group: readonly RawOption[],
+  key: keyof ProseAnnotations
+): string | undefined => {
   const described = group
-    .map((row) => row.description)
+    .map((row) => row[key])
     .filter((description): description is string => description !== undefined)
   const [first] = described
   return first !== undefined && described.every((text) => text === first) ? first : undefined
 }
+
+/** Every prose key the branches at one path agree on, as a spreadable object. */
+const agreedProseOf = (group: readonly RawOption[]): ProseAnnotations =>
+  Object.fromEntries(
+    PROSE_KEYS.map((key) => [key, agreedProse(group, key)]).filter(
+      (entry) => entry[1] !== undefined
+    )
+  )
 
 /**
  * Collapse rows sharing a key path, unioning what the branches accept.
@@ -456,7 +539,7 @@ const agreedDescription = (group: readonly RawOption[]): string | undefined => {
  * The kinds and the values UNION because each branch contributes a true part of
  * the whole. A description cannot be unioned that way — two sentences about two
  * branches do not concatenate into a sentence about the field — so it survives
- * only when the branches agree; see {@link agreedDescription}.
+ * only when the branches agree; see {@link agreedProse}.
  */
 const mergeByPath = (raw: readonly RawOption[]): readonly RawOption[] => {
   const paths = raw.map((row) => row.path).filter((path, index, all) => all.indexOf(path) === index)
@@ -468,12 +551,11 @@ const mergeByPath = (raw: readonly RawOption[]): readonly RawOption[] => {
     const values = group
       .flatMap((row) => row.values ?? [])
       .filter((value, index, all) => all.indexOf(value) === index)
-    const description = agreedDescription(group)
     return {
       path,
       kind: kinds.join(' | '),
       ...(values.length === 0 ? {} : { values }),
-      ...(description === undefined ? {} : { description }),
+      ...agreedProseOf(group),
       // Marked when ANY branch was cut: the honest claim is that the subtree
       // continues, and a reader choosing to trust a partly-walked row is the
       // failure the mark exists to prevent.
@@ -528,6 +610,8 @@ const memberRow = (keyRow: SchemaOption, value: string): SchemaOptionGroupRow =>
   path: keyRow.path,
   kind: keyRow.kind,
   ...(keyRow.description === undefined ? {} : { description: keyRow.description }),
+  ...(keyRow.defaultNote === undefined ? {} : { defaultNote: keyRow.defaultNote }),
+  ...(keyRow.howTo === undefined ? {} : { howTo: keyRow.howTo }),
   ...(keyRow.defaultValue === undefined ? {} : { defaultValue: keyRow.defaultValue }),
   ...(keyRow.truncated === true ? { truncated: true } : {}),
   value,
@@ -572,12 +656,12 @@ const rowsOfGroup = (
  * regressed, and the honest answer is a throw the option census turns into a
  * hard failure rather than a heading carrying an invented kind.
  */
-const keyRowOf = (type: string, items: readonly SchemaOption[], key: string): SchemaOption => {
+const keyRowOf = (source: string, items: readonly SchemaOption[], key: string): SchemaOption => {
   const keyRow = items.find((row) => row.path === key)
   if (keyRow === undefined)
     // eslint-disable-next-line functional/no-throw-statements -- a walk regression, not a data case; the option census turns this into the hard failure it documents rather than serving a heading with an invented kind
     throw new Error(
-      `schemaOptionTree('${type}'): the option walk published paths under "${key}" but no row ` +
+      `${source}: the option walk published paths under "${key}" but no row ` +
         `for "${key}" itself. Every container emits its own row beside its children, so this ` +
         `means the walk regressed — see the walk note in schema-option-tree.ts.`
     )
@@ -597,7 +681,7 @@ const keyRowOf = (type: string, items: readonly SchemaOption[], key: string): Sc
  * failure the depth mark exists for one level down.
  */
 const groupByTopLevelKey = (
-  type: string,
+  source: string,
   items: readonly SchemaOption[]
 ): readonly SchemaOptionGroup[] => {
   const keys = items
@@ -605,7 +689,7 @@ const groupByTopLevelKey = (
     .filter((key, index, all) => all.indexOf(key) === index)
 
   return keys.map((key): SchemaOptionGroup => {
-    const keyRow = keyRowOf(type, items, key)
+    const keyRow = keyRowOf(source, items, key)
     return {
       key,
       kind: keyRow.kind,
@@ -635,8 +719,11 @@ export const schemaOptionGroupRows = (
 ): readonly SchemaOptionGroupRow[] => {
   const { items } = schemaOptionTree(type)
   if (!items.some((row) => topLevelKeyOf(row.path) === key)) return []
-  return rowsOfGroup(items, keyRowOf(type, items, key), key)
+  return rowsOfGroup(items, keyRowOf(typeSource(type), items, key), key)
 }
+
+/** How a walk regression names itself when the walk was asked for by type name. */
+const typeSource = (type: string): string => `schemaOptionTree('${type}')`
 
 /**
  * One walked tree per type, for the process's lifetime.
@@ -690,20 +777,56 @@ const walkOptionTree = (type: string): SchemaOptionTree => {
   const bag = fieldBagOf(type)
   if (bag === undefined) return { items: [], capped: false, groups: [] }
 
-  const defaults = decodedDefaults(bag)
-  const merged = mergeByPath(
-    Object.entries(bag)
+  return assembleOptionTree({
+    source: typeSource(type),
+    raw: Object.entries(bag)
       .filter(([name, value]) => !isSpread(name, value))
-      .flatMap(([name, value]) => walk(astOf(value), name, 1, []))
-  )
+      .flatMap(([name, value]) =>
+        walk(astOf(value), name, { depth: 1, expanded: [], maxDepth: MAX_DEPTH })
+      ),
+    defaults: decodedDefaults(bag),
+    rowCap: SCHEMA_OPTION_ROW_CAP,
+  })
+}
 
-  const capped = merged.length > SCHEMA_OPTION_ROW_CAP
-  const items = (capped ? merged.slice(0, SCHEMA_OPTION_ROW_CAP) : merged).map(
-    (row): SchemaOption => ({
-      ...row,
-      ...(row.path in defaults ? { defaultValue: String(defaults[row.path]) } : {}),
-    })
-  )
+/**
+ * Merge, cap, attach defaults and group — the half both entry points share.
+ *
+ * Extracted rather than duplicated because the ORDER of these four steps is
+ * load-bearing in two places at once (defaults before grouping, cap as a
+ * prefix), and a second copy is a second chance to get that order wrong on a
+ * tree nobody re-measures.
+ */
+/**
+ * A decoded default as a reader can retype it into a config file.
+ *
+ * `String(value)` is right for every scalar and WRONG for the two shapes a
+ * `withDefault` most often carries: it renders `{}` as the literal text
+ * `[object Object]` and `[]` as the empty string. Neither is a cell a reader
+ * can act on, and the second is the worse of the two — an empty Default column
+ * is indistinguishable from an option that declares no default at all.
+ *
+ * So a structural default is published as its JSON, which is what an author
+ * would write. Scalars keep `String`, because `JSON.stringify` would wrap a
+ * string default in quotes the config format does not want.
+ */
+const stringifyDefault = (value: unknown): string =>
+  typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)
+
+const assembleOptionTree = (input: {
+  readonly source: string
+  readonly raw: readonly RawOption[]
+  readonly defaults: Readonly<Record<string, unknown>>
+  readonly rowCap: number
+}): SchemaOptionTree => {
+  const merged = mergeByPath(input.raw)
+  const capped = merged.length > input.rowCap
+  const items = (capped ? merged.slice(0, input.rowCap) : merged).map((row): SchemaOption => ({
+    ...row,
+    ...(row.path in input.defaults
+      ? { defaultValue: stringifyDefault(input.defaults[row.path]) }
+      : {}),
+  }))
 
   // Grouped from the FINISHED rows, defaults included, so a group's
   // `defaultValue` is the same string its key row publishes rather than a
@@ -713,5 +836,309 @@ const walkOptionTree = (type: string): SchemaOptionTree => {
   // Safe under the cap for a structural reason: the slice is a PREFIX, and a
   // container emits its own row before descending, so a key row can never be
   // cut while a path beneath it survives.
-  return { capped, items, groups: groupByTopLevelKey(type, items) }
+  return { capped, items, groups: groupByTopLevelKey(input.source, items) }
+}
+
+// =============================================================================
+// The general entry point: any schema node, not only a catalogued type
+// =============================================================================
+
+/**
+ * The top-level keys a root node publishes, as the walk's starting points.
+ *
+ * Three roots are addressable and nothing else is:
+ *
+ *  - an `Objects` publishes its property signatures, which is the bag case
+ *    {@link walkOptionTree} already handles one level up;
+ *  - a `Union` publishes every branch's keys, merged by path downstream. A
+ *    discriminated union of shapes — an automation action, a field type — is
+ *    ONE thing to a reader configuring it, and the merge is what turns the
+ *    branches back into the single table an author writes against;
+ *  - a `Suspend` is expanded once and re-asked.
+ *
+ * Anything else — a scalar, an array, a literal, a node whose `_tag` this build
+ * of Effect does not spell the way this module expects — publishes NOTHING.
+ *
+ * That last clause is the design, not a gap. The failure this module exists to
+ * make loud is a walk reading the wrong AST tags, which descends nowhere while
+ * returning a plausible-looking flat level (see the header). Asked for a root's
+ * own keys, a blinded walk returns zero rows rather than a partial tree, so the
+ * caller sees an empty document instead of a short one — and an empty document
+ * is the only shape a reader cannot mistake for the truth.
+ */
+const topLevelEntriesOf = (
+  node: SchemaNode,
+  expanded: readonly SchemaNode[]
+): readonly { readonly name: string; readonly type: SchemaNode }[] => {
+  const inner = unwrapOptional(node)
+  if (inner._tag === 'Suspend') {
+    if (expanded.includes(inner)) return []
+    const resolved = suspendedNode(inner)
+    return resolved === undefined ? [] : topLevelEntriesOf(resolved, [...expanded, inner])
+  }
+  if (inner._tag === 'Objects')
+    return (inner.propertySignatures ?? []).map((property) => ({
+      name: String(property.name),
+      type: property.type,
+    }))
+  if (inner._tag === 'Union')
+    return (inner.types ?? [])
+      .filter((member) => member._tag !== 'Undefined' && member._tag !== 'Null')
+      .flatMap((member) => topLevelEntriesOf(member, expanded))
+  return []
+}
+
+/**
+ * What a walk regression on an anonymous node calls itself.
+ *
+ * A schema's `identifier` is the name it is published under — `Llms`, `Table` —
+ * and is what a reader can act on. Falling back to the `_tag` is deliberate
+ * rather than defensive: an unnamed root is exactly the case where the tag is
+ * the only handle anyone has.
+ */
+const nodeSource = (node: SchemaNode): string =>
+  `schemaOptionTreeFor(${annotationOf(node, 'identifier') ?? node._tag ?? 'anonymous'})`
+
+/**
+ * The defaults a root node's decoder produces for `{}`.
+ *
+ * The bag entry point asks a `Schema.Struct` it built itself; here there is only
+ * an AST, so the schema is rebuilt from it with `Schema.make`. Probed on
+ * `effect@4.0.0-rc.108`: a rebuilt schema decodes `{}` to the same defaults as
+ * the original, including a `withDecodingDefault`, so this is the same question
+ * {@link decodedDefaults} asks rather than a reconstruction of the answer —
+ * which is the thing that would be worse than no column at all.
+ *
+ * A root that refuses `{}` — anything with a required key — yields no defaults
+ * rather than throwing. A docs page must not fail to render because the schema
+ * it documents has a mandatory field.
+ */
+/**
+ * `Schema.make`, narrowed to the one shape this module can decode with.
+ *
+ * `make` is typed for an arbitrary AST, so its result declares `unknown`
+ * decoding services and `decodeSync` rejects it. The node handed here came from
+ * `astOf` over a real schema, which is by construction service-free — every
+ * schema in `AppSchema` decodes synchronously, and one that did not would fail
+ * the {@link decodedDefaultsOfNode} catch rather than misreport a default.
+ */
+const rebuildCodec = Schema.make as (
+  ast: SchemaNode
+) => Schema.Codec<unknown, unknown, never, never>
+
+const decodedDefaultsOfNode = (node: SchemaNode): Readonly<Record<string, unknown>> => {
+  try {
+    const decoded: unknown = Schema.decodeSync(rebuildCodec(node))({})
+    return typeof decoded === 'object' && decoded !== null
+      ? Object.fromEntries(
+          Object.entries(decoded as Readonly<Record<string, unknown>>).filter(
+            ([, value]) => value !== undefined
+          )
+        )
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * Every option ANY schema node accepts — the same walk, without the catalogue.
+ *
+ * {@link schemaOptionTree} answers for a catalogued component type: it resolves
+ * the type's field bag, subtracts the shared modules, and memoises the result
+ * behind a name the console guards. None of that is true of a property of
+ * `AppSchema`, which has no bag, no shared modules to subtract and no type name
+ * — and which the documentation engine has to render exactly as faithfully.
+ *
+ * So the walk is the same and the ENTRY is different:
+ *
+ *  - the root is a node, and its own top-level keys are the starting paths;
+ *  - the depth ceiling and the row cap are the CALLER's, because a fragment
+ *    documenting one option wants two levels where a Configuration section
+ *    wants four, and a ceiling read off a module constant serves one of them;
+ *  - nothing is memoised. The cache one function up is keyed by a bare string
+ *    and is bounded only by its caller's guard (see {@link TREE_CACHE}); a
+ *    cache keyed by node identity would hold every schema the process ever
+ *    rendered, for a walk whose cost is a few milliseconds.
+ *
+ * Both entry points share {@link assembleOptionTree}, so the merge, the cap, the
+ * defaults and the grouping cannot come to differ between the console and the
+ * manual — which would be the same option described two ways by one binary.
+ *
+ * @param node - The AST of the schema to walk. `astOf(XSchema)` produces one.
+ * @param options - `depth` defaults to 4, `rowCap` to {@link SCHEMA_OPTION_ROW_CAP}.
+ * @returns The flat rows, their group headings, and whether the cap fired.
+ */
+export const schemaOptionTreeFor = (
+  node: SchemaNode,
+  options?: { readonly depth?: number; readonly rowCap?: number }
+): SchemaOptionTree => {
+  const maxDepth = options?.depth ?? MAX_DEPTH
+  const entries = topLevelEntriesOf(node, [])
+  if (entries.length === 0) return { items: [], capped: false, groups: [] }
+
+  return assembleOptionTree({
+    source: nodeSource(node),
+    raw: entries.flatMap((entry) =>
+      walk(entry.type, entry.name, { depth: 1, expanded: [], maxDepth })
+    ),
+    defaults: decodedDefaultsOfNode(node),
+    rowCap: options?.rowCap ?? SCHEMA_OPTION_ROW_CAP,
+  })
+}
+
+// =============================================================================
+// Addressing ONE option by the path an author writes
+// =============================================================================
+
+/**
+ * One key path, split into the name it addresses and the arrays it indexes.
+ *
+ * `fields[]` is one segment carrying one array descent, not two segments: the
+ * config's grammar writes the brackets as part of the key, and splitting them
+ * apart would make `tables[]` and `tables.[]` the same path to this module and
+ * different paths to a reader.
+ */
+interface PathSegment {
+  readonly name: string
+  /** How many `[]` follow the name — nested arrays are rare but legal. */
+  readonly arrays: number
+}
+
+/** `fields[]` → `{ name: 'fields', arrays: 1 }`; anything else is a refusal. */
+const SEGMENT = /^([A-Za-z_$][A-Za-z0-9_$-]*)((?:\[])*)$/
+
+const parseOptionPath = (path: string): readonly PathSegment[] | undefined => {
+  const segments = path.split('.').map((raw): PathSegment | undefined => {
+    const match = SEGMENT.exec(raw)
+    return match === null
+      ? undefined
+      : { name: match[1] ?? '', arrays: (match[2] ?? '').length / 2 }
+  })
+  return segments.length > 0 && segments.every((segment) => segment !== undefined)
+    ? (segments as readonly PathSegment[])
+    : undefined
+}
+
+/** A node with its optional wrapper removed and its `Suspend` chain expanded. */
+const resolveNode = (node: SchemaNode, expanded: readonly SchemaNode[]): SchemaNode => {
+  const inner = unwrapOptional(node)
+  if (inner._tag !== 'Suspend' || expanded.includes(inner)) return inner
+  const resolved = suspendedNode(inner)
+  return resolved === undefined ? inner : resolveNode(resolved, [...expanded, inner])
+}
+
+/**
+ * The type of one property, searching union branches in declaration order.
+ *
+ * A branch search rather than a merge, because the caller only needs somewhere
+ * to CONTINUE descending from; the row itself is produced by
+ * {@link schemaOptionTreeFor}, which merges every branch at the final step. So
+ * a key declared by two branches of a discriminated union is descended through
+ * the first and still described by all of them.
+ */
+const propertyTypeOf = (node: SchemaNode, name: string): SchemaNode | undefined => {
+  const inner = resolveNode(node, [])
+  if (inner._tag === 'Objects')
+    return inner.propertySignatures?.find((property) => String(property.name) === name)?.type
+  if (inner._tag === 'Union')
+    return (inner.types ?? []).reduce<SchemaNode | undefined>(
+      (found, member) => found ?? propertyTypeOf(member, name),
+      undefined
+    )
+  return undefined
+}
+
+/** The element type behind one `[]`, searching union branches the same way. */
+const elementTypeOf = (node: SchemaNode): SchemaNode | undefined => {
+  const inner = resolveNode(node, [])
+  if (inner._tag === 'Arrays') return elementOf(inner)
+  if (inner._tag === 'Union')
+    return (inner.types ?? []).reduce<SchemaNode | undefined>(
+      (found, member) => found ?? elementTypeOf(member),
+      undefined
+    )
+  return undefined
+}
+
+/** One whole segment: the property, then each of its array descents. */
+const descendSegment = (node: SchemaNode, segment: PathSegment): SchemaNode | undefined =>
+  Array.from({ length: segment.arrays }).reduce<SchemaNode | undefined>(
+    (current) => (current === undefined ? undefined : elementTypeOf(current)),
+    propertyTypeOf(node, segment.name)
+  )
+
+/** Where a descent got to: the node, and every node it passed through. */
+interface Descent {
+  readonly node: SchemaNode
+  readonly visited: readonly SchemaNode[]
+}
+
+/** One option, and the schemas a reader would find it documented under. */
+export interface SchemaOptionLocation {
+  readonly option: SchemaOption
+  /**
+   * Every node the descent passed through, root first, optional wrappers and
+   * `Suspend` links resolved away.
+   *
+   * Published so a caller can name the SCHEMA an option belongs to — which is
+   * how `sovrium docs config` names the article that documents it — without
+   * this module knowing anything about articles.
+   */
+  readonly visited: readonly SchemaNode[]
+}
+
+/**
+ * The single option a config path names — `llms.full`, `tables[].fields[].type`.
+ *
+ * ─── DESCEND TO THE PARENT, THEN ASK THE ORDINARY WALK ─────────────────────
+ *
+ * The final row is produced by {@link schemaOptionTreeFor} over the option's
+ * PARENT, not by a second reader written for one key. That is deliberate: the
+ * walk is where union branches merge, where a closed union becomes its member
+ * list, where a check's description counts as its node's, and where the decoder
+ * is asked for a default. A lookup that read the leaf node directly would
+ * answer differently from the table on the page documenting it, and the two
+ * disagreeing about one option is the failure this whole module exists to
+ * prevent.
+ *
+ * The depth is `1 + the leaf's array descents`, so `fields[]` is reached as the
+ * child the walk publishes at `fields[]` rather than as a second lookup.
+ *
+ * @param root - The AST to resolve the path against, usually `astOf(AppSchema)`.
+ * @param path - A dotted key path, `[]` marking an array descent.
+ * @returns The option and its ancestry, or `undefined` when the path names
+ *   nothing — a refusal the caller reports by name, never an empty answer.
+ */
+export const schemaOptionAt = (
+  root: SchemaNode,
+  path: string
+): SchemaOptionLocation | undefined => {
+  const segments = parseOptionPath(path)
+  const leaf = segments?.at(-1)
+  if (segments === undefined || leaf === undefined) return undefined
+
+  const parent = segments.slice(0, -1).reduce<Descent | undefined>(
+    (current, segment) => {
+      if (current === undefined) return undefined
+      const next = descendSegment(current.node, segment)
+      return next === undefined
+        ? undefined
+        : { node: next, visited: [...current.visited, resolveNode(next, [])] }
+    },
+    { node: root, visited: [root] }
+  )
+  if (parent === undefined) return undefined
+
+  const key = `${leaf.name}${'[]'.repeat(leaf.arrays)}`
+  const tree = schemaOptionTreeFor(parent.node, { depth: 1 + leaf.arrays })
+  const option = tree.items.find((row) => row.path === key)
+  if (option === undefined) return undefined
+
+  const leafNode = descendSegment(parent.node, leaf)
+  return {
+    option,
+    visited:
+      leafNode === undefined ? parent.visited : [...parent.visited, resolveNode(leafNode, [])],
+  }
 }

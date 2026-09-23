@@ -8,6 +8,7 @@
 import { type ReactElement } from 'react'
 import { oauthSubmitLabel } from '@/presentation/design/auth-form-types'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import {
   buildAuthWrapperStyle,
   resolveOnSuccessRedirect,
@@ -32,7 +33,7 @@ function renderOAuthSkeleton(config: {
 }): ReactElement {
   const { props, provider } = config
   return (
-    <form {...props}>
+    <form {...omitInternalMarkers(props)}>
       <button
         type="submit"
         data-oauth-provider={provider}

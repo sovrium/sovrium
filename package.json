@@ -1,6 +1,6 @@
 {
   "name": "sovrium",
-  "version": "0.25.0",
+  "version": "0.26.0",
   "private": true,
   "packageManager": "bun@1.4.2",
   "description": "Configuration-driven web application platform — distributed as standalone binary",
@@ -151,7 +151,7 @@
     "handlebars": "^4.7.9",
     "hono": "^4.13.8",
     "jose": "6.2.10",
-    "lucide-react": "1.39.0",
+    "lucide-react": "^1.47.0",
     "markdown-it": "^14.3.2",
     "markdown-it-container": "^4.0.0",
     "nodemailer": "^9.1.1",

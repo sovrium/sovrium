@@ -8,7 +8,7 @@
 /**
  * Flat, resolved views over the default design — the shapes other modules and gates read.
  *
- * AUTO-GENERATED from `apps/admin/config/design.ts` — DO NOT EDIT.
+ * AUTO-GENERATED from `src/admin/config/design.ts` — DO NOT EDIT.
  *
  * Regenerate: `bun run build:default-design`
  */

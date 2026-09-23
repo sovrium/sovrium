@@ -26,8 +26,8 @@ export const aiChatFields = {
   ),
   chatHeight: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Chat container height in pixels' })
+      Schema.annotate({ description: 'Chat container height in pixels' }),
+      Schema.check(Schema.isGreaterThan(0))
     )
   ),
   showHistory: Schema.optional(

@@ -16,8 +16,8 @@ import {
   detectFormatFromUrl,
 } from '@/domain/kernel/config-parsing/format-detection'
 import { parseSchemaContent } from '@/domain/models/app/app-content-parsing'
+import { fetchFollowingRedirects } from '@/infrastructure/egress/follow-redirects'
 import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
-import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import type { AppEncoded } from '@/domain/models/app'
 
 /**
@@ -42,8 +42,16 @@ const REMOTE_SCHEMA_FETCH_TIMEOUT_MS = 15_000
  * `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1` opt-out. Uses the discriminated-union
  * result, matching `webhooks/dispatcher.ts`.
  *
- * @throws Error if the URL is a blocked outbound target, the fetch fails, or
- *   the content cannot be parsed.
+ * REDIRECTS ARE HOPS, and each one is decided afresh. The guard above runs once,
+ * on the URL in `APP_SCHEMA`, and `fetch` would otherwise follow up to twenty
+ * redirects with nothing in front of any of them — so the schema a deployment
+ * boots on was chosen by whoever controlled the last hop. `fetchFollowingRedirects`
+ * re-applies the guard, requires https of every hop, and caps the chain; the same
+ * helper `init --from-url` uses, because the two must not be able to disagree about
+ * which documents may become an application.
+ *
+ * @throws Error if the URL is a blocked outbound target, a redirect hop is
+ *   refused, the fetch fails, or the content cannot be parsed.
  */
 export const fetchRemoteSchema = async (url: string): Promise<AppEncoded> => {
   const validation = validateOutboundUrl(url)
@@ -58,7 +66,12 @@ export const fetchRemoteSchema = async (url: string): Promise<AppEncoded> => {
     // No retry: a boot that silently takes three times as long to fail is
     // worse than one that fails once and says so, and the operator restarting
     // the process is the retry.
-    const response = await withFetchTimeout(validation.url, {}, REMOTE_SCHEMA_FETCH_TIMEOUT_MS)
+    const fetched = await fetchFollowingRedirects(validation.url, REMOTE_SCHEMA_FETCH_TIMEOUT_MS)
+    if (!fetched.ok) {
+      // eslint-disable-next-line functional/no-throw-statements -- a refused hop must fail boot loudly, for the same reason the SSRF rejection above does
+      throw new Error(fetched.message)
+    }
+    const { response } = fetched
 
     if (!response.ok) {
       // eslint-disable-next-line functional/no-throw-statements

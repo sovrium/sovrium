@@ -1,0 +1,719 @@
+/*
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ *
+ * The shell's own chrome. Every value comes from `tokens.generated.css`, which
+ * is generated from the same design source as the engine's theme layer — so the
+ * window around the app and the app inside it cannot drift apart.
+ *
+ * Hand-written, unlike its neighbour. Do not add token VALUES here; add them to
+ * the design source and regenerate.
+ *
+ * ## The one rule that is not a token
+ *
+ * Colour carries consequence and nothing else (ADR-024 D3). There is no
+ * decorative accent in this file: the primary role paints one button per screen
+ * and the active tab's underline, the error and warning roles paint refusals,
+ * and everything else is the neutral ramp. When a surface reads as unfinished
+ * the answer is in the spacing rhythm or the type, never in adding a colour —
+ * which is why the type scale does more work here than it would in a UI that
+ * had a palette to fall back on.
+ */
+
+html,
+body {
+  height: 100%;
+}
+
+/*
+ * Role tokens are `--sv-*`; SCALE tokens are not — they keep the `--font-*`,
+ * `--text-*`, `--spacing-*` and `--radius-*` names Tailwind registers them
+ * under in the engine, so the shell and the app inside it address the same
+ * variable by the same name. `var(--sv-text-sm)` would resolve to nothing.
+ */
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  color: var(--sv-fg);
+  background: var(--sv-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  min-height: 100%;
+}
+
+/* ------------------------------------------------------------------ views */
+
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-6);
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: var(--spacing-8) var(--spacing-6) var(--spacing-12);
+}
+
+.view--status {
+  justify-content: center;
+  max-width: 44rem;
+  min-height: 100vh;
+}
+
+/*
+ * A create form is one task, so it gets a narrower measure than the gallery.
+ * The gallery is scanned across; a form is read down.
+ */
+.view--form {
+  max-width: 40rem;
+}
+
+.view__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.view__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-3xl--line-height);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.view__lead {
+  max-width: 46rem;
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
+  color: var(--sv-fg-muted);
+}
+
+.view__footer {
+  display: flex;
+  gap: var(--spacing-3);
+}
+
+/* ----------------------------------------------------------------- panels */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  padding: var(--spacing-5);
+  background: var(--sv-bg-raised);
+  border: 1px solid var(--sv-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.panel--centred {
+  align-items: center;
+  text-align: center;
+}
+
+.panel--error {
+  background: var(--sv-error-bg);
+  border-color: var(--sv-error-border);
+}
+
+/*
+ * A refused save where the app never stopped answering.
+ *
+ * Deliberately NOT the error tone, and deliberately not a yellow one either.
+ * Painting it red would send the user hunting an outage that is not happening;
+ * and there is no amber to reach for, because ADR-024 amendment A1 retired
+ * every colour ramp except `error` — `--sv-warning-*` is registered at chroma
+ * ZERO, so `background: var(--sv-warning-bg)` renders as plain grey. That is
+ * the design system answering correctly rather than failing: colour is reserved
+ * for consequence, and "nothing broke" is not one.
+ *
+ * So the emphasis is structural — a full-height rule down the left edge, which
+ * catches the eye without claiming an alarm.
+ */
+.panel--notice {
+  border-color: var(--sv-border-strong);
+  border-left-width: 3px;
+  border-left-color: var(--sv-fg-subtle);
+}
+
+.panel--danger {
+  border-color: var(--sv-border-strong);
+}
+
+.panel__subtitle {
+  margin: var(--spacing-2) 0 0;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--sv-fg-subtle);
+}
+
+/* A container a lazily-loaded fragment is dropped into. */
+.panel__slot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.panel__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-lg--line-height);
+}
+
+.panel__lead {
+  margin: 0;
+  line-height: var(--text-sm--line-height);
+  color: var(--sv-fg-muted);
+}
+
+/*
+ * `--sv-error-fg`, not `--sv-error`. A role with -bg/-fg/-solid slots registers
+ * no bare name, so `var(--sv-error)` resolves to nothing and the text silently
+ * keeps the muted colour.
+ */
+.panel--error .panel__lead {
+  color: var(--sv-error-fg);
+}
+
+.panel__meta {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--sv-fg-subtle);
+}
+
+.panel__note {
+  margin: 0;
+  max-width: 46rem;
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  color: var(--sv-fg-subtle);
+}
+
+/* A note that has to be read, not skimmed past. Weight and value, not colour. */
+.panel__note--strong {
+  font-weight: var(--font-weight-medium);
+  color: var(--sv-fg);
+}
+
+/* ------------------------------------------------------------------ tiles */
+
+/*
+ * A heading over a run of tiles that is not inside a panel. Quieter than
+ * `.panel__title` because it labels a region rather than opening a card.
+ */
+.section__title {
+  margin: 0 0 calc(-1 * var(--spacing-3));
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--sv-fg-subtle);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--spacing-3);
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-4);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: var(--sv-bg-raised);
+  border: 1px solid var(--sv-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--duration-fast) var(--ease-default);
+}
+
+.tile:hover {
+  border-color: var(--sv-primary);
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--sv-focus-ring);
+  outline-offset: 2px;
+}
+
+.tile__name {
+  font-weight: var(--font-weight-semibold);
+}
+
+.tile__description {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  color: var(--sv-fg-muted);
+}
+
+/* ------------------------------------------------------ ways, safety, lists */
+
+.ways {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--spacing-4);
+}
+
+.ways__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-2);
+}
+
+/*
+ * What a remote configuration will and will not do, shown before the button
+ * rather than after it: these three lines ARE the decision.
+ */
+.safety,
+.bullets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  margin: 0;
+  padding-left: var(--spacing-5);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  color: var(--sv-fg-muted);
+}
+
+.bullets {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+}
+
+/* ---------------------------------------------------------------- recents */
+
+.recents {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recents__open {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-0-5);
+  width: 100%;
+  padding: var(--spacing-2) var(--spacing-3);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-base);
+}
+
+.recents__open:hover {
+  background: var(--sv-bg-subtle);
+  border-color: var(--sv-border);
+}
+
+.recents__name {
+  font-weight: var(--font-weight-medium);
+}
+
+.recents__path {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--sv-fg-subtle);
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--sv-density-button-h);
+  padding: 0 var(--spacing-4);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  color: var(--sv-fg);
+  cursor: pointer;
+  background: var(--sv-bg-raised);
+  border: 1px solid var(--sv-border-strong);
+  border-radius: var(--radius-base);
+}
+
+.button:hover:not([disabled]) {
+  background: var(--sv-bg-subtle);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--sv-focus-ring);
+  outline-offset: 2px;
+}
+
+.button[disabled] {
+  color: var(--sv-fg-disabled);
+  cursor: not-allowed;
+}
+
+.button--primary {
+  color: var(--sv-primary-fg);
+  background: var(--sv-primary);
+  border-color: var(--sv-primary);
+}
+
+.button--primary:hover:not([disabled]) {
+  background: var(--sv-primary-hover);
+}
+
+.button--primary[disabled] {
+  opacity: 0.5;
+}
+
+.button--danger {
+  color: var(--sv-error-solid-fg);
+  background: var(--sv-error-solid);
+  border-color: var(--sv-error-solid);
+}
+
+.button--quiet {
+  color: var(--sv-fg-muted);
+  background: transparent;
+  border-color: transparent;
+}
+
+.button--quiet:hover:not([disabled]) {
+  color: var(--sv-fg);
+  background: var(--sv-bg-subtle);
+}
+
+/* ------------------------------------------------------------ form pieces */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.field__label {
+  font-size: var(--text-xs);
+  color: var(--sv-fg-muted);
+}
+
+.field__input {
+  height: var(--sv-density-control-h);
+  padding: 0 var(--spacing-3);
+  font: inherit;
+  color: var(--sv-fg);
+  background: var(--sv-bg);
+  border: 1px solid var(--sv-border-strong);
+  border-radius: var(--radius-base);
+}
+
+.field__input--short {
+  width: 10rem;
+}
+
+.field__input:focus-visible {
+  outline: 2px solid var(--sv-focus-ring);
+  outline-offset: 1px;
+}
+
+/*
+ * Checkboxes paint in the brand ink rather than the browser's own accent.
+ *
+ * One property, and it is the difference between a window with no decorative
+ * colour in it and a window with two blue ticks — which in dark mode are the
+ * only chroma on the screen. `accent-color` restyles the native control
+ * without replacing it, so the checkbox keeps its platform behaviour and its
+ * keyboard handling.
+ */
+input[type='checkbox'] {
+  accent-color: var(--sv-primary);
+  width: 1rem;
+  height: 1rem;
+}
+
+input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--sv-focus-ring);
+  outline-offset: 2px;
+}
+
+.form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+}
+
+/* A button with a sentence beside it rather than beneath it. */
+.form__actions--aligned {
+  align-items: center;
+}
+
+.form__actions--centred {
+  justify-content: center;
+}
+
+.form__header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-2);
+}
+
+/*
+ * The way back comes FIRST in the DOM, so it is the first thing a keyboard or a
+ * screen reader reaches on a form the user may have opened by mistake.
+ */
+.button--back {
+  margin-left: calc(-1 * var(--spacing-3));
+  padding: 0 var(--spacing-3);
+}
+
+.view__title--form {
+  font-size: var(--text-2xl);
+  line-height: var(--text-2xl--line-height);
+}
+
+.form__location {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-xs);
+  color: var(--sv-fg-subtle);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  padding: var(--spacing-2) 0;
+  border-top: 1px solid var(--sv-border);
+}
+
+.row:first-of-type {
+  border-top: none;
+}
+
+/*
+ * A note explaining the row ABOVE it needs air beneath, or the next row's
+ * divider closes in and the note reads as a heading for the wrong control.
+ */
+.row + .panel__note {
+  padding-bottom: var(--spacing-2);
+}
+
+.row__label {
+  color: var(--sv-fg-muted);
+}
+
+.row__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+/* ------------------------------------------------------------------- tabs */
+
+.view--settings {
+  padding-top: var(--spacing-5);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--spacing-1);
+  border-bottom: 1px solid var(--sv-border);
+}
+
+.tabs__tab {
+  padding: var(--spacing-2) var(--spacing-3);
+  font: inherit;
+  color: var(--sv-fg-muted);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+}
+
+.tabs__tab--active {
+  color: var(--sv-fg);
+  border-bottom-color: var(--sv-primary);
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+/* ------------------------------------------------------------------- logs */
+
+.log {
+  max-height: 18rem;
+  margin: 0;
+  padding: var(--spacing-3);
+  overflow: auto;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-wrap;
+  color: var(--sv-fg-muted);
+  background: var(--sv-bg-inset);
+  border: 1px solid var(--sv-border);
+  border-radius: var(--radius-base);
+}
+
+.log--full {
+  max-height: 26rem;
+}
+
+.log--tail {
+  text-align: left;
+}
+
+/*
+ * A snippet is meant to be read and copied, not skimmed like a log, so it gets
+ * the foreground colour and no scroll cap — a clipped `mcpServers` block is a
+ * configuration the user pastes half of.
+ */
+.log--snippet {
+  max-height: none;
+  color: var(--sv-fg);
+}
+
+.log__block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  width: 100%;
+}
+
+/* ----------------------------------------------------------------- chips */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1);
+}
+
+.chip {
+  padding: var(--spacing-1) var(--spacing-3);
+  font: inherit;
+  font-size: var(--text-xs);
+  color: var(--sv-fg-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--sv-border);
+  border-radius: var(--radius-full);
+}
+
+.chip:hover {
+  background: var(--sv-bg-subtle);
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--sv-focus-ring);
+  outline-offset: 2px;
+}
+
+.chip--active {
+  color: var(--sv-primary-subtle-fg);
+  background: var(--sv-primary-subtle);
+  border-color: var(--sv-primary);
+}
+
+.clients {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+/* --------------------------------------------------------------- findings */
+
+/*
+ * What the engine could not read. `accepted` is the only line that says what to
+ * write instead, so it is the one that gets the foreground colour — everything
+ * else here describes the problem, and this describes the fix.
+ */
+.findings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.findings__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finding {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding-left: var(--spacing-3);
+  border-left: 2px solid var(--sv-border-strong);
+}
+
+.finding__path {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--sv-fg-subtle);
+}
+
+.finding__message {
+  margin: 0;
+  color: var(--sv-fg);
+}
+
+.finding__accepted {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  color: var(--sv-fg);
+}
+
+.finding__source {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--sv-fg-subtle);
+}
+
+/* ----------------------------------------------------------------- notice */
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-4);
+  background: var(--sv-info-bg);
+  border: 1px solid var(--sv-info-border);
+  border-radius: var(--radius-base);
+}
+
+.notice__text {
+  margin: 0;
+  color: var(--sv-info-fg);
+}

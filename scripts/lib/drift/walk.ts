@@ -71,6 +71,47 @@ export const DEFAULT_EXCLUDED_DIRS: ReadonlySet<string> = new Set([
   '.git',
 ])
 
+/**
+ * Repo-relative directory PREFIXES a booted app writes into a source tree.
+ *
+ * `bun run app:admin` boots the operator console, whose config now lives at
+ * `src/admin/` ([internal ref] D3). A boot writes two things beside that config: the
+ * `.sovrium/` data dir (SQLite, lock file, storage) and, because the console
+ * declares page-scoped `search-input` components, `public/sovrium-search/`
+ * holding a generated index and runtime. Both are gitignored, neither is
+ * authored, and both appear INSIDE a tree the layout law governs.
+ *
+ * They have to be excluded somewhere, and this is the honest place. A NAME-based
+ * entry in {@link DEFAULT_EXCLUDED_DIRS} would be the wrong instrument for the
+ * reason the `build` note above records at length: a name cannot tell an
+ * artefact directory from a source one, and `public` is a real source directory
+ * under `apps/website`. A PREFIX can, so these are prefixes.
+ *
+ * What this costs: a real source file placed under one of these paths is
+ * invisible to every gate that uses {@link excludeRuntimeArtefacts}. That is
+ * the intended trade — nothing may be authored there, and `Layout Drift`'s own
+ * `layer-child-not-in-manifest` rule is what says so, since `public` is not a
+ * declared child of the `admin` layer.
+ *
+ * Caught by booting the preview rather than by reading the walk: before the
+ * console moved under `src/`, these artefacts landed in `apps/`, which no
+ * layout gate walks. The move made a developer's ordinary `bun run app:admin`
+ * turn the build red.
+ */
+export const RUNTIME_ARTEFACT_PREFIXES: readonly string[] = [
+  'src/admin/.sovrium/',
+  'src/admin/public/',
+]
+
+/**
+ * A {@link WalkOptions.filter} that drops every {@link RUNTIME_ARTEFACT_PREFIXES}
+ * path. Compose it with `&&` when a caller needs a filter of its own.
+ */
+export const excludeRuntimeArtefacts = (absolutePath: string): boolean => {
+  const rel = relative(REPO_ROOT, absolutePath).split(sep).join('/')
+  return !RUNTIME_ARTEFACT_PREFIXES.some((prefix) => rel.startsWith(prefix))
+}
+
 export interface WalkOptions {
   /** Absolute directory to walk. */
   readonly root: string

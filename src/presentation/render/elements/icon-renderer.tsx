@@ -7,6 +7,7 @@
 
 import { type ReactElement } from 'react'
 import { resolveLucideIcon } from '@/presentation/render/elements/lucide-resolver'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ElementProps } from './html-element-renderer'
 
 /**
@@ -57,7 +58,7 @@ export function renderIcon(
     'data-stroke-width': _dataStrokeWidth,
     'data-aria-label': _dataAriaLabel,
     ...restProps
-  } = props as Record<string, unknown>
+  } = omitInternalMarkers(props) as Record<string, unknown>
 
   const testId = iconName ? `icon-${iconName}` : 'icon'
   const colorProps = iconColor !== undefined ? { 'data-color': iconColor } : {}

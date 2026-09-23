@@ -1,25 +1,32 @@
 name: documents
 fields:
-  - name: title
+  - id: 1
+    name: title
     type: single-line-text
     required: true
-  - name: body
+  - id: 2
+    name: body
     type: long-text
-  - name: tag
+  - id: 3
+    name: tag
     type: relationship
     relatedTable: tags
     relationType: many-to-one
-  - name: status
+  - id: 4
+    name: status
     type: single-select
     options:
       - draft
       - published
       - archived
-  - name: created_by
+  - id: 5
+    name: created_by
     type: created-by
-  - name: created_at
+  - id: 6
+    name: created_at
     type: created-at
-  - name: updated_at
+  - id: 7
+    name: updated_at
     type: updated-at
 permissions:
   read: authenticated

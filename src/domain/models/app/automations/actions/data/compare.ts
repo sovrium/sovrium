@@ -18,8 +18,17 @@ import { ActionBaseFields } from '../base'
  */
 export const DataCompareActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('data'),
-  operator: Schema.Literal('compare'),
+  type: Schema.Literal('data').pipe(
+    Schema.annotate({
+      description: "Constant value 'data' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('compare').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'data' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Template reference to the baseline (left) dataset */
     left: TemplateStringSchema.pipe(
@@ -37,6 +46,8 @@ export const DataCompareActionSchema = Schema.Struct({
         description: 'Unique identifier field for matching items across the two datasets',
       })
     ),
+  }).annotate({
+    description: 'The two lists to compare, and the key that pairs their entries up.',
   }),
 }).pipe(
   Schema.annotate({

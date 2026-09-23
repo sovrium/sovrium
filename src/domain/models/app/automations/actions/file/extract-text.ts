@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const FileExtractTextActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('extractText'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('extractText').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Storage key of the file to extract text from */
     key: Schema.optional(
@@ -46,13 +55,17 @@ export const FileExtractTextActionSchema = Schema.Struct({
         })
       )
     ),
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter((props) => (props.key ?? props.source) !== undefined, {
-        message: 'extractText requires `key` (or `source`)',
-      })
-    )
-  ),
+  })
+    .annotate({
+      description: 'The file to read text out of, and the format the text is returned in.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter((props) => (props.key ?? props.source) !== undefined, {
+          message: 'extractText requires `key` (or `source`)',
+        })
+      )
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'FileExtractTextAction',

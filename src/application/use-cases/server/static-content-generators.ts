@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { validateLanguageSubdirectory } from '@/domain/models/app/languages/language-detection'
 import {
   isPageInSitemap,
   resolveSitemapChangefreq,
@@ -465,6 +466,35 @@ const humanizeGroup = (key: string): string =>
 const UNGROUPED_KEY = 'Other'
 
 /**
+ * The pages ONE locale's llms document is built from.
+ *
+ * A page belongs to a locale by the `/{lang}/` prefix it declares in its own
+ * `path`, resolved with the router's own primitive so an llms route and a page
+ * route can never disagree about which segment is a language. A page carrying
+ * no DECLARED prefix is locale-NEUTRAL and belongs to every locale — that rule,
+ * rather than a special case, is what keeps an app with no `languages` block
+ * serving exactly what it served before: no code is declared, so every page is
+ * neutral and nothing is filtered out.
+ *
+ * It is also the whole of the changelog de-duplication. `apps/website` declares
+ * its changelog collection once per locale over ONE source directory, so the
+ * single English body used to be concatenated twice into one document; the two
+ * declarations differ precisely by their path prefix, so scoping by prefix
+ * contributes that body once per locale route and never twice to one.
+ *
+ * `language === undefined` means "every page", which is what the root routes of
+ * an app declaring no `languages` ask for.
+ */
+const pagesForLanguage = (app: App, language: string | undefined): readonly Page[] => {
+  const pages = app.pages ?? []
+  if (language === undefined) return pages
+  return pages.filter((page) => {
+    const declared = validateLanguageSubdirectory(app, page.path)
+    return declared === undefined || declared === language
+  })
+}
+
+/**
  * Collect every content-directory entry across the app's pages, in page +
  * file order. Pages without a `contentDir` contribute nothing.
  */
@@ -512,11 +542,19 @@ const renderEntryBullet = (entry: ContentDirEntry, baseUrl: string): string => {
  * `baseUrl` is prefixed to each page path; pass an empty string to emit
  * relative URLs (`/docs/getting-started`).
  *
+ * `language` scopes the index to ONE locale (see {@link pagesForLanguage}), so
+ * each article is listed once at the URL that locale reaches it by. Omitting it
+ * lists every page, which is what an app declaring no `languages` wants.
+ *
  * Async because `contentDir` pages are enumerated from disk.
  */
-export const generateLlmsTxtContent = async (app: App, baseUrl: string): Promise<string> => {
+export const generateLlmsTxtContent = async (
+  app: App,
+  baseUrl: string,
+  language?: string
+): Promise<string> => {
   const { title, description } = resolveLlmsHeader(app)
-  const entries = await collectContentEntries(app.pages ?? [])
+  const entries = await collectContentEntries(pagesForLanguage(app, language))
   const grouped = groupEntries(entries)
 
   const sections = grouped.map(([key, groupEntriesList]) => {
@@ -534,10 +572,16 @@ export const generateLlmsTxtContent = async (app: App, baseUrl: string): Promise
  * Generate the `/llms-full.txt` document — the full markdown body of every
  * content-directory page concatenated in order, separated by blank lines.
  *
+ * `language` scopes the concatenation to ONE locale (see
+ * {@link pagesForLanguage}); omitting it concatenates every page, which is what
+ * an app declaring no `languages` wants. An agent asking a multilingual site
+ * for its documentation reads one corpus rather than paying for every
+ * translation at once.
+ *
  * Async because each page body is read from disk.
  */
-export const generateLlmsFullTxtContent = async (app: App): Promise<string> => {
-  const pages = app.pages ?? []
+export const generateLlmsFullTxtContent = async (app: App, language?: string): Promise<string> => {
+  const pages = pagesForLanguage(app, language)
   const perPage = await Promise.all(
     pages.map((page) =>
       page.contentDir ? readContentDirBodies(page.contentDir, page.path) : Promise.resolve([])

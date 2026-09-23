@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { readdir, realpath } from 'node:fs/promises'
+import { realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { Effect } from 'effect'
@@ -19,9 +19,9 @@ import {
   readEmbeddedSample,
   type EmbeddedAsset,
 } from '@/infrastructure/assets/embedded-static-assets'
+import { diskChunkReader, embeddedChunkReader } from '@/infrastructure/assets/island-chunk-readers'
 import {
   computeIslandPreloadManifest,
-  type IslandChunkReader,
   type IslandPreloadManifest,
 } from '@/infrastructure/assets/island-preload-manifest'
 import { compileCSS } from '@/infrastructure/css/compiler'
@@ -492,6 +492,9 @@ const ISLAND_OUT_DIR = isBundled
   ? resolvePackagePath('dist', 'island-chunks')
   : join(tmpdir(), islandDirName(process.pid))
 
+/** The on-disk path of one `Bun.build` artifact. */
+const artifactPath = (artifact: { readonly path: string }): string => artifact.path
+
 /**
  * Island bundle build result
  */
@@ -507,38 +510,6 @@ export interface IslandBuildResult {
    * behaviour. See `@/infrastructure/assets/island-preload-manifest`.
    */
   readonly preloads: IslandPreloadManifest
-}
-
-/**
- * Reader over an on-disk island build directory — the dev per-process tmpdir
- * and the bundled `dist/island-chunks`, which differ only in path.
- *
- * `recursive` is load-bearing: the dev build emits the entry at the root and
- * every chunk under `chunks/`, so a flat listing would find nothing to preload
- * and return an empty manifest that looks like a legitimate "nothing to do".
- */
-function diskChunkReader(root: string): IslandChunkReader {
-  return {
-    list: async () => {
-      const names = await readdir(root, { recursive: true }).catch(() => [] as string[])
-      return names.map((name) => name.split(sep).join('/')).filter((name) => name.endsWith('.js'))
-    },
-    read: (relativePath) => Bun.file(join(root, relativePath)).text(),
-  }
-}
-
-/** Reader over the compiled binary's embedded island assets. */
-async function embeddedChunkReader(): Promise<IslandChunkReader> {
-  const assets = await getRuntimeAssets()
-  return {
-    list: async () => Object.keys(assets.islands).filter((name) => name.endsWith('.js')),
-    read: (relativePath) => {
-      const embedded = assets.islands[relativePath]
-      return embedded === undefined
-        ? Promise.reject(new Error(`No embedded island chunk "${relativePath}"`))
-        : Bun.file(embedded).text()
-    },
-  }
 }
 
 /**
@@ -619,9 +590,12 @@ export const buildIslands = (() => {
     const entryFile = entry.path.replace(ISLAND_OUT_DIR + '/', '')
     logDebug(`[ISLANDS] Built entry: ${entryFile} (${result.outputs.length} outputs)`)
 
-    const preloads = await computeIslandPreloadManifest(diskChunkReader(ISLAND_OUT_DIR), entryFile)
+    // Scope the manifest to THIS build's outputs. The directory is shared by
+    // every build this process makes, so listing it would resolve each island
+    // to two chunks from the second rebuild onward — see `toEmittedChunkPaths`.
+    const reader = diskChunkReader(ISLAND_OUT_DIR, result.outputs.map(artifactPath))
 
-    return { entryFile, preloads }
+    return { entryFile, preloads: await computeIslandPreloadManifest(reader, entryFile) }
   }
 
   return memoizeUnlessDev(build)

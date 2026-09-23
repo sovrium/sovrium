@@ -81,6 +81,7 @@ import {
   computeCodeFrameShellClasses,
   computeCodeOutputClasses,
 } from '../../design/code-frame-default-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement, ReactNode } from 'react'
@@ -469,7 +470,7 @@ export const codeBlockComponent: ComponentRenderer = ({
     'data-line-numbers': _dataLineNumbers,
     className,
     ...rest
-  } = elementProps as Record<string, unknown>
+  } = omitInternalMarkers(elementProps) as Record<string, unknown>
   const authorClassName = className as string | undefined
 
   const codePre = renderCodePre({

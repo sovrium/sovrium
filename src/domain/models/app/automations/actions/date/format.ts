@@ -31,8 +31,17 @@ import { isValidTimezone, LocaleProp, PatternProp, TimezoneProp } from './props'
  */
 export const DateFormatActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('date'),
-  operator: Schema.Literal('format'),
+  type: Schema.Literal('date').pipe(
+    Schema.annotate({
+      description: "Constant value 'date' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('format').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'date' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** The instant to render. */
     input: TemplateStringSchema.pipe(
@@ -51,15 +60,20 @@ export const DateFormatActionSchema = Schema.Struct({
 
     /** BCP 47 locale for month/weekday names. Default en-US. */
     locale: Schema.optional(LocaleProp),
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter(({ timezone }) =>
-        timezone !== undefined && !isValidTimezone(timezone)
-          ? `Invalid IANA timezone: ${timezone}`
-          : undefined
+  })
+    .annotate({
+      description:
+        'The date to render, the pattern to render it with, and the time zone and language.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter(({ timezone }) =>
+          timezone !== undefined && !isValidTimezone(timezone)
+            ? `Invalid IANA timezone: ${timezone}`
+            : undefined
+        )
       )
-    )
-  ),
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'DateFormatAction',

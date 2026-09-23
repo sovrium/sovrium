@@ -106,21 +106,21 @@ export const FilterFieldKindSchema = Schema.Literals(['text', 'number', 'date', 
 /** One field the bar offers to filter on. */
 const FilterFieldSchema = Schema.Struct({
   name: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Field',
       description: 'Column name, as the subscribers’ tables spell it',
       examples: ['status', 'amount'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Label',
         description: 'What the field is called in the bar. Falls back to `name`.',
         examples: ['Status', 'Amount'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   kind: Schema.optional(FilterFieldKindSchema),
@@ -160,12 +160,12 @@ const FilterFieldSchema = Schema.Struct({
 /** One condition the bar opens with. */
 const FilterConditionSchema = Schema.Struct({
   field: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description:
         'Field to filter on. Must name one of the bar’s own `fields` — a cross-key rule an open struct cannot carry, so it is refused BY NAME at boot in `component-xor-rules.ts` rather than claimed here and never checked.',
       examples: ['status'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   operator: FilterOperatorSchema,
   value: Schema.String.annotate({
@@ -182,13 +182,13 @@ const FilterConditionSchema = Schema.Struct({
 /** The channel the bar publishes its filter expression on. */
 const FilterBarPublisherSchema = Schema.Struct({
   bindTo: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Channel',
       description:
         'The shared-filter channel this bar publishes on — the same string every subscriber names in `dataSource.bindTo` beside `sharedFilter`.',
       examples: ['invoices-filter'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).annotate({
   identifier: 'FilterBarPublisher',

@@ -16,7 +16,20 @@ import { detectFormat, getFileExtension } from '@/domain/kernel/config-parsing/f
 import { parseJsonContent, parseYamlContent } from '@/domain/models/app/app-content-parsing'
 import { resolveRefs, resolveRefsWithSources } from './ref-resolver'
 import { loadTsConfigGraph, requireDefaultExportObject, scanTsConfigGraph } from './ts-config-graph'
+import type { ConfigGraphOverlay } from './ref-resolver'
 import type { AppEncoded } from '@/domain/models/app'
+
+/**
+ * What a caller may hand {@link loadSchemaGraphFromFile} beyond the path.
+ *
+ * One option, and it exists for one caller — see {@link ConfigGraphOverlay}.
+ * Every other load leaves it unset and reads the graph entirely from disk,
+ * which is what makes this additive rather than a new code path to keep in step.
+ */
+export interface ConfigGraphLoadOptions {
+  /** Stand-in bytes for one or more files of the graph, by ABSOLUTE path. */
+  readonly readFile?: ConfigGraphOverlay | undefined
+}
 
 /**
  * A config together with the absolute path of every file it was read from:
@@ -38,9 +51,14 @@ interface ParsedRoot {
   readonly parsed: unknown
 }
 
-const readRoot = async (filePath: string): Promise<ParsedRoot> => {
+const readRoot = async (
+  filePath: string,
+  overlay: ConfigGraphOverlay | undefined
+): Promise<ParsedRoot> => {
+  const absolutePath = resolve(filePath)
+  const standIn = overlay?.(absolutePath)
   const file = Bun.file(filePath)
-  const exists = await file.exists()
+  const exists = standIn !== undefined || (await file.exists())
 
   if (!exists) {
     // eslint-disable-next-line functional/no-throw-statements
@@ -48,7 +66,6 @@ const readRoot = async (filePath: string): Promise<ParsedRoot> => {
   }
 
   const format = detectFormat(filePath)
-  const absolutePath = resolve(filePath)
 
   if (format === 'typescript') {
     return { format, absolutePath, parsed: undefined }
@@ -60,7 +77,7 @@ const readRoot = async (filePath: string): Promise<ParsedRoot> => {
     throw new Error(`Unsupported file format: .${extension}. Supported: .json, .yaml, .yml, .ts`)
   }
 
-  const content = await file.text()
+  const content = standIn ?? (await file.text())
   const parsed = format === 'json' ? parseJsonContent(content) : parseYamlContent(content)
   return { format, absolutePath, parsed }
 }
@@ -73,7 +90,7 @@ const readRoot = async (filePath: string): Promise<ParsedRoot> => {
  * @throws Error if file doesn't exist, format is unsupported, or parsing fails
  */
 export const loadSchemaFromFile = async (filePath: string): Promise<AppEncoded> => {
-  const root = await readRoot(filePath)
+  const root = await readRoot(filePath, undefined)
 
   if (root.format === 'typescript') {
     return loadSchemaFromTsFile(filePath)
@@ -94,14 +111,32 @@ export const loadSchemaFromFile = async (filePath: string): Promise<AppEncoded> 
  *
  * @throws Error on the same conditions as {@link loadSchemaFromFile}
  */
-export const loadSchemaGraphFromFile = async (filePath: string): Promise<LoadedConfigGraph> => {
-  const root = await readRoot(filePath)
+export const loadSchemaGraphFromFile = async (
+  filePath: string,
+  options: ConfigGraphLoadOptions = {}
+): Promise<LoadedConfigGraph> => {
+  const root = await readRoot(filePath, options.readFile)
 
   if (root.format === 'typescript') {
+    // A `.ts` root is BUNDLED rather than read, so an overlay cannot stand in
+    // for one of its modules. Refused rather than silently ignored: a caller
+    // that believed it was judging a candidate would otherwise be handed the
+    // config already on disk and told it decodes.
+    if (options.readFile !== undefined) {
+      // eslint-disable-next-line functional/no-throw-statements -- infrastructure layer needs imperative error propagation
+      throw new Error(
+        'A TypeScript config cannot be overlaid: its partials are module imports, not `$ref` ' +
+          'files. Edit the `.ts` config directly.'
+      )
+    }
     return loadTsConfigGraph(root.absolutePath)
   }
 
-  const { resolved, files } = await resolveRefsWithSources(root.parsed, dirname(root.absolutePath))
+  const { resolved, files } = await resolveRefsWithSources(
+    root.parsed,
+    dirname(root.absolutePath),
+    options.readFile
+  )
   return { config: resolved as AppEncoded, files: [root.absolutePath, ...files] }
 }
 
@@ -113,7 +148,7 @@ export const loadSchemaGraphFromFile = async (filePath: string): Promise<LoadedC
  * free); a `.ts` root is bundled without being imported.
  */
 export const collectConfigGraphFiles = async (filePath: string): Promise<ReadonlyArray<string>> => {
-  const root = await readRoot(filePath)
+  const root = await readRoot(filePath, undefined)
 
   if (root.format === 'typescript') {
     return scanTsConfigGraph(root.absolutePath)

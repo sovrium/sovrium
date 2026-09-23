@@ -46,6 +46,22 @@ export interface ParsedArgs {
    * typed config inert and edited-but-never-read.
    */
   readonly typescript?: boolean
+  /**
+   * `--git` — run `git init` and land one commit over the fresh scaffold
+   * (`init`).
+   *
+   * A convenience, never a prerequisite: undo is engine-owned and works with
+   * no repository at all, so a host without `git` loses this and nothing else.
+   */
+  readonly gitInit?: boolean
+  /**
+   * `--from-url <https://…>` — fork ONE published config document (`init`).
+   *
+   * Distinct from `--template owner/repo`, which fetches a whole repository.
+   * This is the shape a gallery, a blog post or a colleague can publish
+   * without owning one.
+   */
+  readonly fromUrl?: string
   readonly forceFlag: boolean
   /**
    * Static-asset directory for `start` / `build`.
@@ -99,6 +115,15 @@ export interface ParsedArgs {
    */
   readonly check?: boolean
   /**
+   * `--json` — report the verdict as one JSON document on stdout.
+   *
+   * `sovrium validate`'s machine-readable mode. Distinct from `--format`, which
+   * names an output DIALECT for a document a human still reads: this switches
+   * who the command is talking to, and with it the promise that stdout carries
+   * nothing a `JSON.parse` would choke on.
+   */
+  readonly json?: boolean
+  /**
    * `--format <value>` — the RAW string, deliberately unvalidated here.
    *
    * `sovrium design-system` owns the refusal so it can print the accepted set.
@@ -106,6 +131,44 @@ export interface ParsedArgs {
    * for `yaml` a markdown file, exit 0, and let nobody look again.
    */
   readonly format?: string
+  /** `--full` — print the whole manual rather than an index (`docs`). */
+  readonly full?: boolean
+  /** `--list-sections` — print the section vocabulary and stop (`docs`). */
+  readonly listSections?: boolean
+  /**
+   * `--lang <value>` — the RAW string, deliberately unvalidated here.
+   *
+   * `sovrium docs` owns the refusal for the same reason `--format` is left
+   * raw: the in-binary manual is English, and serving English to a reader who
+   * asked for French is precisely the failure the flag exists to prevent.
+   */
+  readonly lang?: string
+  /**
+   * Every `--section <slug>` occurrence, in argv order.
+   *
+   * Repeatable by design: `sovrium docs --full --section tables --section forms`
+   * must print BOTH. A single-value reader would honour the first and drop the
+   * second behind a green exit code, which is the `--table` defect one flag up.
+   */
+  readonly docsSections?: readonly string[]
+  /**
+   * Every positional argument AFTER the command word, in argv order.
+   *
+   * `sovrium docs` addresses articles, subcommands and lookup keys positionally
+   * — `docs app-schema/llms-txt`, `docs config llms.full`, `docs search llms` —
+   * and none of those fit the `configFile` / `subcommand` / `positionalArg`
+   * slots, which are shaped for `admin create <email> [config]`.
+   */
+  readonly positionalArgs?: readonly string[]
+  /**
+   * `--project <dir>` — the directory `sovrium mcp` reads its config from.
+   *
+   * Distinct from `configFile`, and deliberately: the stdio MCP verb is handed
+   * a PROJECT, not a document. It then discovers the config inside it exactly
+   * as `sovrium start` does, so a client's saved invocation keeps working when
+   * the author renames `app.yaml` to `app.ts`.
+   */
+  readonly projectDir?: string
 }
 
 const hasFlag = (argv: readonly string[], long: string, short: string): boolean =>
@@ -133,6 +196,10 @@ const getFlagValues = (argv: readonly string[], flag: string): readonly string[]
 const FLAG_VALUE_OPTIONS = [
   '--output',
   '--template',
+  // Listed here as well as in KNOWN_VALUE_FLAGS: omitting a value-flag leaves
+  // its value in the positional stream, so `sovrium init --from-url <url> ./dir`
+  // would treat the URL as the target directory.
+  '--from-url',
   '--publicDir',
   '--name',
   '--password',
@@ -148,6 +215,16 @@ const FLAG_VALUE_OPTIONS = [
   // stream, so `sovrium design-system --format json app.yaml` would treat the
   // string `json` as the config path.
   '--format',
+  // `sovrium docs --lang en --section tables`. Same rule: absent here, `en`
+  // would be read as the article address and `docs --lang en` would refuse a
+  // section nobody registered.
+  '--lang',
+  '--section',
+  // `sovrium mcp --project <dir>`. Both lists again, and this one bites in a
+  // way the others do not: `--project /tmp/app` leaves `/tmp/app` in the
+  // positional stream, where `isConfigFile` matches it on the `/` and rewrites
+  // the whole invocation into an implicit `start`.
+  '--project',
 ] as const
 
 /** Commands that use two-level noun-verb dispatch (verb in 2nd positional slot). */
@@ -173,16 +250,29 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   // rejects it outright — a refusal that reads like operator error rather
   // than a gap.
   '--typescript',
+  // `sovrium init --git`. Absent from this set, `findUnknownFlag` rejects it
+  // outright — a refusal that reads like operator error rather than a gap.
+  '--git',
   // `sovrium seed --dry-run`, `sovrium migrate --dry-run`
   '--dry-run',
   // `sovrium migrate --check`. Absent from this set, `findUnknownFlag` rejects
   // the flag outright, so the mode is unreachable however well it is wired.
   '--check',
+  // `sovrium docs --full`, `sovrium docs --list-sections`.
+  '--full',
+  '--list-sections',
+  // `sovrium validate --json`. Same note as `--check`: a flag missing from this
+  // set is refused at parse time, so the machine-readable report would be
+  // unreachable however completely the command implemented it.
+  '--json',
 ])
 
 const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--output',
   '--template',
+  // `sovrium init --from-url <https://…>`. A published config document forked
+  // into the project, as opposed to `--template`'s whole repository.
+  '--from-url',
   '--publicDir',
   '--name',
   '--password',
@@ -197,6 +287,14 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   // `sovrium design-system`. Absent from this set, `findUnknownFlag` rejects
   // the flag outright — a refusal naming the flag but not the accepted values.
   '--format',
+  // `sovrium docs`. Same reason: the command owns both refusals so it can
+  // print the accepted locale and the registered section slugs.
+  '--lang',
+  '--section',
+  // `sovrium mcp --project <dir>`. Absent from this set the flag is refused
+  // before dispatch, so the verb would be unreachable however completely it is
+  // implemented.
+  '--project',
 ])
 
 /** Strip `=value` from `--flag=value` so the bare flag name can be matched. */
@@ -289,13 +387,21 @@ interface ParsedFlags {
   readonly publicDir: string | false | undefined
   readonly appName: string | undefined
   readonly typescript: boolean
+  readonly gitInit: boolean
+  readonly fromUrl: string | undefined
   readonly password: string | undefined
   readonly seedDir: string | undefined
   readonly seedMode: string | undefined
   readonly seedTables: readonly string[]
   readonly dryRun: boolean
   readonly check: boolean
+  readonly json: boolean
   readonly format: string | undefined
+  readonly full: boolean
+  readonly listSections: boolean
+  readonly lang: string | undefined
+  readonly docsSections: readonly string[]
+  readonly projectDir: string | undefined
 }
 
 /**
@@ -317,13 +423,21 @@ const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
   publicDir: resolvePublicDirFlag(argv),
   appName: getFlagValue(argv, '--name'),
   typescript: argv.includes('--typescript'),
+  gitInit: argv.includes('--git'),
+  fromUrl: getFlagValue(argv, '--from-url'),
   password: getFlagValue(argv, '--password'),
   seedDir: getFlagValue(argv, '--dir'),
   seedMode: getFlagValue(argv, '--mode'),
   seedTables: getFlagValues(argv, '--table'),
   dryRun: argv.includes('--dry-run'),
   check: argv.includes('--check'),
+  json: argv.includes('--json'),
   format: getFlagValue(argv, '--format'),
+  full: argv.includes('--full'),
+  listSections: argv.includes('--list-sections'),
+  lang: getFlagValue(argv, '--lang'),
+  docsSections: getFlagValues(argv, '--section'),
+  projectDir: getFlagValue(argv, '--project'),
 })
 
 /**
@@ -355,6 +469,8 @@ const buildStandardResult = (
     subcommand,
     appName: flags.appName,
     typescript: flags.typescript,
+    gitInit: flags.gitInit,
+    fromUrl: flags.fromUrl,
     forceFlag: flags.forceFlag,
     publicDir: flags.publicDir,
     positionalArg,
@@ -365,7 +481,14 @@ const buildStandardResult = (
     seedTables: flags.seedTables,
     dryRun: flags.dryRun,
     check: flags.check,
+    json: flags.json,
     format: flags.format,
+    full: flags.full,
+    listSections: flags.listSections,
+    lang: flags.lang,
+    docsSections: flags.docsSections,
+    positionalArgs: nonFlagArgs.slice(1),
+    projectDir: flags.projectDir,
   }
 }
 /* eslint-enable max-params */

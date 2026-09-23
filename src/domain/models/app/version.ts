@@ -42,16 +42,6 @@ import { Schema } from 'effect'
  * ```
  */
 export const VersionSchema = Schema.String.pipe(
-  Schema.check(
-    Schema.isMinLength(5, { message: 'Version must not be empty (minimum format: 0.0.0)' }),
-    Schema.isPattern(
-      /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/,
-      {
-        message:
-          'Version must follow Semantic Versioning format (MAJOR.MINOR.PATCH, e.g., 1.0.0). No leading zeros allowed. Optional pre-release (-alpha) and build metadata (+build.123) are supported.',
-      }
-    )
-  ),
   Schema.annotate({
     title: 'Application Version',
     description:
@@ -66,7 +56,17 @@ export const VersionSchema = Schema.String.pipe(
       '1.0.0+build.123',
       '1.0.0-alpha+001',
     ],
-  })
+  }),
+  Schema.check(
+    Schema.isMinLength(5, { message: 'Version must not be empty (minimum format: 0.0.0)' }),
+    Schema.isPattern(
+      /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/,
+      {
+        message:
+          'Version must follow Semantic Versioning format (MAJOR.MINOR.PATCH, e.g., 1.0.0). No leading zeros allowed. Optional pre-release (-alpha) and build metadata (+build.123) are supported.',
+      }
+    )
+  )
 )
 
 /**

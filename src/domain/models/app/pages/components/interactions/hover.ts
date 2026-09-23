@@ -137,7 +137,9 @@ export const HoverInteractionSchema = Schema.Struct({
       examples: ['0 10px 25px rgba(0,0,0,0.1)'],
     })
   ),
-  duration: Schema.optional(DurationSchema),
+  duration: Schema.optional(
+    DurationSchema.annotate({ description: 'How long the hover transition takes.' })
+  ),
   easing: Schema.optional(EasingFunctionSchema),
 }).annotate({
   title: 'Hover Interaction',

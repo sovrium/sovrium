@@ -46,9 +46,19 @@ const UPDATE_CHECK_FILE = join(homedir(), '.sovrium', 'last-update-check')
 /**
  * How Sovrium was installed. Determines what `sovrium update` actually does.
  */
-export type InstallMethod = 'binary' | 'homebrew' | 'docker' | 'scoop'
+export type InstallMethod = 'binary' | 'homebrew' | 'docker' | 'scoop' | 'desktop'
 
-const INSTALL_METHODS = ['binary', 'homebrew', 'docker', 'scoop'] as const
+/**
+ * `desktop` is a RECOGNISED value, not a fall-through.
+ *
+ * The Sovrium app supervises this binary as a sidecar and carries its own
+ * signed updater, so it sets the marker and the binary declines. Leaving the
+ * value unrecognised would send it to `detectInstallMethod`'s heuristics, which
+ * would answer `binary` and have the sidecar replace itself underneath the
+ * shell that launched it — a mismatched pair being the failure the marker
+ * exists to prevent.
+ */
+const INSTALL_METHODS = ['binary', 'homebrew', 'docker', 'scoop', 'desktop'] as const
 
 const isInstallMethod = (value: string | undefined): value is InstallMethod =>
   value !== undefined && (INSTALL_METHODS as readonly string[]).includes(value)
@@ -179,6 +189,7 @@ const showUpdateHelp = (): void => {
  *
  * - homebrew/scoop → run the package manager (keeps its version ledger correct)
  * - docker         → print the `docker pull` instruction (a container can't self-update)
+ * - desktop        → decline and name the Sovrium app, which owns the update
  * - binary         → self-replace from GitHub Releases (Unix); Windows raw binaries
  *                    are directed to Scoop/Docker (no running-exe overwrite)
  */
@@ -195,6 +206,28 @@ export const handleUpdateCommand = async (
   }
 
   const installMethod = detectInstallMethod()
+
+  // Checked before anything else runs: the desktop branch must reach neither a
+  // package manager nor the network, because the app it belongs to is already
+  // doing both. Two updaters racing leave a shell and a sidecar on different
+  // versions, expecting different command surfaces of each other.
+  //
+  // Exit 0, the same shape of answer the `docker` branch gives: this install is
+  // managed elsewhere, here is where. A non-zero exit would make a wrapper
+  // script treat a correct refusal as a failure, and would tell a user their
+  // app is broken when it is not.
+  if (installMethod === 'desktop') {
+    Effect.runSync(
+      Console.log(
+        'Sovrium is running inside the Sovrium app, which keeps it up to date for you.\n\n' +
+          'Nothing was changed. To update, open the Sovrium app and use its own\n' +
+          'update check — it replaces the app and this engine together, so the two\n' +
+          'never end up on different versions.'
+      )
+    )
+    return
+  }
+
   const currentVersion = await getCurrentVersion()
 
   const pmCommand = packageManagerUpdateCommand(installMethod)
@@ -407,17 +440,31 @@ export const getCurrentVersion = async (): Promise<string> =>
       ).version
 
 /**
+ * Whether a startup version notice is worth printing for this install.
+ *
+ * True only where `sovrium update` would actually do something: `binary`
+ * (self-replace) and the two package managers it can drive. The excluded pair
+ * are excluded for the same reason and it is not "they cannot update" —
+ * `docker` updates out of band, `desktop` updates through the app's own
+ * updater. A notice telling either of them to run a command that will decline
+ * is worse than silence, because it teaches its reader to ignore notices.
+ *
+ * A named predicate rather than an inline condition so the table can be pinned
+ * by a test: adding a member to {@link InstallMethod} must be a deliberate
+ * decision about the nag, not an omission nobody sees for a release.
+ */
+export const isUpdateNoticeEligible = (method: InstallMethod): boolean =>
+  method === 'binary' || method === 'homebrew' || method === 'scoop'
+
+/**
  * Non-blocking background version check on startup.
  * Prints a one-line notice if a newer version is available.
  * Checks at most once every 24 hours.
  *
- * Runs for self-updatable installs only — binary (self-replace) plus the
- * package managers `sovrium update` can now drive (homebrew, scoop). Docker is
- * excluded: its update path is out-of-band.
+ * Runs for self-updatable installs only — see {@link isUpdateNoticeEligible}.
  */
 export const checkForUpdatesInBackground = (currentVersion: string): void => {
-  const method = detectInstallMethod()
-  if (method !== 'binary' && method !== 'homebrew' && method !== 'scoop') return
+  if (!isUpdateNoticeEligible(detectInstallMethod())) return
   if (isNetworkDisabled()) return
 
   try {

@@ -18,7 +18,10 @@ import { createDatabaseIdentifierSchema } from '@/domain/kernel/sql/database-ide
  * "users"
  * ```
  */
-export const NameSchema = createDatabaseIdentifierSchema('table').pipe(
+export const NameSchema = createDatabaseIdentifierSchema(
+  'table',
+  'Name of the table. It may contain spaces, capitals and accents; the database name is derived from it in lowercase with underscores, up to 63 characters.'
+).pipe(
   Schema.annotate({
     title: 'Name',
     description:

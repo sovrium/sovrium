@@ -61,7 +61,11 @@ export const VisibleWhenSchema = Schema.Struct({
       Schema.String,
       Schema.Finite,
       Schema.Boolean,
-      Schema.Array(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])),
+      Schema.Array(
+        Schema.Union([Schema.String, Schema.Finite, Schema.Boolean]).annotate({
+          description: 'One member of the set an `in` or `notIn` comparison tests against',
+        })
+      ),
     ]).annotate({
       description:
         'Value to compare the field against (scalar for eq/neq/contains/gt/gte/lt/lte; array for in/notIn)',
@@ -104,12 +108,12 @@ export const VisibleWhenConditionSchema: Schema.Codec<VisibleWhenCondition> = Sc
   Schema.Struct({
     or: Schema.Array(
       Schema.suspend((): Schema.Codec<VisibleWhenCondition> => VisibleWhenConditionSchema)
-    ),
+    ).annotate({ description: 'Rules of which at least one must hold.' }),
   }),
   Schema.Struct({
     and: Schema.Array(
       Schema.suspend((): Schema.Codec<VisibleWhenCondition> => VisibleWhenConditionSchema)
-    ),
+    ).annotate({ description: 'Rules that must all hold.' }),
   }),
   VisibleWhenSchema,
 ]).annotate({

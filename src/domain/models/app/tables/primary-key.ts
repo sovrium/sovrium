@@ -22,31 +22,39 @@ import { Schema } from 'effect'
  */
 export const PrimaryKeySchema = Schema.Struct({
   type: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description:
         "Primary key generation strategy. 'auto-increment' uses sequential integers (1, 2, 3...), 'uuid' generates random unique identifiers, 'composite' uses multiple fields together.",
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   field: Schema.optional(
     Schema.String.pipe(
+      Schema.annotate({
+        description:
+          "Field name for single-column primary key. Only used with 'auto-increment' or 'uuid' type.",
+        examples: ['id', 'user_id', 'product_id'],
+      }),
       Schema.check(
         Schema.isPattern(/^[a-z][a-z0-9_]*$/, {
           message:
             "Field name for single-column primary key. Only used with 'auto-increment' or 'uuid' type.",
         })
-      ),
-      Schema.annotate({
-        description:
-          "Field name for single-column primary key. Only used with 'auto-increment' or 'uuid' type.",
-        examples: ['id', 'user_id', 'product_id'],
-      })
+      )
     )
   ),
   fields: Schema.optional(
     Schema.Array(
-      Schema.String.pipe(Schema.check(Schema.isMinLength(1, { message: 'This field is required' })))
-    ).pipe(Schema.annotate({ title: 'Primary Key Fields' }))
+      Schema.String.annotate({
+        description: 'One field of the composite key.',
+      }).pipe(Schema.check(Schema.isMinLength(1, { message: 'This field is required' })))
+    ).pipe(
+      Schema.annotate({
+        title: 'Primary Key Fields',
+        description:
+          'Fields that together identify a record, for a composite primary key. Use `field` instead when a single field identifies the record.',
+      })
+    )
   ),
 }).pipe(
   Schema.annotate({

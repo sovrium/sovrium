@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const FileDownloadActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('download'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('download').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Storage key of the file to download */
     key: TemplateStringSchema.pipe(
@@ -26,6 +35,8 @@ export const FileDownloadActionSchema = Schema.Struct({
         description: 'Storage key of the file to download',
       })
     ),
+  }).annotate({
+    description: 'The file to download.',
   }),
 }).pipe(
   Schema.annotate({

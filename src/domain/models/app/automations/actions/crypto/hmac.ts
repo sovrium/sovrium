@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const CryptoHmacActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('crypto'),
-  operator: Schema.Literal('hmac'),
+  type: Schema.Literal('crypto').pipe(
+    Schema.annotate({
+      description: "Constant value 'crypto' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('hmac').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'crypto' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Input string to sign */
     input: TemplateStringSchema.pipe(
@@ -37,6 +46,8 @@ export const CryptoHmacActionSchema = Schema.Struct({
     /** HMAC algorithm */
     algorithm: Schema.Literals(['sha256', 'sha512']).pipe(
       Schema.annotate({
+        howTo:
+          'Only `sha256` and `sha512` are accepted here. `md5` exists on the `hash` operator for interoperating with legacy systems, and is never safe for a signature you rely on.',
         description: 'HMAC algorithm: sha256 or sha512',
       })
     ),
@@ -49,6 +60,8 @@ export const CryptoHmacActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description: 'What to sign, with which secret and algorithm, and how the result is encoded.',
   }),
 }).pipe(
   Schema.annotate({

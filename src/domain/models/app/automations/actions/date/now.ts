@@ -40,8 +40,17 @@ import { isValidTimezone, LocaleProp, PatternProp, TimezoneProp } from './props'
  */
 export const DateNowActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('date'),
-  operator: Schema.Literal('now'),
+  type: Schema.Literal('date').pipe(
+    Schema.annotate({
+      description: "Constant value 'date' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('now').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'date' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Optional pattern. Omitted, the output is an ISO 8601 instant. */
     pattern: Schema.optional(
@@ -66,15 +75,20 @@ export const DateNowActionSchema = Schema.Struct({
 
     /** BCP 47 locale for month/weekday names. Default en-US. */
     locale: Schema.optional(LocaleProp),
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter(({ timezone }) =>
-        timezone !== undefined && !isValidTimezone(timezone)
-          ? `Invalid IANA timezone: ${timezone}`
-          : undefined
+  })
+    .annotate({
+      description:
+        'How the current moment is rendered: the pattern, the time zone and the language.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter(({ timezone }) =>
+          timezone !== undefined && !isValidTimezone(timezone)
+            ? `Invalid IANA timezone: ${timezone}`
+            : undefined
+        )
       )
-    )
-  ),
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'DateNowAction',

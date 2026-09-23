@@ -102,13 +102,13 @@ export const fieldSpecimenFields = {
    * meant and why it was refused — a union member mismatch cannot.
    */
   fieldType: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Field Type',
       description:
         'The table field type to draw a control for. A catalogued field-type name; `$param.<name>` naming a segment of the host page’s path; or `$record.<field>` naming a column of the row this specimen is expanded from, which requires a record-binding ancestor.',
       examples: ['long-text', 'single-select', '$record.type'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /**
    * The `name` the drawn control carries — the comparison anchor.
@@ -118,13 +118,13 @@ export const fieldSpecimenFields = {
    */
   name: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Control Name',
         description:
           'The `name` attribute the drawn control carries — the element a comparison against a real form is anchored on. Defaults to the field type with hyphens replaced by underscores, which is what `FieldNameSchema` accepts.',
         examples: ['long_text'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Visible label on the control. Falls back to the humanised name. */
@@ -140,7 +140,9 @@ export const fieldSpecimenFields = {
    * `single-select` with no options IS what an author gets if they declare none.
    */
   options: Schema.optional(
-    Schema.Array(Schema.String).annotate({
+    Schema.Array(
+      Schema.String.annotate({ description: 'One option value the drawn control offers' })
+    ).annotate({
       description:
         'Option values for a choice-shaped field type. Absent draws the empty control — which is what an author who declares no options actually gets.',
       examples: [['Draft', 'Sent', 'Paid']],

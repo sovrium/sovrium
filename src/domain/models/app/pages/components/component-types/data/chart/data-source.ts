@@ -52,11 +52,11 @@ export const ChartDbDataSourceSchema = DataSourceSchema
 export const ChartSystemSourceSchema = Schema.Struct({
   /** The named read endpoint to fetch rows from (required) */
   endpoint: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Read endpoint path to fetch rows from (e.g. /api/analytics/overview)',
       examples: ['/api/analytics/overview'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** Array key in the response envelope (default: 'items') */
   rowsKey: Schema.optional(

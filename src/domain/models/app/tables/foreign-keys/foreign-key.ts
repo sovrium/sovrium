@@ -30,28 +30,32 @@ export const ForeignKeySchema = Schema.Struct({
    * @example "fk_permissions_tenant_user"
    */
   name: Schema.String.pipe(
-    Schema.check(
-      Schema.isMinLength(1),
-      Schema.isMaxLength(63),
-      Schema.isPattern(/^[a-z_][a-z0-9_]*$/)
-    ),
     Schema.annotate({
       title: 'Foreign Key Name',
       description:
         'Constraint name following PostgreSQL naming conventions (lowercase, underscores, max 63 chars)',
-    })
+    }),
+    Schema.check(
+      Schema.isMinLength(1),
+      Schema.isMaxLength(63),
+      Schema.isPattern(/^[a-z_][a-z0-9_]*$/)
+    )
   ),
 
   /**
    * Local column names that form the foreign key
    * @example ["tenant_id", "user_id"]
    */
-  fields: Schema.Array(Schema.String).pipe(
-    Schema.check(Schema.isMinLength(1)),
+  fields: Schema.Array(
+    Schema.String.annotate({
+      description: 'One local column of this table taking part in the reference.',
+    })
+  ).pipe(
     Schema.annotate({
       title: 'Foreign Key Fields',
       description: 'Local columns that reference the parent table',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /**
@@ -59,23 +63,28 @@ export const ForeignKeySchema = Schema.Struct({
    * @example "tenant_users"
    */
   referencedTable: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Referenced Table',
       description: 'Parent table name that contains the referenced columns',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /**
    * Referenced column names in the parent table
    * @example ["tenant_id", "user_id"]
    */
-  referencedFields: Schema.Array(Schema.String).pipe(
-    Schema.check(Schema.isMinLength(1)),
+  referencedFields: Schema.Array(
+    Schema.String.annotate({
+      description:
+        'One column of the parent table being referenced, positionally matched to `fields`.',
+    })
+  ).pipe(
     Schema.annotate({
       title: 'Referenced Fields',
       description: 'Columns in the parent table that are referenced',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /**

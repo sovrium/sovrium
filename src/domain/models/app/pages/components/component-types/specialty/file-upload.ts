@@ -46,16 +46,16 @@ export const fileUploadFields = {
   ),
   maxFiles: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Maximum number of files allowed per upload' })
+      Schema.annotate({ description: 'Maximum number of files allowed per upload' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
   maxFileSize: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isGreaterThan(0)),
       Schema.annotate({
         description: 'Maximum file size in bytes (e.g. 10485760 for 10MB)',
-      })
+      }),
+      Schema.check(Schema.isGreaterThan(0))
     )
   ),
   uploadAction: Schema.optional(FileUploadActionSchema),

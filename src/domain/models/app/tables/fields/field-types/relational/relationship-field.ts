@@ -49,18 +49,24 @@ const columnReference = (description: string) =>
 
 export const RelationshipFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('relationship'),
-    relatedTable: Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'relatedTable is required' })),
+    type: Schema.Literal('relationship').pipe(
       Schema.annotate({
-        description: 'Name of the related table',
+        description:
+          "Constant value 'relationship' for type discrimination in discriminated unions",
       })
     ),
-    relationType: Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'relationType is required' })),
+    relatedTable: Schema.String.pipe(
       Schema.annotate({
+        description: 'Name of the related table',
+      }),
+      Schema.check(Schema.isNonEmpty({ message: 'relatedTable is required' }))
+    ),
+    relationType: Schema.String.pipe(
+      Schema.annotate({
+        defaultNote: 'many-to-one',
         description: 'Type of relationship (defaults to many-to-one if not specified)',
       }),
+      Schema.check(Schema.isNonEmpty({ message: 'relationType is required' })),
       Schema.withDecodingDefaultKey(Effect.succeed('many-to-one' as const))
     ),
     foreignKey: Schema.optional(
@@ -70,10 +76,10 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
     ),
     displayField: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isNonEmpty({ message: 'displayField is required' })),
         Schema.annotate({
           description: 'Field from related table to display in UI',
-        })
+        }),
+        Schema.check(Schema.isNonEmpty({ message: 'displayField is required' }))
       )
     ),
     onDelete: Schema.optional(
@@ -105,11 +111,11 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
     ),
     relatedField: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isNonEmpty({ message: 'relatedField is required' })),
         Schema.annotate({
           description:
             'Name of the field in the related table to reference (defaults to id). The referenced field must have a primary key or unique constraint.',
-        })
+        }),
+        Schema.check(Schema.isNonEmpty({ message: 'relatedField is required' }))
       )
     ),
     allowCreate: Schema.optional(
@@ -122,11 +128,11 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
     ),
     maxLinked: Schema.optional(
       Schema.Int.pipe(
-        Schema.check(Schema.isGreaterThan(0)),
         Schema.annotate({
           description:
             'Maximum number of records this field may link to. Only meaningful alongside allowMultiple (default: unbounded)',
-        })
+        }),
+        Schema.check(Schema.isGreaterThan(0))
       )
     ),
   }),

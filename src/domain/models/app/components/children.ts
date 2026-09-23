@@ -101,6 +101,8 @@ export const ComponentChildElementSchema: Schema.Codec<any, any, never> = buildC
     Schema.suspend(() => ComponentChildrenSchema).pipe(
       Schema.annotate({
         identifier: 'ComponentChildren',
+        description:
+          'Child elements nested inside this one, recursive to any depth. A template child is a component or a text string; unlike a page child it cannot be a `$ref`, because a template is itself what a `$ref` resolves to.',
       })
     )
   ),

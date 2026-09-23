@@ -16,10 +16,21 @@ import { ActionBaseFields } from '../base'
  */
 export const AuthUnbanUserActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('auth'),
-  operator: Schema.Literal('unbanUser'),
+  type: Schema.Literal('auth').pipe(
+    Schema.annotate({
+      description: "Constant value 'auth' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('unbanUser').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'auth' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     userId: TemplateStringSchema.pipe(Schema.annotate({ description: 'User ID to unban' })),
+  }).annotate({
+    description: 'Which user is unbanned.',
   }),
 }).pipe(
   Schema.annotate({

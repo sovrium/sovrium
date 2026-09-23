@@ -26,16 +26,16 @@ import { guardedKeyRecord } from './token-value-schemas'
  */
 export const DesignBreakpointsSchema = guardedKeyRecord(
   Schema.String.pipe(
-    Schema.check(
-      Schema.isPattern(/^[0-9]+px$/, {
-        message: 'Breakpoint value must be in pixels (e.g., "640px")',
-      })
-    ),
     Schema.annotate({
       title: 'Breakpoint Value',
       description: 'Breakpoint value in pixels',
       examples: ['640px', '768px', '1024px'],
-    })
+    }),
+    Schema.check(
+      Schema.isPattern(/^[0-9]+px$/, {
+        message: 'Breakpoint value must be in pixels (e.g., "640px")',
+      })
+    )
   ),
   {
     path: 'design.breakpoints',
@@ -43,6 +43,8 @@ export const DesignBreakpointsSchema = guardedKeyRecord(
     keyHint: 'A breakpoint name is lowercase alphanumeric, with no hyphen.',
     keyTitle: 'Breakpoint Key',
     keyExamples: ['sm', 'md', 'lg', '2xl'],
+    description:
+      'The screen widths at which the layout changes, in pixels. Each name becomes a responsive prefix such as `md:`.',
   }
 ).pipe(
   Schema.annotate({

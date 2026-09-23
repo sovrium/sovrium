@@ -35,8 +35,17 @@ import { ActionBaseFields } from '../base'
  */
 export const SovriumValidateConfigActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('sovrium'),
-  operator: Schema.Literal('validateConfig'),
+  type: Schema.Literal('sovrium').pipe(
+    Schema.annotate({
+      description: "Constant value 'sovrium' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('validateConfig').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'sovrium' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /**
      * The candidate config: either the object itself (what a `code` action
@@ -65,6 +74,8 @@ export const SovriumValidateConfigActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description: 'The configuration to check, and the format it is written in.',
   }),
 }).pipe(
   Schema.annotate({

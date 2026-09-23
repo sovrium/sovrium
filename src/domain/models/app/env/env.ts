@@ -18,10 +18,10 @@ import { Schema } from 'effect'
 export const EnvVarSchema = Schema.Struct({
   /** Environment variable key (uppercase snake_case) */
   key: Schema.String.pipe(
-    Schema.check(Schema.isPattern(/^[A-Z][A-Z0-9_]*$/)),
     Schema.annotate({
       description: 'Environment variable key (uppercase snake_case, e.g., API_KEY)',
-    })
+    }),
+    Schema.check(Schema.isPattern(/^[A-Z][A-Z0-9_]*$/))
   ),
 
   /** Human-readable description */

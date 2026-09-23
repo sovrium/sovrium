@@ -82,7 +82,6 @@ export const CurrencyFieldSchema = BaseFieldSchema.pipe(
       )
     ),
   }),
-  Schema.check(Schema.makeFilter(validateMinMaxRange)),
   Schema.annotate({
     title: 'Currency Field',
     description:
@@ -107,7 +106,8 @@ export const CurrencyFieldSchema = BaseFieldSchema.pipe(
         precision: 2,
       },
     ],
-  })
+  }),
+  Schema.check(Schema.makeFilter(validateMinMaxRange))
 )
 
 export type CurrencyField = Schema.Schema.Type<typeof CurrencyFieldSchema>

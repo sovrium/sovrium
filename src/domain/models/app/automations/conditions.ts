@@ -96,8 +96,8 @@ export const ConditionGroupSchema = Schema.Struct({
 
   /** Array of conditions */
   conditions: Schema.Array(ConditionSchema).pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'One or more conditions to evaluate' })
+    Schema.annotate({ description: 'One or more conditions to evaluate' }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).pipe(
   Schema.annotate({

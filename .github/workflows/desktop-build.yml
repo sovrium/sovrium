@@ -1,0 +1,275 @@
+name: Desktop Build
+
+# The desktop shell's UNSIGNED build. Two triggers, and neither of them is a tag:
+# this workflow exists so that a change to `desktop/` is verified on all three
+# operating systems BEFORE a release tag makes the same build a release blocker.
+#
+# What it does NOT do, deliberately: sign, notarize, produce updater artifacts,
+# or upload anything to a release. All four belong to the `build-desktop` job of
+# release.yml, which is the only place the signing secrets are available. The two
+# jobs share their matrix and their step order on purpose — a green run here is
+# meant to predict a green run there, and a divergence between them is how a
+# release discovers a Windows-only failure at the worst possible moment.
+#
+# Forgejo is the source of truth for CI, but this workflow lives on GitHub
+# because GitHub is the only place with macOS and Windows runners. The Forgejo
+# side runs `desktop-check` (frontend build + cargo check + cargo test) on its
+# single Linux runner; see `.forgejo/workflows/test.yml`.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - 'scripts/build/stage-desktop-sidecar.ts'
+      - 'scripts/build/smoke-desktop-app.ts'
+      - '.github/workflows/desktop-build.yml'
+
+permissions:
+  contents: read
+
+# A second push to the same PR cancels the first. Three OS lanes each building a
+# Rust toolchain and a ~100 MB engine is the most expensive thing in this repo
+# that is not the E2E suite.
+concurrency:
+  group: desktop-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      # One red lane must not hide the state of the other two. A Windows-only
+      # failure is the single most likely outcome here, and learning about it
+      # alongside a green macOS and a green Linux is worth more than a fast fail.
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS arm64
+            runner: macos-14
+            engine-target: darwin-arm64
+            engine-file: sovrium-darwin-arm64
+            rust-target: aarch64-apple-darwin
+            bundles: app,dmg
+          - label: macOS x64
+            runner: macos-14
+            engine-target: darwin-x64
+            engine-file: sovrium-darwin-x64
+            rust-target: x86_64-apple-darwin
+            bundles: app,dmg
+          # NATIVE, not cross-compiled. Bun's `--windows-*` metadata flags
+          # depend on Windows APIs and are unavailable when cross-compiling, so
+          # a Linux-built engine ships with no product name, no version and no
+          # publisher in its file properties. release.yml's binary job moved
+          # here for the same reason.
+          - label: Windows x64
+            runner: windows-latest
+            engine-target: windows-x64
+            engine-file: sovrium-windows-x64.exe
+            rust-target: x86_64-pc-windows-msvc
+            bundles: nsis
+          # 22.04 rather than latest: an AppImage links against the glibc of the
+          # machine that built it, so building on the newest available Ubuntu
+          # would produce an installer that refuses to start on every older one.
+          # The oldest supported runner is the correct choice here.
+          - label: Linux x64
+            runner: ubuntu-22.04
+            engine-target: linux-x64
+            engine-file: sovrium-linux-x64
+            rust-target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      # Tauri's own prerequisite list for Debian/Ubuntu, plus xvfb for the smoke
+      # test — a webview needs a display server even when the window is hidden.
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential curl wget file \
+            libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev \
+            xvfb
+
+      - name: Add the Rust target
+        shell: bash
+        run: rustup target add ${{ matrix.rust-target }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: ${{ matrix.rust-target }}
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          bun install --frozen-lockfile
+          bun install --frozen-lockfile --cwd desktop
+
+      # The engine, built for the platform this bundle targets. This is the
+      # sidecar — the desktop app is a window around this binary, and every
+      # capability it has is a capability this binary already had.
+      - name: Build the engine
+        shell: bash
+        run: bun run build:binary -- --target ${{ matrix.engine-target }}
+
+      - name: Stage the sidecar
+        shell: bash
+        run: |
+          bun run scripts/build/stage-desktop-sidecar.ts \
+            --from ./${{ matrix.engine-file }} \
+            --triple ${{ matrix.rust-target }}
+
+      # Runs AFTER staging, and the order matters: `desktop:check` ends with
+      # `stage-desktop-sidecar.ts --placeholder`, which leaves a real staged
+      # binary untouched and only writes a stub when none exists. On the macOS
+      # x64 lane that stub is what lets the HOST-triple `cargo check` inside this
+      # script resolve `externalBin` at all, while `tauri build --target
+      # x86_64-apple-darwin` still picks up the real cross-built engine.
+      - name: Type-check and compile-check the shell
+        shell: bash
+        run: bun run desktop:check
+
+      - name: Unit-test the shell
+        shell: bash
+        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked
+
+      # Ad-hoc, because this workflow has no certificate. The entitlements are
+      # NOT optional even here: JavaScriptCore is a JIT, and without `allow-jit`
+      # and `allow-unsigned-executable-memory` the kernel kills the sidecar at
+      # launch rather than failing with a message — which presents as "the app
+      # does nothing when I open it". A `--deep` signature on the bundle does not
+      # apply entitlements to a nested Mach-O, so the sidecar is signed on its
+      # own and BEFORE the bundle.
+      - name: Ad-hoc sign the sidecar (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          codesign --force --options runtime \
+            --entitlements desktop/src-tauri/entitlements.plist \
+            --sign - "desktop/src-tauri/sovrium-${{ matrix.rust-target }}"
+          codesign -d --entitlements - "desktop/src-tauri/sovrium-${{ matrix.rust-target }}"
+
+      - name: Build the bundle
+        shell: bash
+        env:
+          # Ad-hoc identity. Tauri reads this; `-` is codesign's own spelling for
+          # "sign with no certificate", which is what an unsigned lane wants.
+          APPLE_SIGNING_IDENTITY: '-'
+        run: |
+          bun run --cwd desktop tauri build \
+            --target ${{ matrix.rust-target }} \
+            --bundles ${{ matrix.bundles }}
+
+      # ── Smoke test: run the artefact, not the crate ──────────────
+      # Everything above proves the code compiles and the bundler ran. Neither
+      # proves the sidecar landed where `current_exe()`-relative resolution looks
+      # for it, nor that it can execute. Both failures present identically — the
+      # app opens and does nothing — and only running the bundle finds them.
+
+      - name: Smoke test the bundle (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          APP="desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle/macos/Sovrium.app"
+          test -x "$APP/Contents/MacOS/sovrium" \
+            || { echo "FAIL: no sidecar at $APP/Contents/MacOS/sovrium"; exit 1; }
+          # The main executable is read from Info.plist rather than guessed. It
+          # is `sovrium-desktop` (the crate name), NOT `Sovrium` — and that
+          # distinction is load-bearing on macOS, whose default filesystem is
+          # case-INSENSITIVE: a path of `Contents/MacOS/Sovrium` silently
+          # resolves to the SIDECAR `sovrium` sitting beside it. Doing exactly
+          # that is how this step first "ran the app" and got
+          # `Error: No configuration provided` from the engine.
+          #
+          # It also means `bundle.mainBinaryName` must never be set to
+          # `Sovrium`: the shell and the sidecar would then be the same path.
+          EXE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")
+          if [ "$(printf '%s' "$EXE_NAME" | tr '[:upper:]' '[:lower:]')" = "sovrium" ]; then
+            echo "FAIL: the shell executable is named '${EXE_NAME}', which collides with the"
+            echo "      sidecar 'sovrium' on a case-insensitive filesystem. One has overwritten"
+            echo "      the other. Do not set bundle.mainBinaryName to the product name."
+            exit 1
+          fi
+          bun run scripts/build/smoke-desktop-app.ts --exe "$APP/Contents/MacOS/${EXE_NAME}"
+
+      # Installs for real, then runs what the installer produced. Per-user
+      # (`installMode: currentUser`), so `/S` needs no administrator. The
+      # installed path is SEARCHED rather than assumed: hard-coding
+      # `%LOCALAPPDATA%\Sovrium` would turn an NSIS layout change into a green
+      # run against a stale binary.
+      - name: Smoke test the installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem -Path "desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle/nsis" -Filter *-setup.exe | Select-Object -First 1
+          if (-not $setup) { throw "no NSIS installer was produced" }
+          Start-Process -FilePath $setup.FullName -ArgumentList '/S' -Wait
+          # The SIDECAR is the anchor, not the shell. Its name is ours —
+          # `externalBin: ["sovrium"]` — whereas the shell's comes from Tauri's
+          # `mainBinaryName`, which defaults to the crate name and is exactly the
+          # kind of thing a Tauri release changes. Finding the install directory
+          # by the file we named, then taking the other executable in it, is
+          # correct whatever the shell ends up being called.
+          $sidecar = Get-ChildItem -Path $env:LOCALAPPDATA -Filter 'sovrium.exe' -Recurse -Depth 3 -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $sidecar) { throw "the installer shipped no sidecar under $env:LOCALAPPDATA" }
+          $shell = Get-ChildItem -Path $sidecar.Directory.FullName -Filter '*.exe' | Where-Object { $_.Name -ne $sidecar.Name } | Select-Object -First 1
+          # Windows is case-insensitive, so a shell named `Sovrium.exe` would BE
+          # the sidecar `sovrium.exe` — one would have overwritten the other and
+          # there would be exactly one .exe here. That is the failure this
+          # branch names rather than letting the smoke test report a confusing
+          # engine error.
+          if (-not $shell) {
+            throw "only one executable in $($sidecar.Directory.FullName) — the shell and the sidecar have collided on a case-insensitive filesystem. Do not set bundle.mainBinaryName to the product name."
+          }
+          Write-Host "installed shell: $($shell.FullName)"
+          bun run scripts/build/smoke-desktop-app.ts --exe $shell.FullName
+
+      # The AppImage is EXTRACTED rather than executed: FUSE 2 is not installed
+      # on ubuntu-22.04 runners, so running it directly fails on the mount rather
+      # than on anything this test is about. Extraction exercises the same
+      # payload. `xvfb-run` because a webview needs a display server even with
+      # the window hidden.
+      - name: Smoke test the AppImage (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          BUNDLE="desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle"
+          APPIMAGE=$(find "$BUNDLE/appimage" -maxdepth 1 -name '*.AppImage' | head -n 1)
+          test -n "$APPIMAGE" || { echo "FAIL: no AppImage was produced"; exit 1; }
+          chmod +x "$APPIMAGE"
+          # Extracted rather than executed: ubuntu-22.04 runners have no FUSE 2,
+          # so running it directly fails on the mount rather than on anything
+          # this test is about.
+          (cd "$(dirname "$APPIMAGE")" && "./$(basename "$APPIMAGE")" --appimage-extract > /dev/null)
+          ROOT="$(dirname "$APPIMAGE")/squashfs-root"
+          test -x "$ROOT/usr/bin/sovrium" \
+            || { echo "FAIL: no sidecar at $ROOT/usr/bin/sovrium"; ls -la "$ROOT/usr/bin"; exit 1; }
+          # The sidecar is the anchor; the shell is whatever else is in there.
+          # Its name comes from Tauri's `mainBinaryName` (the crate name today),
+          # which is not ours to depend on.
+          EXE=$(find "$ROOT/usr/bin" -maxdepth 1 -type f ! -name 'sovrium' | head -n 1)
+          test -n "$EXE" || { echo "FAIL: no shell executable beside the sidecar in $ROOT/usr/bin"; ls -la "$ROOT/usr/bin"; exit 1; }
+          xvfb-run -a bun run scripts/build/smoke-desktop-app.ts --exe "$EXE"
+
+      - name: Upload the bundles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sovrium-desktop-${{ matrix.engine-target }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle/nsis/*-setup.exe
+            desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle/appimage/*.AppImage
+            desktop/src-tauri/target/${{ matrix.rust-target }}/release/bundle/deb/*.deb

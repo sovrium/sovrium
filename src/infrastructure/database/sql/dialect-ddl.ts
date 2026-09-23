@@ -149,7 +149,9 @@ const describeForeignKeyViolations = (client: Readonly<BunSqlite>): string | und
  *
  * This replaced `PRAGMA defer_foreign_keys = ON`, which did NOT work. Deferral
  * postpones the FK check to `COMMIT`; it does not exempt statements from it.
- * SQLite has no `ALTER COLUMN`, so any column-affecting change is reconciled by
+ * The engine never emits `ALTER COLUMN` on SQLite (see
+ * `generateColumnReshapeStatements` in `../schema-migration/migration-statements`
+ * for why), so any column-affecting change is reconciled by
  * `recreateTableWithDataEffect`: create temp, copy, `DROP TABLE` the original,
  * rename the temp into place. `DROP TABLE` on a *referenced* parent implicitly
  * deletes its rows and arms the deferred-violation counter once per orphaned

@@ -67,7 +67,9 @@ export const EntranceAnimationSchema = Schema.Struct({
       description: 'Delay before animation starts',
     })
   ),
-  duration: Schema.optional(DurationSchema),
+  duration: Schema.optional(
+    DurationSchema.annotate({ description: 'How long the entrance animation takes.' })
+  ),
   stagger: Schema.optional(
     DurationSchema.annotate({
       description: 'Delay between sibling animations',

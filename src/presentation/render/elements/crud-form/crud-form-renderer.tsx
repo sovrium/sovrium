@@ -8,6 +8,7 @@
 import { type ReactElement } from 'react'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { computeFormLayoutClasses } from '../../../design/forms-default-classes'
+import { omitInternalMarkers } from '../../props/internal-marker-props'
 import { buildResolvedFieldDefs } from './crud-form-field-resolver'
 import { buildCrudIslandProps, readAutoSaveConfig } from './crud-form-island-props'
 import { renderSkeletonField, renderUpdateSkeletonField } from './crud-form-skeleton'
@@ -94,7 +95,7 @@ export function renderCrudCreateForm(
 
   return (
     <div
-      {...props}
+      {...omitInternalMarkers(props)}
       data-island="crud-form"
       data-island-props={islandProps}
     >
@@ -169,12 +170,8 @@ export function renderCrudUpdateForm(
   const resolvedFields = buildResolvedFieldDefs(tables, action.table, component, buckets)
   const rawFields = applyCrudFieldOverrides(resolvedFields, action.fields, context)
   const submitBtn = readSubmitButtonProps(action, context, component)
-  const {
-    _record: _rec,
-    _dataSourceBound: _dsb,
-    _readOnly: readOnlyFlag,
-    ...restProps
-  } = props as Record<string, unknown>
+  const readOnlyFlag = props._readOnly
+  const restProps = omitInternalMarkers(props) as Record<string, unknown>
   const isReadOnly = readOnlyFlag === true
   // PG-04: when the page filter detects that the
   // synthesized CRUD update would be denied by table-level update permissions,
@@ -311,7 +308,7 @@ export function renderAutomationForm(
 
   return (
     <div
-      {...props}
+      {...omitInternalMarkers(props)}
       data-island="crud-form"
       data-island-props={islandProps}
     >
@@ -373,7 +370,7 @@ function buildDeleteButtonAttrs(action: CrudFormAction, recordId: string): Recor
 export function renderCrudDeleteButton(config: DeleteButtonConfig): ReactElement {
   const { props, content, action, tables, routeParams } = config
   const record = (props._record ?? {}) as Record<string, unknown>
-  const { _record: _rec, _dataSourceBound: _dsb, ...restProps } = props as Record<string, unknown>
+  const restProps = omitInternalMarkers(props) as Record<string, unknown>
   const recordId = String(record['id'] ?? routeParams?.['id'] ?? '')
   const islandProps = buildCrudIslandProps({
     operation: 'delete',

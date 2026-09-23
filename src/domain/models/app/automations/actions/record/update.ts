@@ -16,12 +16,21 @@ import { ActionBaseFields } from '../base'
  */
 export const RecordUpdateActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('record'),
-  operator: Schema.Literal('update'),
+  type: Schema.Literal('record').pipe(
+    Schema.annotate({
+      description: "Constant value 'record' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('update').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'record' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     table: Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Target table name' })
+      Schema.annotate({ description: 'Target table name' }),
+      Schema.check(Schema.isMinLength(1))
     ),
     data: Schema.Record(Schema.String, Schema.Unknown).pipe(
       Schema.annotate({ description: 'Fields to update (supports template variables)' })
@@ -35,6 +44,8 @@ export const RecordUpdateActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description: 'The table, which record to change, the new values, and whose permissions apply.',
   }),
 }).pipe(
   Schema.annotate({

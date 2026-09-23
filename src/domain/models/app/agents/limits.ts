@@ -22,30 +22,33 @@ export const AgentLimitsSchema = Schema.Struct({
   /** Maximum DB/email actions per minute (defaults to 30) */
   maxActionsPerMinute: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
-        description: 'Maximum DB/email actions per minute (defaults to 30)',
-      })
+        defaultNote: '30',
+        description: 'Maximum DB/email actions per minute',
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 
   /** Maximum LLM tokens consumed per 24h period (defaults to 200000) */
   maxTokensPerDay: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
-        description: 'Maximum LLM tokens consumed per 24h period (defaults to 200000)',
-      })
+        defaultNote: '200000',
+        description: 'Maximum LLM tokens consumed per 24h period, reset at midnight UTC',
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 
   /** Maximum simultaneous task executions (defaults to 5) */
   maxConcurrentTasks: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
-        description: 'Maximum simultaneous task executions (defaults to 5)',
-      })
+        defaultNote: '5',
+        description: 'Maximum simultaneous task executions',
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 }).pipe(

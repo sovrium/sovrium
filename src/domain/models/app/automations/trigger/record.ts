@@ -14,19 +14,23 @@ import { ConditionGroupSchema } from '../conditions'
  * Triggered by record CRUD operations on a specific table.
  */
 export const RecordTriggerSchema = Schema.Struct({
-  type: Schema.Literal('record'),
+  type: Schema.Literal('record').pipe(
+    Schema.annotate({
+      description: "Constant value 'record' for type discrimination in discriminated unions",
+    })
+  ),
   table: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'Name of the table to watch for record events' })
+    Schema.annotate({ description: 'Name of the table to watch for record events' }),
+    Schema.check(Schema.isMinLength(1))
   ),
   events: Schema.Array(Schema.Literals(['create', 'update', 'delete'])).pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'Record events that trigger this automation' })
+    Schema.annotate({ description: 'Record events that trigger this automation' }),
+    Schema.check(Schema.isMinLength(1))
   ),
   watchFields: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Only trigger on update when these fields change' })
+      Schema.annotate({ description: 'Only trigger on update when these fields change' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   condition: Schema.optional(ConditionGroupSchema),

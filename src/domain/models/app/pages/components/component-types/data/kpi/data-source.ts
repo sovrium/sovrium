@@ -59,20 +59,20 @@ export const KpiDbDataSourceSchema = DataSourceSchema
 export const KpiSystemSourceSchema = Schema.Struct({
   /** The named read endpoint to fetch the scalar from (required) */
   endpoint: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Read endpoint path to fetch the scalar from (e.g. /api/admin/overview)',
       examples: ['/api/admin/overview'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** Dotted path to a single scalar in the response envelope (e.g. records.total) */
   valuePath: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Dotted path to a single scalar in the fetched envelope',
         examples: ['records.total', 'storage.totalBytes'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -82,11 +82,11 @@ export const KpiSystemSourceSchema = Schema.Struct({
    */
   valueTemplate: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Template interpolating {dotted.path} tokens from the fetched envelope',
         examples: ['{connections.healthy}/{connections.total}'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Static query params merged into the request to the endpoint */

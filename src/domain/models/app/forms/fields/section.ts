@@ -13,11 +13,19 @@ import { VisibleWhenSchema } from '../visible-when'
  * Renders no input; used to break long forms into themed groups.
  */
 export const SectionFieldSchema = Schema.Struct({
-  kind: Schema.Literal('section'),
+  kind: Schema.Literal('section').annotate({
+    description: 'Which kind of field this is. It decides which of the other keys apply.',
+  }),
   /** Section heading. */
-  heading: Schema.optional(Schema.String),
+  heading: Schema.optional(
+    Schema.String.annotate({ description: 'Heading announcing this group of fields.' })
+  ),
   /** Section description / intro paragraph. */
-  description: Schema.optional(Schema.String),
+  description: Schema.optional(
+    Schema.String.annotate({
+      description: 'Introductory paragraph shown under the section heading.',
+    })
+  ),
   /** Visibility rule for the entire section. */
   visibleWhen: Schema.optional(VisibleWhenSchema),
 }).annotate({

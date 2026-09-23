@@ -186,7 +186,7 @@ export const resolveNativeFreeCandidates = (app?: App): readonly string[] => [
  * sound *only* when the app contributes no extra candidates — otherwise classes
  * the app uses but the builtin scan never saw (e.g. `max-w-6xl` or an arbitrary
  * `grid-cols-[…]` authored in a test/operator fixture, which the scan excludes
- * because it only covers `src`+`templates`+`apps/admin`) are silently dropped from the served
+ * because it only covers `src`+`templates`+`src/admin`) are silently dropped from the served
  * CSS, breaking layout. When this returns `true`, callers MUST compile per-app
  * instead of reusing the pre-compiled file.
  */

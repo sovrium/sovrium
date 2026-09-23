@@ -51,11 +51,11 @@ export const ColorRoleSchema = Schema.Struct({
    */
   usage: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1, { message: 'Colour role usage must not be empty' })),
       Schema.annotate({
         description: 'What this colour is for, and what it must not be used for',
         examples: ['Primary CTA fill only. Never body text, never a status pill.'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1, { message: 'Colour role usage must not be empty' }))
     )
   ),
 
@@ -79,12 +79,12 @@ export const ColorRoleSchema = Schema.Struct({
    */
   pairsWith: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1, { message: 'Colour role `pairsWith` must not be empty' })),
       Schema.annotate({
         description:
           'Name of the token this colour is designed to sit against (usually its foreground companion). May name a platform role token the app never redeclared.',
         examples: ['primary-fg', 'foreground'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1, { message: 'Colour role `pairsWith` must not be empty' }))
     )
   ),
 

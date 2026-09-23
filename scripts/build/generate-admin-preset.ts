@@ -6,7 +6,7 @@
  */
 
 /**
- * Freeze `apps/admin/app.ts` into the embedded admin preset the binary mounts.
+ * Freeze `src/admin/app.ts` into the embedded admin preset the binary mounts.
  *
  * ## What this replaced
  *
@@ -14,15 +14,24 @@
  * embedded through the `with { type: 'file' }` manifest and parsed + decoded on
  * the first request. That artifact was hand-written YAML living inside `src/`,
  * so it could not be booted, previewed, or restyled the way an app can. It is
- * now `apps/admin/` — a first-class Sovrium app (founder decision D1) — and this
- * script is the bridge between the two facts:
+ * now `src/admin/` — a first-class Sovrium app ([internal ref] D1), relocated under
+ * `src/` by [internal ref] D3 — and this script is the bridge between the two facts:
  *
- *  - the console must be AUTHORED as an app, under `apps/`, so `bun run app:admin`
- *    boots it and `config/design.ts` restyles it;
- *  - it must be CONSUMED as a value inside `src/`, because that is the only tree
- *    the CSS candidate scanner walks (`SCAN_SOURCES` in `generate-css-assets.ts`
- *    is `['src', 'templates']` — `apps/` is deliberately absent, since an
- *    operator's app must not push its classes into Sovrium's binary).
+ *  - the console must be AUTHORED as an app, so `bun run app:admin` boots it
+ *    and `config/design.ts` restyles it;
+ *  - it must be CONSUMED as a value, as a decoded config frozen into a `src/`
+ *    module, so the binary mounts one settled artifact rather than decoding a
+ *    tree on first request.
+ *
+ * `SCAN_SOURCES` in `generate-css-assets.ts` is `['src', 'templates']` — read it
+ * there rather than here, and note what that list does NOT need to say any
+ * more. It carried an explicit `'apps/admin'` entry for as long as the console
+ * lived outside `src`, and the entry retired with the move rather than being
+ * dropped: the console's classes still reach the binary's candidate corpus,
+ * now because `src` contains them. `apps/website` and `apps/partner` remain
+ * deliberately outside that list — an operator's app must not push its classes
+ * into Sovrium's binary, and those two are Sovrium's own deployed surfaces
+ * rather than the console every user runs.
  *
  * ## Ordering is load-bearing
  *
@@ -67,7 +76,7 @@ import { loadSchemaFromTsFile } from '../../src/infrastructure/config/file-loade
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..')
 
 /** The ONE place the console's authored config is named. */
-export const ADMIN_APP_PATH = 'apps/admin/app.ts'
+export const ADMIN_APP_PATH = 'src/admin/app.ts'
 
 /** The emitted module, inside `src/` so the CSS candidate scanner walks it. */
 export const OUTPUT_PATH = 'src/infrastructure/assets/embedded-admin-preset.generated.ts'

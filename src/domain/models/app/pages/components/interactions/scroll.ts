@@ -77,7 +77,9 @@ export const ScrollInteractionSchema = Schema.Struct({
       examples: ['0ms', '100ms', '0.5s'],
     })
   ),
-  duration: Schema.optional(DurationSchema),
+  duration: Schema.optional(
+    DurationSchema.annotate({ description: 'How long the scroll-triggered animation takes.' })
+  ),
   once: Schema.optional(
     Schema.Boolean.annotate({
       description: 'Trigger animation only once',

@@ -43,19 +43,27 @@ export const AiTagFieldSchema = BaseFieldSchema.pipe(
         description: "Constant value 'ai-tag' for type discrimination in discriminated unions",
       })
     ),
-    sourceFields: Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(1)),
+    sourceFields: Schema.Array(
+      Schema.String.annotate({
+        description: 'One field of this table whose value is fed to the model as input.',
+      })
+    ).pipe(
       Schema.annotate({
         description: 'Field names used as input context for AI tagging',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     ),
-    tags: Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(2)),
+    tags: Schema.Array(
+      Schema.String.annotate({
+        description: 'One tag the model may choose from. The model is constrained to this list.',
+      })
+    ).pipe(
       Schema.annotate({
         description:
           'Predefined list of allowed tags the AI can assign. Minimum 2 entries, no duplicates.',
         examples: [['technology', 'business', 'science', 'health', 'politics']],
       }),
+      Schema.check(Schema.isMinLength(2)),
       Schema.check(
         Schema.makeFilter((tags) => {
           const unique = new Set(tags)
@@ -65,11 +73,11 @@ export const AiTagFieldSchema = BaseFieldSchema.pipe(
     ),
     maxTags: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
         Schema.annotate({
           description:
             'Maximum number of tags to assign. Returns at most N tags. No limit when omitted.',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
       )
     ),
     prompt: Schema.optional(
@@ -88,30 +96,30 @@ export const AiTagFieldSchema = BaseFieldSchema.pipe(
     ),
     model: Schema.optional(
       Schema.String.pipe(
+        Schema.annotate({
+          description: 'AI model override (e.g., gpt-4o, claude-sonnet)',
+        }),
         Schema.check(
           Schema.isMinLength(1, {
             message: 'AI field model override must be a non-empty string',
           })
-        ),
-        Schema.annotate({
-          description: 'AI model override (e.g., gpt-4o, claude-sonnet)',
-        })
+        )
       )
     ),
     temperature: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
         Schema.annotate({
           description: 'Temperature override (0 to 1) for controlling tagging confidence',
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))
       )
     ),
     maxTokens: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
         Schema.annotate({
           description: 'Maximum tokens for AI response',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
       )
     ),
     computeOn: Schema.Literals(['create', 'update', 'both']).pipe(

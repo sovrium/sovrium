@@ -18,8 +18,17 @@ import { DestinationPropSchema } from './shared'
  */
 export const FileCompressActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('compress'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('compress').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Array of storage keys to compress into the archive */
     keys: Schema.optional(
@@ -50,13 +59,17 @@ export const FileCompressActionSchema = Schema.Struct({
 
     /** Storage destination for the archive */
     destination: DestinationPropSchema,
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter((props) => (props.keys ?? props.files) !== undefined, {
-        message: 'compress requires `keys` (or `files`)',
-      })
-    )
-  ),
+  })
+    .annotate({
+      description: 'The files to archive, the name of the archive, and where it is written.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter((props) => (props.keys ?? props.files) !== undefined, {
+          message: 'compress requires `keys` (or `files`)',
+        })
+      )
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'FileCompressAction',

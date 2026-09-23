@@ -22,21 +22,25 @@ export const DataTablePaginationSchema = Schema.Struct({
   /** Default rows per page */
   pageSize: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
         description: 'Default rows per page (default: 25)',
         examples: [10, 25, 50],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
   /** Dropdown options for page size */
   pageSizeOptions: Schema.optional(
-    Schema.Array(Schema.Finite.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))).pipe(
-      Schema.check(Schema.isMinLength(1)),
+    Schema.Array(
+      Schema.Finite.annotate({ description: 'One page size offered in the dropdown' }).pipe(
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
+      )
+    ).pipe(
       Schema.annotate({
         description: 'Page size dropdown options',
         examples: [[10, 25, 50, 100]],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Position of pagination controls */

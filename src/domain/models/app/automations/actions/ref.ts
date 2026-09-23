@@ -22,17 +22,26 @@ export const ActionRefSchema = Schema.Struct({
    * `{ name: 'alert', $ref: 'notify-admin' }` (concise) or the explicit
    * `{ name: 'alert', type: 'ref', $ref: 'notify-admin' }`.
    */
-  type: Schema.Literal('ref').pipe(Schema.withDecodingDefaultKey(Effect.succeed('ref' as const))),
+  // The annotate goes BEFORE `withDecodingDefaultKey`: the combinator wraps the
+  // node, so a trailing annotation lands on the wrapper and reaches neither the
+  // rendered option table nor app.json.
+  type: Schema.Literal('ref').pipe(
+    Schema.annotate({
+      defaultNote: 'ref',
+      description: "Constant value 'ref' for type discrimination in discriminated unions",
+    }),
+    Schema.withDecodingDefaultKey(Effect.succeed('ref' as const))
+  ),
 
   $ref: Schema.String.pipe(
+    Schema.annotate({
+      description: 'Name of the action template to invoke (must match a template in app.actions[])',
+    }),
     Schema.check(
       Schema.isPattern(/^[a-z][a-z0-9-]*$/),
       Schema.isMinLength(1),
       Schema.isMaxLength(100)
-    ),
-    Schema.annotate({
-      description: 'Name of the action template to invoke (must match a template in app.actions[])',
-    })
+    )
   ),
 
   $vars: Schema.optional(

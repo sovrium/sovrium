@@ -13,12 +13,25 @@ import { commonFieldProps } from '../form-field-props'
  * The formula references other field names via `{{fieldName}}` template syntax.
  */
 export const CalculationFieldSchema = Schema.Struct({
-  kind: Schema.Literal('calculation'),
-  name: Schema.String.pipe(Schema.check(Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_-]*$/))),
-  /** Formula expression — references other fields via {{name}} syntax. */
-  formula: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  kind: Schema.Literal('calculation').annotate({
+    description: 'Which kind of field this is. It decides which of the other keys apply.',
+  }),
+  name: Schema.String.annotate({
+    description:
+      'Identifier for this field within the form; it is the key the answer is stored and reported under.',
+  }).pipe(Schema.check(Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_-]*$/))),
+  /** Formula expression — references other fields via {name} syntax. */
+  formula: Schema.String.annotate({
+    description:
+      'Expression computing the value, referring to other fields of the form as `{{fieldName}}`.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
   /** Output format hint for the renderer. */
-  format: Schema.optional(Schema.Literals(['number', 'currency', 'percent', 'text'])),
+  format: Schema.optional(
+    Schema.Literals(['number', 'currency', 'percent', 'text']).annotate({
+      description:
+        'How the computed value is displayed: a plain number, a currency amount, a percentage, or text.',
+    })
+  ),
   ...commonFieldProps,
 }).annotate({
   identifier: 'CalculationField',

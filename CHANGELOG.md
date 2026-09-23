@@ -1,3 +1,42 @@
+## [0.26.0](https://github.com/sovrium/sovrium/compare/v0.25.0...v0.26.0) (2026-09-23)
+
+### Features
+
+- **cli**: resolve an operator-console page name to the route it serves
+- **desktop**: ship Sovrium as a desktop app for macOS, Windows and Linux
+- **mcp**: let a local AI edit the config file over stdio
+- **cli**: ship the platform manual inside the binary as `sovrium docs`
+- **cli**: add `sovrium mcp`, serving the configuration tools over stdio
+- **mcp**: expose the configuration to an AI client as four read-only tools
+- **cli**: keep a history of every config the server accepted
+- **cli**: fork a published config into a new project
+- **cli**: let init put the new project under version control
+- **cli**: point out field ids that are really just positions
+- **cli**: stop the server when its stdin closes, on request
+- **cli**: let a managed install decline to update itself
+- **cli**: let a supervising process say where the project lives
+- **cli**: show a refused save on the page it was made from
+- **cli**: add sovrium validate --json
+- **cli**: publish a machine-readable status file beside the lock file
+
+### Bug Fixes
+
+- **pages**: a session-bound avatar picture accepts only an http(s) or same-origin address
+- **cli**: render the manual from the standalone binary, not only from the source tree
+- **admin**: serve the option list for every component type
+- **automations**: keep redacting a secret the operator supplied
+- **cli**: refuse a reload whose pre-flight cannot reach the database
+- **config**: decide every redirect hop, not just the address you gave
+- **config**: report the shape of a rejected config value, not the value
+- **pages**: serve llms.txt and llms-full.txt per locale instead of every locale at once
+- **mcp**: stop hiding a table whose name merely starts with "config"
+- **cli**: let `--project` name the project for the `$ref` jail as well
+- **config**: stop masking an environment variable name as if it were a secret
+- **cli**: stop a failed reload from leaving the server down and saying otherwise
+- **cli**: keep watching a config file that is replaced rather than rewritten
+- **migrations**: report the refusal a dry-run plan was discarding
+- **pages**: keep internal data-source markers off rendered elements
+
 ## [0.25.0](https://github.com/sovrium/sovrium/compare/v0.24.0...v0.25.0) (2026-09-22)
 
 ### BREAKING CHANGES

@@ -84,6 +84,63 @@ export interface SchemaNode {
   /** An `Arrays` node's element. `rest[0]` IS the node — there is no `.type`. */
   readonly rest?: readonly SchemaNode[]
   readonly elements?: readonly SchemaNode[]
+  /**
+   * The refinements attached to this node, each carrying annotations of its own.
+   *
+   * Read by {@link proseAnnotationOf} and by nothing else. See that function for
+   * why a check's prose counts as the node's.
+   */
+  readonly checks?: readonly SchemaNode[]
+}
+
+/**
+ * A node's prose annotation, reading its OWN annotations first and then the
+ * annotations of its `checks`, in order.
+ *
+ * ## Why a check's description counts as the node's
+ *
+ * `Schema.Finite`, `Schema.Int`, `Schema.isMinLength(…)` and every other
+ * refinement in Effect 4 are CHECKS on a base node, not nodes of their own —
+ * `Schema.Finite` is a `Number` carrying one `isFinite` filter. `Schema.annotate`
+ * piped after any of them therefore lands on the LAST check rather than on the
+ * node, measured on `effect@4.0.0-rc.108`:
+ *
+ * ```
+ * Finite.pipe(annotate({description}))          ast.annotations = null
+ *                                               ast.checks[0].annotations.description = "…"
+ * String.pipe(annotate({description}), check(…)) ast.annotations.description = "…"
+ * ```
+ *
+ * Both spellings are the same fact to a reader, and the first is what an author
+ * writes without thinking about it — 286 of 300 sampled undescribed nodes in
+ * this schema carry their prose this way, essentially all of them because
+ * `Schema.Finite` and `Schema.Int` are checks by construction. Un-sugaring them
+ * into `Number.pipe(annotate, check(isFinite))` would churn the byte-gated
+ * `app.json` for no reader gain.
+ *
+ * So the rule is: **a description carried by a node's own checks IS the node's
+ * description**. It is safe because a check cannot outlive its node —
+ * deleting the node deletes the check with it, which is the guarantee the whole
+ * annotation tier rests on.
+ *
+ * What this does NOT rescue is prose piped after a check onto a node that has
+ * **no** checks, and prose the JSON Schema emitter drops. Those remain findings;
+ *.
+ *
+ * A check group nests its members under `checks` of its own, so the walk
+ * recurses rather than scanning one level.
+ */
+export const proseAnnotationOf = (
+  node: SchemaNode | undefined,
+  key: string
+): string | undefined => {
+  if (node === undefined) return undefined
+  const own = node.annotations?.[key]
+  if (typeof own === 'string' && own.trim() !== '') return own
+  return (node.checks ?? []).reduce<string | undefined>(
+    (found, check) => found ?? proseAnnotationOf(check, key),
+    undefined
+  )
 }
 
 /**

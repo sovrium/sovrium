@@ -110,6 +110,25 @@ export const COMPONENT_STATE_VARIANTS = {
 export type ComponentState = keyof typeof COMPONENT_STATE_VARIANTS
 
 /** The state names, in declaration order. */
+/**
+ * What each state MEANS to a reader of the published schema.
+ *
+ * Keyed off {@link COMPONENT_STATE_VARIANTS} so a state added there without a
+ * sentence here fails the type-check rather than shipping undocumented.
+ */
+export const COMPONENT_STATE_DESCRIPTIONS: Readonly<Record<ComponentState, string>> = {
+  hover: 'Classes applied while the pointer is over the component.',
+  focus: 'Classes applied while the component holds keyboard focus, however it was reached.',
+  focusVisible:
+    'Classes applied while the component holds keyboard focus and the browser judges a focus ring warranted — typically after keyboard navigation, not after a click.',
+  active: 'Classes applied while the component is being pressed.',
+  disabled: 'Classes applied while the component refuses interaction.',
+  open: 'Classes applied while the component is expanded, such as an open menu or dialog trigger.',
+  selected: 'Classes applied while the component is the chosen one among its siblings.',
+  checked: 'Classes applied while a checkbox, radio or switch is on.',
+  invalid: 'Classes applied while the value the component holds has been refused.',
+}
+
 export const COMPONENT_STATES: readonly ComponentState[] = Object.keys(
   COMPONENT_STATE_VARIANTS
 ) as readonly ComponentState[]
@@ -243,7 +262,12 @@ export const ComponentStyleSchema = Schema.Struct({
   states: Schema.optional(
     Schema.Struct(
       Object.fromEntries(
-        COMPONENT_STATES.map((state) => [state, Schema.optional(StatePartClassesSchema)])
+        COMPONENT_STATES.map((state) => [
+          state,
+          Schema.optional(
+            StatePartClassesSchema.annotate({ description: COMPONENT_STATE_DESCRIPTIONS[state] })
+          ),
+        ])
       ) as Record<ComponentState, Schema.optional<typeof StatePartClassesSchema>>
     ).pipe(
       Schema.annotate({

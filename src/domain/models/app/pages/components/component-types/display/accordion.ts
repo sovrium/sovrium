@@ -19,7 +19,9 @@ export const accordionFields = {
   ...i18nFields,
   accordionType: Schema.optional(AccordionTypeSchema),
   defaultOpen: Schema.optional(
-    Schema.Array(Schema.String).annotate({
+    Schema.Array(
+      Schema.String.annotate({ description: 'The `id` of one accordion item' })
+    ).annotate({
       description: 'IDs of accordion items that are open by default',
     })
   ),

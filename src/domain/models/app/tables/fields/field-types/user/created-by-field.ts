@@ -28,7 +28,11 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const CreatedByFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('created-by'),
+    type: Schema.Literal('created-by').pipe(
+      Schema.annotate({
+        description: "Constant value 'created-by' for type discrimination in discriminated unions",
+      })
+    ),
   }),
   Schema.annotate({
     title: 'Created By Field',

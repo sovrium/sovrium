@@ -71,11 +71,11 @@ import { SystemSourceSchema } from '../../system-source'
 export const SelectOptionSourceSchema = Schema.Struct({
   /** Table to read the option rows from (cross-validated against `app.tables`). */
   table: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Table to read option rows from (validated against app.tables)',
       examples: ['categories', 'countries'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /**
    * Row field supplying each option's LABEL.
@@ -86,11 +86,11 @@ export const SelectOptionSourceSchema = Schema.Struct({
    * worse than a boot error naming the missing property.
    */
   displayField: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: "Row field supplying each option's display label (validated against the table)",
       examples: ['name', 'title'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /**
    * Row field supplying each option's VALUE. Defaults to `'id'` — every Sovrium
@@ -98,12 +98,12 @@ export const SelectOptionSourceSchema = Schema.Struct({
    */
   valueField: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           "Row field supplying each option's submitted value (validated against the table; default: 'id')",
         examples: ['id', 'slug'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -133,12 +133,12 @@ export const SelectOptionSourceSchema = Schema.Struct({
   /** Maximum number of options to resolve (default 100, hard max 1000). */
   limit: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(1000)),
       Schema.annotate({
         description:
           'Maximum number of options to resolve. Default 100, hard max 1000 — the list is server-rendered into the page.',
         examples: [50, 200],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(1000))
     )
   ),
 }).annotate({
@@ -205,12 +205,12 @@ export const SelectSystemOptionSourceSchema = Schema.Struct({
    */
   valueKey: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           "Row key supplying each option's submitted value (default: the envelope's idKey)",
         examples: ['name', 'id', 'slug'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -222,21 +222,21 @@ export const SelectSystemOptionSourceSchema = Schema.Struct({
    * missing property.
    */
   labelKey: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: "Row key supplying each option's display label",
       examples: ['name', 'label', 'title'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** Maximum number of options to resolve (default 100, hard max 1000). */
   limit: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(1000)),
       Schema.annotate({
         description:
           'Maximum number of options to resolve. Default 100, hard max 1000 — the list is server-rendered into the page.',
         examples: [50, 200],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(1000))
     )
   ),
 }).annotate({

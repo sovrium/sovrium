@@ -12,8 +12,10 @@ import {
   formatDiscoveredConfigNotice,
 } from '@/domain/kernel/config-parsing/default-config-files'
 import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
+import { messageAsConfigFinding } from '@/domain/models/app/app-excess-property-report'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { lazyImportSchema } from './utils'
+import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
 
 /**
  * Load config file for validation, returning both resolved data and $ref source mappings
@@ -203,8 +205,15 @@ export const detectUnknownFieldTypes = async (
  * a steady state this could hide.
  *
  * Returns a flat list of human-readable errors, empty when the config is clean.
+ *
+ * Exported because `sovrium mcp` owes the identical sweep: `{app}_config_validate`
+ * reports on the config ON DISK, so a config that decodes and would then refuse
+ * to boot must not come back clean there either. A second copy would be free to
+ * drift, and only one of the two would receive the next fix.
+ *
+ * @public
  */
-const runPostDecodeChecks = async (
+export const runPostDecodeChecks = async (
   decoded: Readonly<{ readonly raw: unknown; readonly app: unknown }>,
   refSources: ReadonlyMap<string, string>
 ): Promise<readonly string[]> => {
@@ -230,6 +239,15 @@ interface ValidationOutcome {
   readonly valid: boolean
   readonly name: string
   readonly errors: readonly string[]
+  /**
+   * The same refusal as `errors`, located and structured — what `--json`
+   * publishes.
+   *
+   * Two renderings of one verdict rather than two verdicts: they are derived
+   * from the same decode, so a caller reading the JSON and a caller reading the
+   * terminal cannot be told about different mistakes.
+   */
+  readonly findings: readonly ConfigFinding[]
   /**
    * Non-fatal notices from the shared pipeline — today, deprecated config keys.
    *
@@ -266,7 +284,13 @@ const validateParsedConfig = async (
   const decoded = decodeAppConfigObject(parsed, { refSources })
 
   if (!decoded.valid) {
-    return { valid: false, name: '', errors: decoded.errors, notices: [] }
+    return {
+      valid: false,
+      name: '',
+      errors: decoded.errors,
+      findings: decoded.findings,
+      notices: [],
+    }
   }
 
   const postDecodeErrors = await runPostDecodeChecks(decoded, refSources)
@@ -274,6 +298,12 @@ const validateParsedConfig = async (
     valid: postDecodeErrors.length === 0,
     name: decoded.name,
     errors: postDecodeErrors,
+    // The two sweeps above relate a declaration to a catalogue rather than to a
+    // position in the document, so they have no path to publish and are carried
+    // whole. Dropping them from the structured channel is the alternative, and
+    // it would let a caller that reads only `findings` see `valid: false` with
+    // nothing to act on.
+    findings: postDecodeErrors.map((error) => messageAsConfigFinding(error)),
     notices: decoded.notices,
   }
 }
@@ -358,14 +388,65 @@ const discoverValidationConfig = async (): Promise<string> => {
 }
 
 /**
+ * Every file the verdict actually covered: the root, plus each `$ref` partial it
+ * pulled in.
+ *
+ * Information the caller could not otherwise compute. A supervisor that wants to
+ * re-validate when the config changes has no way to learn what the root reached
+ * without resolving the graph itself, and a one-file config makes the field look
+ * redundant precisely because it is the shape where it carries nothing.
+ */
+const coveredFiles = (
+  rootPath: string,
+  refSources: ReadonlyMap<string, string>
+): readonly string[] => [...new Set([resolve(rootPath), ...refSources.values()])]
+
+/**
+ * Write the verdict as ONE JSON document on stdout, and nothing else.
+ *
+ * "Nothing else" is the whole promise, not a preference. The caller is a program
+ * running this command and parsing what comes back; one stray human-readable
+ * line — a success banner, a discovered-config notice, a deprecation — and its
+ * `JSON.parse` throws for a reason that has nothing to do with the config it
+ * asked about. Everything conversational already prints on stderr, and this is
+ * why that discipline has to hold.
+ *
+ * `findings` and `notices` stay two fields for the same reason `errors` and
+ * `notices` are two fields in prose mode: a notice is not a refusal, and a
+ * deploy gate that treats findings as failures must not fail on a working
+ * config. The exit code is unchanged by the flag — a verdict that reported
+ * differently depending on how it was asked would be two verdicts.
+ */
+const printJsonReport = (outcome: ValidationOutcome, files: readonly string[]): void => {
+  Effect.runSync(
+    Console.log(
+      JSON.stringify({
+        valid: outcome.valid,
+        files,
+        findings: outcome.findings,
+        notices: outcome.notices,
+      })
+    )
+  )
+  if (!outcome.valid) {
+    // eslint-disable-next-line functional/no-expression-statements
+    process.exit(1)
+  }
+}
+
+/**
  * Handle the 'validate' command - validate a config file against AppSchema
  */
-export const handleValidateCommand = async (filePath?: string): Promise<void> => {
+export const handleValidateCommand = async (filePath?: string, json = false): Promise<void> => {
   const resolvedPath = filePath ?? (await discoverValidationConfig())
 
   // Load resolved config and collect $ref source mappings for error attribution
   const { parsed, refSources } = await loadConfigForValidationWithSources(resolvedPath)
   const outcome = await validateParsedConfig(parsed, refSources)
+
+  if (json) {
+    return printJsonReport(outcome, coveredFiles(resolvedPath, refSources))
+  }
 
   if (!outcome.valid) {
     // The `Error: ` prefix is what operators and log scrapers grep for, and this

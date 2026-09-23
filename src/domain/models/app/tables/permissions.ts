@@ -55,7 +55,9 @@ export const FieldPermissionSchema = Schema.Struct({
   /**
    * The name of the field this permission applies to.
    */
-  field: Schema.String,
+  field: Schema.String.annotate({
+    description: 'Field these read and write rules apply to.',
+  }),
 
   /**
    * Who can read (SELECT) this field.
@@ -120,12 +122,12 @@ export type TableFieldPermissions = Schema.Schema.Type<typeof TableFieldPermissi
  * Invalid: "123users", "_posts", "User Posts"
  */
 export const ResourceNameSchema = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^[a-z][a-z0-9_-]*$/i)),
   Schema.annotate({
     title: 'Resource Name',
     description: 'Resource identifier (e.g., "users", "posts", "analytics")',
     examples: ['users', 'posts', 'api_keys', 'user-profiles'],
-  })
+  }),
+  Schema.check(Schema.isPattern(/^[a-z][a-z0-9_-]*$/i))
 )
 
 /** @public */
@@ -142,12 +144,12 @@ export type ResourceName = Schema.Schema.Type<typeof ResourceNameSchema>
  * Invalid: "123read", "_write"
  */
 export const ActionNameSchema = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^[a-z][a-z0-9_-]*$/i)),
   Schema.annotate({
     title: 'Action Name',
     description: 'Action identifier (e.g., "read", "write", "create", "delete")',
     examples: ['read', 'write', 'create', 'update', 'delete', 'list'],
-  })
+  }),
+  Schema.check(Schema.isPattern(/^[a-z][a-z0-9_-]*$/i))
 )
 
 /** @public */
@@ -194,11 +196,11 @@ export const ResourceActionPermissionsSchema = Schema.Record(
     Schema.annotate({ description: 'Resource name (e.g., "users", "posts")' })
   ),
   Schema.Array(ActionWithWildcardSchema).pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Allowed Actions',
       description: 'Allowed actions for this resource',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   )
 ).pipe(
   Schema.annotate({
@@ -313,13 +315,13 @@ export type UserLevelRole = Schema.Schema.Type<typeof UserLevelRoleSchema>
  * ```
  */
 export const FlexibleRolesSchema = Schema.Array(Schema.String).pipe(
-  Schema.check(Schema.isMinLength(1)),
   Schema.annotate({
     title: 'Flexible Roles',
     description:
       'Array of role names (supports both standard and custom roles). At least one role required.',
     examples: [['admin'], ['admin', 'member'], ['admin', 'editor', 'custom-role']],
-  })
+  }),
+  Schema.check(Schema.isMinLength(1))
 )
 
 /** @public */
@@ -332,12 +334,12 @@ export type FlexibleRoles = Schema.Schema.Type<typeof FlexibleRolesSchema>
  * Use for strict validation when only built-in roles are allowed.
  */
 export const StandardRolesArraySchema = Schema.Array(StandardRoleSchema).pipe(
-  Schema.check(Schema.isMinLength(1)),
   Schema.annotate({
     title: 'Standard Roles Array',
     description: 'Array of standard roles only (admin, member, viewer)',
     examples: [['admin'], ['admin', 'member'], ['admin', 'member', 'viewer']],
-  })
+  }),
+  Schema.check(Schema.isMinLength(1))
 )
 
 /** @public */
@@ -453,10 +455,10 @@ export const TablePermissionsSchema = Schema.Struct({
    */
   inherit: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'inherit table name must not be empty' })),
       Schema.annotate({
         description: 'Name of the parent table to inherit permissions from',
-      })
+      }),
+      Schema.check(Schema.isNonEmpty({ message: 'inherit table name must not be empty' }))
     )
   ),
 
@@ -490,8 +492,14 @@ export const TablePermissionsSchema = Schema.Struct({
           create: Schema.optional(TablePermissionSchema),
           update: Schema.optional(TablePermissionSchema),
           delete: Schema.optional(TablePermissionSchema),
+        }).annotate({
+          description:
+            'Replaces inherited rules for the operator console only, leaving the API rules inherited.',
         })
       ),
+    }).annotate({
+      description:
+        'Replaces individual rules taken from the inherited table, leaving the rest inherited.',
     })
   ),
 }).pipe(
@@ -592,16 +600,16 @@ export const UserAccessRowSchema = Schema.Struct({
    * (the schema does not have access to the active app config).
    */
   table_slug: Schema.String.pipe(
+    Schema.annotate({
+      description: 'Table slug (e.g. "clients", "projects"); validated against auth.scopeTables',
+    }),
     Schema.check(
       Schema.isMinLength(1),
       Schema.isPattern(/^[a-z][a-z0-9_-]*$/i, {
         message:
           "table_slug must start with a letter and contain only letters, digits, '_', or '-'",
       })
-    ),
-    Schema.annotate({
-      description: 'Table slug (e.g. "clients", "projects"); validated against auth.scopeTables',
-    })
+    )
   ),
 
   /**
@@ -612,14 +620,14 @@ export const UserAccessRowSchema = Schema.Struct({
    * array via the `$currentUser.assignments.<table_slug>` path.
    */
   record_ids: Schema.Array(Schema.String.check(Schema.isGUID())).pipe(
+    Schema.annotate({
+      description: 'Records the user can access. Engine flattens across multiple rows.',
+    }),
     Schema.check(
       Schema.isMinLength(1, {
         message: 'record_ids must contain at least one UUID',
       })
-    ),
-    Schema.annotate({
-      description: 'Records the user can access. Engine flattens across multiple rows.',
-    })
+    )
   ),
 
   /**
@@ -630,10 +638,10 @@ export const UserAccessRowSchema = Schema.Struct({
    * hold a row with `role: 'customer-admin'` for a specific scope.
    */
   role: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'App-defined role within this scope (validated against auth.roles)',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /** Timestamp of grant (audit) */

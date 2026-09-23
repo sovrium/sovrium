@@ -67,6 +67,30 @@ const nonEmptyRule = (subject: string) =>
   )
 
 /**
+ * A non-empty rule line that describes ITSELF, for use as an array element.
+ *
+ * Separate from `nonEmptyRule` rather than an optional second parameter on it,
+ * and the reason is a type erasure rather than taste. Spreading a conditional
+ * `[] | [annotate]` into `pipe` gives the spread no tuple type, so `pipe`
+ * matches none of its arity overloads and the whole schema resolves to
+ * `Schema<never>` — which type-checks at the declaration and then rejects every
+ * real `string[]` a config writes into `principles`, `photography` or
+ * `patterns`. Two concrete pipe shapes cost one extra function and cannot do
+ * that.
+ *
+ * The annotation goes BEFORE the check so it lands on the schema node itself.
+ * Piped AFTER a check it ends up inside `allOf` — reachable in the published
+ * JSON Schema but off the node an option table walks, which is why these
+ * element rows rendered with an empty Description cell. `iconSet` keeps the
+ * plain helper because it carries its own annotation at the call site.
+ */
+const describedRule = (subject: string, description: string) =>
+  Schema.String.pipe(
+    Schema.annotate({ description }),
+    Schema.check(Schema.isMinLength(1, { message: `${subject} must not be empty` }))
+  )
+
+/**
  * The app's imagery and iconography rules.
  *
  * Every field optional: an app with a considered photography policy and no
@@ -82,7 +106,9 @@ export const ImagerySchema = Schema.Struct({
    * agent choosing an image is handed the reasoning, not a checklist.
    */
   principles: Schema.optional(
-    Schema.Array(nonEmptyRule('An imagery principle')).pipe(
+    Schema.Array(
+      describedRule('An imagery principle', 'One conviction about what an image is for here')
+    ).pipe(
       Schema.annotate({
         title: 'Imagery Principles',
         description: 'What an image is FOR in this app, stated as convictions',
@@ -106,7 +132,9 @@ export const ImagerySchema = Schema.Struct({
    * makes the rule sound negotiable.
    */
   photography: Schema.optional(
-    Schema.Array(nonEmptyRule('A photography rule')).pipe(
+    Schema.Array(
+      describedRule('A photography rule', 'One rule about what may be photographed, and how')
+    ).pipe(
       Schema.annotate({
         title: 'Photography Rules',
         description: 'What may be photographed, and how it must be treated',
@@ -155,7 +183,12 @@ export const ImagerySchema = Schema.Struct({
    * names a file.
    */
   patterns: Schema.optional(
-    Schema.Array(nonEmptyRule('A pattern rule')).pipe(
+    Schema.Array(
+      describedRule(
+        'A pattern rule',
+        'One rule about texture, illustration style or background geometry'
+      )
+    ).pipe(
       Schema.annotate({
         title: 'Patterns and Textures',
         description:

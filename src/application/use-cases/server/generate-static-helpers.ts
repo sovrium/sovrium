@@ -14,8 +14,6 @@ import { logDebug } from '@/infrastructure/logging'
 import {
   formatHtmlWithPrettier,
   generateClientHydrationScript,
-  generateLlmsFullTxtContent,
-  generateLlmsTxtContent,
   generateRobotsContent,
   generateSitemapContent,
   type HreflangConfig,
@@ -381,70 +379,6 @@ export function generateRobotsFile(
         })
       : Effect.succeed([] as readonly string[])
   ).pipe(Effect.withSpan('server.generate-robots-file'))
-}
-
-/** Write `/llms-full.txt` (gated on `app.llms.full !== false`). */
-function writeLlmsFullFile(app: App, outputDir: string, fs: FileSystemLike) {
-  return Effect.suspend(() =>
-    app.llms?.full !== false
-      ? Effect.gen(function* () {
-          const full = yield* Effect.tryPromise({
-            try: () => generateLlmsFullTxtContent(app),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: 'Failed to generate llms-full.txt',
-                cause: error,
-              }),
-          })
-          yield* Effect.tryPromise({
-            try: () => fs.writeFile(`${outputDir}/llms-full.txt`, full, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({ message: 'Failed to write llms-full.txt', cause: error }),
-          })
-          return ['llms-full.txt'] as const
-        })
-      : Effect.succeed([] as readonly string[])
-  )
-}
-
-/**
- * Generate `/llms.txt` and `/llms-full.txt` for the static build when the app
- * declares content-directory pages and `app.llms.enabled` is not `false`.
- *
- * Mirrors the live `setupSeoRoutes` behavior (default-on, derived from
- * content-directory pages) so the built output matches the served routes.
- * Uses `options.baseUrl` as the absolute link prefix (static builds emit a
- * canonical origin), falling back to relative links when no baseUrl is set.
- */
-export function generateLlmsFiles(
-  app: App,
-  outputDir: string,
-  options: GenerateStaticOptions,
-  fs: FileSystemLike
-) {
-  const llmsEnabled =
-    app.llms?.enabled !== false && (app.pages ?? []).some((page) => page.contentDir !== undefined)
-
-  return Effect.suspend(() =>
-    llmsEnabled
-      ? Effect.gen(function* () {
-          logDebug('Generating llms.txt...')
-          const baseUrl = options.baseUrl?.replace(/\/$/, '') ?? ''
-          const llms = yield* Effect.tryPromise({
-            try: () => generateLlmsTxtContent(app, baseUrl),
-            catch: (error) =>
-              new StaticGenerationError({ message: 'Failed to generate llms.txt', cause: error }),
-          })
-          yield* Effect.tryPromise({
-            try: () => fs.writeFile(`${outputDir}/llms.txt`, llms, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({ message: 'Failed to write llms.txt', cause: error }),
-          })
-          const fullFiles = yield* writeLlmsFullFile(app, outputDir, fs)
-          return ['llms.txt', ...fullFiles] as readonly string[]
-        })
-      : Effect.succeed([] as readonly string[])
-  ).pipe(Effect.withSpan('server.generate-llms-files'))
 }
 
 /**

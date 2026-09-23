@@ -29,7 +29,11 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const CodeFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('code'),
+    type: Schema.Literal('code').pipe(
+      Schema.annotate({
+        description: "Constant value 'code' for type discrimination in discriminated unions",
+      })
+    ),
     language: Schema.String.pipe(
       Schema.annotate({
         description:
@@ -45,26 +49,26 @@ export const CodeFieldSchema = BaseFieldSchema.pipe(
     ),
     minLines: Schema.optional(
       Schema.Int.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
         Schema.annotate({
           description: 'Minimum visible lines in the editor',
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(1))
       )
     ),
     maxLines: Schema.optional(
       Schema.Int.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
         Schema.annotate({
           description: 'Maximum visible lines before scrolling',
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(1))
       )
     ),
     tabSize: Schema.optional(
       Schema.Int.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(8)),
         Schema.annotate({
           description: 'Tab size in spaces (1-8, default: 2)',
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(8))
       )
     ),
   }),

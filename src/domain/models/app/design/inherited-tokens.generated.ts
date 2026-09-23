@@ -8,7 +8,7 @@
 /**
  * The console's inherited-token projection — what an app SHIPS when it declares nothing.
  *
- * AUTO-GENERATED from `apps/admin/config/design.ts` — DO NOT EDIT.
+ * AUTO-GENERATED from `src/admin/config/design.ts` — DO NOT EDIT.
  *
  * Regenerate: `bun run build:default-design`
  */

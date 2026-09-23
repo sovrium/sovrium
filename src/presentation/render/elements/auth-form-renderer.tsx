@@ -21,6 +21,7 @@ import {
   computeFormLayoutClasses,
 } from '../../design/forms-default-classes'
 import { computeInputDefaultClasses } from '../../design/input-default-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import { buildResolvedFieldDefs } from './crud-form/crud-form-field-resolver'
 import type { ResolvedFieldDef } from './crud-form/crud-form-types'
 import type { ElementProps } from './html-element-renderer'
@@ -349,7 +350,7 @@ function renderAuthFormSkeleton(config: {
   const { props, formDataAttrs, fields, submitLabel } = config
   return (
     <form
-      {...props}
+      {...omitInternalMarkers(props)}
       {...formDataAttrs}
       // className LAST so the layout class survives the `{...props}` spread —
       // a `props.className` key (even empty/undefined) would otherwise clobber

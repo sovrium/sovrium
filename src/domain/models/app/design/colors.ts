@@ -58,17 +58,17 @@ const COLOR_NAME_HINT =
  * surfaces validate a name they were handed rather than a whole record.
  */
 export const ColorNameSchema = Schema.String.pipe(
+  Schema.annotate({
+    title: 'Color Name',
+    description: 'Color name in kebab-case format',
+    examples: ['primary', 'primary-hover', 'gray-500', 'text-muted'],
+  }),
   Schema.check(
     Schema.isPattern(COLOR_NAME_PATTERN, {
       message:
         'Color name must use kebab-case format: lowercase letters and numbers separated by hyphens (e.g., "primary", "text-muted", "gray-500")',
     })
-  ),
-  Schema.annotate({
-    title: 'Color Name',
-    description: 'Color name in kebab-case format',
-    examples: ['primary', 'primary-hover', 'gray-500', 'text-muted'],
-  })
+  )
 )
 
 /**
@@ -127,6 +127,8 @@ export const DesignColorsSchema = guardedKeyRecord(ColorValueSchema, {
   keyHint: COLOR_NAME_HINT,
   keyTitle: 'Color Name',
   keyExamples: ['primary', 'primary-hover', 'text-muted'],
+  description:
+    "The app's named colour literals. Distinct from `design.ramps` (ordered ladders) and `design.colorRoles` (what a role resolves to).",
 }).pipe(
   Schema.annotate({
     identifier: 'DesignColors',
@@ -152,6 +154,7 @@ export const DesignDarkColorsSchema = guardedKeyRecord(ColorValueSchema, {
   keyHint: COLOR_NAME_HINT,
   keyTitle: 'Color Name',
   keyExamples: ['primary', 'surface'],
+  description: 'Dark-scheme overrides for `design.colors`, keyed identically.',
 }).pipe(
   Schema.annotate({
     identifier: 'DesignDarkColors',

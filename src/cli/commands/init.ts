@@ -9,6 +9,13 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { ENV_EXAMPLE_CONTENT } from '@/cli/commands/env-example-template'
 import {
+  assertForkableUrl,
+  fetchForkedConfig,
+  writeForkedConfig,
+  type ForkedConfig,
+} from '@/cli/commands/init-from-url'
+import { initGitRepository } from '@/cli/commands/init-git'
+import {
   isRemoteTemplateRef,
   scaffoldFromRemoteTemplate,
 } from '@/cli/commands/init-remote-template'
@@ -352,6 +359,18 @@ export interface InitCommandOptions {
    * silently discarding one of the two things the operator asked for.
    */
   readonly typescript?: boolean
+  /**
+   * `--git` — initialise a repository and land one commit over the scaffold.
+   *
+   * Runs LAST, after the support files, so the `.gitignore` written alongside
+   * them is already in place when the commit is staged. See `init-git.ts`.
+   */
+  readonly gitInit?: boolean
+  /**
+   * `--from-url <https://…>` — fork one published config document into the
+   * project instead of generating a starter one. See `init-from-url.ts`.
+   */
+  readonly fromUrl?: string
 }
 
 /**
@@ -452,14 +471,36 @@ const isWebFacingTemplate = (templateName: string | undefined): boolean => {
   return template !== undefined && WEB_FACING_TEMPLATE_NAMES.has(template)
 }
 
+/**
+ * The forked-config scaffold: the published bytes verbatim, its provenance,
+ * and the same CLAUDE.md and starter agent a bare `init` writes.
+ *
+ * A forked project is a first-class project, not a bare config file — which is
+ * why this writes the bundle rather than only the document it fetched.
+ */
+const scaffoldFromUrl = async (
+  forked: ForkedConfig,
+  targetDir: string
+): Promise<readonly string[]> => {
+  const written = await writeForkedConfig(forked, targetDir)
+  await writeFile(join(targetDir, 'CLAUDE.md'), generateClaudeMd(basename(targetDir)))
+  return [
+    ...written,
+    join(targetDir, 'CLAUDE.md'),
+    ...(await writeStarterAgentIfMissing(targetDir)),
+  ]
+}
+
 const scaffoldTree = async (params: {
   readonly templateName: string | undefined
   readonly targetDir: string
   readonly forceFlag: boolean
   readonly appName: string | undefined
   readonly typescript: boolean
+  readonly forked: ForkedConfig | undefined
 }): Promise<readonly string[]> => {
-  const { templateName, targetDir, forceFlag, appName, typescript } = params
+  const { templateName, targetDir, forceFlag, appName, typescript, forked } = params
+  if (forked) return scaffoldFromUrl(forked, targetDir)
   if (templateName && isRemoteTemplateRef(templateName)) {
     // Remote-shaped refs (`owner/repo`, `gh:…`, GitHub URLs, optional #ref)
     // fetch from GitHub; bare names stay embedded-only (offline).
@@ -479,6 +520,33 @@ const scaffoldTree = async (params: {
  * success for a flag that did nothing. Refusing is the only answer that does
  * not silently discard part of the request.
  */
+/**
+ * Refuse `--from-url` alongside a flag that would decide the same file.
+ *
+ * `--template` ships its own config and `--typescript` generates one, so
+ * either would have to be silently discarded for the fork to land. Refusing is
+ * the only answer that does not throw away half of what was asked for.
+ */
+const assertFromUrlAlone = (
+  fromUrl: string | undefined,
+  templateName: string | undefined,
+  typescript: boolean
+): void => {
+  if (fromUrl === undefined) return
+  const conflicting = templateName !== undefined ? '--template' : typescript ? '--typescript' : ''
+  if (conflicting === '') return
+  printFailure({
+    headline: `Cannot combine --from-url with ${conflicting}.`,
+    detail: [
+      'Both decide what the project config is, and only one of them can win —',
+      'so honouring either would mean silently discarding the other.',
+    ],
+    guidance: `Pick one: fork the published config with --from-url, or scaffold with ${conflicting}.`,
+  })
+  // eslint-disable-next-line functional/no-expression-statements
+  process.exit(1)
+}
+
 const assertFlagsCompatible = (templateName: string | undefined, typescript: boolean): void => {
   if (!typescript || templateName === undefined) return
   printFailure({
@@ -513,10 +581,29 @@ export const handleInitCommand = async (options: InitCommandOptions = {}): Promi
   const targetDir = positionalDir || outputDir || process.cwd()
 
   assertFlagsCompatible(templateName, typescript)
+  assertFromUrlAlone(options.fromUrl, templateName, typescript)
+
+  // Pure refusals first (scheme, extension), so a URL this command will not
+  // fork is rejected before a request is made — and therefore before anything
+  // could have been written.
+  const forkTarget = options.fromUrl ? assertForkableUrl(options.fromUrl) : undefined
+
   // The conflict check follows the config file this invocation will actually
   // write — otherwise `init --typescript` in a directory holding an `app.ts`
   // would check `app.yaml`, find nothing, and overwrite the author's config.
-  await assertNoConflict(join(targetDir, configFilenameFor(typescript)), forceFlag)
+  await assertNoConflict(
+    join(targetDir, forkTarget?.filename ?? configFilenameFor(typescript)),
+    forceFlag
+  )
+
+  // Fetched, size-checked and DECODED before the first write. A rejected fork
+  // leaves nothing behind by construction rather than through a cleanup path
+  // that has to be right.
+  const forked =
+    options.fromUrl && forkTarget
+      ? await fetchForkedConfig(options.fromUrl, forkTarget.filename)
+      : undefined
+
   // eslint-disable-next-line functional/no-expression-statements
   await mkdir(targetDir, { recursive: true })
 
@@ -526,16 +613,34 @@ export const handleInitCommand = async (options: InitCommandOptions = {}): Promi
     forceFlag,
     appName,
     typescript,
+    forked,
   })
 
   // Scaffold the additive support files (`.gitignore`, `.env.example`,
   // `public/`) the project doesn't already own.
   const supportFiles = await scaffoldSupportFiles(targetDir, isWebFacingTemplate(templateName))
 
-  // One document instead of a per-file narration. A data block is capped at ten
-  // rows; beyond that the count carries the information and the list is noise.
-  const created = [...scaffolded, ...supportFiles]
+  // AFTER the support files: the commit below stages what is on disk, and the
+  // `.gitignore` those files include is what keeps `.sovrium/` and `.env` out
+  // of it.
+  if (options.gitInit === true) await initGitRepository(targetDir)
+
+  printInitSummary([...scaffolded, ...supportFiles], targetDir, templateName)
+}
+
+/**
+ * One document instead of a per-file narration.
+ *
+ * A data block is capped at ten rows; beyond that the count carries the
+ * information and the list is noise.
+ */
+const printInitSummary = (
+  created: readonly string[],
+  targetDir: string,
+  templateName: string | undefined
+): void => {
   const listed = created.length <= 10 ? created : []
+  const from = templateName ? ` from template ${templateName}` : ''
 
   printDocument([
     [
@@ -543,9 +648,7 @@ export const handleInitCommand = async (options: InitCommandOptions = {}): Promi
         text:
           created.length === 0
             ? `Nothing to create in ${targetDir} — every file already exists.`
-            : `Created ${created.length} file${created.length === 1 ? '' : 's'} in ${targetDir}${
-                templateName ? ` from template ${templateName}` : ''
-              }`,
+            : `Created ${created.length} file${created.length === 1 ? '' : 's'} in ${targetDir}${from}`,
         ...(listed.length > 0 ? { detail: listed } : {}),
       },
     ],

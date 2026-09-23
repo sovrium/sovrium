@@ -18,8 +18,17 @@ import { ActionBaseFields } from '../base'
  */
 export const RecordBatchUpsertActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('record'),
-  operator: Schema.Literal('batchUpsert'),
+  type: Schema.Literal('record').pipe(
+    Schema.annotate({
+      description: "Constant value 'record' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('batchUpsert').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'record' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Target table name */
     table: TemplateStringSchema.pipe(
@@ -36,21 +45,24 @@ export const RecordBatchUpsertActionSchema = Schema.Struct({
 
     /** Field used to match existing records for upsert logic */
     matchField: Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Field name used to match existing records (e.g., "externalId"). If a record with a matching value exists, it is updated; otherwise a new record is created.',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     ),
 
     /** Continue processing remaining records if one fails */
     continueOnItemError: Schema.optional(
       Schema.Boolean.pipe(
         Schema.annotate({
+          defaultNote: 'false',
           description: 'Continue processing remaining items if one fails (default: false)',
         })
       )
     ),
+  }).annotate({
+    description: 'The table, the records to write, and the field that decides insert or update.',
   }),
 }).pipe(
   Schema.annotate({

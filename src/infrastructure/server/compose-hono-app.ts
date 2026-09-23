@@ -35,6 +35,7 @@ import { hostRedirect } from '@/infrastructure/server/middleware/host-redirect'
 import { requestLogger } from '@/infrastructure/server/middleware/request-logger'
 import { securityHeaders } from '@/infrastructure/server/middleware/security-headers'
 import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
+import { readStatusDocument } from '@/infrastructure/server/status-file'
 import { reportException } from '@/infrastructure/telemetry/error-reporter'
 import { createRequestTraceMiddleware } from '@/infrastructure/telemetry/performance-middleware'
 import { getTelemetryConfig } from '@/infrastructure/telemetry/telemetry-config'
@@ -319,7 +320,17 @@ export async function createHonoApp(
                       { authInstance, runtime, emailHandlers }
                     ),
                     app,
-                    { domainContext: config.domainContext, authInstance }
+                    {
+                      domainContext: config.domainContext,
+                      authInstance,
+                      // The two file-backed facts the A8 config tools publish.
+                      // Supplied HERE because this is the one composition root
+                      // that may name both `infrastructure-server` and the
+                      // presentation tree; a route may not reach the status
+                      // file itself.
+                      configHash: configHash ?? '',
+                      readStatusDocument,
+                    }
                   ),
                   app
                 ),

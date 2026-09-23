@@ -8,7 +8,7 @@
 /**
  * The default CSS token layer — every block Sovrium emits for an app that declares no design.
  *
- * AUTO-GENERATED from `apps/admin/config/design.ts` — DO NOT EDIT.
+ * AUTO-GENERATED from `src/admin/config/design.ts` — DO NOT EDIT.
  *
  * Regenerate: `bun run build:default-design`
  */

@@ -96,6 +96,7 @@ export const codeElementFields = {
    */
   lineNumbers: Schema.optional(
     Schema.Boolean.annotate({
+      defaultNote: 'false',
       description:
         'Draw a line-number gutter beside the code (default false). Opt-in — unlike the code-editor control, whose gutter is on by default. The numbers are chrome rather than content: they render outside `pre code` so they never land in the clipboard, exactly as `filename` does.',
     })
@@ -107,6 +108,7 @@ export const codeElementFields = {
     'Label for a terminal frame header (default: "terminal"). Plain text, no prompt glyph — a "$" would be copied along with the command.'
   ),
   copy: Schema.Boolean.annotate({
+    defaultNote: 'true',
     description:
       'Show a copy-to-clipboard button on the block (default true). The payload is the COMMAND only: a framed block with `output` excludes the output, and the frame header excludes the filename.',
   }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(true))),

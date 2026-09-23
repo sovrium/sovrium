@@ -45,7 +45,11 @@ export const AgentSchema = Schema.Struct({
   permissions: Schema.optional(AgentPermissionsSchema),
 
   /** Periodic execution configuration using cron expressions */
-  schedule: Schema.optional(AgentScheduleSchema),
+  schedule: Schema.optional(
+    AgentScheduleSchema.annotate({
+      description: 'Runs the agent on a recurring schedule, written as a cron expression.',
+    })
+  ),
 
   /** Knowledge data sources to embed for RAG-based retrieval */
   knowledge: Schema.optional(AgentKnowledgeSchema),

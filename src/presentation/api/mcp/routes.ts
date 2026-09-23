@@ -8,15 +8,23 @@
 import { Server, createMcpHandler, type McpHttpHandler } from '@modelcontextprotocol/server'
 import { Schema } from 'effect'
 import { type Context, type Hono } from 'hono'
+import {
+  compileConfigTools,
+  findConfigToolTableCollision,
+  isConfigToolName,
+} from '@/application/use-cases/config/config-mcp-tools'
 import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 import {
+  MCP_CONFIG_WRITE_IGNORED_NOTICE,
   MCP_ENV_DEFAULTS,
   McpEnvSchema,
+  parseMcpConfigWrite,
   resolveMcpEnv,
   validateMcpEnv,
   type McpEnvConfig,
   type ResolvedMcpEnvConfig,
 } from '@/domain/models/process-env/mcp'
+import { logWarning } from '@/infrastructure/logging/logger'
 import {
   auditedToolsCallDispatch,
   handleAuditListCall,
@@ -29,6 +37,11 @@ import {
   type McpCaller,
   type McpCallerRole,
 } from '@/presentation/api/mcp/auth'
+import {
+  handleHttpConfigToolCall,
+  type HttpConfigToolsDeps,
+  type ReadStatusDocument,
+} from '@/presentation/api/mcp/config-tools'
 import {
   compileInternalTools,
   handleInternalToolCall,
@@ -101,6 +114,37 @@ const JSONRPC_NULL_ID = JSON.parse('null') as any
 export interface McpMountDeps {
   readonly domainContext: DomainContext
   readonly authInstance?: McpAuthInstance | undefined
+  /**
+   * The hash this instance publishes as `X-Sovrium-Config`, for
+   * `{app}_config_read` ([internal ref] A8 surface 9).
+   */
+  readonly configHash?: string | undefined
+  /**
+   * Read the status document a running instance publishes, for
+   * `{app}_config_status`.
+   *
+   * Injected rather than imported: `status-file.ts` is `infrastructure-server`,
+   * which stays closed to routes. Absent — in a test that mounts the routes
+   * directly — the tool reports `not-running`, which is the truthful answer for
+   * a mount that was never told where to look.
+   */
+  readonly readStatusDocument?: ReadStatusDocument | undefined
+}
+
+/**
+ * Say, once per boot, that `MCP_CONFIG_WRITE` bought this instance nothing.
+ *
+ * `logWarning` rather than a thrown refusal: refusing the boot was considered
+ * and rejected, because `[internal ref]` and
+ * `[internal ref]` both boot an HTTP instance with this exact
+ * variable set and expect it to serve. Making them red to enforce A8 would be
+ * reading the amendment against itself — its regression-fence clause names the
+ * existing specs as the thing that must stay green.
+ */
+const announceIgnoredConfigWrite = (env: NodeJS.ProcessEnv): void => {
+  if (!parseMcpConfigWrite(env)) return
+
+  logWarning(MCP_CONFIG_WRITE_IGNORED_NOTICE)
 }
 
 export function setupMcpRoutes(
@@ -110,6 +154,14 @@ export function setupMcpRoutes(
   env: NodeJS.ProcessEnv = process.env
 ): Readonly<Hono> {
   const { domainContext, authInstance } = deps
+  // BEFORE the env decode and before the `enabled` gate, so the notice reaches
+  // an operator whatever else their MCP configuration says. A8 bound 2 is about
+  // tool REGISTRATION rather than about booting: an HTTP-served instance boots
+  // and serves normally with this flag set, it simply compiles no write tool.
+  // What it must not do is swallow the variable — an operator who set it on a
+  // deployed server believes they enabled config writes over the network, and
+  // they did not.
+  announceIgnoredConfigWrite(env)
   const config = parseAndValidateMcpEnv(app, env)
   if (!config.enabled) {
     return honoApp
@@ -119,6 +171,12 @@ export function setupMcpRoutes(
   // when sovrium is spawned by an IDE). Hono still runs but the HTTP route
   // is intentionally NOT mounted — clients hitting it get 404.
   if (config.transport === 'stdio') return honoApp
+
+  // Refused at tool-COMPILE time, where the app name and the table names are
+  // both in hand — never by letting one resolver win the name and leaving the
+  // other silently unreachable. Same reasoning as `isReservedInternalPrefix`,
+  // on an exact name rather than a prefix.
+  assertNoConfigToolCollision(app)
 
   const userTools = compileMcpTools(app, { confirmDestructive: config.confirmDestructive })
   // M-14: append the full admin-internals surface — every entry in
@@ -134,7 +192,11 @@ export function setupMcpRoutes(
   // Config-mutation tools (the `{appName}_schema_*` family) were retired with
   // the config-code-only reshape: config changes ONLY by editing the
   // app config file. The MCP server now exposes data + internal tools only.
-  const tools = [...userTools, ...internalTools]
+  // A8 surface 9: four static read tools, derived from `app.name` alone and
+  // never from `app.tables[]`, so no configuration can add, remove or rename
+  // one. The role filter downstream keeps them admin-only.
+  const configTools = compileConfigTools(app.name)
+  const tools = [...userTools, ...internalTools, ...configTools]
   const serverInfo = {
     name: `sovrium-${app.name}`,
     version: app.version ?? '0.0.0',
@@ -146,6 +208,12 @@ export function setupMcpRoutes(
     app,
     auditEnabled: config.auditEnabled,
     domainContext,
+    configToolsDeps: {
+      app,
+      processEnv: env,
+      configHash: deps.configHash ?? '',
+      readStatusDocument: deps.readStatusDocument ?? (async () => undefined),
+    },
   }
   // streamable-http: POST handles JSON-RPC, GET upgrades to SSE per the MCP
   // spec (server-initiated notifications). Today the SSE stream stays empty
@@ -199,7 +267,7 @@ const buildMcpServer = (caller: McpCaller, dispatch: McpDispatchContext): Server
     // `CompiledTool` already IS the wire shape (`tool-compiler.ts` emits
     // `inputSchema: { type: 'object', … }` JSON Schema). The cast only bridges
     // the readonly-array variance the SDK's mutable `Tool[]` does not accept.
-    tools: filterToolsForRole(dispatch.tools, caller.role) as unknown as never,
+    tools: filterToolsForRole(dispatch.tools, caller.role, dispatch.app.name) as unknown as never,
   }))
 
   server.setRequestHandler(
@@ -283,6 +351,8 @@ interface McpDispatchContext {
    * them here is the same value every request would have been handed.
    */
   readonly domainContext: DomainContext
+  /** What the four A8 config tools read, bound to the booted instance. */
+  readonly configToolsDeps: HttpConfigToolsDeps
 }
 
 const handleMcpRequest = async (
@@ -393,6 +463,19 @@ interface DispatchToolsCallInput {
 const dispatchToolsCall = (input: DispatchToolsCallInput): Promise<McpToolResult> => {
   const { params, dispatch, caller } = input
   const parsed = parseToolsCallParams(params)
+  // Claimed FIRST, and safe to claim first: a table named `config` — the only
+  // way a user-defined tool could answer to one of these four names — is
+  // refused at mount time by `assertNoConfigToolCollision`. Reading the
+  // configuration touches no database and writes no audit row, for the same
+  // observability calculus the internals tools are exempt under.
+  if (isConfigToolName(dispatch.app.name, parsed.toolName)) {
+    return handleHttpConfigToolCall({
+      caller,
+      toolName: parsed.toolName,
+      args: parsed.args,
+      deps: dispatch.configToolsDeps,
+    })
+  }
   if (isInternalAuditListTool(parsed.toolName, dispatch.app.name)) {
     return handleAuditListCall({ caller, args: parsed.args, domainContext: dispatch.domainContext })
   }
@@ -463,6 +546,25 @@ const parseAndValidateMcpEnv = (
   return resolved
 }
 
+/**
+ * Refuse a config whose table names would shadow an A8 config tool.
+ *
+ * A table called `config` compiles to `{app}_config_read` — the same name the
+ * config tool answers to. Refusing loudly, naming the table, is the only
+ * option that never silently drops either the operator's data tool or the
+ * surface A8 authorised.
+ */
+const assertNoConfigToolCollision = (app: Readonly<App>): void => {
+  const collision = findConfigToolTableCollision((app.tables ?? []).map((table) => table.name))
+  if (collision === undefined) return
+  // eslint-disable-next-line functional/no-throw-statements -- startup validation must abort the process
+  throw new Error(
+    `MCP tool-name collision: the table '${collision}' compiles to '${app.name}_config_read', ` +
+      `which is the name of this instance's configuration read tool. Rename the table — ` +
+      `'config' is reserved on the MCP surface for the same reason 'auth_*' and 'system_*' are.`
+  )
+}
+
 const decodeMcpEnv = (env: Readonly<NodeJS.ProcessEnv>): McpEnvConfig => {
   try {
     return Schema.decodeUnknownSync(McpEnvSchema)({
@@ -497,24 +599,47 @@ const decodeMcpEnv = (env: Readonly<NodeJS.ProcessEnv>): McpEnvConfig => {
  * member and viewer roles never see them, regardless of operation type.
  * The `MCP_EXPOSE_INTERNALS=false` switch upstream removes the tools
  * entirely; this filter is the per-role gate for the remaining surface.
+ *
+ * `appName` is threaded through for the config family alone: theirs is the one
+ * group whose membership is decided by an EXACT name rather than an infix, and
+ * that name cannot be recognised without knowing the app.
  */
 const filterToolsForRole = (
   tools: ReadonlyArray<CompiledTool>,
-  role: McpCallerRole
+  role: McpCallerRole,
+  appName: string
 ): ReadonlyArray<CompiledTool> => {
   const withoutInternals = isAdminRole(role)
     ? tools
-    : tools.filter((tool) => !isInternalTool(tool.name))
+    : tools.filter((tool) => !isInternalTool(tool.name, appName))
   if (role !== 'viewer') return withoutInternals
   return withoutInternals.filter((tool) => !isMutatingTool(tool.name))
 }
 
-const isInternalTool = (toolName: string): boolean => {
+const isInternalTool = (toolName: string, appName: string): boolean => {
   // Tool naming convention: `{appName}_auth_{table}_{op}` and
   // `{appName}_system_{table}_{op}`. The infixes are unambiguous because
   // user-defined tables cannot be named `auth_*` or `system_*` — the
   // cross-validator rejects those at decode time.
-  return toolName.includes('_auth_') || toolName.includes('_system_')
+  //
+  // The config family ([internal ref] A8 surface 9) is gated HERE rather than in
+  // `isMutatingTool`: `{app}_config_read` ends in `_read`, so the viewer
+  // mutating-tool filter never catches it, and without this a member-role
+  // caller would see the whole configuration surface.
+  //
+  // It is matched by EXACT NAME rather than by a `_config_` infix, because the
+  // two namespaces above are not comparable to this one. `auth_*` and
+  // `system_*` are refused as table-name PREFIXES, so no user-defined table can
+  // ever produce those infixes. Only the exact name `config` is refused here,
+  // so a table legitimately called `config_backup` compiles to
+  // `{app}_config_backup_list` — which carries the infix while being an
+  // ordinary data tool. An infix match hid that operator's own table from every
+  // non-admin role, with nothing said and the call still succeeding by name.
+  return (
+    toolName.includes('_auth_') ||
+    toolName.includes('_system_') ||
+    isConfigToolName(appName, toolName)
+  )
 }
 
 const isMutatingTool = (toolName: string): boolean => {

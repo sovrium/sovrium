@@ -47,6 +47,7 @@ import { createServerReload } from '@/infrastructure/server/server-reload'
 import { runDeferredStartupMaintenance } from '@/infrastructure/server/startup-database'
 import { buildStartupPhases } from '@/infrastructure/server/startup-degradation-phases'
 import { collectAllPhases, renderStartup } from '@/infrastructure/server/startup-phase-report'
+import { publishServerStatus } from '@/infrastructure/server/status-file'
 import { validateOperatorEnv } from '@/infrastructure/server/validate-operator-env'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
 import type {
@@ -91,6 +92,35 @@ const writeLockFile = (
     // file still serves correctly, so this must not fail the boot.
     Effect.ignore
   )
+
+/**
+ * Write BOTH sidecar files a bound listener owns: the lock file, and the status
+ * file beside it.
+ *
+ * One call rather than two at the boot site, because the two are one fact —
+ * there is an instance, here is its port and its config — split across two
+ * readers. `sovrium stop` reads the first; a supervisor, a container and a CI
+ * step read the second, and unlike the developer watching the banner they have
+ * no terminal to fall back on. Publishing the status file only under `--watch`
+ * was the obvious cheaper option and is exactly wrong: it would exist wherever
+ * it is least needed.
+ *
+ * Best-effort on both halves. A server that cannot write a sidecar still serves
+ * correctly, and a boot that failed over one would be a worse outcome than the
+ * blind supervisor it was meant to prevent.
+ */
+const writeSidecarFiles = (
+  port: number | undefined,
+  configHash: string,
+  configPath: string
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    yield* writeLockFile(port, configHash, configPath)
+    // effect-promise: total -- publishServerStatus catches its own write failures and resolves
+    yield* Effect.promise(() =>
+      publishServerStatus({ state: 'serving', port: port ?? 0, configHash, configPath })
+    )
+  })
 
 /**
  * Creates and starts a Bun server with Hono
@@ -197,7 +227,7 @@ export const createServer = (
     })
 
     if (!config.silent) {
-      yield* writeLockFile(server.port, configHash, configPath)
+      yield* writeSidecarFiles(server.port, configHash, configPath)
       registerLockFileCleanup(domain.honoApp, configPath)
       // A `--watch` reload skips the banner and nothing else. Reprinting the
       // version header, the phase list and `Server ready in …` on every save

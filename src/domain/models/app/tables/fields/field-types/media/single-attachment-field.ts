@@ -10,7 +10,12 @@ import { BaseFieldSchema } from '../base-field'
 
 export const SingleAttachmentFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('single-attachment'),
+    type: Schema.Literal('single-attachment').pipe(
+      Schema.annotate({
+        description:
+          "Constant value 'single-attachment' for type discrimination in discriminated unions",
+      })
+    ),
     /** Storage bucket name for this field's files. References a bucket defined in app.buckets.
      *  When omitted, uses the implicit 'default' bucket. */
     bucket: Schema.optional(
@@ -23,7 +28,12 @@ export const SingleAttachmentFieldSchema = BaseFieldSchema.pipe(
       )
     ),
     allowedFileTypes: Schema.optional(
-      Schema.Array(Schema.String).pipe(
+      Schema.Array(
+        Schema.String.annotate({
+          description: 'One allowed MIME type.',
+          examples: ['image/png', 'application/pdf'],
+        })
+      ).pipe(
         Schema.annotate({
           description: 'Allowed MIME types for file uploads',
           examples: [['image/png', 'image/jpeg', 'image/gif']],
@@ -32,11 +42,11 @@ export const SingleAttachmentFieldSchema = BaseFieldSchema.pipe(
     ),
     maxFileSize: Schema.optional(
       Schema.Int.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
         Schema.annotate({
           description: 'Maximum file size in bytes',
           examples: [5_242_880],
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(1))
       )
     ),
     storeMetadata: Schema.optional(

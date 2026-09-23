@@ -110,17 +110,17 @@ export const TypeScaleStepSchema = Schema.Struct({
    * Required, and restricted to the two units DTCG's `dimension` type permits.
    */
   size: Schema.String.pipe(
+    Schema.annotate({
+      title: 'Font Size',
+      description: 'Rendered size of this step, in `px` or `rem`',
+      examples: ['3rem', '1.125rem', '14px'],
+    }),
     Schema.check(
       Schema.isPattern(DIMENSION_PATTERN, {
         message:
           'A type-scale `size` must be a number followed by `px` or `rem` (e.g. `3rem`, `14px`). Fluid values such as `clamp(…)` are not a scale step — apply them as a utility class on the element that needs them.',
       })
-    ),
-    Schema.annotate({
-      title: 'Font Size',
-      description: 'Rendered size of this step, in `px` or `rem`',
-      examples: ['3rem', '1.125rem', '14px'],
-    })
+    )
   ),
 
   /**
@@ -134,14 +134,14 @@ export const TypeScaleStepSchema = Schema.Struct({
    */
   lineHeight: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(
-        Schema.isGreaterThan(0, { message: 'A type-scale `lineHeight` must be greater than 0' })
-      ),
       Schema.annotate({
         title: 'Line Height',
         description: 'Leading as a unitless ratio of the font size',
         examples: [1.1, 1.5],
-      })
+      }),
+      Schema.check(
+        Schema.isGreaterThan(0, { message: 'A type-scale `lineHeight` must be greater than 0' })
+      )
     )
   ),
 
@@ -170,17 +170,17 @@ export const TypeScaleStepSchema = Schema.Struct({
    */
   letterSpacing: Schema.optional(
     Schema.String.pipe(
+      Schema.annotate({
+        title: 'Letter Spacing',
+        description: 'Tracking for this step',
+        examples: ['-0.02em', '0.08em'],
+      }),
       Schema.check(
         Schema.isPattern(TRACKING_PATTERN, {
           message:
             'A type-scale `letterSpacing` must be a number followed by `px`, `rem` or `em` (e.g. `-0.02em`).',
         })
-      ),
-      Schema.annotate({
-        title: 'Letter Spacing',
-        description: 'Tracking for this step',
-        examples: ['-0.02em', '0.08em'],
-      })
+      )
     )
   ),
 
@@ -200,14 +200,14 @@ export const TypeScaleStepSchema = Schema.Struct({
    */
   font: Schema.optional(
     Schema.String.pipe(
-      Schema.check(
-        Schema.isMinLength(1, { message: 'A type-scale `font` must name a declared font category' })
-      ),
       Schema.annotate({
         title: 'Font Category',
         description: 'Name of a face declared in `design.typeScale.families`',
         examples: ['title', 'body'],
-      })
+      }),
+      Schema.check(
+        Schema.isMinLength(1, { message: 'A type-scale `font` must name a declared font category' })
+      )
     )
   ),
 }).pipe(

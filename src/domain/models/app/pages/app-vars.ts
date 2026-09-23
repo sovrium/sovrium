@@ -40,7 +40,7 @@ import type { App } from '@/domain/models/app'
  * So a page that shows a reader the route it is on — the console's per-type
  * pages print their own address — had no spelling that is true in BOTH worlds
  * the console is served in. The builder they replaced hardcoded `/_admin`,
- * which prints the wrong address whenever `apps/admin` boots standalone at the
+ * which prints the wrong address whenever `src/admin` boots standalone at the
  * site root (`bun run app:admin`), where the base is `''`.
  *
  * A `$mount.*` namespace was considered and refused. It would be a SECOND

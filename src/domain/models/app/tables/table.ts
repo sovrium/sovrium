@@ -255,9 +255,12 @@ export const TableSchema = Schema.Struct({
   unique: Schema.optional(
     Schema.Array(
       Schema.Struct({
-        fields: Schema.Array(Schema.String).pipe(
-          Schema.check(Schema.isMinLength(1, { message: 'At least one field is required' }))
-        ),
+        fields: Schema.Array(Schema.String)
+          .annotate({
+            description:
+              'Fields whose combination must be unique. A single field here is the same as setting `unique` on that field.',
+          })
+          .pipe(Schema.check(Schema.isMinLength(1, { message: 'At least one field is required' }))),
       })
     ).pipe(
       Schema.annotate({
@@ -268,7 +271,12 @@ export const TableSchema = Schema.Struct({
       })
     )
   ),
-  views: Schema.optional(Schema.Array(ViewSchema)),
+  views: Schema.optional(
+    Schema.Array(ViewSchema).annotate({
+      description:
+        'Saved ways of looking at the table — a filtered, sorted, grouped subset, or a SQL view — that the API and the operator console can be asked for by name.',
+    })
+  ),
 
   /**
    * Composite foreign key constraints.
@@ -289,7 +297,12 @@ export const TableSchema = Schema.Struct({
    *
    * @see ForeignKeySchema for full configuration options
    */
-  foreignKeys: Schema.optional(Schema.Array(ForeignKeySchema)),
+  foreignKeys: Schema.optional(
+    Schema.Array(ForeignKeySchema).annotate({
+      description:
+        'Links spanning several fields at once, pointing at a composite key in another table. A link on a single field is declared with a relationship field instead.',
+    })
+  ),
 
   /**
    * Custom CHECK constraints for complex business rules.
@@ -385,7 +398,13 @@ export const TableSchema = Schema.Struct({
    * }
    * ```
    */
-  allowDestructive: Schema.optional(Schema.Boolean),
+  allowDestructive: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Lets a migration drop a column that exists in the database but no longer in the config, which permanently deletes the data it held. Left off, such a migration stops with an error instead.',
+      defaultNote: 'false',
+    })
+  ),
 
   /**
    * Permit hard-delete (force-delete) of records via the admin dashboard, bypassing soft-delete.
@@ -431,7 +450,13 @@ export const TableSchema = Schema.Struct({
    * @see plan §12 Q4 (locked decision)
    * @see action-catalog.ts (`record.force_deleted` action)
    */
-  allowForceDelete: Schema.optional(Schema.Boolean),
+  allowForceDelete: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Accepted and not read. It was meant to let the operator console delete a record outright instead of marking it deleted, but nothing in the engine reads it and no per-table force-delete endpoint exists. The hard delete that does ship is `DELETE /api/tables/{table}/records/{id}?permanent=true`, which is admin-only on every table and is not affected by this flag.',
+      defaultNote: 'false — and inert either way',
+    })
+  ),
 
   /**
    * Outgoing webhooks fired on record CRUD events (optional).
@@ -609,7 +634,17 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
   // (migration/v3-to-v4.md:14284). Both are data-last and the decode direction
   // is unchanged (From["Type"] -> To["Encoded"]); `strict` no longer exists.
   Schema.decodeTo(
-    Schema.Array(TableSchema.pipe(Schema.annotate({ identifier: 'TableWithRequiredId' }))),
+    // The description is repeated on the DECODED array because `decodeTo`
+    // returns a new node: the one piped above belongs to the encoded side, and
+    // `app.tables` resolves to this one. Without it the top-level property is
+    // the one option in the whole schema that `sovrium docs` can name and
+    // cannot explain.
+    Schema.Array(TableSchema.pipe(Schema.annotate({ identifier: 'TableWithRequiredId' }))).pipe(
+      Schema.annotate({
+        description:
+          'The database tables this app defines. Each one is an entity — users, products, orders — whose fields set what can be stored, and whose relationships, indexes and permissions set how it may be read and written.',
+      })
+    ),
     {
       decode: SchemaGetter.transform(
         (tables) =>

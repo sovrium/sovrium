@@ -26,16 +26,20 @@ import { Schema } from 'effect'
 export const WebhookPayloadSchema = Schema.Struct({
   /** Only include these fields in the payload (mutually exclusive with excludeFields). */
   includeFields: Schema.optional(
-    Schema.Array(Schema.String).pipe(
-      Schema.annotate({ description: 'Fields to include in payload (whitelist)' })
-    )
+    Schema.Array(
+      Schema.String.annotate({
+        description: 'One field of the table to include in the payload.',
+      })
+    ).pipe(Schema.annotate({ description: 'Fields to include in payload (whitelist)' }))
   ),
 
   /** Exclude these fields from the payload (mutually exclusive with includeFields). */
   excludeFields: Schema.optional(
-    Schema.Array(Schema.String).pipe(
-      Schema.annotate({ description: 'Fields to exclude from payload (blacklist)' })
-    )
+    Schema.Array(
+      Schema.String.annotate({
+        description: 'One field of the table to omit from the payload.',
+      })
+    ).pipe(Schema.annotate({ description: 'Fields to exclude from payload (blacklist)' }))
   ),
 
   /** Include previous field values on update events (default: false). */

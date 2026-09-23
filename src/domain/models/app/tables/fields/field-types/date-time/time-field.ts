@@ -28,7 +28,11 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const TimeFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('time'),
+    type: Schema.Literal('time').pipe(
+      Schema.annotate({
+        description: "Constant value 'time' for type discrimination in discriminated unions",
+      })
+    ),
     timeFormat: Schema.optional(
       Schema.Literals(['12-hour', '24-hour']).pipe(
         Schema.annotate({

@@ -15,7 +15,7 @@
  * — a list of eleven destinations shared by the hand-written sidebar island and
  * the surface builder that resolved `/_admin/data[/:page]`. Both readers are
  * gone: the builder went with `dashboard-surfaces/`, and the sidebar is now the
- * generic `sidebar` component driven by `apps/admin/config/components/sidebar.ts`,
+ * generic `sidebar` component driven by `src/admin/config/components/sidebar.ts`,
  * where the destinations are AUTHORED alongside the testids and endpoints that
  * belong to them rather than projected from a second list in `src/`.
  *
@@ -71,7 +71,7 @@ export interface DataNavChild {
  * ─── THE SIDEBAR NO LONGER READS THIS, AND SEARCH STILL DOES ───────────────
  *
  * These seven rows are now AUTHORED a second time, in
- * `apps/admin/config/components/sidebar.ts`, where they are written
+ * `src/admin/config/components/sidebar.ts`, where they are written
  * mount-relative like every other console link. Two spellings of one fact is a
  * real cost, and the alternative was measured and refused: deriving the search
  * rows FROM the preset's sidebar would make an application-layer use case read
@@ -123,11 +123,11 @@ export const componentTypePath = (type: string): string => `/_admin/design-syste
 
 /**
  * Reserved `name` of the embedded operator-console config. It is authored in
- * `apps/admin/app.ts` and frozen into
+ * `src/admin/app.ts` and frozen into
  * `src/infrastructure/assets/embedded-admin-preset.generated.ts` at build time;
  * the hand-written `dashboard-app.yaml` this used to name is gone. It travels
  * with the binary, never with the operator's app, so it is a stable identity
- * marker — and `apps/admin/app.ts` says in as many words that the string must
+ * marker — and `src/admin/app.ts` says in as many words that the string must
  * not change, because this predicate is what keys on it.
  */
 export const OPERATOR_CONSOLE_APP_NAME = 'sovrium-admin-dashboard'
@@ -137,7 +137,7 @@ export const OPERATOR_CONSOLE_APP_NAME = 'sovrium-admin-dashboard'
  * surface.
  *
  * The console is rendered through the SAME page pipeline as any config-driven
- * page — it IS a config-driven app (`apps/admin/`, compiled into the binary as a
+ * page — it IS a config-driven app (`src/admin/`, compiled into the binary as a
  * preset) — so keeping end-user chrome off it is NOT structural; it has to be
  * deliberate. The "Built with Sovrium" badge achieves that with `badge: false`
  * in the console's own config; chrome gated on ENV rather than on app config

@@ -38,6 +38,7 @@
  * DOM fill; it re-exports the grammar so the client surfaces keep one import.
  */
 
+import { toSafeAssetUrl } from '@/domain/kernel/url/asset-url-safety'
 import { deriveInitials } from '@/presentation/design/avatar-initials'
 import { resolveSessionTemplate } from '@/presentation/design/session-template'
 import type { SessionUser } from '@/presentation/design/session-template'
@@ -121,13 +122,20 @@ function avatarInitials(letters: string): HTMLSpanElement {
  * or empty token is an ABSENCE, never a literal. A `$session.` token surviving
  * into `src` is requested as a relative URL and painted as a broken image,
  * which is a visible defect where the same token in text is merely ugly.
+ *
+ * The same holds for a `src` that resolves to something that is not an
+ * address a picture may come from: anything {@link toSafeAssetUrl} refuses —
+ * a `javascript:` or `data:` value, a protocol-relative `//host`, a relative
+ * path — is an absence too, and the chain falls through to the initials. The
+ * binding arrives in a DOM attribute and is resolved against session data, so
+ * the image sink receives only the address the URL parser serialised.
  */
 function fillSessionAvatar(element: HTMLElement, user: SessionUser | undefined): void {
   const raw = element.getAttribute(AVATAR_BINDING_ATTRIBUTE)
   if (raw === null) return
   const binding = JSON.parse(raw) as AvatarBinding
   const label = resolvedOrAbsent(binding.label, user)
-  const src = resolvedOrAbsent(binding.src, user)
+  const src = toSafeAssetUrl(resolvedOrAbsent(binding.src, user))
   const alt = resolvedOrAbsent(binding.alt, user)
   element.setAttribute('aria-label', label ?? alt ?? '')
 

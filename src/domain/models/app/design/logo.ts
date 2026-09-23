@@ -137,6 +137,8 @@ export const LogoSchema = Schema.Struct({
   srcDark: Schema.optional(
     assetReference('A logo `srcDark`').pipe(
       Schema.annotate({
+        howTo:
+          'Named for the MODE, not for the ink, and it is the field most often filled in backwards. The DARK-ink file is the one shown in LIGHT mode, so it belongs in `src`; the light-ink file belongs here. Leave it out when one mark reads on both surfaces.',
         title: 'Dark-Mode Logo Source',
         description:
           'Variant shown when the interface is in dark mode — i.e. the light-ink file. Omit when one mark reads on both surfaces.',
@@ -152,12 +154,12 @@ export const LogoSchema = Schema.Struct({
    * element as an image, so "logo" is the word it adds nothing by repeating.
    */
   alt: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1, { message: 'A logo `alt` must not be empty' })),
     Schema.annotate({
       title: 'Logo Alt Text',
       description: "Accessible name of the mark — normally just the app's name",
       examples: ['Sovrium'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1, { message: 'A logo `alt` must not be empty' }))
   ),
 
   /**
@@ -171,14 +173,12 @@ export const LogoSchema = Schema.Struct({
    */
   clearSpace: Schema.optional(
     Schema.String.pipe(
-      Schema.check(
-        Schema.isMinLength(1, { message: 'A logo `clearSpace` rule must not be empty' })
-      ),
       Schema.annotate({
         title: 'Clear Space',
         description: 'The exclusion zone around the mark, stated relative to the mark itself',
         examples: ['Leave clear space equal to the height of the mark on all four sides.'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1, { message: 'A logo `clearSpace` rule must not be empty' }))
     )
   ),
 
@@ -190,17 +190,17 @@ export const LogoSchema = Schema.Struct({
    */
   minWidth: Schema.optional(
     Schema.String.pipe(
+      Schema.annotate({
+        title: 'Minimum Width',
+        description: 'Smallest width the mark may be reproduced at',
+        examples: ['96px', '6rem'],
+      }),
       Schema.check(
         Schema.isPattern(DIMENSION_PATTERN, {
           message:
             'A logo `minWidth` must be a positive number followed by `px` or `rem` (e.g. `96px`).',
         })
-      ),
-      Schema.annotate({
-        title: 'Minimum Width',
-        description: 'Smallest width the mark may be reproduced at',
-        examples: ['96px', '6rem'],
-      })
+      )
     )
   ),
 
@@ -215,6 +215,7 @@ export const LogoSchema = Schema.Struct({
   misuse: Schema.optional(
     Schema.Array(
       Schema.String.pipe(
+        Schema.annotate({ description: 'One thing that must never be done to the mark' }),
         Schema.check(Schema.isMinLength(1, { message: 'A logo misuse rule must not be empty' }))
       )
     ).pipe(

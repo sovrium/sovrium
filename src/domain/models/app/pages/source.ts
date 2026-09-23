@@ -14,8 +14,8 @@ import { Schema } from 'effect'
  */
 export const PageSourceSchema = Schema.Struct({
   file: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'File path for page content (e.g., content/about.md)' })
+    Schema.annotate({ description: 'File path for page content (e.g., content/about.md)' }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).pipe(
   Schema.annotate({

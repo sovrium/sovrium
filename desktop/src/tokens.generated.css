@@ -1,0 +1,243 @@
+/*
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ *
+ * The desktop shell's design tokens — light and dark.
+ *
+ * AUTO-GENERATED from `src/admin/config/design.ts` — DO NOT EDIT.
+ * Regenerate: `bun run build:default-design`
+ *
+ * Why this file exists at all: the shell is a separate program with its own
+ * bundler and may not import from `src/`, so it cannot reach the token modules
+ * the engine's own islands read. Without a generated copy the window around an
+ * app would be a different colour from the app inside it, and the drift would
+ * be invisible until someone looked at both at once.
+ */
+
+:root {
+  color-scheme: light;
+
+  --sv-bg: oklch(0.985 0 0);
+  --sv-bg-inset: oklch(0.952 0 0);
+  --sv-bg-overlay: oklch(0.995 0 0);
+  --sv-bg-raised: oklch(0.995 0 0);
+  --sv-bg-subtle: oklch(0.965 0 0);
+  --sv-border: oklch(0.92 0 0);
+  --sv-border-inverse: oklch(0.205 0 0);
+  --sv-border-strong: oklch(0.87 0 0);
+  --sv-chart-1: #398ad6;
+  --sv-chart-2: #cd5f62;
+  --sv-chart-3: #479c4d;
+  --sv-chart-4: #b67700;
+  --sv-chart-5: #9470cd;
+  --sv-density-button-h: 28px;
+  --sv-density-control-h: 36px;
+  --sv-density-gap: 7px;
+  --sv-density-row-y: 5px;
+  --sv-density-text: 11px;
+  --sv-error-100: #fdf5f3;
+  --sv-error-300: #f0c8bd;
+  --sv-error-50: #fefbfa;
+  --sv-error-500: #dc472e;
+  --sv-error-600: #c13520;
+  --sv-error-700: #a12b1a;
+  --sv-error-950: #3d0e08;
+  --sv-error-bg: #fdf5f3;
+  --sv-error-border: #f0c8bd;
+  --sv-error-fg: #a12b1a;
+  --sv-error-solid: #c13520;
+  --sv-error-solid-fg: oklch(0.985 0 0);
+  --sv-fg: oklch(0.14 0 0);
+  --sv-fg-disabled: oklch(0.71 0 0);
+  --sv-fg-inverse: oklch(0.985 0 0);
+  --sv-fg-muted: oklch(0.445 0 0);
+  --sv-fg-subtle: oklch(0.54 0 0);
+  --sv-focus-ring: oklch(0.205 0 0);
+  --sv-info-100: oklch(0.92 0 0);
+  --sv-info-300: oklch(0.87 0 0);
+  --sv-info-50: oklch(0.985 0 0);
+  --sv-info-500: oklch(0.56 0 0);
+  --sv-info-600: #398ad6;
+  --sv-info-700: oklch(0.445 0 0);
+  --sv-info-950: oklch(0.205 0 0);
+  --sv-info-bg: oklch(0.92 0 0);
+  --sv-info-border: oklch(0.87 0 0);
+  --sv-info-fg: oklch(0.445 0 0);
+  --sv-info-solid: #398ad6;
+  --sv-info-solid-fg: oklch(0.985 0 0);
+  --sv-neutral-100: oklch(0.965 0 0);
+  --sv-neutral-200: oklch(0.92 0 0);
+  --sv-neutral-300: oklch(0.87 0 0);
+  --sv-neutral-400: oklch(0.71 0 0);
+  --sv-neutral-50: oklch(0.985 0 0);
+  --sv-neutral-500: oklch(0.56 0 0);
+  --sv-neutral-600: oklch(0.445 0 0);
+  --sv-neutral-700: oklch(0.375 0 0);
+  --sv-neutral-800: oklch(0.272 0 0);
+  --sv-neutral-900: oklch(0.205 0 0);
+  --sv-neutral-950: oklch(0.14 0 0);
+  --sv-primary: oklch(0.205 0 0);
+  --sv-primary-active: oklch(0.14 0 0);
+  --sv-primary-fg: oklch(0.985 0 0);
+  --sv-primary-hover: oklch(0.272 0 0);
+  --sv-primary-subtle: oklch(0.965 0 0);
+  --sv-primary-subtle-fg: oklch(0.205 0 0);
+  --sv-scrim: oklch(0.14 0 0);
+  --sv-success-100: oklch(0.92 0 0);
+  --sv-success-300: oklch(0.87 0 0);
+  --sv-success-50: oklch(0.985 0 0);
+  --sv-success-500: oklch(0.56 0 0);
+  --sv-success-600: oklch(0.445 0 0);
+  --sv-success-700: oklch(0.445 0 0);
+  --sv-success-950: oklch(0.205 0 0);
+  --sv-success-bg: oklch(0.92 0 0);
+  --sv-success-border: oklch(0.87 0 0);
+  --sv-success-fg: oklch(0.445 0 0);
+  --sv-success-solid: oklch(0.445 0 0);
+  --sv-success-solid-fg: oklch(0.985 0 0);
+  --sv-warning-100: oklch(0.965 0 0);
+  --sv-warning-300: oklch(0.87 0 0);
+  --sv-warning-50: oklch(0.985 0 0);
+  --sv-warning-500: oklch(0.71 0 0);
+  --sv-warning-700: oklch(0.445 0 0);
+  --sv-warning-950: oklch(0.272 0 0);
+  --sv-warning-bg: oklch(0.965 0 0);
+  --sv-warning-border: oklch(0.87 0 0);
+  --sv-warning-fg: oklch(0.445 0 0);
+  --sv-warning-solid: oklch(0.71 0 0);
+  --sv-warning-solid-fg: oklch(0.272 0 0);
+
+  --duration-base: 180ms;
+  --duration-fast: 120ms;
+  --duration-slow: 260ms;
+  --ease-default: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --font-display: var(--font-sans);
+  --font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-sans:
+    'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    system-ui, sans-serif;
+  --font-weight-bold: 700;
+  --font-weight-medium: 500;
+  --font-weight-regular: 400;
+  --font-weight-semibold: 600;
+  --letter-spacing-caps: 0.04em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-tight: -0.012em;
+  --letter-spacing-tighter: -0.022em;
+  --letter-spacing-wide: 0.02em;
+  --line-height-none: 1;
+  --line-height-normal: 1.55;
+  --line-height-relaxed: 1.7;
+  --line-height-snug: 1.25;
+  --line-height-tight: 1.1;
+  --radius-base: 4px;
+  --radius-full: 9999px;
+  --radius-lg: 8px;
+  --radius-md: 6px;
+  --radius-none: 0px;
+  --radius-sm: 2px;
+  --radius-xl: 12px;
+  --shadow-lg: 0 8px 24px rgb(0 0 0 / 0.12);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.06);
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.08);
+  --spacing-0: 0px;
+  --spacing-0-5: 0.125rem;
+  --spacing-1: 0.25rem;
+  --spacing-1-5: 0.375rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+  --spacing-2: 0.5rem;
+  --spacing-2-5: 0.625rem;
+  --spacing-20: 5rem;
+  --spacing-24: 6rem;
+  --spacing-3: 0.75rem;
+  --spacing-32: 8rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-px: 1px;
+  --text-2xl: 1.25rem;
+  --text-2xl--line-height: calc(1.75 / 1.25);
+  --text-2xs: 0.625rem;
+  --text-2xs--line-height: calc(0.875 / 0.625);
+  --text-3xl: 1.5rem;
+  --text-3xl--line-height: calc(2 / 1.5);
+  --text-4xl: 1.875rem;
+  --text-4xl--line-height: calc(2.25 / 1.875);
+  --text-5xl: 2.5rem;
+  --text-5xl--line-height: 1;
+  --text-6xl: 3rem;
+  --text-6xl--line-height: 1;
+  --text-base: 0.8125rem;
+  --text-base--line-height: calc(1.25 / 0.8125);
+  --text-lg: 1rem;
+  --text-lg--line-height: calc(1.5 / 1);
+  --text-md: 0.875rem;
+  --text-md--line-height: calc(1.375 / 0.875);
+  --text-sm: 0.75rem;
+  --text-sm--line-height: calc(1.125 / 0.75);
+  --text-xl: 1.125rem;
+  --text-xl--line-height: calc(1.75 / 1.125);
+  --text-xs: 0.6875rem;
+  --text-xs--line-height: calc(1 / 0.6875);
+}
+
+/*
+ * The OS decides, not the app. The engine keys dark mode off a class because an
+ * operator's config chooses it per app; the shell is chrome, and chrome that
+ * disagrees with the desktop around it reads as a bug.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --sv-bg: oklch(0.14 0 0);
+    --sv-bg-inset: oklch(0.289 0 0);
+    --sv-bg-overlay: oklch(0.205 0 0);
+    --sv-bg-raised: oklch(0.205 0 0);
+    --sv-bg-subtle: oklch(0.272 0 0);
+    --sv-border: oklch(0.321 0 0);
+    --sv-border-inverse: oklch(0.985 0 0);
+    --sv-border-strong: oklch(0.375 0 0);
+    --sv-error-bg: #3a2323;
+    --sv-error-border: #6b3a32;
+    --sv-error-fg: #e88a79;
+    --sv-error-solid: #e0705c;
+    --sv-error-solid-fg: oklch(0.14 0 0);
+    --sv-fg: oklch(0.985 0 0);
+    --sv-fg-disabled: oklch(0.475 0 0);
+    --sv-fg-inverse: oklch(0.14 0 0);
+    --sv-fg-muted: oklch(0.71 0 0);
+    --sv-fg-subtle: oklch(0.59 0 0);
+    --sv-focus-ring: oklch(0.985 0 0);
+    --sv-info-bg: oklch(0.205 0 0);
+    --sv-info-border: oklch(0.375 0 0);
+    --sv-info-fg: oklch(0.87 0 0);
+    --sv-info-solid: #398ad6;
+    --sv-info-solid-fg: oklch(0.985 0 0);
+    --sv-primary: oklch(0.985 0 0);
+    --sv-primary-active: oklch(1 0 0);
+    --sv-primary-fg: oklch(0.14 0 0);
+    --sv-primary-hover: oklch(0.92 0 0);
+    --sv-primary-subtle: oklch(0.272 0 0);
+    --sv-primary-subtle-fg: oklch(0.985 0 0);
+    --sv-success-bg: oklch(0.205 0 0);
+    --sv-success-border: oklch(0.375 0 0);
+    --sv-success-fg: oklch(0.87 0 0);
+    --sv-success-solid: oklch(0.56 0 0);
+    --sv-success-solid-fg: oklch(0.14 0 0);
+    --sv-warning-bg: oklch(0.272 0 0);
+    --sv-warning-border: oklch(0.445 0 0);
+    --sv-warning-fg: oklch(0.87 0 0);
+    --sv-warning-solid: oklch(0.87 0 0);
+    --sv-warning-solid-fg: oklch(0.272 0 0);
+  }
+}

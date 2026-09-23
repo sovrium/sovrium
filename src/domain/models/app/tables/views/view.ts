@@ -67,26 +67,45 @@ export const ViewSchema = Schema.Struct({
    * When provided, the view is created using CREATE VIEW statement.
    * When omitted, JSON config mode is used (filters, sorts, fields, groupBy).
    */
-  query: Schema.optional(Schema.String),
+  query: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'SQL SELECT the view is built from. Leave it out to describe the view with filters, sorts, fields and grouping instead.',
+    })
+  ),
 
   /**
    * Whether this is a materialized view (PostgreSQL MATERIALIZED VIEW).
    * Only applicable when `query` is provided.
    * Materialized views cache query results for faster access.
    */
-  materialized: Schema.optional(Schema.Boolean),
+  materialized: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Stores the result of the query on disk instead of recomputing it on every read, which makes a heavy view fast but leaves it stale until refreshed. Only read when `query` is set.',
+    })
+  ),
 
   /**
    * Whether to refresh the materialized view during migrations.
    * Only applicable when `materialized` is true.
    */
-  refreshOnMigration: Schema.optional(Schema.Boolean),
+  refreshOnMigration: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Recomputes a stored view whenever a migration runs, so it does not stay stale after a schema change.',
+    })
+  ),
 
   /**
    * Whether this view is the default view for the table.
    * The default view's configuration is applied when no specific view is requested.
    */
-  isDefault: Schema.optional(Schema.Boolean),
+  isDefault: Schema.optional(
+    Schema.Boolean.annotate({
+      description: 'Uses this view whenever the table is read without naming one.',
+    })
+  ),
 
   /**
    * Filter conditions for the view (JSON config mode).
@@ -98,7 +117,12 @@ export const ViewSchema = Schema.Struct({
    * Sort configuration for the view (JSON config mode).
    * Defines the order of records in the view.
    */
-  sorts: Schema.optional(Schema.Array(ViewSortSchema)),
+  sorts: Schema.optional(
+    Schema.Array(ViewSortSchema).annotate({
+      description:
+        'Order records are returned in. Several entries break ties: the second is applied only where the first is equal.',
+    })
+  ),
 
   /**
    * Fields to include in the view (JSON config mode).

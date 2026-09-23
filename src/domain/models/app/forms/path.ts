@@ -44,7 +44,14 @@ const findReservedPrefix = (path: string): string | undefined =>
  * "/marketing/2026/intake"
  * ```
  */
-export const FormPathSchema = Schema.String.pipe(
+export const FormPathSchema = Schema.String.annotate({
+  // Annotated BEFORE the checks on purpose: a `description` piped after a
+  // `makeFilter` check never reaches the published JSON Schema, because the
+  // filter emits no node for it to land on. `identifier` stays after them.
+  description:
+    'Public URL path the form answers on, such as `/contact`. The form also stays reachable at `/forms/{name}`. Paths starting with /api/, /admin/, /forms/ or /auth/ are refused.',
+  examples: ['/contact', '/apply', '/support'],
+}).pipe(
   Schema.check(
     Schema.isMinLength(2),
     Schema.isMaxLength(256),

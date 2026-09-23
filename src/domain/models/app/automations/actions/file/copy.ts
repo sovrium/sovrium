@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const FileCopyActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('copy'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('copy').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Storage key of the source file */
     sourceKey: TemplateStringSchema.pipe(
@@ -33,6 +42,8 @@ export const FileCopyActionSchema = Schema.Struct({
         description: 'Storage key for the copy',
       })
     ),
+  }).annotate({
+    description: 'The file to copy, and where the copy is written.',
   }),
 }).pipe(
   Schema.annotate({

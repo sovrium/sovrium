@@ -9,6 +9,7 @@ import {
   computeReorderableHandleClasses,
   computeReorderableListClasses,
 } from '@/presentation/design/specialty-ssr-default-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import { INLINE_TOAST_POLICY_RUNTIME } from './inline-toast-policy-runtime'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
@@ -312,7 +313,7 @@ export const reorderableListComponent: ComponentRenderer = ({ elementProps, comp
   return (
     <>
       <ul
-        {...elementProps}
+        {...omitInternalMarkers(elementProps)}
         {...toastAttrs}
         data-reorderable-list="true"
         className={listClassName}

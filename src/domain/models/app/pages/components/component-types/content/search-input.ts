@@ -79,33 +79,33 @@ export const searchInputFields = {
   /** How many results the page-scope shell renders. Read under `scope: page`. */
   maxResults: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
         description: 'Maximum number of results the page-scope search shell renders',
         examples: [5, 10],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
   /** Delay before a bound subscriber applies the query (ms). Read under `scope: subscribers`. */
   debounceMs: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
       Schema.annotate({
         description:
           'Delay in milliseconds after the last keystroke before a bound subscriber applies the query. Default 0 (apply immediately).',
         examples: [300, 500],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
     )
   ),
   /** Minimum query length before a bound subscriber applies the query. Read under `scope: subscribers`. */
   minQueryLength: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
       Schema.annotate({
         description:
           'Minimum number of characters before the query is applied. Below it the subscriber shows its unfiltered baseline. Default 0 (no minimum).',
         examples: [2, 3],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
     )
   ),
 } as const

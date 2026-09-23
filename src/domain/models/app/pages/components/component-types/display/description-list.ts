@@ -52,21 +52,21 @@ export const DescriptionListTypeLiteral = Schema.Literal('description-list')
 /** The control drawn in a row's third column. */
 const DescriptionActionSchema = Schema.Struct({
   label: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Action Label',
       description: 'Visible text of the control',
       examples: ['Open', 'Edit'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   href: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Action Target',
       description:
         'Where the control goes. Required: a control with nowhere to go is a control that does nothing.',
       examples: ['/records/invoices/$record.id'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).annotate({
   identifier: 'DescriptionListAction',
@@ -77,12 +77,12 @@ const DescriptionActionSchema = Schema.Struct({
 /** One term-and-detail pair. */
 const DescriptionItemSchema = Schema.Struct({
   term: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Term',
       description: 'What the fact is called — the `<dt>`',
       examples: ['Client', 'Amount'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   detail: Schema.String.pipe(
     Schema.annotate({
@@ -137,6 +137,7 @@ export const descriptionListFields = {
    */
   dividers: Schema.optional(
     Schema.Boolean.annotate({
+      defaultNote: 'true',
       description:
         'Draw a rule under each row. On by default under `layout: rows`; unread under `stacked`.',
     })

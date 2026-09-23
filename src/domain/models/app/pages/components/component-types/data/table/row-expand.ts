@@ -92,18 +92,20 @@ export const DataTableRowExpandSchema = Schema.Struct({
    * is the point of expanding.
    */
   fields: Schema.optional(
-    Schema.Array(Schema.String).pipe(
+    Schema.Array(
+      Schema.String.annotate({ description: 'One field name, as the bound table declares it' })
+    ).pipe(
+      Schema.annotate({
+        description:
+          "Field names shown in the expanded record, in this order (default: every declared field of the bound table). Types, labels and descriptions resolve from the table's field schema.",
+        examples: [['name', 'stage', 'amount']],
+      }),
       Schema.check(
         Schema.isMinLength(1, {
           message:
             'rowExpand.fields must name at least one field, or be omitted to show every field of the bound table',
         })
-      ),
-      Schema.annotate({
-        description:
-          "Field names shown in the expanded record, in this order (default: every declared field of the bound table). Types, labels and descriptions resolve from the table's field schema.",
-        examples: [['name', 'stage', 'amount']],
-      })
+      )
     )
   ),
   /** `false` renders a read-only record with no save affordance (default: true). */
@@ -119,11 +121,11 @@ export const DataTableRowExpandSchema = Schema.Struct({
    */
   title: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'rowExpand.title must not be empty' })),
       Schema.annotate({
         description: 'Accessible name of the expanded record panel',
         examples: ['Deal detail', "Détail de l'enregistrement"],
-      })
+      }),
+      Schema.check(Schema.isNonEmpty({ message: 'rowExpand.title must not be empty' }))
     )
   ),
 }).annotate({

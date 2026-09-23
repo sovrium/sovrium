@@ -385,20 +385,20 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // `island:system-query` event. `select.publishes` is that
   // dispatch as a declaration, bound by the global vanilla runtime, so the
   // Automations page now expresses the same filter bar with no hydration at all
-  // — see `apps/admin/config/pages/data/automations.ts`.
+  // — see `src/admin/config/pages/data/automations.ts`.
   // NOTE: the FORMS Données surface (`admin-form-submissions` + `admin-form-metrics`)
   // was DROPPED in the [internal ref] dogfood pass — the Soumissions page now renders via
   // GENERIC components (a `table` system source for the list, a `kpi` system
   // source for the metric, a `fetch`/`download` action for the CSV export, and a
   // system-detail `record-drawer` for the per-submission drill-down). See
-  // `apps/admin/config/pages/data/forms.ts` — the builder this used to point at
+  // `src/admin/config/pages/data/forms.ts` — the builder this used to point at
   // was deleted with the rest of `dashboard-surfaces/` when the console became
   // config.
   // NOTE: the RGPD Données & RGPD surface (`admin-gdpr`) was DROPPED in the [internal ref]
   // dogfood pass — the Mon compte page now renders via GENERIC config (a
   // session-bound `text` identity, `mode: download` / confirm-gated `fetch` action
   // buttons with a persistent `onSuccess.status`, and a system-source `table`
-  // for the pending erasure). See `apps/admin/config/pages/gdpr.ts` — same
+  // for the pending erasure). See `src/admin/config/pages/gdpr.ts` — same
   // deletion as the note above.
   // `admin-mcp-connect` — the MCP "Connecter votre IA" island was RETIRED in the
   // [internal ref] dogfood pass. The `/_admin/mcp` MCP page now renders via GENERIC config:
@@ -407,7 +407,7 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // the static "Configuration de référence" Claude-wiring card. Accepted loss:
   // one-click credential copy and the live status pill — the origin is no longer
   // a loss, since the page resolves it server-side from `/api/admin/instance`.
-  // See `apps/admin/config/pages/developers/mcp.ts`.
+  // See `src/admin/config/pages/developers/mcp.ts`.
   // (The Data-tab Utilisateurs page — [internal ref] — is now
   // composed from GENERIC Sovrium config: a `kpi` strip + a system-bound
   // `table` over `GET /api/admin/users`, with the row gestures rewired onto
@@ -456,7 +456,7 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // (`design-system-share` used to sit here — the mint / revoke affordance on
   // `/_admin/design-system`, [internal ref] amendment A3 Part 2. It is GONE rather
   // than moved: the panel is now declared as CONFIGURATION in
-  // `apps/admin/config/pages/design-system/overview.ts`, where the listing is a
+  // `src/admin/config/pages/design-system/overview.ts`, where the listing is a
   // rows binding and mint/revoke are buttons with fetch actions, so nothing
   // emits its `data-island` marker any more. The entry outlived that swap and
   // kept a lazy chunk in the build no rendered page could mount. The API it

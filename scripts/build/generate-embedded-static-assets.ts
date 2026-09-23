@@ -301,7 +301,7 @@ const templateEntries = collectTemplateFiles(TEMPLATES_ROOT).map((abs) => {
 // the `image`, `video` and `audio` specimens draw. Keyed by BASENAME, because
 // the folder is flat by design and the serving route is flat too
 // (`/assets/design-system/<file>`).
-const SAMPLES_ROOT = join(PROJECT_ROOT, 'apps', 'admin', 'assets', 'samples')
+const SAMPLES_ROOT = join(PROJECT_ROOT, 'src', 'admin', 'assets', 'samples')
 
 /**
  * Absolute paths of the design-system sample media to embed, rooted at
@@ -314,10 +314,10 @@ const SAMPLES_ROOT = join(PROJECT_ROOT, 'apps', 'admin', 'assets', 'samples')
  *    differs, and the difference is load-bearing rather than stylistic. The
  *    repository ignores `*.mp3` and `*.webm` outright (media recordings are
  *    never committed) and re-includes this one folder with two anchored `!`
- *    lines, `!apps/admin/assets/samples/*.webm` and `…/*.mp3`. An anchored rule
+ *    lines, `!src/admin/assets/samples/*.webm` and `…/*.mp3`. An anchored rule
  *    is matched from the `.gitignore`'s own directory, so `sample-chime.mp3`
  *    only ever reaches that negation when it is spelled
- *    `apps/admin/assets/samples/sample-chime.mp3`. Feed the walk a bare
+ *    `src/admin/assets/samples/sample-chime.mp3`. Feed the walk a bare
  *    basename and the unanchored `*.mp3` is the last rule that matches: two of
  *    the three samples vanish from the binary, in a manifest diff that shows
  *    only a shorter list.
@@ -373,7 +373,7 @@ export const collectSampleFiles = (
 
 const sampleEntries = collectSampleFiles(SAMPLES_ROOT).map((abs) => {
   const key = relative(SAMPLES_ROOT, abs)
-  return `  ${JSON.stringify(key)}: ${addImport(`apps/admin/assets/samples/${key}`)},`
+  return `  ${JSON.stringify(key)}: ${addImport(`src/admin/assets/samples/${key}`)},`
 })
 
 // Brand marks — the element mark each business unit is drawn with, served to
@@ -469,7 +469,7 @@ const brandMarkEntries = collectBrandMarkFiles(BRAND_LOGO_ROOT).map((abs) => {
 })
 
 // The admin console used to be embedded here as a YAML file read at request
-// time. It is now authored as `apps/admin/` and frozen into a generated
+// time. It is now authored as `src/admin/` and frozen into a generated
 // TypeScript module by `scripts/build/generate-admin-preset.ts`, which is a
 // VALUE rather than a file — so it needs no `with { type: 'file' }` entry, and
 // unlike a file it is walked by the CSS candidate scanner.

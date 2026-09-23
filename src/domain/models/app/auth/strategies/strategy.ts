@@ -20,29 +20,44 @@ import { OAuthProviderSchema } from './oauth/providers'
  * ```
  */
 export const EmailAndPasswordStrategySchema = Schema.Struct({
-  type: Schema.Literal('emailAndPassword'),
+  type: Schema.Literal('emailAndPassword').pipe(
+    Schema.annotate({
+      description:
+        "Constant value 'emailAndPassword' for type discrimination in discriminated unions",
+    })
+  ),
   minPasswordLength: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isBetween({ minimum: 6, maximum: 128 })),
-      Schema.annotate({ description: 'Minimum password length (6-128, default: 8)' })
+      Schema.annotate({
+        defaultNote: '8',
+        description: 'Minimum password length (6-128, default: 8)',
+      }),
+      Schema.check(Schema.isBetween({ minimum: 6, maximum: 128 }))
     )
   ),
   maxPasswordLength: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isBetween({ minimum: 8, maximum: 256 })),
-      Schema.annotate({ description: 'Maximum password length (8-256, default: 128)' })
+      Schema.annotate({
+        defaultNote: '128',
+        description: 'Maximum password length (8-256, default: 128)',
+      }),
+      Schema.check(Schema.isBetween({ minimum: 8, maximum: 256 }))
     )
   ),
   requireEmailVerification: Schema.optional(
     Schema.Boolean.pipe(
       Schema.annotate({
+        defaultNote: 'false',
         description: 'Require email verification before sign-in (default: false)',
       })
     )
   ),
   autoSignIn: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotate({ description: 'Auto sign in after signup (default: true)' })
+      Schema.annotate({
+        defaultNote: 'true',
+        description: 'Auto sign in after signup (default: true)',
+      })
     )
   ),
 }).pipe(
@@ -71,11 +86,18 @@ export type EmailAndPasswordStrategy = Schema.Schema.Type<typeof EmailAndPasswor
  * ```
  */
 export const MagicLinkStrategySchema = Schema.Struct({
-  type: Schema.Literal('magicLink'),
+  type: Schema.Literal('magicLink').pipe(
+    Schema.annotate({
+      description: "Constant value 'magicLink' for type discrimination in discriminated unions",
+    })
+  ),
   expirationMinutes: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Link expiration time in minutes (default: 15)' })
+      Schema.annotate({
+        defaultNote: '15',
+        description: 'Link expiration time in minutes (default: 15)',
+      }),
+      Schema.check(Schema.isGreaterThan(0))
     )
   ),
 }).pipe(
@@ -104,7 +126,11 @@ export type MagicLinkStrategy = Schema.Schema.Type<typeof MagicLinkStrategySchem
  * ```
  */
 export const OAuthStrategySchema = Schema.Struct({
-  type: Schema.Literal('oauth'),
+  type: Schema.Literal('oauth').pipe(
+    Schema.annotate({
+      description: "Constant value 'oauth' for type discrimination in discriminated unions",
+    })
+  ),
   providers: Schema.NonEmptyArray(OAuthProviderSchema).pipe(
     Schema.annotate({
       description: 'OAuth providers to enable. Credentials loaded from environment variables.',
@@ -169,29 +195,34 @@ export type AuthStrategy = Schema.Schema.Type<typeof AuthStrategySchema>
  * [{ type: 'emailAndPassword', minPasswordLength: 12 }, { type: 'oauth', providers: ['google'] }]
  * ```
  */
-export const AuthStrategiesSchema = Schema.NonEmptyArray(AuthStrategySchema).pipe(
-  Schema.check(
-    Schema.makeFilter((strategies) => {
-      const types = strategies.map((s) => s.type)
-      const uniqueTypes = new Set(types)
-      if (uniqueTypes.size !== types.length) {
-        return 'Duplicate strategy types are not allowed. Each strategy type can only appear once.'
-      }
-      return undefined
-    })
-  ),
-  Schema.annotate({
-    title: 'Auth Strategies',
-    description: 'Array of authentication strategies. At least one required, no duplicates.',
-    examples: [
-      [{ type: 'emailAndPassword' as const }],
-      [
-        { type: 'emailAndPassword' as const, minPasswordLength: 12 },
-        { type: 'oauth' as const, providers: ['google'] },
-      ],
-    ],
+export const AuthStrategiesSchema = Schema.NonEmptyArray(AuthStrategySchema)
+  .annotate({
+    description:
+      'Ways a person can sign in — email and password, a magic link, a one-time code, or an external provider. At least one is required, and each way may appear only once.',
   })
-)
+  .pipe(
+    Schema.check(
+      Schema.makeFilter((strategies) => {
+        const types = strategies.map((s) => s.type)
+        const uniqueTypes = new Set(types)
+        if (uniqueTypes.size !== types.length) {
+          return 'Duplicate strategy types are not allowed. Each strategy type can only appear once.'
+        }
+        return undefined
+      })
+    ),
+    Schema.annotate({
+      title: 'Auth Strategies',
+      description: 'Array of authentication strategies. At least one required, no duplicates.',
+      examples: [
+        [{ type: 'emailAndPassword' as const }],
+        [
+          { type: 'emailAndPassword' as const, minPasswordLength: 12 },
+          { type: 'oauth' as const, providers: ['google'] },
+        ],
+      ],
+    })
+  )
 
 /** @public */
 export type AuthStrategies = Schema.Schema.Type<typeof AuthStrategiesSchema>

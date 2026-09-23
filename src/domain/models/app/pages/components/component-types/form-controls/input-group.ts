@@ -48,21 +48,21 @@ export const InputGroupTypeLiteral = Schema.Literal('input-group')
 /** The control attached to the end of the group. */
 const InputGroupActionSchema = Schema.Struct({
   label: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Action Label',
       description: 'Visible text of the attached control',
       examples: ['Browse', 'Check'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   href: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Action Target',
       description:
         'Where the control goes. Required: an attached control with nowhere to go is a control that does nothing.',
       examples: ['/records/invoices'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).annotate({
   identifier: 'InputGroupAction',
@@ -85,11 +85,11 @@ export const inputGroupFields = {
   /** Form field name of the inner input. */
   name: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Form field name of the inner input — what a submitted value is keyed by',
         examples: ['amount'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** HTML type of the inner input. */
@@ -115,25 +115,25 @@ export const inputGroupFields = {
    */
   prefix: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Leading Addon',
         description:
           'Text in the leading addon — a currency, a scheme, a unit. Outside the input, so it is never part of the submitted value.',
         examples: ['€', 'https://'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Text in the trailing addon, on the same terms as `prefix`. */
   suffix: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Trailing Addon',
         description:
           'Text in the trailing addon — a unit, a domain, a percent sign. Outside the input, so it is never part of the submitted value.',
         examples: ['kg', '.sovrium.com'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   action: Schema.optional(InputGroupActionSchema),

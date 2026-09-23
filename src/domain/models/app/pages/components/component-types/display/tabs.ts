@@ -69,7 +69,14 @@ export const TabPanelSchema = Schema.Struct({
         'Text content of the panel. Omit when the panel body is the index-aligned entry of the parent’s `children`.',
     })
   ),
-}).pipe(Schema.annotate({ identifier: 'TabPanel', title: 'Tab Panel' }))
+}).pipe(
+  Schema.annotate({
+    identifier: 'TabPanel',
+    title: 'Tab Panel',
+    description:
+      'One tab: the trigger label, plus an optional id, description, disabled flag and body',
+  })
+)
 
 export const TabsTypeLiteral = Schema.Literal('tabs')
 

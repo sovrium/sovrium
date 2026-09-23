@@ -7,6 +7,7 @@
 
 import { readFileSync, rmSync } from 'node:fs'
 import { computeConfigHash, getLockFilePath } from '@/infrastructure/server/lock-file'
+import { removeStatusFileSync } from '@/infrastructure/server/status-file'
 import type { Hono } from 'hono'
 
 type CleanupSignal = 'SIGTERM' | 'SIGINT' | 'SIGUSR1'
@@ -40,12 +41,25 @@ interface ConfigHashCarrier {
 }
 
 /**
- * Synchronous lock file cleanup — removes the lock file only if PID matches.
+ * Synchronous sidecar cleanup — removes the lock file and the status file, each
+ * only if its own PID matches.
+ *
+ * BOTH, in one handler rather than two registrations. The two files answer the
+ * same question — is there an instance — so any window in which one is gone and
+ * the other still reads `serving` is a window in which a reader believes
+ * whichever it happened to open. Removing them together closes it.
  *
  * A module-level constant, so the same function reference is handed to every
  * signal registration.
+ *
+ * Exported because the signal handlers below are no longer the only way a
+ * server stops: `SOVRIUM_SHUTDOWN_ON_STDIN_CLOSE` adds an EOF trigger that
+ * reaches the graceful stop without any signal ever being delivered, and the
+ * shutdown controller calls this directly so BOTH triggers leave the same state
+ * behind. Idempotent and guarded by the PID check, so the signal path calling
+ * it twice costs nothing.
  */
-const cleanupLockFileSync = (): void => {
+export const cleanupLockFileSync = (): void => {
   try {
     const lockPath = getLockFilePath()
     const raw = readFileSync(lockPath, 'utf-8')
@@ -56,6 +70,11 @@ const cleanupLockFileSync = (): void => {
   } catch {
     // Ignore errors during cleanup (file may not exist)
   }
+  // Outside the try above, deliberately: a lock file that was already gone —
+  // removed by hand, or by an earlier signal — must not leave the status file
+  // behind claiming to be serving. `removeStatusFileSync` guards on its own
+  // pid and swallows its own errors.
+  removeStatusFileSync()
 }
 
 /** The app + config file a reload signal currently applies to. */

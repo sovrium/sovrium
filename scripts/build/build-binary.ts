@@ -14,9 +14,12 @@
  * Usage:
  *   bun run scripts/build/build-binary.ts                      # Build for current platform
  *   bun run scripts/build/build-binary.ts --target linux-x64   # Cross-compile for Linux x64
- *   bun run scripts/build/build-binary.ts --all                # Build all 4 targets
+ *   bun run scripts/build/build-binary.ts --all                # Build all 5 targets
  *
- * Targets: linux-x64, linux-arm64, darwin-x64, darwin-arm64
+ * Targets: linux-x64, linux-arm64, darwin-x64, darwin-arm64, windows-x64
+ *
+ * (This line said "4 targets" and omitted windows-x64 for as long as windows-x64
+ * had existed. `--all` builds five. Read `TARGETS` below, not this comment.)
  */
 
 import { readFileSync, statSync, existsSync } from 'node:fs'
@@ -211,6 +214,43 @@ function formatSize(bytes: number): string {
 // Build steps
 // ---------------------------------------------------------------------------
 
+/**
+ * The Windows PE version resources — product name, publisher, version — that a
+ * user sees when Windows asks them to approve an executable.
+ *
+ * Returned as flags rather than set unconditionally, because Bun can only
+ * produce them on a Windows HOST. From bun.com/docs/bundler/executables, in as
+ * many words: "Except for `hideConsole`, you do not have access to these flags
+ * when cross-compiling because they depend on Windows APIs." Passing them from
+ * Linux does not warn — it produces an .exe carrying Bun's own file properties
+ * and no version at all.
+ *
+ * That was cosmetic while the binary was something a developer downloaded
+ * deliberately. It stopped being cosmetic when the same file became the sidecar
+ * INSIDE a signed desktop installer, where an unnamed, unversioned executable is
+ * what a user is shown when SmartScreen asks them to approve it. The Windows
+ * lane of `.github/workflows/release.yml` moved to `windows-latest` so that this
+ * branch is taken; a cross-compile still succeeds and simply omits them.
+ *
+ * `--windows-icon` is deliberately absent: the only `.ico` in the tree belongs
+ * to the desktop shell, and the engine reaching into `desktop/` for an asset
+ * would couple two trees that [internal ref] keeps apart.
+ */
+export const windowsResourceFlags = (
+  target: Target,
+  version: string,
+  platform: string = process.platform
+): readonly string[] => {
+  if (!target.bunTarget.includes('windows') || platform !== 'win32') return []
+  return [
+    '--windows-title=Sovrium',
+    '--windows-publisher=ESSENTIAL SERVICES',
+    `--windows-version=${version}`,
+    '--windows-description=Sovrium — configuration-as-code interpreter',
+    '--windows-copyright=Copyright (c) 2025-2026 ESSENTIAL SERVICES',
+  ]
+}
+
 const compileBinary = (
   target: Target,
   version: string
@@ -229,6 +269,7 @@ const compileBinary = (
       '--minify',
       '--sourcemap',
       `--define=__SOVRIUM_VERSION__=${JSON.stringify(version)}`,
+      ...windowsResourceFlags(target, version),
     ]
 
     yield* run(cmd, `Compile binary for ${target.name}`, COMPILE_TIMEOUT_MS)
@@ -261,7 +302,7 @@ const main: Effect.Effect<void, BuildBinaryError, CommandService> = Effect.gen(f
   console.log(`Version: ${version}`)
   console.log(`Targets: ${targets.map((t) => t.name).join(', ')}`)
 
-  // Freeze `apps/admin/app.ts` into the embedded console preset. FIRST, and
+  // Freeze `src/admin/app.ts` into the embedded console preset. FIRST, and
   // specifically BEFORE the CSS step below: the emitted module lives in `src/`,
   // so the candidate scanner walks it, and the corpus must be built from the
   // settled preset bytes. Reversed, the binary ships a console whose own chrome
@@ -341,6 +382,20 @@ const main: Effect.Effect<void, BuildBinaryError, CommandService> = Effect.gen(f
   yield* run(
     ['bun', 'run', 'scripts/build/generate-embedded-config-types.ts'],
     'Generate embedded config-types payload',
+    CODEGEN_TIMEOUT_MS
+  )
+
+  // The in-binary manual, LAST, and the position is load-bearing in
+  // one direction only. Its behaviour payload is derived from
+  // `[internal ref]`, which no preceding step touches, so ordering buys
+  // nothing there. What it buys is the reverse: this step writes two `src/`
+  // files, and running it before the CSS candidate harvest would have that
+  // harvest read manifests this same build is about to rewrite. Running it
+  // after every other generator means the binary compiles from a tree nothing
+  // else still intends to change.
+  yield* run(
+    ['bun', 'run', 'scripts/build/generate-embedded-docs.ts'],
+    'Generate embedded documentation payload',
     CODEGEN_TIMEOUT_MS
   )
 

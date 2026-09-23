@@ -50,10 +50,10 @@ export const PercentageFieldSchema = BaseFieldSchema.pipe(
     ),
     precision: Schema.optional(
       Schema.Int.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(10)),
         Schema.annotate({
           description: 'Number of decimal places (0-10, default: 0 for whole percentages)',
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(10))
       )
     ),
     min: Schema.optional(
@@ -78,7 +78,6 @@ export const PercentageFieldSchema = BaseFieldSchema.pipe(
       )
     ),
   }),
-  Schema.check(Schema.makeFilter(validateMinMaxRange)),
   Schema.annotate({
     title: 'Percentage Field',
     description:
@@ -105,7 +104,8 @@ export const PercentageFieldSchema = BaseFieldSchema.pipe(
         default: 0,
       },
     ],
-  })
+  }),
+  Schema.check(Schema.makeFilter(validateMinMaxRange))
 )
 
 /** @public */

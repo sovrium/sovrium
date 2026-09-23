@@ -35,26 +35,26 @@ export const SidebarTypeLiteral = Schema.Literal('sidebar')
 export const SidebarBadgeSourceSchema = Schema.Struct({
   /** Read endpoint whose response carries the count */
   endpoint: Schema.String.pipe(
+    Schema.annotate({
+      description: 'Read endpoint whose response carries the badge count',
+      examples: ['/api/admin/tables/overview', '/api/admin/automations/runs'],
+    }),
     Schema.check(
       Schema.isMinLength(1),
       Schema.isPattern(/^\//, {
         message:
           'sidebar badge endpoint must be a path starting with / — the badge reads this instance, never another origin',
       })
-    ),
-    Schema.annotate({
-      description: 'Read endpoint whose response carries the badge count',
-      examples: ['/api/admin/tables/overview', '/api/admin/automations/runs'],
-    })
+    )
   ),
   /** Dot path to the count within the response envelope (default: `total`) */
   valuePath: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: "Dot path to the count in the response envelope (default: 'total')",
         examples: ['total', 'totals.tables', 'summary.failed'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).annotate({
@@ -130,6 +130,11 @@ export const SidebarShowWhenSchema = Schema.Struct({
    * row may be scoped to a section it does not itself link into.
    */
   section: Schema.String.pipe(
+    Schema.annotate({
+      description:
+        'Path of the section this entry belongs to; the entry renders only at it or under it',
+      examples: ['/design-system/ui-kit', '/tables'],
+    }),
     Schema.check(
       Schema.isMinLength(1),
       Schema.isPattern(/^\//, {
@@ -145,12 +150,7 @@ export const SidebarShowWhenSchema = Schema.Struct({
         message:
           'sidebar showWhen.section must be a bare path — a query or fragment can never match, so the entry would never render',
       })
-    ),
-    Schema.annotate({
-      description:
-        'Path of the section this entry belongs to; the entry renders only at it or under it',
-      examples: ['/design-system/ui-kit', '/tables'],
-    })
+    )
   ),
 }).annotate({
   identifier: 'SidebarShowWhen',
@@ -183,11 +183,11 @@ const sidebarShowWhenField = Schema.optional(
 const sidebarEntryFields = {
   /** Display text, or a `$t:` translation key */
   label: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Entry label; accepts a $t: translation key',
       examples: ['Tables', '$t:admin.nav.tables'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** Lucide icon name rendered before the label */
   icon: Schema.optional(
@@ -265,11 +265,11 @@ const sidebarLinkFields = {
   ...sidebarEntryFields,
   /** Destination path */
   href: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Destination path for the entry',
       examples: ['/tables', '/_admin/data/forms'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 } as const
 
@@ -342,11 +342,11 @@ export const SidebarSubItemSchema = Schema.Struct({
    */
   children: Schema.optional(
     Schema.Array(SidebarLeafItemSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Authored leaf entries rendered as a nested list under this row; always open, never a second disclosure',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -389,25 +389,25 @@ export const SidebarGroupSourceSchema = Schema.Struct({
   ...SystemSourceSchema.fields,
   /** Row key whose value becomes the entry label */
   labelKey: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: "Row key whose value becomes each entry's label",
       examples: ['name', 'title'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** Entry href with `{field}` placeholders filled from the row */
   hrefTemplate: Schema.String.pipe(
+    Schema.annotate({
+      description: 'Entry href with {field} placeholders filled from the row',
+      examples: ['/tables/{name}', '/_admin/data/forms/{slug}'],
+    }),
     Schema.check(
       Schema.isMinLength(1),
       Schema.isPattern(/\{[^{}]+\}/, {
         message:
           'hrefTemplate must carry at least one {field} placeholder — without one every fetched entry would link to the same path',
       })
-    ),
-    Schema.annotate({
-      description: 'Entry href with {field} placeholders filled from the row',
-      examples: ['/tables/{name}', '/_admin/data/forms/{slug}'],
-    })
+    )
   ),
   /**
    * Attributes rendered on EACH fetched entry, with `{field}` placeholders
@@ -456,33 +456,33 @@ export const SidebarItemSourceSchema = Schema.Struct({
   /** Line shown while the children are being fetched (default: `Loading…`) */
   loadingLabel: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Line shown while the children load; accepts a $t: key (default: "Loading…")',
         examples: ['Loading…', '$t:nav.loading'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Line shown when the fetch failed (default: `Couldn't load the list.`) */
   errorLabel: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Line shown when the children could not be loaded; accepts a $t: key (default: "Couldn\'t load the list.")',
         examples: ["Couldn't load the list.", '$t:nav.error'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Line shown when the endpoint returned no rows (default: `No items.`) */
   emptyLabel: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Line shown when the endpoint returned no rows; accepts a $t: key (default: "No items.")',
         examples: ['No items.', '$t:nav.empty'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).annotate({
@@ -560,12 +560,12 @@ export const SidebarNavItemSchema = Schema.Struct({
    */
   href: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Destination path; omit it on an entry with children to make the row a toggle that goes nowhere',
         examples: ['/tables', '/_admin/data/forms'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -576,10 +576,10 @@ export const SidebarNavItemSchema = Schema.Struct({
    */
   children: Schema.optional(
     Schema.Array(SidebarSubItemSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Authored sub-entries; declaring any makes this entry a disclosure',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -610,23 +610,23 @@ export const SidebarNavItemSchema = Schema.Struct({
    */
   expandLabel: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Toggle name while shut; must carry {label} (default: "Expand {label}"). Accepts a $t: key',
         examples: ['Expand {label}', '$t:nav.expand'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Accessible name of the toggle while the disclosure is OPEN */
   collapseLabel: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Toggle name while open; must carry {label} (default: "Collapse {label}"). Accepts a $t: key',
         examples: ['Collapse {label}', '$t:nav.collapse'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -691,12 +691,12 @@ export const SidebarGroupSchema = Schema.Struct({
    */
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Group heading; accepts a $t: translation key. Omit for a group that states no category name and contributes neither heading nor landmark',
         examples: ['Data', '$t:admin.nav.data'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -713,12 +713,12 @@ export const SidebarGroupSchema = Schema.Struct({
    */
   landmark: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Named navigation landmark this group belongs to; groups sharing it are wrapped in one nav. Accepts a $t: key',
         examples: ['Data', '$t:admin.nav.data'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -745,8 +745,8 @@ export const SidebarGroupSchema = Schema.Struct({
   /** Authored entries, rendered before any fetched ones */
   items: Schema.optional(
     Schema.Array(SidebarNavItemSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Authored entries, rendered before any fetched ones' })
+      Schema.annotate({ description: 'Authored entries, rendered before any fetched ones' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Fetched entries: one per row of a system read endpoint */
@@ -866,10 +866,10 @@ export const sidebarFields = {
    */
   groups: Schema.optional(
     Schema.Array(SidebarGroupSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Labelled navigation groups rendered inside the sidebar',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**

@@ -76,25 +76,25 @@ export const badgeFields = {
    */
   foreground: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Foreground',
         description:
           'The ink being measured under variant: contrast — a token name or a literal colour (hex, `rgb()`, `oklch()`, `white`, `black`)',
         examples: ['--sv-color-foreground', '#6b7f5e'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** The ground the ink sits on, in the same forms. Read under `variant: 'contrast'`. */
   background: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Background',
         description:
           'The ground the ink sits on under variant: contrast, in the same forms as `foreground`',
         examples: ['--sv-color-background', 'white'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Which bar to grade against. Defaults to AA. Read under `variant: 'contrast'`. */

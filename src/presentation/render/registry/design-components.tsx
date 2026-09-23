@@ -45,6 +45,7 @@ import { recipeClassesFor } from '@/presentation/design/component-recipe-default
 import { computeCodeBlockClasses } from '@/presentation/design/typography-default-classes'
 import { CodeCopyButton, CodeCopyStatus } from '@/presentation/render/elements/code-copy-controls'
 import { buildClassProvenance } from '@/presentation/render/styling/class-provenance-report'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import { gradeContrast, resolveColorToken, specimenSnippet } from './design-component-values'
 import { easingCurveComponent } from './easing-curve-component'
 import { fieldSpecimenComponent } from './field-specimen-component'
@@ -137,9 +138,10 @@ const cascadePaint = (component: Component | undefined, token: string): string |
  * to survive.
  */
 function swatchRootProps(
-  elementProps: Record<string, unknown>,
+  rawElementProps: Record<string, unknown>,
   live: string | undefined
 ): Record<string, unknown> {
+  const elementProps = omitInternalMarkers(rawElementProps)
   const className = mergePrestyle(
     recipeClassesFor('swatch'),
     elementProps['className'] as string | undefined
@@ -236,7 +238,7 @@ export const contrastBadgeComponent: ComponentRenderer = ({
 
   return (
     <span
-      {...elementPropsWithSpacing}
+      {...omitInternalMarkers(elementPropsWithSpacing)}
       data-contrast={verdict === undefined ? 'unresolved' : verdict.passes ? 'pass' : 'fail'}
     >
       {verdict === undefined ? (
@@ -444,7 +446,7 @@ const specimenComponent: ComponentRenderer = ({
   const parts = showProvenance && annotations.length === 0 ? [{ part: 'root' }] : annotations
 
   return (
-    <div {...elementPropsWithSpacing}>
+    <div {...omitInternalMarkers(elementPropsWithSpacing)}>
       {specimenStage(component, drawn, renderedChildren)}
       {flag(component, 'showSnippet') && drawn !== undefined ? (
         <div data-code-copy-scope="">

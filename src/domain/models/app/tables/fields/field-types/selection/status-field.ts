@@ -11,9 +11,17 @@ import { createStatusOptionsSchema } from '../validation-utils'
 
 export const StatusFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('status'),
+    type: Schema.Literal('status').pipe(
+      Schema.annotate({
+        description: "Constant value 'status' for type discrimination in discriminated unions",
+      })
+    ),
     options: createStatusOptionsSchema(),
-    default: Schema.optional(Schema.String),
+    default: Schema.optional(
+      Schema.String.annotate({
+        description: 'State a new record starts in. It has to be one of the options.',
+      })
+    ),
   }),
   Schema.annotate({
     title: 'Status Field',

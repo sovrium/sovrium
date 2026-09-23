@@ -18,8 +18,17 @@ import { DestinationPropSchema } from './shared'
  */
 export const FileGenerateCsvActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('generateCsv'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('generateCsv').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Template variable referencing an array of data objects */
     data: TemplateStringSchema.pipe(
@@ -91,6 +100,9 @@ export const FileGenerateCsvActionSchema = Schema.Struct({
 
     /** Storage destination for generated file */
     destination: DestinationPropSchema,
+  }).annotate({
+    description:
+      'The rows to write, their columns and separator, the file name, and where it is written.',
   }),
 }).pipe(
   Schema.annotate({

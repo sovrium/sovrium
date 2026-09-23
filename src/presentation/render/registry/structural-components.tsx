@@ -28,6 +28,7 @@ import {
   type SidebarRailBreakpoint,
 } from '../../design/sidebar-default-classes'
 import * as Renderers from '../elements'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import { DESIGN_SCOPE_ATTRIBUTE } from './design-components'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import { recordBoundTimelineComponent } from './island-data-components'
@@ -172,7 +173,7 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
     if (variant === 'scoped') {
       return (
         <div
-          {...elementPropsWithSpacing}
+          {...omitInternalMarkers(elementPropsWithSpacing)}
           className={mergePrestyle(computeCardClasses(), authorClassName, true)}
           {...{ [DESIGN_SCOPE_ATTRIBUTE]: '' }}
         >
@@ -189,7 +190,7 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
     if (variant === 'specimen') {
       return (
         <div
-          {...elementPropsWithSpacing}
+          {...omitInternalMarkers(elementPropsWithSpacing)}
           className={mergePrestyle(computeCardClasses(), authorClassName)}
         >
           <div data-specimen-stage="">{content || renderedChildren}</div>
@@ -390,7 +391,7 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
       const ruleClassName = `flex-1 ${computeDividerRuleClasses()}`
       return (
         <div
-          {...elementProps}
+          {...omitInternalMarkers(elementProps)}
           role="separator"
           aria-label={label}
           className={wrapperClassName}
@@ -412,7 +413,7 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
     const ruleClassName = mergePrestyle(computeDividerRuleClasses(), authorClassName)
     return (
       <hr
-        {...elementProps}
+        {...omitInternalMarkers(elementProps)}
         className={ruleClassName}
         // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only style derived from `style` prop literal
         style={{ borderStyle }}

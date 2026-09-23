@@ -22,7 +22,9 @@ import { ActionResponseSchema } from './action-response'
  * ```
  */
 export const AuthActionSchema = Schema.Struct({
-  type: Schema.Literal('auth'),
+  type: Schema.Literal('auth').annotate({
+    description: 'Which kind of action this is. It decides which of the other keys apply.',
+  }),
   /** Auth method */
   method: Schema.Literals([
     'login',
@@ -32,7 +34,8 @@ export const AuthActionSchema = Schema.Struct({
     'setNewPassword',
     'verifyEmail',
   ]).annotate({
-    description: 'Authentication operation to perform',
+    description:
+      'What the action performs: the authentication operation under `type: auth`, or the HTTP verb under `type: fetch` (default GET).',
   }),
   /** Auth strategy */
   strategy: Schema.optional(
@@ -66,7 +69,7 @@ export const AuthActionSchema = Schema.Struct({
   submitLabel: Schema.optional(
     Schema.String.annotate({
       description:
-        'Custom submit-button label for the auth form. Defaults to the localized built-in label for the method. Supports $t:key translation references.',
+        'Submit-button label for the form this action embeds. Defaults to the localized built-in label for the method or operation. Supports $t:key translation references.',
       examples: ['Sign In', 'Se connecter', '$t:auth.submit'],
     })
   ),
@@ -140,7 +143,7 @@ export const AuthActionSchema = Schema.Struct({
       })
     ).annotate({
       description:
-        'Per-field label/placeholder overrides for the auth form. Targets fields by name. Additive — default fields are used when omitted.',
+        'Per-field label/placeholder overrides for the form this action embeds. Targets fields by name. Additive — the default fields are used when omitted.',
     })
   ),
   onSuccess: Schema.optional(ActionResponseSchema),
@@ -167,7 +170,9 @@ export const AuthActionSchema = Schema.Struct({
  * ```
  */
 export const CrudActionSchema = Schema.Struct({
-  type: Schema.Literal('crud'),
+  type: Schema.Literal('crud').annotate({
+    description: 'Which kind of action this is. It decides which of the other keys apply.',
+  }),
   /** CRUD operation */
   operation: Schema.Literals(['create', 'update', 'delete']).annotate({
     description: 'Data operation to perform',
@@ -216,7 +221,7 @@ export const CrudActionSchema = Schema.Struct({
   submitLabel: Schema.optional(
     Schema.String.annotate({
       description:
-        'Custom submit-button label for the CRUD form. Defaults to the localized built-in label for the operation (Create/Update/Delete). Supports $t:key translation references.',
+        'Submit-button label for the form this action embeds. Defaults to the localized built-in label for the method or operation. Supports $t:key translation references.',
       examples: ['Create', 'Enregistrer', '$t:crud.submit'],
     })
   ),
@@ -265,7 +270,7 @@ export const CrudActionSchema = Schema.Struct({
       })
     ).annotate({
       description:
-        'Per-field label/placeholder overrides for the CRUD form. Targets fields by name (table column). Additive — table-derived fields are used when omitted.',
+        'Per-field label/placeholder overrides for the form this action embeds. Targets fields by name. Additive — the default fields are used when omitted.',
     })
   ),
   onSuccess: Schema.optional(ActionResponseSchema),
@@ -295,7 +300,9 @@ export const CrudActionSchema = Schema.Struct({
  * ```
  */
 export const AutomationActionSchema = Schema.Struct({
-  type: Schema.Literal('automation'),
+  type: Schema.Literal('automation').annotate({
+    description: 'Which kind of action this is. It decides which of the other keys apply.',
+  }),
   /** Automation name (must match an automation defined in app.automations) */
   name: Schema.String.annotate({
     description: 'Automation name (must match an automation defined in app.automations)',

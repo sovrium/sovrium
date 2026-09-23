@@ -84,32 +84,32 @@ export const AvatarStatusSchema = Schema.Literals(['online', 'away', 'busy', 'of
 const AvatarItemSchema = Schema.Struct({
   src: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Image',
         description: 'Picture for this member. Falls back to `initials`, then to `label`.',
         examples: ['/uploads/ada.avif', '$record.photo'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   initials: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Initials',
         description: 'Letters to draw when there is no picture. Derived from `label` if omitted.',
         examples: ['AL'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Name',
         description: 'Who this is. Becomes the accessible name and the source of derived initials.',
         examples: ['Ada Lovelace', '$record.name'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   status: Schema.optional(AvatarStatusSchema),
@@ -126,13 +126,13 @@ export const avatarFields = {
   /** Picture to draw. First rung of the fallback chain. */
   src: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Image',
         description:
           'Picture to draw. Falls back to `initials`, then to initials derived from `label`, then to an empty disc — so a null photo column renders a readable avatar rather than a broken image.',
         examples: ['/uploads/ada.avif', '$record.photo'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -145,6 +145,7 @@ export const avatarFields = {
    */
   alt: Schema.optional(
     Schema.String.annotate({
+      defaultNote: 'the value of `label`',
       description:
         'Alternative text for the picture. Defaults to `label`. Set it empty to mark a purely decorative avatar.',
     })
@@ -152,25 +153,25 @@ export const avatarFields = {
   /** Letters to draw when there is no picture. */
   initials: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Initials',
         description:
           'Letters to draw when there is no picture. Derived from `label` when omitted — the first letter of each of its first two words.',
         examples: ['AL'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Who or what this avatar stands for. */
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Name',
         description:
           'Who or what this avatar stands for. Becomes the accessible name, the source of derived initials, and — on a group — the name of the stack as a whole.',
         examples: ['Ada Lovelace', '$record.owner'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   size: Schema.optional(AvatarSizeSchema),

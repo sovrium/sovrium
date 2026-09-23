@@ -104,6 +104,7 @@ export const KanbanSwimlanesSchema = Schema.Struct({
    */
   showEmpty: Schema.optional(
     Schema.Boolean.annotate({
+      defaultNote: 'true',
       description:
         'Render a declared lane option that holds no records (default: true, matching the column axis)',
     })
@@ -120,12 +121,14 @@ export const KanbanSwimlanesSchema = Schema.Struct({
    * `identifier`, silently deletes that identifier).
    */
   collapsed: Schema.optional(
-    Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(1)),
+    Schema.Array(
+      Schema.String.annotate({ description: 'One lane value, as the grouping field spells it' })
+    ).pipe(
       Schema.annotate({
         description: 'Lane values that render collapsed on first load; the reader can expand them',
         examples: [['Archive'], ['Done', 'Cancelled']],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).annotate({
@@ -186,11 +189,15 @@ export const KanbanCardFooterItemSchema = Schema.Struct({
 export const KanbanCardSchema = Schema.Struct({
   /** Child components for the card body (supports $record.* variables) */
   children: Schema.optional(
-    Schema.Array(Schema.Record(Schema.String, Schema.Unknown)).pipe(
-      Schema.check(Schema.isMinLength(1)),
+    Schema.Array(
+      Schema.Record(Schema.String, Schema.Unknown).annotate({
+        description: 'One child component definition, rendered inside the card',
+      })
+    ).pipe(
       Schema.annotate({
         description: 'Child component definitions for the card body',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Action triggered when the card is clicked */
@@ -205,6 +212,8 @@ export const KanbanCardSchema = Schema.Struct({
   /** Field name whose values map to card background colors */
   colorField: Schema.optional(
     Schema.String.annotate({
+      howTo:
+        'Nothing validates this name. A misspelling, or a field with no options, is not an error — the board simply stays monochrome and nothing reports the typo.',
       description: 'Field name whose values determine card background color',
       examples: ['priority', 'category'],
     })
@@ -212,10 +221,10 @@ export const KanbanCardSchema = Schema.Struct({
   /** Metadata fields displayed in the card footer */
   footer: Schema.optional(
     Schema.Array(KanbanCardFooterItemSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Metadata fields displayed in the card footer area',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).annotate({

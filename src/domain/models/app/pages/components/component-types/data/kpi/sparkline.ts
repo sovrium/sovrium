@@ -17,11 +17,11 @@ export const KPISparklineSchema = Schema.Struct({
   groupBy: Schema.String.annotate({ description: 'Date field for grouping data points' }),
   interval: SparklineDateIntervalSchema,
   days: Schema.Finite.pipe(
-    Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
     Schema.annotate({
       description: 'Number of trailing days of data to show',
       examples: [7, 30, 90],
-    })
+    }),
+    Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
   ),
 }).annotate({
   title: 'KPI Sparkline',

@@ -40,10 +40,10 @@ export const PageToastConfigSchema = Schema.Struct({
   /** Default auto-dismiss duration in milliseconds */
   duration: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
         description: 'Default toast duration in ms (default: 5000)',
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 }).annotate({

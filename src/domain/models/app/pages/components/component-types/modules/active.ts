@@ -67,12 +67,12 @@ export const ActiveWhenSchema = Schema.Struct({
    * the substitution passes that run before this one.
    */
   value: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description:
         'Value under test, normally a $-reference ($window.id, $query.<name>, $param.<name>, $app.<name>) resolved before evaluation',
       examples: ['$window.id', '$query.tab', '$param.section'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** The literal `value` must equal for this item to be the current one. */
   equals: Schema.String.annotate({

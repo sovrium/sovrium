@@ -24,9 +24,14 @@ import { Schema } from 'effect'
  */
 export const SuccessPageActionSchema = Schema.Struct({
   /** Button label shown on the success screen. Supports `$t:` keys. */
-  label: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  label: Schema.String.annotate({
+    description: 'Text printed on the button. Accepts a `$t:` key to use a translated label.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
   /** Behavior when the button is clicked. */
-  action: Schema.Literals(['reset', 'navigate']),
+  action: Schema.Literals(['reset', 'navigate']).annotate({
+    description:
+      'What the button does: `reset` clears the form so another answer can be sent, `navigate` sends the visitor to `url`.',
+  }),
   /**
    * Navigation target — required when `action: 'navigate'`.
    *
@@ -36,37 +41,71 @@ export const SuccessPageActionSchema = Schema.Struct({
    * locale resolution the same submit-time template variables documented on
    * `RedirectOnSuccessSchema.url` are interpolated.
    */
-  url: Schema.optional(Schema.String),
+  url: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Where the button navigates, required when the action is `navigate`. Accepts a `$t:` key and the same submit-time variables as a redirect URL.',
+    })
+  ),
 }).annotate({
   identifier: 'SuccessPageAction',
   title: 'Success Page Action',
+  description:
+    'One button on the success page: its label, and whether it resets the form or navigates.',
 })
 
 /**
  * Success Page — show a custom success page after submission.
  */
 export const SuccessPageOnSuccessSchema = Schema.Struct({
-  type: Schema.Literal('successPage'),
+  type: Schema.Literal('successPage').annotate({
+    description: 'Which kind of success handler this is. It decides which of the other keys apply.',
+  }),
   /** Heading shown on the success page. Supports `$t:` keys. */
-  title: Schema.optional(Schema.String),
+  title: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Heading shown on the page that replaces the form once it has been sent. Accepts a `$t:` key.',
+    })
+  ),
   /** Body message shown below the heading. Supports `$t:` keys. */
-  message: Schema.optional(Schema.String),
+  message: Schema.optional(
+    Schema.String.annotate({
+      description: 'Text shown below the heading on the success page. Accepts a `$t:` key.',
+    })
+  ),
   /** Optional button label that links the submitter back to the home page. */
-  buttonLabel: Schema.optional(Schema.String),
+  buttonLabel: Schema.optional(
+    Schema.String.annotate({
+      description: 'Text of a single link button shown on the success page.',
+    })
+  ),
   /** Optional URL the success page button links to. */
-  buttonHref: Schema.optional(Schema.String),
+  buttonHref: Schema.optional(
+    Schema.String.annotate({ description: 'Where that single link button goes.' })
+  ),
   /**
    * Optional list of action buttons (`reset` and/or `navigate`) rendered
    * on the success screen. Useful for high-throughput flows where the
    * submitter wants to "submit another" without a full page reload.
    */
-  actions: Schema.optional(Schema.Array(SuccessPageActionSchema)),
+  actions: Schema.optional(
+    Schema.Array(SuccessPageActionSchema).annotate({
+      description:
+        'Buttons offered on the success page, so the visitor can send another answer or move on without reloading.',
+    })
+  ),
   /**
    * Whether to render a summary of the submitted values on the success
    * screen. The renderer ignores hidden fields and applies field-level
    * read permissions before listing values.
    */
-  showSummary: Schema.optional(Schema.Boolean),
+  showSummary: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Lists the submitted answers back on the success page, skipping hidden fields and any field the reader may not see.',
+    })
+  ),
 }).annotate({
   identifier: 'SuccessPageOnSuccess',
   title: 'Success Page (onSuccess)',
@@ -76,7 +115,9 @@ export const SuccessPageOnSuccessSchema = Schema.Struct({
  * Redirect — navigate to another URL after submission.
  */
 export const RedirectOnSuccessSchema = Schema.Struct({
-  type: Schema.Literal('redirect'),
+  type: Schema.Literal('redirect').annotate({
+    description: 'Which kind of success handler this is. It decides which of the other keys apply.',
+  }),
   /**
    * Target URL — absolute or path-relative.
    *
@@ -96,14 +137,26 @@ export const RedirectOnSuccessSchema = Schema.Struct({
    * Unresolved variables substitute to an empty string (never the literal
    * token).
    */
-  url: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  url: Schema.String.annotate({
+    description:
+      'Where the visitor is sent after a successful submission. Template variables such as `$record.<column>` are replaced with the values that were submitted.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
   /**
    * Delay before the navigation fires, in seconds. Default 2 — gives the
    * submitter a moment to read any flash UI rendered before the redirect.
    * `0` triggers an immediate navigation (used by tests that need a
    * deterministic post-submit URL assertion).
    */
-  delaySeconds: Schema.optional(Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))),
+  delaySeconds: Schema.optional(
+    Schema.Finite.pipe(
+      Schema.annotate({
+        description:
+          'How long to wait before the redirect fires, in seconds, so the visitor can read the confirmation first. `0` navigates immediately.',
+        defaultNote: '2',
+      }),
+      Schema.check(Schema.isGreaterThanOrEqualTo(0))
+    )
+  ),
 }).annotate({
   identifier: 'RedirectOnSuccess',
   title: 'Redirect (onSuccess)',
@@ -113,14 +166,27 @@ export const RedirectOnSuccessSchema = Schema.Struct({
  * Reset — clear the form for another submission.
  */
 export const ResetOnSuccessSchema = Schema.Struct({
-  type: Schema.Literal('reset'),
+  type: Schema.Literal('reset').annotate({
+    description: 'Which kind of success handler this is. It decides which of the other keys apply.',
+  }),
   /** Optional toast message shown after the reset. */
-  message: Schema.optional(Schema.String),
+  message: Schema.optional(
+    Schema.String.annotate({
+      description: 'Confirmation shown briefly once the form has been cleared.',
+    })
+  ),
   /**
    * Field names to preserve across the reset (e.g. `email` so a returning
    * user does not retype it).
    */
-  preserveFields: Schema.optional(Schema.Array(Schema.String)),
+  preserveFields: Schema.optional(
+    Schema.Array(
+      Schema.String.annotate({ description: 'One field name, left filled when the form clears' })
+    ).annotate({
+      description:
+        'Fields to leave filled in when the form is cleared, so a returning visitor does not retype them.',
+    })
+  ),
 }).annotate({
   identifier: 'ResetOnSuccess',
   title: 'Reset (onSuccess)',
@@ -130,10 +196,18 @@ export const ResetOnSuccessSchema = Schema.Struct({
  * Toast — show a transient toast notification.
  */
 export const ToastOnSuccessSchema = Schema.Struct({
-  type: Schema.Literal('toast'),
-  message: Schema.String,
+  type: Schema.Literal('toast').annotate({
+    description: 'Which kind of success handler this is. It decides which of the other keys apply.',
+  }),
+  message: Schema.String.annotate({
+    description: 'Text of the brief confirmation shown after submission. Accepts a `$t:` key.',
+  }),
   /** Toast variant. */
-  variant: Schema.optional(Schema.Literals(['success', 'info'])),
+  variant: Schema.optional(
+    Schema.Literals(['success', 'info']).annotate({
+      description: 'Which style the confirmation is given: a success tone or a neutral one.',
+    })
+  ),
 }).annotate({
   identifier: 'ToastOnSuccess',
   title: 'Toast (onSuccess)',
@@ -143,8 +217,12 @@ export const ToastOnSuccessSchema = Schema.Struct({
  * Inline Message — replace the form with an inline message in place.
  */
 export const MessageOnSuccessSchema = Schema.Struct({
-  type: Schema.Literal('message'),
-  message: Schema.String,
+  type: Schema.Literal('message').annotate({
+    description: 'Which kind of success handler this is. It decides which of the other keys apply.',
+  }),
+  message: Schema.String.annotate({
+    description: 'Text shown in place of the form once it has been sent. Accepts a `$t:` key.',
+  }),
 }).annotate({
   identifier: 'MessageOnSuccess',
   title: 'Inline Message (onSuccess)',

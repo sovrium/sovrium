@@ -275,9 +275,13 @@ export const formFields = {
           label: Schema.String.annotate({
             description: 'Step label shown in the progress indicator',
           }),
-          fields: Schema.NonEmptyArray(Schema.String).annotate({
+          fields: Schema.NonEmptyArray(
+            Schema.String.annotate({ description: 'One field name, as the form declares it' })
+          ).annotate({
             description: 'Field names assigned to this step',
           }),
+        }).annotate({
+          description: 'One step of the wizard: its label, and the fields it collects',
         })
       ).annotate({ description: 'Ordered list of wizard steps' }),
     }).annotate({
@@ -321,17 +325,17 @@ export const formFields = {
   endpoint: Schema.optional(FormEndpointSchema),
   fields: Schema.optional(
     Schema.Array(FormFieldConfigSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Per-field configuration for form component (labels, placeholders, visibility)',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   fieldGroups: Schema.optional(
     Schema.Array(FormFieldGroupSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Groups form fields under labeled section dividers' })
+      Schema.annotate({ description: 'Groups form fields under labeled section dividers' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   layout: Schema.optional(

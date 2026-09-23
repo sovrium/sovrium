@@ -29,7 +29,11 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const DateTimeFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('datetime'),
+    type: Schema.Literal('datetime').pipe(
+      Schema.annotate({
+        description: "Constant value 'datetime' for type discrimination in discriminated unions",
+      })
+    ),
     format: Schema.optional(
       Schema.String.pipe(
         Schema.annotate({

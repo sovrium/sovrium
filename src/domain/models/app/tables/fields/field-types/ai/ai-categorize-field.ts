@@ -41,19 +41,28 @@ export const AiCategorizeFieldSchema = BaseFieldSchema.pipe(
           "Constant value 'ai-categorize' for type discrimination in discriminated unions",
       })
     ),
-    sourceFields: Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(1)),
+    sourceFields: Schema.Array(
+      Schema.String.annotate({
+        description: 'One field of this table whose value is fed to the model as input.',
+      })
+    ).pipe(
       Schema.annotate({
         description: 'Field names used as input context for AI classification',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     ),
-    categories: Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(2)),
+    categories: Schema.Array(
+      Schema.String.annotate({
+        description:
+          'One category the model may choose from. The model is constrained to this list.',
+      })
+    ).pipe(
       Schema.annotate({
         description:
           'Predefined list of categories the AI must choose from. Minimum 2 entries, no duplicates.',
         examples: [['billing', 'technical', 'account', 'general']],
       }),
+      Schema.check(Schema.isMinLength(2)),
       Schema.check(
         Schema.makeFilter((categories) => {
           const unique = new Set(categories)
@@ -81,30 +90,30 @@ export const AiCategorizeFieldSchema = BaseFieldSchema.pipe(
     ),
     model: Schema.optional(
       Schema.String.pipe(
+        Schema.annotate({
+          description: 'AI model override (e.g., gpt-4o, claude-sonnet)',
+        }),
         Schema.check(
           Schema.isMinLength(1, {
             message: 'AI field model override must be a non-empty string',
           })
-        ),
-        Schema.annotate({
-          description: 'AI model override (e.g., gpt-4o, claude-sonnet)',
-        })
+        )
       )
     ),
     temperature: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
         Schema.annotate({
           description: 'Temperature override (0 to 1) for controlling classification confidence',
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))
       )
     ),
     maxTokens: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
         Schema.annotate({
           description: 'Maximum tokens for AI response',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
       )
     ),
     computeOn: Schema.Literals(['create', 'update', 'both']).pipe(

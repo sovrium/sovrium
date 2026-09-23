@@ -86,30 +86,40 @@ export const LADDER_KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
  * @param value - The schema every step's value must satisfy
  * @param path - The full config path, quoted verbatim in the key-shape message
  * @param keyTitle - JSON Schema title for the key node
- * @param keyExamples - Representative step names for the published schema
+ * @param options - `keyExamples`, representative step names for the published
+ *   schema, and `description`, what the whole ladder is FOR
  */
 export const ladderRecord = <S extends Schema.Top>(
   value: S,
   path: string,
   keyTitle: string,
-  keyExamples: readonly string[]
+  options: {
+    readonly keyExamples: readonly string[]
+    /** What this whole ladder is FOR, for the published JSON Schema. */
+    readonly description?: string
+  }
 ): Schema.Codec<Readonly<Record<string, S['Type']>>, Readonly<Record<string, S['Encoded']>>> =>
   Schema.Record(
     Schema.String.annotate({
       title: keyTitle,
       description: 'Scale step name — becomes the suffix of the generated utility',
-      examples: [...keyExamples],
+      examples: [...options.keyExamples],
     }),
     value
-  ).pipe(
-    Schema.check(
-      Schema.makeFilter((entries: Readonly<Record<string, unknown>>) => {
-        const offender = Object.keys(entries).find((name) => !LADDER_KEY_PATTERN.test(name))
-        if (offender === undefined) return true
-        return `\`${path}\` declares the step '${offender}', which is not a usable scale key. A step name is lowercase letters, digits and hyphens (\`2xs\`, \`4\`, \`0-5\`, \`px\`) — it becomes the suffix of a generated utility, so a name that cannot appear in a class name reaches nothing.`
-      })
-    )
-  ) as never
+  )
+    // Annotated HERE and not after the pipe: a description attached to the
+    // key-shape `makeFilter` below never reaches the published JSON Schema,
+    // because a filter emits no node for it to land on.
+    .annotate(options.description === undefined ? {} : { description: options.description })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter((entries: Readonly<Record<string, unknown>>) => {
+          const offender = Object.keys(entries).find((name) => !LADDER_KEY_PATTERN.test(name))
+          if (offender === undefined) return true
+          return `\`${path}\` declares the step '${offender}', which is not a usable scale key. A step name is lowercase letters, digits and hyphens (\`2xs\`, \`4\`, \`0-5\`, \`px\`) — it becomes the suffix of a generated utility, so a name that cannot appear in a class name reaches nothing.`
+        })
+      )
+    ) as never
 
 /**
  * A record whose keys are open at the SCHEMA level and checked at the RECORD
@@ -175,6 +185,8 @@ export const guardedKeyRecord = <S extends Schema.Top>(
      * string is a structurally valid key.
      */
     readonly retiredKeys?: ReadonlyMap<string, string>
+    /** What this whole record is FOR, for the published JSON Schema. */
+    readonly description?: string
   }
 ): Schema.Codec<Readonly<Record<string, S['Type']>>, Readonly<Record<string, S['Encoded']>>> =>
   Schema.Record(
@@ -184,19 +196,22 @@ export const guardedKeyRecord = <S extends Schema.Top>(
       examples: [...options.keyExamples],
     }),
     value
-  ).pipe(
-    Schema.check(
-      Schema.makeFilter((entries: Readonly<Record<string, unknown>>) => {
-        const names = Object.keys(entries)
-        const retired = options.retiredKeys ?? EMPTY_RETIRED_KEYS
-        const retiredOffender = names.find((name) => retired.has(name))
-        if (retiredOffender !== undefined) return retired.get(retiredOffender) ?? true
-        const offender = names.find((name) => !options.pattern.test(name))
-        if (offender === undefined) return true
-        return `\`${options.path}\` declares '${offender}', which is not a usable key. ${options.keyHint}`
-      })
-    )
-  ) as never
+  )
+    // Annotated HERE and not after the pipe — see `ladderRecord` above.
+    .annotate(options.description === undefined ? {} : { description: options.description })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter((entries: Readonly<Record<string, unknown>>) => {
+          const names = Object.keys(entries)
+          const retired = options.retiredKeys ?? EMPTY_RETIRED_KEYS
+          const retiredOffender = names.find((name) => retired.has(name))
+          if (retiredOffender !== undefined) return retired.get(retiredOffender) ?? true
+          const offender = names.find((name) => !options.pattern.test(name))
+          if (offender === undefined) return true
+          return `\`${options.path}\` declares '${offender}', which is not a usable key. ${options.keyHint}`
+        })
+      )
+    ) as never
 
 /** One rung of a spacing or font-size ladder. */
 export const DimensionValueSchema = Schema.String.pipe(

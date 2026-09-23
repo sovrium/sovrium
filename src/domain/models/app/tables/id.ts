@@ -18,13 +18,13 @@ import { Schema } from 'effect'
  * ```
  */
 export const IdSchema = Schema.Int.pipe(
-  Schema.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(9_007_199_254_740_991)),
   Schema.annotate({
     title: 'ID',
     description:
       'Unique positive integer identifier for entities. IDs are system-generated, auto-incrementing, and immutable. Must be unique within the parent collection (e.g., field IDs unique within a table, table IDs unique within the application). IDs are read-only and assigned automatically when entities are created. Range: 1 to 9,007,199,254,740,991 (JavaScript MAX_SAFE_INTEGER).',
     examples: [1, 2, 3, 100, 1000],
-  })
+  }),
+  Schema.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(9_007_199_254_740_991))
 )
 
 /** @public */

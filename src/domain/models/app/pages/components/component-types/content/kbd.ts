@@ -53,12 +53,12 @@ export const kbdFields = {
    */
   keys: Schema.Array(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Key',
         description: 'One key, exactly as it is printed on the keyboard',
         examples: ['⌘', 'K', 'Esc', 'Shift'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   )
     .pipe(Schema.check(Schema.isMinLength(1)))
@@ -77,13 +77,13 @@ export const kbdFields = {
    */
   separator: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Separator',
         description:
           'Plain text printed between the caps — never itself a cap. Omit for adjacent keys.',
         examples: ['+', 'then'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 } as const

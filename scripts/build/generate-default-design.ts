@@ -27,6 +27,15 @@
  * | `default-theme-layer.generated.ts` | the CSS blocks, byte-identical to the hand-written originals |
  * | `tokens.generated.ts` | the `TOKENS` island fallback catalogue |
  * | `inherited-tokens.generated.ts` | the console's inherited-token projection |
+ * | `desktop/src/tokens.generated.css` | the desktop shell's light + dark custom properties |
+ *
+ * The fifth output is the odd one out and says why in its own banner: it is CSS
+ * rather than TypeScript, and it lands in a tree that may not import from
+ * `src/`. The desktop shell is a separate program with its own bundler, so it
+ * cannot reach the token modules the way the engine's own islands do — and the
+ * window around an app must not be a different colour from the app inside it.
+ * A generated file is how the two stay one design without one importing the
+ * other.
  *
  * The four hand-written modules survive as thin re-export shims that keep their
  * own JSDoc — the prose explaining WHY a token exists belongs beside the module
@@ -35,7 +44,7 @@
  * ## Three things that are load-bearing, and why
  *
  * 1. **`SOURCE_PATH` is ONE constant.** Jalon 6.1 flipped it to
- *    `apps/admin/config/design.ts` and deleted the temporary source in `src/`.
+ *    `src/admin/config/design.ts` and deleted the temporary source in `src/`.
  *    Keeping the read behind a single name is what made that a one-line change
  *    rather than a second source of truth — do not inline the path.
  * 2. **The emitted CSS keeps its spellings.** `V1_ROOT_LIGHT`, `V1_ROOT_DARK`,
@@ -68,7 +77,7 @@ import {
   type Scale,
   type TokenBlock,
   type ValueSpec,
-} from '../../apps/admin/config/design'
+} from '@/admin/config/design'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -78,11 +87,11 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..')
  * whole flip: one constant and one import specifier, because the read was
  * behind a single name from the start.
  *
- * The source now lives in `apps/admin/config/design.ts` — the reference
+ * The source now lives in `src/admin/config/design.ts` — the reference
  * identity's own config — beside the small `DesignConfig` that app declares for
  * itself. See that file's docstring for why the two are separate exports.
  */
-export const SOURCE_PATH = 'apps/admin/config/design.ts'
+export const SOURCE_PATH = 'src/admin/config/design.ts'
 
 /** Where each derivation lands. Mirrored by `ALWAYS_ON_ASSETS` in the drift gate. */
 export const OUTPUT_PATHS = {
@@ -90,6 +99,7 @@ export const OUTPUT_PATHS = {
   themeLayer: 'src/infrastructure/css/theme/default-theme-layer.generated.ts',
   tokens: 'src/presentation/design/tokens.generated.ts',
   inherited: 'src/domain/models/app/design/inherited-tokens.generated.ts',
+  desktopTokens: 'desktop/src/tokens.generated.css',
 } as const
 
 const COPYRIGHT = `/**
@@ -573,12 +583,123 @@ ${s.inherited.colorRoleNames.map((n) => `  ${tsString(n)},`).join('\n')}
 `
 }
 
+/* ─────────────────────────── file: desktop tokens ───────────────────────── */
+
+/**
+ * The DARK-mode `--sv-*` overrides, as raw specs.
+ *
+ * Only the tokens the dark block actually redeclares — 41 of them against the
+ * light side's 40 plus the bridge's 45 — because a dark block that restated
+ * every role would be a second source rather than an override layer. The ramps
+ * themselves are mode-independent, which is what lets a dark value like
+ * `{ ref: 'neutral-950' }` resolve against the light map.
+ */
+export const darkSvValues = (): ReadonlyMap<string, ValueSpec> => {
+  const out = new Map<string, ValueSpec>()
+  for (const decl of declsOf(DEFAULT_DESIGN_SOURCE.v1.dark)) {
+    if (!decl.property.startsWith('--sv-')) continue
+    out.set(decl.property.slice('--sv-'.length), decl.value)
+  }
+  return out
+}
+
+/**
+ * The desktop shell's custom properties: every role token resolved to a
+ * literal, in both modes, plus the mode-independent scales.
+ *
+ * Three decisions worth stating, because each is the kind that gets "tidied"
+ * later:
+ *
+ * 1. **The spellings are the ENGINE's**, not a desktop namespace. Roles are
+ *    `--sv-*`; scales keep the `--text-*` / `--spacing-*` / `--font-*` /
+ *    `--radius-*` names Tailwind registers them under. The shell and the app it
+ *    frames therefore address the same variable by the same name, which is the
+ *    whole point of shipping this file.
+ * 2. **Values are RESOLVED to literals**, not emitted as `var()` chains. The
+ *    engine's chains exist so an operator's `app.theme` can override a rung at
+ *    runtime; the shell has no such surface — its settings page is machine
+ *    settings, never app config — so a chain here would only be an indirection
+ *    with nothing at the other end.
+ * 3. **`prefers-color-scheme`, not a class.** The engine keys dark mode off
+ *    `html:is(.dark, [data-theme='dark'])` because an app's operator chooses.
+ *    The shell follows the OS, because the window is chrome and chrome that
+ *    disagrees with the desktop around it looks broken.
+ */
+const desktopTokensFile = (): string => {
+  const light = lightSvValues()
+  const dark = darkSvValues()
+  const scales = scaleValues()
+
+  // Resolution happens OUTSIDE the template literals below. A non-null
+  // assertion inside one reads as an exclamation mark in emitted text to the
+  // terminal-language scan, which cannot tell a type-level `!` from a shouted
+  // sentence — and the fix it wants is the one that is better code anyway.
+  const lightDecls = [...light.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([name, entry]) => `  --sv-${name}: ${resolveLight(entry.raw, light)};`)
+    .join('\n')
+
+  const scaleDecls = [...scales.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([name, value]) => `  --${name}: ${value};`)
+    .join('\n')
+
+  const darkDecls = [...dark.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([name, spec]) => `    --sv-${name}: ${resolveLight(spec, light)};`)
+    .join('\n')
+
+  return `/*
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ *
+ * The desktop shell's design tokens — light and dark.
+ *
+ * AUTO-GENERATED from \`${SOURCE_PATH}\` — DO NOT EDIT.
+ * Regenerate: \`bun run build:default-design\`
+ *
+ * Why this file exists at all: the shell is a separate program with its own
+ * bundler and may not import from \`src/\`, so it cannot reach the token modules
+ * the engine's own islands read. Without a generated copy the window around an
+ * app would be a different colour from the app inside it, and the drift would
+ * be invisible until someone looked at both at once.
+ */
+
+:root {
+  color-scheme: light;
+
+${lightDecls}
+
+${scaleDecls}
+}
+
+/*
+ * The OS decides, not the app. The engine keys dark mode off a class because an
+ * operator's config chooses it per app; the shell is chrome, and chrome that
+ * disagrees with the desktop around it reads as a bug.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+${darkDecls}
+  }
+}
+`
+}
+
 /* ──────────────────────────────── driver ────────────────────────────────── */
 
-const write = async (relative: string, contents: string): Promise<void> => {
+const write = async (
+  relative: string,
+  contents: string,
+  parser: prettier.BuiltInParserName = 'typescript'
+): Promise<void> => {
   const target = join(REPO_ROOT, relative)
   const config = await prettier.resolveConfig(target)
-  const formatted = await prettier.format(contents, { ...config, parser: 'typescript' })
+  const formatted = await prettier.format(contents, { ...config, parser })
   writeFileSync(target, formatted)
 }
 
@@ -587,6 +708,7 @@ export const generateDefaultDesign = async (): Promise<readonly string[]> => {
   await write(OUTPUT_PATHS.themeLayer, themeLayerFile())
   await write(OUTPUT_PATHS.tokens, tokensFile())
   await write(OUTPUT_PATHS.inherited, inheritedFile())
+  await write(OUTPUT_PATHS.desktopTokens, desktopTokensFile(), 'css')
   return Object.values(OUTPUT_PATHS)
 }
 

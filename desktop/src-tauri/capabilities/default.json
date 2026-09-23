@@ -1,0 +1,18 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The shell's own chrome. Windows: `main` and `settings` — and NO `remote` key, which is what gives the loopback origin the sidecar serves ZERO IPC permissions. That omission is the security boundary of this whole design: `main` navigates to http://127.0.0.1:<port>, and a page served there is the user's own app, but it is still a page this shell did not write. Because a capability without a `remote` block applies to LOCAL content only, `main` holds every permission below while it shows the shell's own chrome and NONE of them the moment it is showing the engine's page — which is why `settings` exists as a second, always-local window: it is the surface that can still call into Rust once `main` has left. Adding a `remote` block here would hand the engine's page every permission listed below. Do not add one.",
+  "windows": ["main", "settings"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "log:default",
+    "opener:default",
+    "store:default",
+    "updater:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": []
+    }
+  ]
+}

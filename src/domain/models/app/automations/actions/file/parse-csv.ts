@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const FileParseCsvActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('parseCsv'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('parseCsv').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Storage key of the CSV file to parse */
     source: Schema.optional(
@@ -76,10 +85,10 @@ export const FileParseCsvActionSchema = Schema.Struct({
           /** Zero-based CSV column index this entry maps to */
           index: Schema.optional(
             Schema.Finite.pipe(
-              Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
               Schema.annotate({
                 description: 'Zero-based CSV column index to read this value from',
-              })
+              }),
+              Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
             )
           ),
           header: Schema.optional(
@@ -100,10 +109,10 @@ export const FileParseCsvActionSchema = Schema.Struct({
     /** Number of rows to skip from the top */
     skipRows: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
         Schema.annotate({
           description: 'Number of rows to skip from the top (default: 0)',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
       )
     ),
 
@@ -115,13 +124,17 @@ export const FileParseCsvActionSchema = Schema.Struct({
         })
       )
     ),
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter((props) => (props.source ?? props.key ?? props.content) !== undefined, {
-        message: 'parseCsv requires `source` (or `key`, or inline `content`)',
-      })
-    )
-  ),
+  })
+    .annotate({
+      description: 'The CSV to read, its columns and separator, and how many rows to skip first.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter((props) => (props.source ?? props.key ?? props.content) !== undefined, {
+          message: 'parseCsv requires `source` (or `key`, or inline `content`)',
+        })
+      )
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'FileParseCsvAction',

@@ -16,8 +16,17 @@ import { ActionBaseFields } from '../base'
  */
 export const StateDeleteActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('state'),
-  operator: Schema.Literal('delete'),
+  type: Schema.Literal('state').pipe(
+    Schema.annotate({
+      description: "Constant value 'state' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('delete').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'state' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** State key to delete */
     key: TemplateStringSchema.pipe(
@@ -29,13 +38,15 @@ export const StateDeleteActionSchema = Schema.Struct({
     /** Optional namespace for key isolation */
     namespace: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
         Schema.annotate({
           description:
             'Namespace for key isolation (lowercase alphanumeric with hyphens, starts with letter)',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/))
       )
     ),
+  }).annotate({
+    description: 'Which stored value is removed, and from which namespace.',
   }),
 }).pipe(
   Schema.annotate({

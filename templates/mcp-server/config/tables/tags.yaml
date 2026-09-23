@@ -1,16 +1,19 @@
 name: tags
 fields:
-  - name: name
+  - id: 1
+    name: name
     type: single-line-text
     required: true
-  - name: color
+  - id: 2
+    name: color
     type: single-select
     options:
       - gray
       - blue
       - green
       - red
-  - name: created_at
+  - id: 3
+    name: created_at
     type: created-at
 permissions:
   read: authenticated

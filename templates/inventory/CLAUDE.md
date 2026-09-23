@@ -109,6 +109,22 @@ YAML config files (a single `app.yaml` to start, split via `$ref` as the app gro
 served by the `sovrium` runtime. There is no hand-written
 server or UI code to maintain.
 
+## The manual ships inside the binary — do not search the web
+
+The complete Sovrium manual is printed by the binary you are running, so it can never
+describe a different version. Read it there rather than from a web page:
+
+```bash
+sovrium docs search <topic>    # Find the article covering a topic
+sovrium docs <section>/<slug>  # Read it
+sovrium docs config <path>     # Look one option up (e.g. tables[].fields[].type)
+sovrium docs env <NAME>        # Look one environment variable up
+sovrium docs cli <verb>        # Look one command up
+```
+
+The docs describe THIS binary — check `sovrium --version`. Pretrained knowledge of
+Sovrium may describe a different one; where the two disagree, the binary wins.
+
 ## How to work in this project (read first)
 
 - **Edit `app.yaml`, not application code.** Features are added declaratively by editing
@@ -129,25 +145,60 @@ sovrium start app.yaml --watch # Hot-reload on config changes
 sovrium validate app.yaml      # Validate the config against the schema
 sovrium schema                 # Print the full JSON Schema for app.yaml
 sovrium build app.yaml         # Build static output
+sovrium mcp --project .        # Serve this config to your AI client (MCP, stdio)
 ```
+
+## Connecting your AI client
+
+`sovrium mcp --project .` serves this project's configuration to Claude Desktop, Claude Code
+or Cursor over stdio. Point your client at it — command `sovrium`, arguments
+`mcp --project <this directory>` — and the assistant editing `app.yaml` can read the config
+as it stands, validate what it just wrote, consult the schema at a given path, and see
+whether a running instance took the last save, instead of guessing from a file it has not
+seen. It starts no server: there is no token to configure and no `auth:` block to add.
+
+Those four tools are read-only unless you set `MCP_CONFIG_WRITE=1`. It is off by default, and
+it is an environment variable rather than a config key on purpose — a config file must not be
+able to authorise its own editing. Set it, name this directory explicitly, and four more
+tools appear: the assistant can list the files your config is made of, read one, replace one,
+and undo its last change.
+
+```json
+{
+  "mcpServers": {
+    "sovrium": {
+      "command": "sovrium",
+      "args": ["mcp", "--project", "/absolute/path/to/this/project"],
+      "env": { "MCP_CONFIG_WRITE": "1" }
+    }
+  }
+}
+```
+
+Writing is bounded rather than trusted. Edits stay inside this directory and touch only
+`.yaml`, `.yml` and `.json` files — never `.env`, `.git/`, `.claude/` or the data directory.
+A file that changed on disk since the assistant read it is refused rather than overwritten,
+and a change that would not decode as a valid config never reaches the disk. Dropping a
+column needs `allowDestructive: true`, which the assistant is never allowed to set for you.
+Every change is snapshotted first, so `undo` always has a way back.
 
 ## Reviewing changes in the browser
 
 Validating is not verifying. After a config change, boot the app and drive it:
 
-- `sovrium start app.yaml --watch` serves the app at `http://localhost:3000` (override with `PORT`)
-  and hot-reloads on every save.
-- Drive that running instance with Claude in Chrome — the `mcp__claude-in-chrome__*` tools. They are
-  deferred: load them in one batched `ToolSearch`, call `tabs_context_mcp` first, open a **new** tab
-  with `tabs_create_mcp`, and close what you opened.
-- **Exercise the workflow, not just the page.** Sign in, create a record, submit the form, let the
-  automation fire — then check the **effect** (the row is there, the status changed), never just
-  that something rendered.
-- Because `--watch` hot-reloads, the loop is: edit the config, re-navigate, re-verify. Repeat until
-  the workflow passes.
-- Never trigger `alert()` / `confirm()` / `prompt()` — a JS dialog freezes the extension. If Chrome
-  is not connected, or calls keep failing, say so and stop rather than reporting a change as
-  verified when nothing was driven.
+- `sovrium start app.yaml --watch` serves the app at `http://localhost:3000` (override with
+  `PORT`) and hot-reloads on every save.
+- Drive that running instance with Claude in Chrome — the `mcp__claude-in-chrome__*` tools.
+  They are deferred: load them in one batched `ToolSearch`, call `tabs_context_mcp` first, open
+  a **new** tab with `tabs_create_mcp`, and close what you opened.
+- **Exercise the workflow, not just the page.** Sign in, create a record, submit the form, let
+  the automation fire — then check the **effect** (the row is there, the status changed), never
+  just that something rendered.
+- Because `--watch` hot-reloads, the loop is: edit the config, re-navigate, re-verify. Repeat
+  until the workflow passes.
+- Never trigger `alert()` / `confirm()` / `prompt()` — a JS dialog freezes the extension. If
+  Chrome is not connected, or calls keep failing, say so and stop rather than reporting a
+  change as verified when nothing was driven.
 
 ## Scaling the config
 
@@ -202,22 +253,24 @@ but that's a secondary split, not the primary one.
 Note: reusable **component templates** are root entities (their own files);
 page-instance components stay inside the page file.
 
-Prefer YAML for readability. For IDE autocompletion and compile-time
-type-checking, author a `.ts` config instead: run `sovrium types` in this
-directory to write `sovrium.d.ts` and `tsconfig.json`, then
+Prefer YAML for readability; switch to a `.ts` config if you want IDE
+autocompletion and compile-time type-checking. Run `sovrium types` to write
+`sovrium.d.ts` and a `tsconfig.json` beside your config — no `package.json`,
+no `node_modules`, no install step — then author `app.ts` like this:
 
 ```ts
-// app.ts
 import type { AppConfig } from 'sovrium'
 
-export default { name: 'my-app' } satisfies AppConfig
+export default {
+  name: 'my-app',
+} satisfies AppConfig
 ```
 
-The types come out of the binary itself — no `package.json`, no `node_modules`,
-no install step — so they always describe the schema the binary you run actually
-accepts. Re-run `sovrium types` after upgrading it. Keep the import type-only:
-the binary does not resolve bare-package specifiers, so a value import
-type-checks and then fails to boot.
+The import MUST be `import type`, and the object MUST be checked with
+`satisfies` rather than constructed by a helper function. The runtime does not
+resolve bare-package specifiers, so a value import (the old `defineConfig()`
+shape) type-checks and then fails to boot; `import type` is erased before the
+runtime ever looks. Re-run `sovrium types` after upgrading the binary.
 
 ## The `app.yaml` schema
 
@@ -227,6 +280,10 @@ Root properties include: `name`, `description`, `tables`, `auth`, `pages`, `desi
 - **`tables`** — your data model. Each table has `fields`; field `type` spans many
   categories (text, number, date/time, select, relation, attachment, rich-text, code,
   formula, AI-compute, …). The runtime generates the database, REST API, and CRUD UI.
+- **Field `id`s** — set one on every field. An omitted id means "position in the list", so
+  inserting a field above another one shifts every id after it, and the migration diff reads
+  that shift as a rename of fields nobody renamed. Keep the ids a field already has; give a
+  new field the next unused number.
 - **`auth`** — authentication (email/password, magic link, OAuth) plus role-based access
   (`admin`, `member`, `viewer`) and field-level permissions.
 - **`pages`** — composed from many built-in component types (forms, tables, kanban,
@@ -244,18 +301,18 @@ in `app.yaml`.
 
 ## Documentation
 
-`sovrium schema` is the local contract — it prints the JSON Schema of the binary sitting in this
-project. When the published docs and `sovrium schema` disagree, the schema wins: the website
-describes some released version, the schema describes the one you are actually running.
+`sovrium schema` is the local contract — it prints the JSON Schema of the binary sitting in
+this project. When the published docs and `sovrium schema` disagree, the schema wins: the
+website describes some released version, the schema describes the one you are actually running.
 
 - **Start at the index:** `https://sovrium.com/llms.txt` — a plain-text list of every published
-  page, one titled line each with a short description. Pick a page from there instead of guessing
-  a slug.
+  page, one titled line each with a short description. Pick a page from there instead of
+  guessing a slug.
 - **Fetch that page with `.md` appended.** Every docs page has a raw-markdown twin:
-  `https://sovrium.com/en/docs/configuration-refs.md` is about 3.8 KB against 121 KB for the same
-  page as HTML. Always take the `.md`.
-- **Never fetch `https://sovrium.com/llms-full.txt`** — the entire corpus in one file, roughly 3 MB;
-  a single call floods the context window. Use the index and pull one page at a time.
-- The index carries English and French — prefer `/en/…`, switch to `/fr/…` when working in French.
+  `https://sovrium.com/en/docs/configuration-refs.md` is about 3.8 KB against 121 KB for the
+  same page as HTML. Always take the `.md`.
+- **Never fetch `https://sovrium.com/llms-full.txt`** — the entire corpus in one file, roughly
+  3 MB; a single call floods the context window. Use the index, one page at a time.
+- The index carries English and French — prefer `/en/…`, switch to `/fr/…` for a French user.
 - Docs home: https://sovrium.com/docs
 - Local schema reference: `sovrium schema`

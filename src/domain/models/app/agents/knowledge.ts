@@ -46,23 +46,23 @@ const KnowledgeTableFilterSchema = Schema.Record(Schema.String, Schema.Unknown).
 const KnowledgeTableSchema = Schema.Struct({
   /** Table name to embed (must reference a table defined in app.tables) */
   table: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Table name to embed for knowledge retrieval',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /** Field names to include in embeddings (at least one required) */
   fields: Schema.Array(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Field name to include in embedding' })
+      Schema.annotate({ description: 'Field name to include in embedding' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ).pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Fields to embed from this table',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /** Optional filter to limit which rows are embedded */
@@ -94,19 +94,19 @@ export type KnowledgeTable = Schema.Schema.Type<typeof KnowledgeTableSchema>
 const KnowledgeDocumentSchema = Schema.Struct({
   /** File path to the document */
   path: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Path to the document file for knowledge embedding',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /** Human-readable label for the document */
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Human-readable label for the knowledge document',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).pipe(

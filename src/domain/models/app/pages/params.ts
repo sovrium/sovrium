@@ -81,11 +81,11 @@ export const PageParamPropSchema = Schema.Struct({
    */
   valueKey: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: "Row key holding each permitted segment value (default: the envelope's idKey)",
         examples: ['type', 'name', 'slug'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).annotate({

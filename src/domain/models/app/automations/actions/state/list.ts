@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const StateListActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('state'),
-  operator: Schema.Literal('list'),
+  type: Schema.Literal('state').pipe(
+    Schema.annotate({
+      description: "Constant value 'state' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('list').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'state' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Key prefix to filter by */
     prefix: Schema.optional(
@@ -32,23 +41,25 @@ export const StateListActionSchema = Schema.Struct({
     /** Optional namespace for key isolation */
     namespace: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
         Schema.annotate({
           description:
             'Namespace for key isolation (lowercase alphanumeric with hyphens, starts with letter)',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/))
       )
     ),
 
     /** Maximum number of keys to return */
     limit: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
         Schema.annotate({
           description: 'Maximum number of keys to return',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
       )
     ),
+  }).annotate({
+    description: 'Which stored values are listed, from which namespace, and how many at most.',
   }),
 }).pipe(
   Schema.annotate({

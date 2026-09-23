@@ -8,7 +8,7 @@
 /**
  * Serving the embedded operator console at the path it is mounted at.
  *
- * The console is DOGFOODED: a platform-owned app, authored as `apps/admin/`,
+ * The console is DOGFOODED: a platform-owned app, authored as `src/admin/`,
  * frozen into the binary at build time and mounted into every booted app. It
  * renders through the EXISTING page/component pipeline (`config.renderPage`)
  * like any config-driven page, but with the embedded preset `App` — never the

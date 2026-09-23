@@ -49,20 +49,20 @@ export const SubmitToSchema = Schema.Struct({
   /** Persist submission as a record in this table. References `tables[].name`. */
   table: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Name of the table to persist the submission record in',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 
   /** Trigger this automation on submit. References `automations[].name`. */
   automation: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(100)),
       Schema.annotate({
         description: 'Name of the automation to invoke on submission',
-      })
+      }),
+      Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(100))
     )
   ),
 
@@ -72,6 +72,7 @@ export const SubmitToSchema = Schema.Struct({
    */
   mapping: Schema.optional(
     Schema.Record(Schema.String, Schema.String).annotate({
+      defaultNote: 'identity — each form field writes to the table column of the same name',
       description: 'Map form field names to destination column names',
     })
   ),
@@ -82,24 +83,32 @@ export const SubmitToSchema = Schema.Struct({
    */
   storeSubmission: Schema.optional(
     Schema.Boolean.annotate({
+      defaultNote: 'true',
       description: 'Persist submission in the built-in form_submissions ledger. Default true.',
     })
   ),
-}).pipe(
-  Schema.check(
-    Schema.makeFilter((s) =>
-      s.table !== undefined || s.automation !== undefined || s.storeSubmission !== false
-        ? true
-        : 'submitTo must specify at least one of: table, automation, storeSubmission: true'
-    )
-  ),
-  Schema.annotate({
-    identifier: 'SubmitTo',
-    title: 'Submit-To Destination',
+})
+  .annotate({
+    // Before the checks: see the note in `forms/path.ts` — a description piped
+    // after a `makeFilter` check is dropped from the published JSON Schema.
     description:
-      'Where a form submission is persisted and/or routed. At least one of table, automation, or storeSubmission: true must be set.',
+      'Where a submission goes: a table row, an automation run, the built-in submission ledger, or any combination of the three. At least one is required.',
   })
-)
+  .pipe(
+    Schema.check(
+      Schema.makeFilter((s) =>
+        s.table !== undefined || s.automation !== undefined || s.storeSubmission !== false
+          ? true
+          : 'submitTo must specify at least one of: table, automation, storeSubmission: true'
+      )
+    ),
+    Schema.annotate({
+      identifier: 'SubmitTo',
+      title: 'Submit-To Destination',
+      description:
+        'Where a form submission is persisted and/or routed. At least one of table, automation, or storeSubmission: true must be set.',
+    })
+  )
 
 /** @public */
 export type SubmitTo = Schema.Schema.Type<typeof SubmitToSchema>

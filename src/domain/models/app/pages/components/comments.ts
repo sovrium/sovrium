@@ -25,8 +25,8 @@ export const CommentsComponentSchema = Schema.Struct({
   /** Number of comments to load per page (default: 20) */
   limit: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Number of comments per page (default: 20)' })
+      Schema.annotate({ description: 'Number of comments per page (default: 20)' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 

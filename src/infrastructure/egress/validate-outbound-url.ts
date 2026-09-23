@@ -145,3 +145,18 @@ const classifyIpv4 = (host: string): OutboundUrlReason | undefined => {
   const b = Number(ipv4Match[2])
   return IPV4_PRIVATE_RANGES.find((range) => range.match(a, b))?.reason
 }
+
+/**
+ * Whether `hostname` names a private, loopback or link-local target.
+ *
+ * The same classification {@link validateOutboundUrl} applies, read WITHOUT
+ * the relaxation flag in front of it. Exported because a caller can need the
+ * shape of the host independently of whether the operator has opted out of the
+ * guard — `sovrium init --from-url` relaxes its https-only rule for a local
+ * fixture and must not relax it for a public host at the same time, and the
+ * opt-out alone cannot tell those apart.
+ *
+ * @public
+ */
+export const isPrivateOutboundHost = (hostname: string): boolean =>
+  classifyHost(stripIpv6Brackets(hostname.toLowerCase())) !== undefined

@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const StateIncrementActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('state'),
-  operator: Schema.Literal('increment'),
+  type: Schema.Literal('state').pipe(
+    Schema.annotate({
+      description: "Constant value 'state' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('increment').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'state' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** State key to increment */
     key: TemplateStringSchema.pipe(
@@ -39,13 +48,15 @@ export const StateIncrementActionSchema = Schema.Struct({
     /** Optional namespace for key isolation */
     namespace: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
         Schema.annotate({
           description:
             'Namespace for key isolation (lowercase alphanumeric with hyphens, starts with letter)',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/))
       )
     ),
+  }).annotate({
+    description: 'Which counter is raised, by how much, and in which namespace.',
   }),
 }).pipe(
   Schema.annotate({

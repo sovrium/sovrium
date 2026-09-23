@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const FlowStopActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('flow'),
-  operator: Schema.Literal('stop'),
+  type: Schema.Literal('flow').pipe(
+    Schema.annotate({
+      description: "Constant value 'flow' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('stop').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'flow' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Human-readable message explaining why execution was stopped */
     message: Schema.optional(
@@ -33,6 +42,7 @@ export const FlowStopActionSchema = Schema.Struct({
     status: Schema.optional(
       Schema.Literals(['success', 'error']).pipe(
         Schema.annotate({
+          defaultNote: 'error',
           description: 'Stop status: success or error (default: error)',
         })
       )
@@ -46,6 +56,8 @@ export const FlowStopActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description: 'Why the run is stopped, and what it reports back.',
   }),
 }).pipe(
   Schema.annotate({

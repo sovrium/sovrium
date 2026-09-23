@@ -11,14 +11,18 @@ import { BaseFieldSchema } from '../base-field'
 
 export const LookupFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('lookup'),
+    type: Schema.Literal('lookup').pipe(
+      Schema.annotate({
+        description: "Constant value 'lookup' for type discrimination in discriminated unions",
+      })
+    ),
     relationshipField: Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'relationshipField is required' })),
-      Schema.annotate({ description: 'Name of the relationship field to lookup from' })
+      Schema.annotate({ description: 'Name of the relationship field to lookup from' }),
+      Schema.check(Schema.isNonEmpty({ message: 'relationshipField is required' }))
     ),
     relatedField: Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'relatedField is required' })),
-      Schema.annotate({ description: 'Name of the field in the related table to display' })
+      Schema.annotate({ description: 'Name of the field in the related table to display' }),
+      Schema.check(Schema.isNonEmpty({ message: 'relatedField is required' }))
     ),
     filters: Schema.optional(
       ViewFiltersSchema.pipe(

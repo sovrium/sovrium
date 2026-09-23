@@ -20,7 +20,11 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const AutonumberFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('autonumber'),
+    type: Schema.Literal('autonumber').pipe(
+      Schema.annotate({
+        description: "Constant value 'autonumber' for type discrimination in discriminated unions",
+      })
+    ),
   }),
   Schema.annotate({
     title: 'Autonumber Field',

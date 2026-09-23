@@ -25,7 +25,7 @@
  *   )}/>
  *
  * {@link TOKENS} is GENERATED from
- * `apps/admin/config/design.ts` — the same source the
+ * `src/admin/config/design.ts` — the same source the
  * theme layer is emitted from — so a tenant who already overrides `--sv-*` sees
  * the SAME computed value either way; only the load-order story changes (the
  * island carries its own default instead of depending on the theme layer being

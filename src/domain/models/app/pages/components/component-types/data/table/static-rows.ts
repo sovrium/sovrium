@@ -46,17 +46,21 @@ import { Schema } from 'effect'
  */
 export const staticRowFields = {
   tableHeaders: Schema.optional(
-    Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Column header labels for a table with authored rows' })
+    Schema.Array(Schema.String.annotate({ description: 'One column header label' })).pipe(
+      Schema.annotate({ description: 'Column header labels for a table with authored rows' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   tableRows: Schema.optional(
-    Schema.Array(Schema.Array(Schema.String)).pipe(
-      Schema.check(Schema.isMinLength(1)),
+    Schema.Array(
+      Schema.Array(
+        Schema.String.annotate({ description: 'One cell, in the order the headers declare' })
+      ).annotate({ description: 'One row: one string per column' })
+    ).pipe(
       Schema.annotate({
         description: 'Row data as an array of string arrays, written in the config',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   caption: Schema.optional(

@@ -42,11 +42,15 @@ export const FilterOperatorSchema = Schema.Literals([
 export const CurrentUserPathSchema = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal('scalar'),
-    name: Schema.Literals(['id', 'email', 'role', 'isUnrestricted']),
+    name: Schema.Literals(['id', 'email', 'role', 'isUnrestricted']).annotate({
+      description: 'Which property of the signed-in person the value is taken from.',
+    }),
   }),
   Schema.Struct({
     kind: Schema.Literal('assignment'),
-    tableSlug: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+    tableSlug: Schema.String.annotate({
+      description: 'Table the signed-in person is assigned through.',
+    }).pipe(Schema.check(Schema.isMinLength(1))),
   }),
   Schema.Struct({
     kind: Schema.Literal('activeAssignment'),
@@ -91,7 +95,9 @@ export type CurrentUserRef = Schema.Schema.Type<typeof CurrentUserRefSchema>
  */
 export const RouteParamRefSchema = Schema.Struct({
   kind: Schema.Literal('routeParam'),
-  name: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  name: Schema.String.annotate({
+    description: 'Name of the route parameter whose value is read from the page address.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
 }).annotate({
   identifier: 'RouteParamRef',
   title: 'Route Parameter Reference',
@@ -248,11 +254,11 @@ export const PaginationStyleSchema = Schema.Literals(['numbered', 'loadMore', 'i
 export const PaginationSchema = Schema.Struct({
   /** Number of records per page */
   pageSize: Schema.Finite.pipe(
-    Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
     Schema.annotate({
       description: 'Number of records per page',
       examples: [10, 20, 50],
-    })
+    }),
+    Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
   ),
   /** Pagination UI style — omitted means `numbered`, never "no control" */
   style: Schema.optional(PaginationStyleSchema),
@@ -273,7 +279,7 @@ export const SearchEngineSchema = Schema.Literals(['client', 'fts', 'trigram', '
   identifier: 'SearchEngine',
   title: 'Search Engine',
   description:
-    "Search backend: 'client' (browser JS), 'fts' (PostgreSQL FTS), 'trigram' (pg_trgm fuzzy), 'hybrid' (FTS + trigram)",
+    "Search backend. Only 'client' (browser JS over the fetched rows) is implemented and it is the default; 'fts', 'trigram' and 'hybrid' are reserved names that validate and behave exactly like 'client' until the server-side engines land.",
 })
 
 /**
@@ -360,13 +366,17 @@ export const SharedFilterBindingSchema = Schema.Struct({
    * param bag verbatim.
    */
   params: Schema.optional(
-    Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(1)),
+    Schema.Array(
+      Schema.String.annotate({
+        description: 'One request-param key, as the bound publisher names it',
+      })
+    ).pipe(
       Schema.annotate({
         description:
           "Request-param keys this subscriber consumes from the shared publisher's value bag (omit to merge the full bag verbatim)",
         examples: [['status'], ['automationName', 'status'], ['from', 'to']],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).annotate({
@@ -443,12 +453,12 @@ export const SharedFilterPublisherSchema = Schema.Struct({
    * contributing its own `param`.
    */
   bindTo: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description:
         "Shared-filter channel id this control publishes on (the string a subscriber's bindTo names)",
       examples: ['runs-filter', 'period'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /**
    * The request-param key this control's current value is published under.
@@ -459,11 +469,11 @@ export const SharedFilterPublisherSchema = Schema.Struct({
    * a filter that validates and quietly narrows nothing.
    */
   param: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: "Request-param key this control's value is published under",
       examples: ['automationName', 'status', 'period'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).annotate({
   identifier: 'SharedFilterPublisher',
@@ -562,12 +572,16 @@ export const DataSourceSchema = Schema.Struct({
   }),
   /** Optional subset of fields to fetch (validated against table schema) */
   fields: Schema.optional(
-    Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(1)),
+    Schema.Array(
+      Schema.String.annotate({
+        description: 'One field name, spelled as the bound table declares it',
+      })
+    ).pipe(
       Schema.annotate({
         description: 'Specific fields to fetch from the table',
         examples: [['title', 'author', 'createdAt']],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Data fetching mode */
@@ -597,37 +611,41 @@ export const DataSourceSchema = Schema.Struct({
   searchEngine: Schema.optional(
     SearchEngineSchema.annotate({
       description:
-        "Search backend for this data source (default: 'client'). Same table can use different engines on different pages.",
+        "Search backend for this data source (default: 'client'). Only 'client' is dispatched today; the other three validate and search as 'client' does.",
     })
   ),
   /** Fields to search across (search mode only) */
   searchFields: Schema.optional(
-    Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(1)),
+    Schema.Array(
+      Schema.String.annotate({
+        description: 'One field name the search term is matched against',
+      })
+    ).pipe(
       Schema.annotate({
         description: 'Fields to search across in search mode',
         examples: [['name', 'description']],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Debounce delay for search input in milliseconds */
   debounceMs: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
       Schema.annotate({
         description: 'Debounce delay for search input (ms)',
         examples: [300, 500],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
     )
   ),
   /** Maximum number of results (search mode) */
   limit: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
         description: 'Maximum number of results to return',
         examples: [10, 20, 50],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
   /** Publisher-side identifier for cross-component references */
@@ -672,12 +690,13 @@ export const DataSourceSchema = Schema.Struct({
    */
   pollIntervalMs: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 300_000 })),
       Schema.annotate({
         description:
-          'Polling interval in milliseconds for refreshMode: poll (min 1000, max 300000)',
+          "Polling interval in milliseconds for refreshMode: poll (min 1000, max 300000). Defaults to 30000 when omitted, and is ignored unless refreshMode is 'poll'.",
+        defaultNote: '30000',
         examples: [3000, 5000, 10_000],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 300_000 }))
     )
   ),
 }).annotate({

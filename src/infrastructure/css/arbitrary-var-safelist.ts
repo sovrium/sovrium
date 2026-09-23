@@ -37,7 +37,7 @@
  * `${…}` placeholder), not the resolved value — so it never generates a
  * matching CSS rule. The element then paints with no background on
  * platforms where the @theme tokens haven't supplied a default, which is
- * exactly what fired on `[internal ref]` for the design-system
+ * exactly what fired on the Linux CI runner for the design-system
  * @regression suite (transparent select trigger, context-menu popup,
  * comments thread surface, ai-chat send button, etc.).
  *

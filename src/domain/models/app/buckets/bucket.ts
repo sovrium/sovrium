@@ -28,13 +28,13 @@ import { BucketPermissionsSchema } from './permissions'
  * ```
  */
 export const BucketNameSchema = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(63)),
   Schema.annotate({
     title: 'Bucket Name',
     description:
       'Bucket name: lowercase, alphanumeric, hyphens. Must start with a letter. Max 63 characters.',
     examples: ['avatars', 'documents', 'public-assets', 'user-uploads'],
-  })
+  }),
+  Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(63))
 )
 
 /** @public */
@@ -86,6 +86,7 @@ export const BucketSchema = Schema.Struct({
   public: Schema.optional(
     Schema.Boolean.pipe(
       Schema.annotate({
+        defaultNote: 'false',
         description:
           'Whether files are publicly accessible. Defaults to false (private). Public buckets serve files without signed URLs.',
       })
@@ -96,11 +97,11 @@ export const BucketSchema = Schema.Struct({
    *  Overrides the global STORAGE_MAX_FILE_SIZE env var for this bucket. */
   maxFileSize: Schema.optional(
     Schema.Int.pipe(
-      Schema.check(Schema.isGreaterThanOrEqualTo(1)),
       Schema.annotate({
         description: 'Maximum file size in bytes. Overrides global STORAGE_MAX_FILE_SIZE.',
         examples: [2_097_152, 10_485_760, 52_428_800],
-      })
+      }),
+      Schema.check(Schema.isGreaterThanOrEqualTo(1))
     )
   ),
 
@@ -108,7 +109,6 @@ export const BucketSchema = Schema.Struct({
    *  When omitted, all file types are accepted. */
   allowedMimeTypes: Schema.optional(
     Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           "Allowed MIME types for uploads. Supports wildcards (e.g., 'image/*'). When omitted, all types accepted.",
@@ -117,7 +117,8 @@ export const BucketSchema = Schema.Struct({
           ['application/pdf', 'text/csv'],
           ['image/*'],
         ],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 
@@ -180,26 +181,33 @@ export type Bucket = Schema.Schema.Type<typeof BucketSchema>
  *       delete: ['admin']
  * ```
  */
-export const BucketsSchema = Schema.Array(BucketSchema).pipe(
-  Schema.check(
-    Schema.makeFilter((buckets) => {
-      // Check for duplicate bucket names
-      const names = buckets.map((b) => b.name)
-      const uniqueNames = new Set(names)
-      if (uniqueNames.size !== names.length) {
-        const duplicates = names.filter((name, i) => names.indexOf(name) !== i)
-        return `Duplicate bucket names: ${duplicates.join(', ')}`
-      }
-
-      return undefined
-    })
-  ),
-  Schema.annotate({
-    identifier: 'Buckets',
-    title: 'Buckets',
+export const BucketsSchema = Schema.Array(BucketSchema)
+  // Annotated BEFORE the checks: a description piped after a `makeFilter` check
+  // never reaches the published JSON Schema, because the filter emits no node.
+  .annotate({
     description:
-      'Array of named storage buckets. Each bucket has its own permissions, file constraints, and public/private toggle.',
+      'Places uploaded files are kept, each with its own name, permissions, size and type limits, and public or private access.',
   })
-)
+  .pipe(
+    Schema.check(
+      Schema.makeFilter((buckets) => {
+        // Check for duplicate bucket names
+        const names = buckets.map((b) => b.name)
+        const uniqueNames = new Set(names)
+        if (uniqueNames.size !== names.length) {
+          const duplicates = names.filter((name, i) => names.indexOf(name) !== i)
+          return `Duplicate bucket names: ${duplicates.join(', ')}`
+        }
+
+        return undefined
+      })
+    ),
+    Schema.annotate({
+      identifier: 'Buckets',
+      title: 'Buckets',
+      description:
+        'Array of named storage buckets. Each bucket has its own permissions, file constraints, and public/private toggle.',
+    })
+  )
 
 export type Buckets = Schema.Schema.Type<typeof BucketsSchema>

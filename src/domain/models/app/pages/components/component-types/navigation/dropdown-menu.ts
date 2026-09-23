@@ -19,6 +19,7 @@ export const dropdownMenuFields = {
   ...i18nFields,
   triggerLabel: Schema.optional(
     Schema.String.annotate({
+      defaultNote: 'Menu',
       description: 'Text displayed on the trigger button. Defaults to "Menu" if omitted.',
     })
   ),
@@ -42,8 +43,8 @@ export const dropdownMenuFields = {
   ),
   menuItems: Schema.optional(
     Schema.Array(MenuItemSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Menu items for dropdown-menu' })
+      Schema.annotate({ description: 'Menu items for dropdown-menu' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 } as const

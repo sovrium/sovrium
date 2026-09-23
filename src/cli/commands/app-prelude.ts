@@ -28,7 +28,7 @@
  * nothing else.
  */
 
-import { Effect } from 'effect'
+import { Cause, Effect } from 'effect'
 import { formatDiscoveredConfigNotice } from '@/domain/kernel/config-parsing/default-config-files'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { lazyImportSchema } from './utils'
@@ -109,5 +109,85 @@ export const applyDatabaseMigrations = async (app: App): Promise<void> => {
       yield* runMigrations(parseDatabaseDialectConfig())
       yield* initializeSchema(app)
     })
+  )
+}
+
+/**
+ * Why {@link applyDatabaseMigrations} would REFUSE this config, asked without
+ * applying anything.
+ *
+ * Read-only against the live database, and the same planner
+ * `sovrium migrate --dry-run` reports from — the two must not be able to
+ * disagree about whether a change is possible, and the words an operator reads
+ * from a `--watch` refusal are the words they would read from the command.
+ *
+ * ## Why it lives in the prelude rather than beside its caller
+ *
+ * This file and `migrate*.ts` are the enumerated set of CLI files permitted to
+ * open the database (`cli-database` in `[internal ref]`), and that
+ * enumeration is the enforcement mechanism rather than an accident of history:
+ * a directory glob would admit a new database-touching command silently. The
+ * `--watch` pre-flight needs exactly this one read, so it asks for it HERE and
+ * the set of files that may open a database is unchanged.
+ *
+ * ## A planner that could not RUN answers UNKNOWN, not "nothing in the way"
+ *
+ * An unreachable or unreadable database has not refused a change; it has failed
+ * to answer. Those two are different verdicts and they used to be the same
+ * value — this resolved `[]` on any error, which a caller cannot tell from
+ * "nothing knowable stands in the way".
+ *
+ * MEASURED, and the cost was a total outage. The `--watch` pre-flight read the
+ * empty list as a pass, `restartServer` stopped the listener, the boot failed on
+ * the same unreadable database, and the rollback failed on it too:
+ * `[server] stopped` followed by `the previous configuration could not be
+ * restored either`. The earlier reasoning — "let the boot reach its own verdict a
+ * moment later" — rested on the rollback being a net, and this is the case where
+ * the net is made of the same material as the fall.
+ *
+ * So the outcome is a union, and the caller decides. Refusing is strictly better
+ * on both branches: if the obstruction is transient the operator still has a
+ * serving port and saves again, and if it is not, they get a message naming the
+ * cause instead of a dead socket. Nothing is lost, because a pre-flight that
+ * cannot read the schema was never going to make the migration succeed.
+ *
+ * @public
+ */
+export type DatabasePlanOutcome =
+  /** The planner ran. `refusals` may be empty, and empty means what it says. */
+  | { readonly kind: 'planned'; readonly refusals: readonly string[] }
+  /** The planner could not ask the database. `cause` is what stopped it. */
+  | { readonly kind: 'unanswerable'; readonly cause: string }
+
+/** The sentence a cause carries, without its tag. */
+const describePlanCause = (cause: unknown): string =>
+  cause instanceof Error ? cause.message : String(cause)
+
+export const planDatabaseRefusals = async (app: App): Promise<DatabasePlanOutcome> => {
+  const { parseDatabaseDialectConfig } =
+    await import('@/domain/models/process-env/database/database-dialect')
+  const { planConfigTableChanges } = await import('@/infrastructure/database/schema/schema-dry-run')
+
+  // `planConfigTableChanges` declares `E = never` — it opens its own read-only
+  // handle inside `Effect.sync`, so a database that cannot be opened arrives as a
+  // DEFECT rather than a typed failure. `catchCause` is therefore the one arm that
+  // sees it, and `tapCause` sits BEFORE the recovery so the cause is logged rather
+  // than only summarised into a sentence (standing rule E6).
+  return Effect.runPromise(
+    planConfigTableChanges(app, parseDatabaseDialectConfig()).pipe(
+      Effect.map((changes): DatabasePlanOutcome => ({
+        kind: 'planned',
+        refusals: changes.flatMap((change) => change.refusals),
+      })),
+      Effect.tapCause((cause) =>
+        Effect.logError('The migration pre-flight could not read the database', cause)
+      ),
+      Effect.catchCause((cause) =>
+        Effect.succeed<DatabasePlanOutcome>({
+          kind: 'unanswerable',
+          cause: describePlanCause(Cause.squash(cause)),
+        })
+      )
+    )
   )
 }

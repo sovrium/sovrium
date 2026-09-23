@@ -17,14 +17,14 @@ import { Schema } from 'effect'
  * - No spaces, no uppercase letters
  */
 const ViewIdStringSchema = Schema.String.pipe(
+  Schema.annotate({
+    description: 'View ID as string (lowercase, numbers, underscores, hyphens only)',
+  }),
   Schema.check(
     Schema.isPattern(/^[a-z0-9_-]+$/, {
       message: 'must be one of the allowed values',
     })
-  ),
-  Schema.annotate({
-    description: 'View ID as string (lowercase, numbers, underscores, hyphens only)',
-  })
+  )
 )
 
 /**

@@ -39,7 +39,12 @@ import { Result, Schema } from 'effect'
 import { validateComputedFieldForeignKeys } from '@/application/use-cases/tables/validate-computed-field-foreign-keys'
 import { reportPrototypePollutingKeys } from '@/domain/kernel/config-parsing/prototype-key-guard'
 import { AppSchema } from '@/domain/models/app'
-import { buildDecodeIssueReport } from '@/domain/models/app/app-excess-property-report'
+import {
+  collectDecodeFindings,
+  formatDecodeReport,
+  messageAsConfigFinding,
+  toConfigFindings,
+} from '@/domain/models/app/app-excess-property-report'
 import { validatePreviewOptionPaths } from '@/domain/models/app/design/preview-option-validation'
 import { collectSupersededDesignNotices } from '@/domain/models/app/design/superseded-notices'
 import { validateComponentFieldReferences } from '@/domain/models/app/pages/components/component-field-references'
@@ -49,7 +54,9 @@ import {
   validateRowColorFields,
 } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import { validateTableNameReferences } from '@/domain/models/app/pages/table-name-references'
+import { collectImplicitFieldIdNotices } from '@/domain/models/app/tables/implicit-field-id-validation'
 import type { App } from '@/domain/models/app'
+import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
 
 /**
  * Options every entry point may pass.
@@ -92,6 +99,22 @@ export type DecodeAppConfigResult =
   | {
       readonly valid: false
       readonly errors: readonly string[]
+      /**
+       * The SAME refusal, located and structured for a program.
+       *
+       * Additive beside `errors`, never a replacement: every existing caller
+       * prints the prose and must keep doing so. What this adds is the reader
+       * that is not a person — `sovrium validate --json`, the status file a
+       * running instance publishes, the message a refused `--watch` save pushes
+       * to an open page — none of which can act on a sentence without parsing it
+       * back apart, each in its own way.
+       *
+       * Never empty when `valid` is false. A complaint this pipeline cannot
+       * locate is published with an empty `path` rather than dropped, so a
+       * caller reading only this field still sees every reason the config was
+       * refused.
+       */
+      readonly findings: readonly ConfigFinding[]
     }
 
 const EMPTY_REF_SOURCES: ReadonlyMap<string, string> = new Map<string, string>()
@@ -144,13 +167,29 @@ const dedupeMessageBlocks = (message: string): readonly string[] =>
  * `excess-property-report.ts` for the union titles v4's formatter stopped
  * reading off the AST.
  */
-const formatDecodeError = (
+const describeDecodeError = (
   error: Readonly<Schema.SchemaError>,
   refSources: ReadonlyMap<string, string>
-): readonly string[] => {
-  const reportLines = buildDecodeIssueReport(error.issue, refSources)
-  return reportLines.length > 0 ? reportLines : dedupeMessageBlocks(error.message)
+): { readonly errors: readonly string[]; readonly findings: readonly ConfigFinding[] } => {
+  const decodeFindings = collectDecodeFindings(error.issue)
+  const reportLines = formatDecodeReport(decodeFindings, refSources)
+  // The two channels are derived from ONE walk, so they cannot describe
+  // different mistakes. When the reporter has nothing to say the prose falls
+  // back to the decoder's own message, and the structured half falls back with
+  // it rather than going silent — an empty `findings` on a refused config would
+  // read to a program as "refused for no reason".
+  return reportLines.length > 0
+    ? { errors: reportLines, findings: toConfigFindings(decodeFindings, refSources) }
+    : refusalFromMessages(dedupeMessageBlocks(error.message))
 }
+
+/** A refusal this pipeline can name but not locate, on both channels. */
+const refusalFromMessages = (
+  errors: readonly string[]
+): { readonly errors: readonly string[]; readonly findings: readonly ConfigFinding[] } => ({
+  errors,
+  findings: errors.map((message) => messageAsConfigFinding(message)),
+})
 
 /**
  * The cross-field rules the per-property decode cannot express.
@@ -256,7 +295,7 @@ export const decodeAppConfigObject = (
   // deliberately NOT covered.
   const pollutingKeys = reportPrototypePollutingKeys(parsed)
   if (pollutingKeys.length > 0) {
-    return { valid: false, errors: pollutingKeys }
+    return { valid: false, ...refusalFromMessages(pollutingKeys) }
   }
 
   // `reportInput: true` is NOT cosmetic and NOT the v4 default. Without it a
@@ -266,22 +305,33 @@ export const decodeAppConfigObject = (
   // `sovrium validate` prints. Probed against effect@3.22.1 side by side.
   //
   // The upstream caveat is that reported input can disclose secrets or PII
-  // through the message. That is acceptable HERE and only here: the input is
-  // the operator's own config file and every consumer of this result prints it
-  // back to that same operator (CLI stdout, the boot log, an automation run
-  // they triggered). It is also exactly what v3 did. Do not copy this option to
-  // a decode whose input comes from an untrusted request body.
+  // through the message, and an `env:` block written as a mapping rather than a
+  // list is exactly that: the rejected value is a credential by definition.
+  //
+  // It is accepted on the PROSE channel, and only there. The reader of
+  // `errors[]` is the operator who wrote the file, printing back what they typed
+  // is what v3 did, and the value is the part they act on. The `findings[]`
+  // channel is a different reader — a status file left on disk, an
+  // unauthenticated dev stream, `--json` output going wherever its caller sends
+  // it, an assistant's transcript — so THE ECHO RULE in
+  // `app-excess-property-report.ts` strips the value out of every finding this
+  // result carries. The two halves of one decode deliberately differ.
+  //
+  // Still do not copy this option to a decode whose input comes from an
+  // untrusted body: the prose half would then echo somebody else's document into
+  // the operator's terminal. `init --from-url` is that case and reads the
+  // stripped `findings` instead.
   const decoded = Schema.decodeUnknownResult(AppSchema, {
     onExcessProperty: 'error',
     reportInput: true,
   })(parsed)
   if (Result.isFailure(decoded)) {
-    return { valid: false, errors: formatDecodeError(decoded.failure, refSources) }
+    return { valid: false, ...describeDecodeError(decoded.failure, refSources) }
   }
 
   const semanticErrors = runSemanticChecks(decoded.success, parsed)
   if (semanticErrors.length > 0) {
-    return { valid: false, errors: semanticErrors }
+    return { valid: false, ...refusalFromMessages(semanticErrors) }
   }
 
   const { name } = parsed as Record<string, unknown>
@@ -290,6 +340,12 @@ export const decodeAppConfigObject = (
     name: typeof name === 'string' ? name : 'unnamed',
     app: decoded.success,
     raw: parsed,
-    notices: collectSupersededDesignNotices(decoded.success),
+    notices: [
+      ...collectSupersededDesignNotices(decoded.success),
+      // Reads `parsed`, not `decoded`: by the time AppSchema has run, every
+      // field carries an id and the distinction has been erased. This is the
+      // one notice that can only be derived from the document as written.
+      ...collectImplicitFieldIdNotices(parsed),
+    ],
   }
 }

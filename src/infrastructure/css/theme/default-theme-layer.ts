@@ -67,7 +67,7 @@
  * `:where(.dark, [data-theme='dark'])` — the `.dark` arm matches the live
  * toggle, the `[data-theme='dark']` arm matches the legacy authored convention.
  *
- * Source of truth: `apps/admin/config/design.ts`.
+ * Source of truth: `src/admin/config/design.ts`.
  * Every constant re-exported below is GENERATED from it by
  * `bun run build:default-design` — this module is the name every importer uses
  * and the place the prose lives, not the place the values live. Semantic

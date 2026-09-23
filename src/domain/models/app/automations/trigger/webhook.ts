@@ -94,16 +94,16 @@ const WebhookResponseSchema = Schema.Struct({
   /** HTTP status code to return */
   statusCode: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 100, maximum: 599 })),
-      Schema.annotate({ description: 'HTTP status code to return' })
+      Schema.annotate({ description: 'HTTP status code to return' }),
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 100, maximum: 599 }))
     )
   ),
 
   /** HTTP status code (alias for statusCode) */
   status: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 100, maximum: 599 })),
-      Schema.annotate({ description: 'HTTP status code to return (alias for statusCode)' })
+      Schema.annotate({ description: 'HTTP status code to return (alias for statusCode)' }),
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 100, maximum: 599 }))
     )
   ),
 
@@ -135,24 +135,24 @@ const WebhookRateLimitSchema = Schema.Struct({
   /** Maximum number of requests in the window */
   maxRequests: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Maximum requests per window' })
+      Schema.annotate({ description: 'Maximum requests per window' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 
   /** Time window in seconds */
   windowSeconds: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Rate limit window in seconds' })
+      Schema.annotate({ description: 'Rate limit window in seconds' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 
   /** Time window in seconds (alias for windowSeconds) */
   window: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Rate limit window in seconds (alias)' })
+      Schema.annotate({ description: 'Rate limit window in seconds (alias)' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 }).pipe(
@@ -164,7 +164,11 @@ const WebhookRateLimitSchema = Schema.Struct({
 )
 
 export const WebhookTriggerSchema = Schema.Struct({
-  type: Schema.Literal('webhook'),
+  type: Schema.Literal('webhook').pipe(
+    Schema.annotate({
+      description: "Constant value 'webhook' for type discrimination in discriminated unions",
+    })
+  ),
   method: Schema.Union([
     Schema.Literals(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
     Schema.Array(Schema.Literals(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])).pipe(
@@ -183,10 +187,19 @@ export const WebhookTriggerSchema = Schema.Struct({
       })
     )
   ),
+  /**
+   * The default is FALSE, and the read site is what decides it: the async
+   * dispatcher is entered only on `respondImmediately === true`
+   * (`webhook-handler.ts`), so an omitted value takes the synchronous path and
+   * the caller waits for the run. The annotation below said "default: true"
+   * for as long as this property existed, which is the opposite of what ships.
+   */
   respondImmediately: Schema.optional(
     Schema.Boolean.pipe(
       Schema.annotate({
-        description: 'Respond with 202 immediately or wait for completion (default: true)',
+        defaultNote: 'false',
+        description:
+          'Answer 202 as soon as the run is queued instead of holding the request open until it finishes. Omitted, the caller waits for the run to complete.',
       })
     )
   ),
@@ -236,8 +249,11 @@ export const WebhookTriggerSchema = Schema.Struct({
    */
   deduplicationWindow: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Dedup window in seconds (default: 300)' })
+      Schema.annotate({
+        defaultNote: '300',
+        description: 'Dedup window in seconds (default: 300)',
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 }).pipe(

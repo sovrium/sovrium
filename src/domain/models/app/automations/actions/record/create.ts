@@ -15,12 +15,21 @@ import { ActionBaseFields } from '../base'
  */
 export const RecordCreateActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('record'),
-  operator: Schema.Literal('create'),
+  type: Schema.Literal('record').pipe(
+    Schema.annotate({
+      description: "Constant value 'record' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('create').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'record' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     table: Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Target table name' })
+      Schema.annotate({ description: 'Target table name' }),
+      Schema.check(Schema.isMinLength(1))
     ),
     data: Schema.Record(Schema.String, Schema.Unknown).pipe(
       Schema.annotate({ description: 'Record field values (supports template variables)' })
@@ -33,6 +42,8 @@ export const RecordCreateActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description: 'The table to insert into, the values to write, and whose permissions apply.',
   }),
 }).pipe(
   Schema.annotate({

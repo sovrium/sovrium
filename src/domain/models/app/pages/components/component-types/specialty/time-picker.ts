@@ -30,10 +30,10 @@ export const timePickerFields = {
   ),
   minuteStep: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
         description: 'Minute increment for time selection (default: 15)',
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 } as const

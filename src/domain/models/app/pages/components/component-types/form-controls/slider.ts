@@ -18,8 +18,8 @@ export const sliderFields = {
   max: Schema.optional(Schema.Finite.annotate({ description: 'Maximum value for slider' })),
   step: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Step increment for slider' })
+      Schema.annotate({ description: 'Step increment for slider' }),
+      Schema.check(Schema.isGreaterThan(0))
     )
   ),
   showValue: Schema.optional(

@@ -28,7 +28,9 @@ import { ActionResponseSchema, ToastVariantSchema } from './action-response'
  * ```
  */
 export const FilterActionSchema = Schema.Struct({
-  type: Schema.Literal('filter'),
+  type: Schema.Literal('filter').annotate({
+    description: 'Which kind of action this is. It decides which of the other keys apply.',
+  }),
   /** Target data source ID to apply filter to */
   targetDataSource: Schema.String.annotate({
     description: 'ID of the data source to filter (matches dataSource.targetId)',
@@ -75,7 +77,9 @@ export const FilterActionSchema = Schema.Struct({
  * ```
  */
 export const NavigateActionSchema = Schema.Struct({
-  type: Schema.Literal('navigate'),
+  type: Schema.Literal('navigate').annotate({
+    description: 'Which kind of action this is. It decides which of the other keys apply.',
+  }),
   /** Destination URL path. Supports `$record.X` substitution. */
   path: Schema.String.annotate({
     description: 'Destination URL path (supports $record.X substitution)',
@@ -113,7 +117,9 @@ export const NavigateActionSchema = Schema.Struct({
  * ```
  */
 export const ToastActionSchema = Schema.Struct({
-  type: Schema.Literal('toast'),
+  type: Schema.Literal('toast').annotate({
+    description: 'Which kind of action this is. It decides which of the other keys apply.',
+  }),
   /** Message to display. Supports $variable references. */
   message: Schema.String.annotate({
     description: 'Toast notification message. Supports $variable references.',
@@ -123,11 +129,11 @@ export const ToastActionSchema = Schema.Struct({
   /** Auto-dismiss duration in milliseconds */
   duration: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
         description: 'Auto-dismiss duration in milliseconds (default: 5000)',
         examples: [2000, 5000, 10_000],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 }).annotate({
@@ -164,7 +170,10 @@ export const ToastActionSchema = Schema.Struct({
  */
 export const OpenDrawerActionSchema = Schema.Struct({
   /** Discriminator literal — matches `action: openDrawer` in YAML/JSON */
-  action: Schema.Literal('openDrawer'),
+  action: Schema.Literal('openDrawer').annotate({
+    description:
+      'Set to `openDrawer` to open a sibling drawer instead of running one of the `type` actions.',
+  }),
   /**
    * ID of the drawer component to open. Must match a sibling
    * `{ type: 'drawer', id: '<this-value>' }` component on the same page.
@@ -178,8 +187,8 @@ export const OpenDrawerActionSchema = Schema.Struct({
     Schema.Struct({
       width: Schema.optional(
         Schema.Finite.pipe(
-          Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-          Schema.annotate({ description: 'Drawer width in pixels for this trigger instance' })
+          Schema.annotate({ description: 'Drawer width in pixels for this trigger instance' }),
+          Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
         )
       ),
     }).annotate({

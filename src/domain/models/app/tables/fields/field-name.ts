@@ -24,7 +24,10 @@ import { createDatabaseIdentifierSchema } from '@/domain/kernel/sql/database-ide
  * 'created_at'
  * ```
  */
-export const FieldNameSchema = createDatabaseIdentifierSchema('field').pipe(
+export const FieldNameSchema = createDatabaseIdentifierSchema(
+  'field',
+  'Internal identifier for the field: the database column name, and the key used in API payloads and formulas. Use `label` for the name end users read.'
+).pipe(
   Schema.annotate({
     title: 'Field Name',
     description:

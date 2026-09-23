@@ -12,8 +12,13 @@ import { commonFieldProps } from '../form-field-props'
  * Signature field — captures a hand-drawn or typed signature.
  */
 export const SignatureFieldSchema = Schema.Struct({
-  kind: Schema.Literal('signature'),
-  name: Schema.String.pipe(Schema.check(Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_-]*$/))),
+  kind: Schema.Literal('signature').annotate({
+    description: 'Which kind of field this is. It decides which of the other keys apply.',
+  }),
+  name: Schema.String.annotate({
+    description:
+      'Identifier for this field within the form; it is the key the answer is stored and reported under.',
+  }).pipe(Schema.check(Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_-]*$/))),
   ...commonFieldProps,
 }).annotate({
   identifier: 'SignatureField',

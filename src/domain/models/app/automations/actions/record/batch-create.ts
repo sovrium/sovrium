@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const RecordBatchCreateActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('record'),
-  operator: Schema.Literal('batchCreate'),
+  type: Schema.Literal('record').pipe(
+    Schema.annotate({
+      description: "Constant value 'record' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('batchCreate').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'record' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Target table name */
     table: TemplateStringSchema.pipe(
@@ -49,10 +58,13 @@ export const RecordBatchCreateActionSchema = Schema.Struct({
     continueOnItemError: Schema.optional(
       Schema.Boolean.pipe(
         Schema.annotate({
+          defaultNote: 'false',
           description: 'Continue processing remaining items if one fails (default: false)',
         })
       )
     ),
+  }).annotate({
+    description: 'The table, and the records to insert in one go.',
   }),
 }).pipe(
   Schema.annotate({

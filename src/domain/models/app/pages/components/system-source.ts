@@ -66,11 +66,11 @@ import { SharedFilterBindingSchema } from './data-source'
 export const SystemSourceSchema = Schema.Struct({
   /** The named read endpoint to fetch rows from (required) */
   endpoint: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Read endpoint path to fetch rows from (e.g. /api/admin/automations/runs)',
       examples: ['/api/admin/automations/runs'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** Array key in the response envelope (default: 'items') */
   rowsKey: Schema.optional(
@@ -100,12 +100,12 @@ export const SystemSourceSchema = Schema.Struct({
    */
   param: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           "Route parameter substituted into the endpoint's :param placeholder. Must be declared by the host page's path.",
         examples: ['group', 'table', 'link'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** Row id key used to identify rows (default: 'id') */

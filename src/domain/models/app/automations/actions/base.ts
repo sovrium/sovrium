@@ -14,11 +14,11 @@ import { RetryConfigSchema } from '../retry'
 export const ActionBaseFields = {
   /** Unique step name within the automation (used for template variable references) */
   name: Schema.String.pipe(
-    Schema.check(Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_]*$/)),
     Schema.annotate({
       description:
         'Step name for referencing outputs (e.g., "fetchUser"). Must be alphanumeric + underscore.',
-    })
+    }),
+    Schema.check(Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_]*$/))
   ),
 
   /** Human-readable label (optional) */
@@ -35,6 +35,7 @@ export const ActionBaseFields = {
   continueOnError: Schema.optional(
     Schema.Boolean.pipe(
       Schema.annotate({
+        defaultNote: 'false',
         description: 'Continue workflow even if this action fails (default: false)',
       })
     )
@@ -52,10 +53,20 @@ export const ActionBaseFields = {
    */
   timeout: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 900_000 })),
       Schema.annotate({
         description: 'Per-action timeout in ms (1000-900000). Terminates the action when exceeded.',
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 900_000 }))
     )
   ),
 }
+
+/**
+ * The base fields as a schema, so the manual can walk them.
+ *
+ * `ActionBaseFields` is a field BAG that every action type spreads into its
+ * own struct; a documentation directive needs a schema node to address, and
+ * this is that node. Nothing decodes through it — an action is decoded by its
+ * own variant — so it adds no behaviour, only a name for the shared half.
+ */
+export const ActionBaseSchema = Schema.Struct(ActionBaseFields)

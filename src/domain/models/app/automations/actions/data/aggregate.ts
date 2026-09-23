@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const DataAggregateActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('data'),
-  operator: Schema.Literal('aggregate'),
+  type: Schema.Literal('data').pipe(
+    Schema.annotate({
+      description: "Constant value 'data' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('aggregate').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'data' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Template reference to the array of items to aggregate */
     input: TemplateStringSchema.pipe(
@@ -45,16 +54,20 @@ export const DataAggregateActionSchema = Schema.Struct({
         Schema.annotate({ description: 'Group results by this field before aggregating' })
       )
     ),
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter((props) => {
-        if (props.function !== 'count' && props.field === undefined) {
-          return `"field" is required when function is "${props.function}"`
-        }
-        return true
-      })
-    )
-  ),
+  })
+    .annotate({
+      description: 'The list to summarise, the calculation to apply, and the field to group by.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter((props) => {
+          if (props.function !== 'count' && props.field === undefined) {
+            return `"field" is required when function is "${props.function}"`
+          }
+          return true
+        })
+      )
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'DataAggregateAction',

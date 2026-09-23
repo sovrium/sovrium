@@ -24,13 +24,15 @@ export const menubarFields = {
       Schema.Struct({
         label: Schema.String.annotate({ description: 'Menu group label' }),
         items: Schema.Array(MenuItemSchema).pipe(
-          Schema.check(Schema.isMinLength(1)),
-          Schema.annotate({ description: 'Items in this menu group' })
+          Schema.annotate({ description: 'Items in this menu group' }),
+          Schema.check(Schema.isMinLength(1))
         ),
+      }).annotate({
+        description: 'One menu of the bar: the label on the strip, and the items it opens',
       })
     ).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Top-level menu groups in the menubar' })
+      Schema.annotate({ description: 'Top-level menu groups in the menubar' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 } as const

@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const CryptoHashActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('crypto'),
-  operator: Schema.Literal('hash'),
+  type: Schema.Literal('crypto').pipe(
+    Schema.annotate({
+      description: "Constant value 'crypto' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('hash').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'crypto' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Input string to hash */
     input: TemplateStringSchema.pipe(
@@ -42,6 +51,8 @@ export const CryptoHashActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description: 'What to hash, with which algorithm, and how the result is encoded.',
   }),
 }).pipe(
   Schema.annotate({

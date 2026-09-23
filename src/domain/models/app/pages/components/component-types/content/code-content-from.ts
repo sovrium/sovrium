@@ -79,12 +79,12 @@ import { optStr } from '../../shared-schemas'
 export const CodeContentFromSchema = Schema.Struct({
   /** The read endpoint whose rows compose this block (required). */
   endpoint: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description:
         "Read endpoint whose rows compose this block's content. Fetched on the render path with the caller's own credentials, exactly like a system row template.",
       examples: ['/api/admin/tables/overview', '/api/admin/mcp/tools'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** Array key in the response envelope (default: 'items'). */
   rowsKey: optStr(
@@ -105,12 +105,12 @@ export const CodeContentFromSchema = Schema.Struct({
    * strings are, then joined.
    */
   template: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description:
         'The line rendered once per row, with $record.<field> substituted from that row. Must reference at least one $record. field — a template with none renders the same constant once per row, which no author means.',
       examples: ['GET  /api/tables/$record.name/records      # List “$record.name”'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /**
    * What joins the per-row lines. Omitted means a newline.

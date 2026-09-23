@@ -82,22 +82,22 @@ export const PreviewTypeLiteral = Schema.Literal('preview')
  */
 const PreviewSubjectSchema = Schema.Struct({
   type: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Subject Type',
       description:
         'The component type to draw. A catalogued type name; `$param.<name>` naming a segment of the host page’s path; or `$record.<field>` naming a column of the row this preview is expanded from.',
       examples: ['table', '$param.type'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   option: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Option Path',
       description:
         'The option to set, in the path grammar `GET /api/admin/schema/component-types/:type/options` publishes — dotted, with `[]` for an array level. `$record.<field>` resolves it per row.',
       examples: ['pagination.position', 'columns[].format', '$record.path'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /**
    * The value to set the option to.
@@ -146,13 +146,13 @@ export const previewFields = {
    */
   caption: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Caption',
         description:
           'One line under the drawing saying what this value does. Ordinary text, so `$record.<field>` resolves here.',
         examples: ['Pagers above and below, for a grid taller than the viewport.'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**

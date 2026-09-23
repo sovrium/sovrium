@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const DataDeduplicateActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('data'),
-  operator: Schema.Literal('deduplicate'),
+  type: Schema.Literal('data').pipe(
+    Schema.annotate({
+      description: "Constant value 'data' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('deduplicate').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'data' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Template reference to the array of items */
     input: TemplateStringSchema.pipe(
@@ -29,6 +38,8 @@ export const DataDeduplicateActionSchema = Schema.Struct({
     key: TemplateStringSchema.pipe(
       Schema.annotate({ description: 'Field whose value identifies duplicates' })
     ),
+  }).annotate({
+    description: 'The list to clean up, and the key on which entries count as duplicates.',
   }),
 }).pipe(
   Schema.annotate({

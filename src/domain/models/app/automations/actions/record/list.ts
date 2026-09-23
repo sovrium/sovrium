@@ -81,12 +81,21 @@ export type RecordListSort = Schema.Schema.Type<typeof RecordListSortSchema>
  */
 export const RecordListActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('record'),
-  operator: Schema.Literal('list'),
+  type: Schema.Literal('record').pipe(
+    Schema.annotate({
+      description: "Constant value 'record' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('list').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'record' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     table: Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Target table name' })
+      Schema.annotate({ description: 'Target table name' }),
+      Schema.check(Schema.isMinLength(1))
     ),
 
     /** Which rows. Omitted means every non-deleted row of the table. */
@@ -98,34 +107,37 @@ export const RecordListActionSchema = Schema.Struct({
      */
     fields: Schema.optional(
       Schema.Array(Schema.String).pipe(
-        Schema.check(Schema.isMinLength(1)),
-        Schema.annotate({ description: 'Field names to include in the returned records' })
+        Schema.annotate({ description: 'Field names to include in the returned records' }),
+        Schema.check(Schema.isMinLength(1))
       )
     ),
 
     /** In what order. Later keys break ties in earlier ones, in array order. */
     sort: Schema.optional(
       Schema.Array(RecordListSortSchema).pipe(
-        Schema.check(Schema.isMinLength(1)),
-        Schema.annotate({ description: 'Ordering keys, applied in array order' })
+        Schema.annotate({ description: 'Ordering keys, applied in array order' }),
+        Schema.check(Schema.isMinLength(1))
       )
     ),
 
     /** Page size (1-10000). Truncates — contrast `batchDelete`'s safety limit. */
     limit: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 10_000 })),
-        Schema.annotate({ description: 'Maximum records to return (1-10000, page size)' })
+        Schema.annotate({ description: 'Maximum records to return (1-10000, page size)' }),
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 10_000 }))
       )
     ),
 
     /** How many rows to skip before the page starts. */
     offset: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
-        Schema.annotate({ description: 'Number of records to skip before the page' })
+        Schema.annotate({ description: 'Number of records to skip before the page' }),
+        Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
       )
     ),
+  }).annotate({
+    description:
+      'The table to read, which records to keep, the fields to return, and the order and page.',
   }),
 }).pipe(
   Schema.annotate({

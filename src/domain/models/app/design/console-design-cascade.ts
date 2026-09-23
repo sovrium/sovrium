@@ -32,7 +32,7 @@
  * `theme.colors` is an open record, and Sovrium's default carries 306 value
  * declarations whose spellings include CSS `var()` fallback chains that
  * `DesignThemeSchema` cannot hold. That is precisely why
- * `apps/admin/config/design.ts` keeps `DEFAULT_DESIGN_SOURCE` as a NAMED export
+ * `src/admin/config/design.ts` keeps `DEFAULT_DESIGN_SOURCE` as a NAMED export
  * feeding a generator, rather than as the app's own `design` ([internal ref] refused
  * widening the config surface to hold those chains). There is no in-schema
  * object to deep-merge with.
@@ -46,10 +46,10 @@
  *    operator's routes; against console paths they match nothing, so importing
  *    them would leave every console page zone-less and silently break
  *    `density.perZone`. The console's own single-zone map is also what
- *    `Brand Zone Drift` validates against `apps/admin`'s pages.
+ *    `Brand Zone Drift` validates against `src/admin`'s pages.
  *  - **`logo`** — identity, not a token. The console IS Sovrium; putting the
  *    operator's mark on it credits the vendor's product to the operator, which
- *    is the same reason `apps/admin/app.ts` declares `badge: false`.
+ *    is the same reason `src/admin/app.ts` declares `badge: false`.
  *  - **`voice`, `principles`, `imagery`** — authoring guidance addressed to
  *    whoever writes the OPERATOR's surfaces. The console's own writing is
  * Sovrium's operator register and its assets are Sovrium's.

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS hardened-runtime entitlements for the Sovrium shell AND the Bun sidecar
+  it spawns.
+
+  These five keys are Bun's own recommendation for a standalone executable under
+  the hardened runtime (https://bun.com/docs/bundler/executables, "Code signing
+  on macOS"), and they are here because JavaScriptCore is a JIT: without
+  allow-jit and allow-unsigned-executable-memory the sidecar is killed on launch
+  by the kernel rather than failing with a message, which reads as "the app does
+  nothing when I open it".
+
+  The sidecar must be signed with these entitlements EXPLICITLY, before the
+  bundle is signed. A recursive (deep) signature of the .app does not apply the
+  entitlements to a nested Mach-O, so an unsigned or wrongly-signed sidecar is
+  the failure mode notarization finds last and users find first.
+
+  NOTHING IN THIS COMMENT MAY CONTAIN TWO CONSECUTIVE HYPHENS. An XML comment is
+  not allowed to, and the parser that enforces it is AMFI, inside codesign. The
+  line above said "a `-`+`-`deep signature" until 2026-09-22, and the result was
+  that EVERY signed build failed with `Failed to parse entitlements:
+  AMFIUnserializeXML: syntax error near line 15` — a message that names this
+  file's line number and says nothing about hyphens. Spell such a flag out in
+  words instead.
+
+  disable-library-validation is the one worth naming: it is required because the
+  sidecar is a distinct binary loaded by a process signed with a different Team
+  ID during local development. It weakens the runtime, and it is a cost this
+  file records rather than hides.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-executable-page-protection</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

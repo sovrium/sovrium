@@ -16,8 +16,17 @@ import { ActionBaseFields } from '../base'
  */
 export const DataSortActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('data'),
-  operator: Schema.Literal('sort'),
+  type: Schema.Literal('data').pipe(
+    Schema.annotate({
+      description: "Constant value 'data' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('sort').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'data' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Template reference to the array of records to sort */
     input: TemplateStringSchema.pipe(
@@ -33,6 +42,8 @@ export const DataSortActionSchema = Schema.Struct({
         Schema.annotate({ description: 'Sort direction (default: asc)' })
       )
     ),
+  }).annotate({
+    description: 'The list to order, the field to order it by, and which way round.',
   }),
 }).pipe(
   Schema.annotate({

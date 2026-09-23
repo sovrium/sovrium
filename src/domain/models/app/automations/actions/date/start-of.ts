@@ -36,8 +36,17 @@ import { CalendarUnitProp, isValidTimezone, TimezoneProp } from './props'
  */
 export const DateStartOfActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('date'),
-  operator: Schema.Literal('startOf'),
+  type: Schema.Literal('date').pipe(
+    Schema.annotate({
+      description: "Constant value 'date' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('startOf').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'date' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** The instant to snap. */
     input: TemplateStringSchema.pipe(
@@ -67,15 +76,19 @@ export const DateStartOfActionSchema = Schema.Struct({
         })
       )
     ),
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter(({ timezone }) =>
-        timezone !== undefined && !isValidTimezone(timezone)
-          ? `Invalid IANA timezone: ${timezone}`
-          : undefined
+  })
+    .annotate({
+      description: 'The date to round down, the unit to round to, and the time zone.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter(({ timezone }) =>
+          timezone !== undefined && !isValidTimezone(timezone)
+            ? `Invalid IANA timezone: ${timezone}`
+            : undefined
+        )
       )
-    )
-  ),
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'DateStartOfAction',

@@ -40,8 +40,12 @@ import {
  * ```
  */
 export const ViewFilterConditionSchema = Schema.Struct({
-  field: Schema.String,
-  operator: Schema.String,
+  field: Schema.String.annotate({
+    description: 'Field the condition is evaluated against.',
+  }),
+  operator: Schema.String.annotate({
+    description: 'How the field value is compared, such as `equals`, `greaterThan` or `contains`.',
+  }),
   // `Schema.optional`, not a bare `Schema.Unknown`. Effect 3 excluded an
   // `unknown`-typed property from a struct's required keys — the published
   // `Condition` def has `required: ['field','operator']` — and accepted
@@ -50,7 +54,14 @@ export const ViewFilterConditionSchema = Schema.Struct({
   // the PUBLISHED schema still blesses it was rejected by `sovrium validate`.
   // This edit moves the DECODER back into agreement with the published
   // `required`, which it does not change.
-  value: Schema.optional(Schema.Unknown),
+  value: Schema.optionalKey(
+    // `Schema.Unknown` discards its own annotations when emitted to JSON
+    // Schema; the `UndefinedOr` wrapper carries them instead.
+    Schema.UndefinedOr(Schema.Unknown).annotate({
+      description:
+        'Value compared against, when the operator needs one. `isEmpty` and `isNotEmpty` need none; `in` and `notIn` take a list.',
+    })
+  ),
 }).pipe(
   // ANNOTATIONS FIRST, REFINEMENT SECOND — the order is load-bearing, not
   // stylistic. `JSONSchema.make` renders a struct refinement from its `from`
@@ -153,10 +164,16 @@ export type ViewFilterNode =
 export const ViewFilterNodeSchema: Schema.Codec<ViewFilterNode> = Schema.Union([
   ViewFilterConditionSchema,
   Schema.Struct({
-    and: Schema.Array(Schema.suspend((): Schema.Codec<ViewFilterNode> => ViewFilterNodeSchema)),
+    and: Schema.Array(
+      Schema.suspend((): Schema.Codec<ViewFilterNode> => ViewFilterNodeSchema)
+    ).annotate({ description: 'Conditions that must ALL hold for a record to be kept.' }),
   }),
   Schema.Struct({
-    or: Schema.Array(Schema.suspend((): Schema.Codec<ViewFilterNode> => ViewFilterNodeSchema)),
+    or: Schema.Array(
+      Schema.suspend((): Schema.Codec<ViewFilterNode> => ViewFilterNodeSchema)
+    ).annotate({
+      description: 'Conditions of which at least one must hold for a record to be kept.',
+    }),
   }),
 ]).pipe(
   Schema.annotate({

@@ -6,6 +6,7 @@
  */
 
 import * as path from 'node:path'
+import { parseProjectDir } from './desktop'
 
 /**
  * Base directory for runtime-generated artifacts (frugal-by-default, single
@@ -38,10 +39,18 @@ export const DEFAULT_DATA_DIR = './.sovrium'
  * Resolved to an absolute path (mirroring `parseDatabaseDialectConfig`) so the
  * spawned server and any tooling agree on the same location regardless of CWD.
  *
+ * Anchored on the PROJECT directory rather than the working directory, because
+ * the data dir belongs to the project: `SOVRIUM_DATA_DIR=.sovrium` under two
+ * different projects has to mean two different directories, or two apps opened
+ * from one shell end up sharing a database. An absolute value is unaffected —
+ * `path.resolve` returns it unchanged — and with no `SOVRIUM_PROJECT_DIR` set
+ * the project directory IS the working directory, so nothing that resolves
+ * today resolves differently.
+ *
  * @public
  */
 export const parseDataDir = (): string =>
-  path.resolve(process.env.SOVRIUM_DATA_DIR || DEFAULT_DATA_DIR)
+  path.resolve(parseProjectDir(), process.env.SOVRIUM_DATA_DIR || DEFAULT_DATA_DIR)
 
 /**
  * Default SQLite database file path (`<dataDir>/database.db`), used when

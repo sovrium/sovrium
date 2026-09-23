@@ -18,8 +18,17 @@ import { AiActionProviderSchema } from './provider'
  */
 export const AiClassifyActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('ai'),
-  operator: Schema.Literal('classify'),
+  type: Schema.Literal('ai').pipe(
+    Schema.annotate({
+      description: "Constant value 'ai' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('classify').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'ai' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** LLM provider — optional, advisory (see {@link AiActionProviderSchema}) */
     provider: AiActionProviderSchema,
@@ -40,11 +49,11 @@ export const AiClassifyActionSchema = Schema.Struct({
 
     /** Classification categories (minimum 2) */
     categories: Schema.Array(Schema.String).pipe(
-      Schema.check(Schema.isMinLength(2)),
       Schema.annotate({
         description:
           'Categories to classify into (minimum 2). Example: ["positive", "negative", "neutral"]',
-      })
+      }),
+      Schema.check(Schema.isMinLength(2))
     ),
 
     /** Instruction prepended to the classification request */
@@ -69,32 +78,34 @@ export const AiClassifyActionSchema = Schema.Struct({
     /** Sampling temperature */
     temperature: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isBetween({ minimum: 0, maximum: 2 })),
         Schema.annotate({
           description: 'Sampling temperature (0-2, default: provider default)',
-        })
+        }),
+        Schema.check(Schema.isBetween({ minimum: 0, maximum: 2 }))
       )
     ),
 
     /** Maximum tokens to generate */
     maxTokens: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 1_000_000 })),
         Schema.annotate({
           description: 'Maximum tokens to generate (1-1000000)',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 1_000_000 }))
       )
     ),
 
     /** Connection name for API authentication */
     connection: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
         Schema.annotate({
           description: 'Connection name for API auth (must reference app.connections[])',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/))
       )
     ),
+  }).annotate({
+    description: 'What to classify, the categories to choose from, and which model is asked.',
   }),
 }).pipe(
   Schema.annotate({

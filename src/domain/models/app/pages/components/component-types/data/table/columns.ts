@@ -223,8 +223,8 @@ export const EditSelectSchema = Schema.Struct({
    */
   options: Schema.optional(
     Schema.Array(EditSelectOptionSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Select options ({ value, label? }); at least one required' })
+      Schema.annotate({ description: 'Select options ({ value, label? }); at least one required' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -360,19 +360,21 @@ export const FieldColumnSchema = Schema.Struct({
     description: 'Field name from the data source table',
   }),
   /** Override header text (default: field name) */
-  label: optStr('Column header text override'),
+  label: optStr(
+    'Text in the column header. Defaults to the field name on a field column, and is often left empty on an action column.'
+  ),
   /** Pixel width */
   width: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Column width in pixels' })
+      Schema.annotate({ description: 'Column width in pixels' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
   /** Minimum pixel width for resize */
   minWidth: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Minimum column width in pixels' })
+      Schema.annotate({ description: 'Minimum column width in pixels' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
   /** Text alignment */
@@ -441,7 +443,9 @@ export const ActionColumnSchema = Schema.Struct({
     description: "Must be 'actions' for an action column",
   }),
   /** Column header (often empty string) */
-  label: optStr('Column header text'),
+  label: optStr(
+    'Text in the column header. Defaults to the field name on a field column, and is often left empty on an action column.'
+  ),
   /**
    * Power the requesting session must hold for this whole column to exist.
    *
@@ -496,16 +500,16 @@ export const ActionColumnSchema = Schema.Struct({
   /** Pixel width */
   width: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Column width in pixels' })
+      Schema.annotate({ description: 'Column width in pixels' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
   /** Action buttons to render in each row */
   actions: Schema.Array(ActionColumnItemSchema).pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Action buttons rendered per row',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).annotate({
   title: 'Action Column',

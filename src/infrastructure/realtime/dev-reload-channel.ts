@@ -33,11 +33,12 @@
  */
 
 import { publishToChannel } from '@/infrastructure/realtime/channel-manager'
+import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
 
 /** The in-process channel every open dev-reload stream listens on. */
 export const DEV_RELOAD_CHANNEL = '__sovrium_dev:reload'
 
-/** The one message shape the push carries. */
+/** The message an APPLIED save pushes. */
 export const DEV_RELOAD_MESSAGE = { type: 'reload' } as const
 
 /**
@@ -51,4 +52,25 @@ export const DEV_RELOAD_MESSAGE = { type: 'reload' } as const
  */
 export const notifyDevReload = (): void => {
   publishToChannel(DEV_RELOAD_CHANNEL, DEV_RELOAD_MESSAGE)
+}
+
+/**
+ * Tell every open dev page that the save it is waiting for was REFUSED, and why.
+ *
+ * This is the one outcome a browser cannot infer. A successful save changes what
+ * is served; a failed boot drops the connection. A refusal does neither — the
+ * last-good server keeps answering 200 with a perfectly good page, which is
+ * correct behaviour and the worst possible signal. Every channel the page
+ * already has reports "nothing to see", and the only place the news exists is a
+ * terminal the reader is not looking at.
+ *
+ * `findings` rather than a sentence, and the same findings the status file and
+ * `sovrium validate --json` carry: what the page has to show is a position, a
+ * complaint and what may be written instead. A prose line carrying all three
+ * inside it has to be parsed back apart by every consumer, differently.
+ *
+ * A no-op when nothing is listening, so the watcher can call it unconditionally.
+ */
+export const notifyDevError = (findings: readonly ConfigFinding[]): void => {
+  publishToChannel(DEV_RELOAD_CHANNEL, { type: 'error', findings })
 }

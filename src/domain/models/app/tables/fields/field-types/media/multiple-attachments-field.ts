@@ -10,7 +10,12 @@ import { BaseFieldSchema } from '../base-field'
 
 export const MultipleAttachmentsFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('multiple-attachments'),
+    type: Schema.Literal('multiple-attachments').pipe(
+      Schema.annotate({
+        description:
+          "Constant value 'multiple-attachments' for type discrimination in discriminated unions",
+      })
+    ),
     /** Storage bucket name for this field's files. References a bucket defined in app.buckets.
      *  When omitted, uses the implicit 'default' bucket. */
     bucket: Schema.optional(
@@ -24,12 +29,17 @@ export const MultipleAttachmentsFieldSchema = BaseFieldSchema.pipe(
     ),
     maxFiles: Schema.optional(
       Schema.Int.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
-        Schema.annotate({ description: 'Maximum number of files allowed' })
+        Schema.annotate({ description: 'Maximum number of files allowed' }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(1))
       )
     ),
     allowedFileTypes: Schema.optional(
-      Schema.Array(Schema.String).pipe(
+      Schema.Array(
+        Schema.String.annotate({
+          description: 'One allowed MIME type.',
+          examples: ['image/png', 'application/pdf'],
+        })
+      ).pipe(
         Schema.annotate({
           description: 'Allowed MIME types for file uploads',
           examples: [['application/pdf', 'application/msword']],
@@ -38,11 +48,11 @@ export const MultipleAttachmentsFieldSchema = BaseFieldSchema.pipe(
     ),
     maxFileSize: Schema.optional(
       Schema.Int.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(1)),
         Schema.annotate({
           description: 'Maximum file size in bytes per attachment',
           examples: [10_485_760],
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(1))
       )
     ),
     storeMetadata: Schema.optional(

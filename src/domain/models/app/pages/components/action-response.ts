@@ -38,11 +38,11 @@ export const ToastSchema = Schema.Struct({
   /** Auto-dismiss duration in milliseconds */
   duration: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
         description: 'Auto-dismiss duration in milliseconds (default: 5000)',
         examples: [2000, 5000, 10_000],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
 }).annotate({
@@ -77,7 +77,7 @@ export const ActionResponseTypeSchema = Schema.Literals([
 ]).annotate({
   title: 'Action Response Type',
   description:
-    'Form behavior after a successful action (navigate, reset, message, successPage, role-landing)',
+    'What the component does once the action returns — navigate away, reset the form, show a message or a success page, send the reader to their role landing, or raise a toast.',
 })
 
 /**

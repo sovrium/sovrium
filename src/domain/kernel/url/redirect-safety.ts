@@ -84,12 +84,31 @@ export const isSafeRedirectPath = (value: unknown): value is string => {
  *    and non-ASCII is percent-encoded — so the string assigned to `location` is
  *    the one the browser was going to compute anyway, decided here where it can
  *    be tested rather than inside the navigation.
- *  - Provenance. The result always begins with `/`, by construction of
- *    `URL.pathname`, so it cannot carry a `javascript:` or `data:` scheme. That
- *    property holds without the reader having to trace the guard, and it is
- *    what static analysis can see: CodeQL does not model a cross-module type
- *    guard as a sanitizer, so passing the raw DOM attribute to
- *    `location.assign` reads to it as an unguarded sink (alert #34).
+ *  - Provenance. The result always begins with `/`, because the predicate has
+ *    proven the origin unchanged and the candidate `/`-led, so it cannot carry
+ *    a `javascript:` or `data:` scheme. That holds without the reader having
+ *    to trace the guard.
+ *
+ * ─── WHY THE RESULT IS READ OFF `href` ─────────────────────────────────────
+ *
+ * The string handed back is the parser's own serialisation with the synthetic
+ * origin cut off, never a reassembly of `pathname`, `search` and `hash`. The
+ * two are the same characters for every accepted input except a trailing EMPTY
+ * query or fragment (`/?`, `/a#`), which `href` keeps and the reassembly
+ * dropped. That is the input's own spelling, kept deliberately: it names the
+ * same resource, and nothing here has a reason to rewrite it.
+ *
+ * The reason is static analysis, and it is precise rather than superstitious.
+ * CodeQL's JavaScript taint library carries taint INTO a `URL` object through
+ * its query- and fragment-bearing properties — `search`, `hash`, `searchParams` (the
+ * `UrlSearchParamsTaintStep` in `semmle/javascript/dataflow/TaintTracking.qll`).
+ * A value read off `search` or `hash` is therefore still the DOM attribute as
+ * far as the analyser is concerned, so every navigation sink fed by the old
+ * reassembly was reported as DOM text reinterpreted as a URL; `href` is not on
+ * that list. Nor does the analyser model a cross-module type guard as a
+ * barrier, so the predicate alone cannot clear a sink. Reading `href` makes it
+ * see what is true: the string the sink receives was BUILT by the URL parser.
+ * Do not reintroduce a reassembly from `search`/`hash` here.
  *
  * The safety decision itself is unchanged and still lives in one place — this
  * delegates to the predicate rather than re-deriving it.
@@ -97,8 +116,9 @@ export const isSafeRedirectPath = (value: unknown): value is string => {
 export const toSafeRedirectPath = (value: unknown): string | undefined => {
   if (!isSafeRedirectPath(value)) return undefined
   try {
-    const url = new URL(value, `${SAFE_ORIGIN}/`)
-    return `${url.pathname}${url.search}${url.hash}`
+    // `href` is `SAFE_ORIGIN` followed by the path, query and fragment: the
+    // predicate proved the origin, and a `/`-led candidate has no credentials.
+    return new URL(value, `${SAFE_ORIGIN}/`).href.slice(SAFE_ORIGIN.length)
   } catch {
     // Unreachable: the predicate already parsed this value against the same
     // base. Kept so a future change to either side cannot throw at a sink.

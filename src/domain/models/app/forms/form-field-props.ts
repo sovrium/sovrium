@@ -43,19 +43,51 @@ export const FormFieldPermissionsSchema = Schema.Struct({
  */
 export const commonFieldProps = {
   /** Label shown to the submitter. Supports $t: i18n keys. */
-  label: Schema.optional(Schema.String),
+  label: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Label shown above the field to the person filling in the form. Accepts a `$t:` key to use a translated label.',
+    })
+  ),
   /** Placeholder text shown when the field is empty. */
-  placeholder: Schema.optional(Schema.String),
+  placeholder: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Hint shown inside the empty field, which disappears as soon as the person starts typing.',
+    })
+  ),
   /** Help text shown below the field. */
-  helpText: Schema.optional(Schema.String),
+  helpText: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Guidance shown below the field, which stays visible while the person is typing.',
+    })
+  ),
   /** Whether the field is required (always true / always false). */
-  required: Schema.optional(Schema.Boolean),
+  required: Schema.optional(
+    Schema.Boolean.annotate({
+      description: 'Blocks submission while this field is left empty.',
+    })
+  ),
   /** Whether the field is read-only (display-only). */
-  readOnly: Schema.optional(Schema.Boolean),
+  readOnly: Schema.optional(
+    Schema.Boolean.annotate({
+      description: 'Shows the value but prevents the person from changing it.',
+    })
+  ),
   /** Whether the field is hidden but submitted (server-only). */
-  hidden: Schema.optional(Schema.Boolean),
+  hidden: Schema.optional(
+    Schema.Boolean.annotate({
+      description: 'Keeps the field out of the rendered form while still submitting its value.',
+    })
+  ),
   /** Default value (literal or `$query.{name}` / `$user.{prop}` reference). */
-  defaultValue: Schema.optional(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])),
+  defaultValue: Schema.optional(
+    Schema.Union([Schema.String, Schema.Finite, Schema.Boolean]).annotate({
+      description:
+        'Value the field starts with: a literal, `$query.{name}` to read a URL parameter, or `$user.{prop}` to read a property of the signed-in user.',
+    })
+  ),
   /**
    * Conditional visibility — show/hide based on another field's value.
    * Accepts a simple `{ field, operator, value }` rule OR a compound

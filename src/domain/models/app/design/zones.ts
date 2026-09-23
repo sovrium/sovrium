@@ -18,8 +18,9 @@ import { VoicePronounSchema, VoiceToneSchema } from './voice'
  * `'A voice guidance line must not be empty'` fired from a `zones[]` entry
  * would send the author to `design.voice`.
  */
-const zoneGuidanceLine = (subject: string) =>
+const zoneGuidanceLine = (subject: string, description: string) =>
   Schema.String.pipe(
+    Schema.annotate({ description }),
     Schema.check(Schema.isMinLength(1, { message: `${subject} must not be empty` }))
   )
 
@@ -100,7 +101,9 @@ export const ZoneVoiceOverrideSchema = Schema.Struct({
 
   /** Replaces `design.voice.prefer` for routes this zone governs. */
   prefer: Schema.optional(
-    Schema.Array(zoneGuidanceLine('A zone `prefer` line')).annotate({
+    Schema.Array(
+      zoneGuidanceLine('A zone `prefer` line', 'One writing rule this zone reaches for')
+    ).annotate({
       title: 'Zone Preferred Patterns',
       description: 'Copy patterns to reach for in this zone, replacing `design.voice.prefer`',
       examples: [['Lead with the outcome, not the mechanism.']],
@@ -109,7 +112,9 @@ export const ZoneVoiceOverrideSchema = Schema.Struct({
 
   /** Replaces `design.voice.avoid` for routes this zone governs. */
   avoid: Schema.optional(
-    Schema.Array(zoneGuidanceLine('A zone `avoid` line')).annotate({
+    Schema.Array(
+      zoneGuidanceLine('A zone `avoid` line', 'One writing rule this zone refuses')
+    ).annotate({
       title: 'Zone Refused Patterns',
       description: 'Copy patterns to refuse in this zone, replacing `design.voice.avoid`',
       examples: [['No marketing superlatives behind auth.']],
@@ -163,13 +168,13 @@ export const DesignZoneSchema = Schema.Struct({
    * case-insensitively and ranked last.
    */
   pattern: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1, { message: 'A zone pattern must not be empty' })),
     Schema.annotate({
       title: 'Route Pattern',
       description:
         "The declared route pattern this zone governs (e.g. '/docs/*'), or the literal catch-all 'everything else'.",
       examples: ['/docs/*', '/admin/*', 'everything else'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1, { message: 'A zone pattern must not be empty' }))
   ),
 
   /**
@@ -179,13 +184,13 @@ export const DesignZoneSchema = Schema.Struct({
    * nobody has enumerated.
    */
   zone: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1, { message: 'A zone name must not be empty' })),
     Schema.annotate({
       title: 'Zone Name',
       description:
         "The zone this pattern belongs to (e.g. 'marketing', 'documentation', 'product').",
       examples: ['marketing', 'documentation', 'product'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1, { message: 'A zone name must not be empty' }))
   ),
 
   /** Which accent budget this zone carries. See {@link AccentBudgetSchema}. */

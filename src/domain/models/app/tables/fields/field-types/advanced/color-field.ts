@@ -28,9 +28,15 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const ColorFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('color'),
+    type: Schema.Literal('color').pipe(
+      Schema.annotate({
+        description: "Constant value 'color' for type discrimination in discriminated unions",
+      })
+    ),
     default: Schema.optional(
-      Schema.String.pipe(
+      Schema.String.annotate({
+        description: 'Colour a new record starts with, as a six-digit hex code.',
+      }).pipe(
         Schema.check(
           Schema.isPattern(/^#[0-9a-fA-F]{6}$/, {
             message: 'Invalid format',

@@ -104,12 +104,12 @@ export const selectFields = {
     Schema.Struct({
       /** Label of the leading unset choice (its submitted value is always `''`). */
       label: Schema.String.pipe(
-        Schema.check(Schema.isMinLength(1)),
         Schema.annotate({
           description:
             'Label of the leading unset option. Its submitted value is always the empty string.',
           examples: ['All automations', 'Any status'],
-        })
+        }),
+        Schema.check(Schema.isMinLength(1))
       ),
     }).annotate({
       identifier: 'SelectEmptyOption',

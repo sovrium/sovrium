@@ -28,7 +28,11 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const BarcodeFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('barcode'),
+    type: Schema.Literal('barcode').pipe(
+      Schema.annotate({
+        description: "Constant value 'barcode' for type discrimination in discriminated unions",
+      })
+    ),
     format: Schema.optional(
       Schema.String.pipe(
         Schema.annotate({

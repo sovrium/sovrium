@@ -59,7 +59,10 @@ export const PublicViewPermissionsSchema = Schema.Struct({
   /**
    * When true, the view is accessible without authentication.
    */
-  public: Schema.Literal(true),
+  public: Schema.Literal(true).annotate({
+    description:
+      'Marks the view readable without authentication. Only `true` is accepted — omit the whole block rather than writing `false`.',
+  }),
 }).pipe(
   Schema.annotate({
     title: 'Public View Permissions',

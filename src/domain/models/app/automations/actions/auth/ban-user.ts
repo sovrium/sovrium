@@ -16,8 +16,17 @@ import { ActionBaseFields } from '../base'
  */
 export const AuthBanUserActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('auth'),
-  operator: Schema.Literal('banUser'),
+  type: Schema.Literal('auth').pipe(
+    Schema.annotate({
+      description: "Constant value 'auth' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('banUser').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'auth' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     userId: TemplateStringSchema.pipe(Schema.annotate({ description: 'User ID to ban' })),
     reason: Schema.optional(
@@ -25,6 +34,8 @@ export const AuthBanUserActionSchema = Schema.Struct({
         Schema.annotate({ description: 'Ban reason (stored for audit trail)' })
       )
     ),
+  }).annotate({
+    description: 'Which user is banned, and the reason recorded.',
   }),
 }).pipe(
   Schema.annotate({

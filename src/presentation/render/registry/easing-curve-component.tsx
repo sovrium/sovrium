@@ -46,6 +46,7 @@ import {
   resolvableEasingCurves,
   resolveEasingCurve,
 } from '@/domain/models/app/design/easing-curve'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -129,7 +130,7 @@ export const easingCurveComponent: ComponentRenderer = ({
 
   return (
     <figure
-      {...elementPropsWithSpacing}
+      {...omitInternalMarkers(elementPropsWithSpacing)}
       data-easing-token={token}
     >
       {points === undefined ? undefined : (

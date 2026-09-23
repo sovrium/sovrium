@@ -488,9 +488,9 @@ import _a473 from '../../../templates/projects/scalingo.json' with { type: 'file
 import _a474 from '../../../templates/projects/seed/projects.yaml' with { type: 'file' }
 import _a475 from '../../../templates/projects/seed/tasks.yaml' with { type: 'file' }
 import _a476 from '../../../templates/README.md' with { type: 'file' }
-import _a477 from '../../../apps/admin/assets/samples/sample-chime.mp3' with { type: 'file' }
-import _a478 from '../../../apps/admin/assets/samples/sample-motion.webm' with { type: 'file' }
-import _a479 from '../../../apps/admin/assets/samples/sample-still.avif' with { type: 'file' }
+import _a477 from '../../../src/admin/assets/samples/sample-chime.mp3' with { type: 'file' }
+import _a478 from '../../../src/admin/assets/samples/sample-motion.webm' with { type: 'file' }
+import _a479 from '../../../src/admin/assets/samples/sample-still.avif' with { type: 'file' }
 import _a480 from '../../../assets/logo/academy/mark-dark-outline.svg' with { type: 'file' }
 import _a481 from '../../../assets/logo/academy/mark-light-outline.svg' with { type: 'file' }
 import _a482 from '../../../assets/logo/cloud/mark-dark-outline.svg' with { type: 'file' }

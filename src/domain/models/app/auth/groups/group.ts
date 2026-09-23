@@ -23,12 +23,12 @@ import { Schema } from 'effect'
  * ```
  */
 export const GroupNameSchema = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
   Schema.annotate({
     title: 'Group Name',
     description: 'Group identifier. Lowercase alphanumeric with hyphens, must start with a letter.',
     examples: ['marketing', 'dev-team', 'project-alpha'],
-  })
+  }),
+  Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/))
 )
 
 /**
@@ -80,11 +80,11 @@ export const GroupSchema = Schema.Struct({
    */
   maxMembers: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1)),
       Schema.annotate({
         title: 'Max Members',
         description: 'Maximum number of users allowed in this group (min 1, unlimited if omitted)',
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1))
     )
   ),
 }).pipe(

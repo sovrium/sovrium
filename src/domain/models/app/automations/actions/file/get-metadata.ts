@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const FileGetMetadataActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('getMetadata'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('getMetadata').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Storage key of the file */
     key: TemplateStringSchema.pipe(
@@ -26,6 +35,8 @@ export const FileGetMetadataActionSchema = Schema.Struct({
         description: 'Storage key of the file',
       })
     ),
+  }).annotate({
+    description: 'The file whose size, type and timestamps are read.',
   }),
 }).pipe(
   Schema.annotate({

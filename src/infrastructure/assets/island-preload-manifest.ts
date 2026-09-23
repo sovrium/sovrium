@@ -86,6 +86,46 @@ export const PRELOADED_ISLAND_CHUNK_NAMES: Readonly<Record<string, string>> = {
 export type IslandPreloadManifest = Readonly<Record<string, readonly string[]>>
 
 /**
+ * The `.js` files one build emitted, as paths relative to its output root.
+ *
+ * WHY A BUILD'S OWN OUTPUT LIST AND NOT A DIRECTORY LISTING
+ * --------------------------------------------------------
+ * The dev/watch path builds into `<tmpdir>/sovrium-islands-<pid>` — one
+ * directory per PROCESS, not per build — and `Bun.build` does not clean its
+ * `outdir` (measured 2026-09-22: building twice into one directory leaves both
+ * builds' content-hashed chunks side by side). Every rebuild therefore ADDS a
+ * `crud-form-island-<hash>.js` rather than replacing one, and a rebuild happens
+ * on every request while `isDevCacheDisabled()` holds.
+ *
+ * Reading the directory back then answers a different question from the one
+ * {@link resolveChunk} is asking. It wants "which chunk did THIS build emit for
+ * this island"; a listing answers "which chunks has this process ever emitted",
+ * and after the second build that is two — so the island resolves to nothing and
+ * its preload link silently disappears. The same shared directory produces the
+ * zero case from the other side: two boots racing in one process can have one
+ * reading the directory while the other is still writing into it.
+ *
+ * Scoping the listing to the build's own outputs removes both, because the
+ * ambiguity was never in the resolver — it was in the question. `resolveChunk`
+ * keeps logging zero and two as errors, and after this they mean what they say:
+ * a build that really did emit the wrong number of chunks for an island.
+ *
+ * The two SHIPPING modes never had the problem and are unchanged: the compiled
+ * binary resolves against its embedded asset map, and `dist/island-chunks` is
+ * written once by the build script and never at runtime.
+ */
+export function toEmittedChunkPaths(
+  outputPaths: readonly string[],
+  root: string
+): readonly string[] {
+  const prefix = root.endsWith('/') ? root : `${root}/`
+  return outputPaths
+    .map((path) => path.split('\\').join('/'))
+    .map((path) => (path.startsWith(prefix) ? path.slice(prefix.length) : path))
+    .filter((path) => path.endsWith('.js'))
+}
+
+/**
  * Reads the emitted island bundle. Injected rather than imported so the three
  * shipping modes (dev tmpdir build, `dist/`, embedded-in-binary) share ONE
  * closure walk instead of each growing a private copy of it.

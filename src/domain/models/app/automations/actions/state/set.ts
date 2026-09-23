@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const StateSetActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('state'),
-  operator: Schema.Literal('set'),
+  type: Schema.Literal('state').pipe(
+    Schema.annotate({
+      description: "Constant value 'state' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('set').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'state' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** State key to set */
     key: TemplateStringSchema.pipe(
@@ -37,24 +46,26 @@ export const StateSetActionSchema = Schema.Struct({
     /** Optional namespace for key isolation */
     namespace: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
         Schema.annotate({
           description:
             'Namespace for key isolation (lowercase alphanumeric with hyphens, starts with letter)',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/))
       )
     ),
 
     /** Time-to-live for automatic expiry */
     ttl: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h|d)$/)),
         Schema.annotate({
           description:
             'Time-to-live for automatic expiry: number + unit (ms, s, m, h, d). Examples: "30s", "1h", "7d"',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h|d)$/))
       )
     ),
+  }).annotate({
+    description: 'Which value is stored, under which key and namespace, and how long it lives.',
   }),
 }).pipe(
   Schema.annotate({

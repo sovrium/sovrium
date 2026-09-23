@@ -29,7 +29,11 @@ import { Cron, DateTime, Effect, Result, Schema } from 'effect'
  * fail at server boot.
  */
 export const CronTriggerSchema = Schema.Struct({
-  type: Schema.Literal('cron'),
+  type: Schema.Literal('cron').pipe(
+    Schema.annotate({
+      description: "Constant value 'cron' for type discrimination in discriminated unions",
+    })
+  ),
   expression: Schema.String.pipe(
     Schema.annotate({
       description:

@@ -92,12 +92,12 @@ export const dateRangePickerFields = {
    */
   name: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Form field name. Submits ONE value: the ISO 8601 interval `<from>/<to>`, e.g. `2026-09-01/2026-09-30`.',
         examples: ['period'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /** What the trigger reads before a period is chosen. */
@@ -117,18 +117,18 @@ export const dateRangePickerFields = {
    */
   value: Schema.optional(
     Schema.String.pipe(
-      Schema.check(
-        Schema.isPattern(/^(\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}|\$(?:record|param)\.[\w.-]+)$/, {
-          message:
-            'An initial period must be the ISO 8601 interval `<from>/<to>` (e.g. `2026-09-01/2026-09-30`), or a `$record.`/`$param.` reference resolved per row. A preset name belongs in `presets`, not here.',
-        })
-      ),
       Schema.annotate({
         title: 'Initial Period',
         description:
           'The period the picker opens with, as the ISO 8601 interval `<from>/<to>`, or a `$record.`/`$param.` reference. A preset name is REFUSED here by pattern: a preset is what the panel offers, and accepting one as the initial value would make the field mean two different things depending on which string it held.',
         examples: ['2026-09-01/2026-09-30', '$record.period'],
-      })
+      }),
+      Schema.check(
+        Schema.isPattern(/^(\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}|\$(?:record|param)\.[\w.-]+)$/, {
+          message:
+            'An initial period must be the ISO 8601 interval `<from>/<to>` (e.g. `2026-09-01/2026-09-30`), or a `$record.`/`$param.` reference resolved per row. A preset name belongs in `presets`, not here.',
+        })
+      )
     )
   ),
   /** How each end of the period is printed on the trigger. */

@@ -92,11 +92,11 @@ export const AutoSaveConfigSchema = Schema.Struct({
   /** Debounce delay in milliseconds for auto save mode (min: 100, default: 500) */
   autoSaveDebounceMs: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(100)),
       Schema.annotate({
         description: 'Debounce delay for auto-save in milliseconds (default: 500, min: 100)',
         examples: [300, 500, 1000],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(100))
     )
   ),
   /** Show a save status indicator (default: true when saveMode is auto or onBlur) */

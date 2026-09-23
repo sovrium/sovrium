@@ -49,10 +49,10 @@ export const DecimalFieldSchema = BaseFieldSchema.pipe(
     ),
     precision: Schema.optional(
       Schema.Int.pipe(
-        Schema.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(10)),
         Schema.annotate({
           description: 'Number of decimal places (1-10)',
-        })
+        }),
+        Schema.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(10))
       )
     ),
     min: Schema.optional(
@@ -77,7 +77,6 @@ export const DecimalFieldSchema = BaseFieldSchema.pipe(
       )
     ),
   }),
-  Schema.check(Schema.makeFilter(validateMinMaxRange)),
   Schema.annotate({
     title: 'Decimal Field',
     description:
@@ -104,7 +103,8 @@ export const DecimalFieldSchema = BaseFieldSchema.pipe(
         default: 0.0825,
       },
     ],
-  })
+  }),
+  Schema.check(Schema.makeFilter(validateMinMaxRange))
 )
 
 /** @public */

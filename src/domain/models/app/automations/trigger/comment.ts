@@ -22,9 +22,21 @@ import { Schema } from 'effect'
  * Mutually exclusive: `topLevelOnly` and `repliesOnly` cannot both be true.
  */
 export const CommentTriggerFilterSchema = Schema.Struct({
-  topLevelOnly: Schema.optional(Schema.Boolean),
-  repliesOnly: Schema.optional(Schema.Boolean),
-  mentionsOnly: Schema.optional(Schema.Boolean),
+  topLevelOnly: Schema.optional(
+    Schema.Boolean.annotate({
+      description: 'Fires only for comments that start a thread, never for replies.',
+    })
+  ),
+  repliesOnly: Schema.optional(
+    Schema.Boolean.annotate({
+      description: 'Fires only for replies to an existing comment.',
+    })
+  ),
+  mentionsOnly: Schema.optional(
+    Schema.Boolean.annotate({
+      description: 'Fires only for comments that mention someone.',
+    })
+  ),
 }).pipe(
   Schema.annotate({
     identifier: 'CommentTriggerFilter',
@@ -70,10 +82,14 @@ export type CommentTriggerFilter = Schema.Schema.Type<typeof CommentTriggerFilte
  * usable `email.send` `to`. Same split as `threadParticipants`.
  */
 export const CommentTriggerSchema = Schema.Struct({
-  type: Schema.Literal('comment'),
+  type: Schema.Literal('comment').pipe(
+    Schema.annotate({
+      description: "Constant value 'comment' for type discrimination in discriminated unions",
+    })
+  ),
   table: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'Name of the table with comments enabled' })
+    Schema.annotate({ description: 'Name of the table with comments enabled' }),
+    Schema.check(Schema.isMinLength(1))
   ),
   when: Schema.optional(
     Schema.Literals(['approved', 'created', 'any']).pipe(
@@ -97,7 +113,13 @@ export const CommentTriggerSchema = Schema.Struct({
    * fires only when the **comment author** has read access to the
    * record. Defaults to true.
    */
-  respectReadPermissions: Schema.optional(Schema.Boolean),
+  respectReadPermissions: Schema.optional(
+    Schema.Boolean.annotate({
+      defaultNote: 'true',
+      description:
+        'Skips the run when the comment sits on a record the triggering person is not allowed to read.',
+    })
+  ),
 }).pipe(
   Schema.annotate({
     identifier: 'CommentTrigger',

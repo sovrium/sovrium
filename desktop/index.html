@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <!--
+      No CSP meta tag here. The shell's CSP is declared in
+      src-tauri/tauri.conf.json under app.security, which is where Tauri injects
+      it and where a reader looking for the security posture will go. A second
+      copy in the document would be the one that goes stale.
+    -->
+    <title>Sovrium</title>
+    <link
+      rel="stylesheet"
+      href="/src/tokens.generated.css"
+    />
+    <link
+      rel="stylesheet"
+      href="/src/shell.css"
+    />
+  </head>
+  <body>
+    <!--
+      One empty root. The shell's chrome is a handful of states and is built in
+      TypeScript rather than written here, so that the markup cannot fall out of
+      step with the state machine that drives it. `main.ts` fills this before it
+      awaits anything, so the window is never blank while an IPC round trip is
+      in flight.
+    -->
+    <main
+      id="shell"
+      class="shell"
+    ></main>
+    <script
+      type="module"
+      src="/src/main.ts"
+    ></script>
+  </body>
+</html>

@@ -19,8 +19,17 @@ import { DestinationPropSchema } from './shared'
  */
 export const FileGeneratePdfActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('generatePdf'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('generatePdf').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** HTML template for the PDF content */
     template: TemplateStringSchema.pipe(
@@ -77,6 +86,8 @@ export const FileGeneratePdfActionSchema = Schema.Struct({
 
     /** Storage destination for generated file */
     destination: DestinationPropSchema,
+  }).annotate({
+    description: 'The template and data to render, the page setup, and where the file is written.',
   }),
 }).pipe(
   Schema.annotate({

@@ -7,6 +7,7 @@
 
 import { type ReactElement } from 'react'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import { buildAccessibilityRole, buildScrollAttributes } from './html-element-helpers'
 
 /**
@@ -78,42 +79,24 @@ export function renderHTMLElement(config: HTMLElementConfig): ReactElement {
   // Resolver→renderer signals, not markup: strip them here so they never reach
   // the DOM.
   //
-  // `data-content-plain-text` is the content pin (see the note above). The
-  // underscore-prefixed keys are the data-source marker family, attached by
-  // `presentation/rendering/data-source-resolver.ts` and
-  // `page-collection-resolver.ts` to whatever component a `dataSource` binds.
+  // `data-content-plain-text` is the content pin (see the note above) and is
+  // named explicitly because it is the one signal that does NOT carry the
+  // underscore prefix — it has to look like a `data-*` attribute upstream.
   //
-  // THE STRIP BELONGS HERE, not in another per-type destructure. Three
-  // renderers already peel these off for the types they own — `list`
-  // (`special-components.tsx`), `crud-form` and `button` — so a data source
-  // bound to one of those was clean, and a data source bound to a plain
-  // structural type was not: `container`, `flex`, `grid`, `card`, `section`
-  // and the rest all land here, and every one of them spread the markers
-  // straight onto the element. That is the whole defect — React answered a
-  // `container` carrying `dataSource` with "React does not recognize the
-  // `_dataSourceBound` prop on a DOM element" on every admin page whose grid
-  // is data-bound. Adding a fourth per-type destructure would have closed one
-  // type and left the others open; this is the terminal DOM boundary the
-  // structural types share, so stripping once here closes the class.
-  //
-  // `_record` is stripped for the same reason and is NOT dead code: it is
-  // attached beside `_dataSourceBound` on the single-record path
-  // (`applySingleRecordToComponent`), so a record detail page bound to a
-  // `container` leaks it exactly as the collection path leaked its sibling.
-  //
-  // Nothing downstream reads these: this function emits the element, and the
-  // three renderers above destructure from their own props rather than
-  // through here.
-  const {
-    'data-content-plain-text': plainTextPin,
-    _dataSourceBound: _dataSourceBoundMarker,
-    _dataSourceError: _dataSourceErrorMarker,
-    _paginationPageSize: _paginationPageSizeMarker,
-    _paginationTotalCount: _paginationTotalCountMarker,
-    _paginationStyle: _paginationStyleMarker,
-    _record: _recordMarker,
-    ...authorProps
-  } = props
+  // The underscore-prefixed marker family is handled by `omitInternalMarkers`,
+  // which every renderer that spreads author props onto a DOM element now
+  // calls. This function used to enumerate six marker keys inline, and three
+  // other renderers destructured their own — which is exactly why the leak
+  // survived: a data source bound to a structural type landed here and was
+  // clean, while the same source bound to a `link`, `image`, `audio`,
+  // `iframe`, `list`, `paragraph` or form leaf reached a renderer that spread
+  // props unfiltered, and React answered each one with "React does not
+  // recognize the `_dataSourceBound` prop on a DOM element". Enumerating keys
+  // per renderer closes one type at a time; the shared prefix test closes the
+  // class. See `props/internal-marker-props.ts` for why the strip cannot move
+  // upstream — the markers are read by the renderers that own their types.
+  const { 'data-content-plain-text': plainTextPin, ...rest } = props
+  const authorProps = omitInternalMarkers(rest)
   const contentIsPinnedToText = plainTextPin === true
 
   // Build element props immutably
@@ -169,7 +152,7 @@ export function renderStatusBadge(config: StatusBadgeConfig): ReactElement {
     'inline-flex items-center gap-1.5',
     typeof authorClassName === 'string' ? authorClassName : undefined
   )
-  const wrapperProps = { ...props, className: wrapperClassName }
+  const wrapperProps = { ...omitInternalMarkers(props), className: wrapperClassName }
   return (
     <span {...wrapperProps}>
       <span
@@ -191,7 +174,7 @@ export function renderHeading(
   children: readonly React.ReactNode[]
 ): ReactElement {
   const HeadingTag = `h${level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
-  return <HeadingTag {...props}>{content || children}</HeadingTag>
+  return <HeadingTag {...omitInternalMarkers(props)}>{content || children}</HeadingTag>
 }
 
 /**
@@ -217,5 +200,5 @@ export function renderTextElement(
 
   // Default to span for inline text to ensure proper ARIA generic role
   // span elements with text content maintain generic role in ARIA tree
-  return <Tag {...props}>{content || children}</Tag>
+  return <Tag {...omitInternalMarkers(props)}>{content || children}</Tag>
 }

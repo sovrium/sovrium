@@ -94,6 +94,10 @@ const collectDeclaredVisibleValues = (
  * than added to it — see {@link collectDeclaredVisibleValues}. Without that,
  * marking a base URL visible changes nothing: the path pass leaves the literal
  * in place and this pass puts `***` straight back over it.
+ *
+ * So is a DECLARED DEFAULT that is still an `$env.X` reference — but not an
+ * OS-supplied value that happens to look like one. See
+ * {@link withoutUnresolvedReferences}.
  */
 export const redactSecretsForEnv = (
   value: unknown,
@@ -101,7 +105,7 @@ export const redactSecretsForEnv = (
   processEnv: Readonly<Record<string, string | undefined>>
 ): unknown => {
   if (!envVars || envVars.length === 0) return value
-  const lookup = buildEnvLookup(envVars, processEnv)
+  const lookup = withoutUnresolvedReferences(buildEnvLookup(envVars, processEnv), processEnv)
   const visible = collectDeclaredVisibleValues(envVars, processEnv)
   if (visible.size === 0) return redactSecretsInValue(value, lookup)
   return redactSecretsInValue(
@@ -109,6 +113,56 @@ export const redactSecretsForEnv = (
     Object.fromEntries(Object.entries(lookup).filter(([, v]) => !visible.has(v)))
   )
 }
+
+/**
+ * Drop lookup entries whose value is a `$env.X` reference the AUTHOR declared as
+ * a default.
+ *
+ * `buildEnvLookup` reads `default` verbatim and resolves nothing, so a variable
+ * declared `default: $env.DISPATCH_TOKEN` contributes the literal token
+ * `'$env.DISPATCH_TOKEN'` as if it were a credential — and the substring pass then
+ * paints `***` over every occurrence of the variable NAME.
+ *
+ * That contradicts the rule this file already applies one function down:
+ * {@link secretsFromConnection} filters `$env.X` out of the connection secrets
+ * for exactly this reason, and `redact-app-config.ts` states it as its first
+ * rule — *"a `$env.X` token SURVIVES. A variable NAME is not a credential, and
+ * it is what tells the operator which variable feeds the field."* The env half
+ * simply never applied it.
+ *
+ * ## Why the DEFAULT half only, and why that distinction is the whole rule
+ *
+ * The argument above is about a declaration: a `$env.X` written in the config is a
+ * POINTER, visible to anyone who can read the config, and masking the name it
+ * points at helps nobody. It says nothing about a value the OPERATOR supplied. An
+ * OS-supplied value is a credential by provenance whatever it happens to look
+ * like, and a filter that reads only the string cannot tell the two apart — so
+ * `DISPATCH_TOKEN='$env.LOOKS_LIKE_A_REFERENCE'` in the environment used to
+ * silently opt that secret out of redaction for the rest of the run, which is the
+ * one direction this function must never fail in.
+ *
+ * Provenance is decided the same way `buildEnvLookup` decides the value itself and
+ * the same way {@link collectDeclaredVisibleValues} decides which default is in
+ * force: a non-empty OS value wins. So an entry is dropped only when the value in
+ * force IS the declared default.
+ *
+ * Nothing real is unmasked either way. A resolved secret never contains `$env.`,
+ * and the variable a default POINTS at contributes its own entry when it is
+ * declared — so the credential is still scrubbed, under its own name.
+ */
+const withoutUnresolvedReferences = (
+  lookup: Readonly<Record<string, string>>,
+  processEnv: Readonly<Record<string, string | undefined>>
+): Readonly<Record<string, string>> =>
+  Object.fromEntries(
+    Object.entries(lookup).filter(([key, value]) => {
+      if (!containsEnvReference(value)) return true
+      const fromOs = processEnv[key]
+      // The operator supplied this, so it is theirs and it keeps redacting —
+      // however much it looks like a declaration.
+      return fromOs !== undefined && fromOs !== ''
+    })
+  )
 
 /**
  * Connection prop fields that hold secrets and should be redacted from

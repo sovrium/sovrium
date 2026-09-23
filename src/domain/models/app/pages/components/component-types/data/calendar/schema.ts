@@ -81,11 +81,11 @@ export const CalendarInteractionSchema = Schema.Struct({
   /** Time slot interval in minutes for week/day views */
   timeSlotInterval: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
       Schema.annotate({
         description: 'Time slot interval in minutes for week/day views (default: 60)',
         examples: [15, 30, 60],
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
   /** Show a line at the current time in week/day views */

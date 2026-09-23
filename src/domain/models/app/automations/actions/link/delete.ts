@@ -26,10 +26,21 @@ import { LinkActionSlugSchema } from './props'
  */
 export const LinkDeleteActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('link'),
-  operator: Schema.Literal('delete'),
+  type: Schema.Literal('link').pipe(
+    Schema.annotate({
+      description: "Constant value 'link' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('delete').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'link' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     slug: LinkActionSlugSchema,
+  }).annotate({
+    description: 'The short link to delete.',
   }),
 }).pipe(
   Schema.annotate({

@@ -71,10 +71,10 @@ const collectActionNames = (
 export const AutomationSchema = Schema.Struct({
   /** Unique automation name (kebab-case, used in webhook URLs) */
   name: Schema.String.pipe(
-    Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(100)),
     Schema.annotate({
       description: 'Unique automation name (kebab-case, e.g., "new-order-notification")',
-    })
+    }),
+    Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(100))
   ),
 
   /** Human-readable label */
@@ -90,7 +90,10 @@ export const AutomationSchema = Schema.Struct({
   /** Whether this automation is enabled (default: true) */
   enabled: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotate({ description: 'Whether this automation is active (default: true)' })
+      Schema.annotate({
+        defaultNote: 'true',
+        description: 'Whether this automation is active (default: true)',
+      })
     )
   ),
 
@@ -99,8 +102,8 @@ export const AutomationSchema = Schema.Struct({
 
   /** Sequential list of actions to execute */
   actions: Schema.Array(ActionSchema).pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'Ordered list of actions to execute when triggered' })
+    Schema.annotate({ description: 'Ordered list of actions to execute when triggered' }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /** Automation-level retry configuration (applies to the entire workflow) */
@@ -109,10 +112,10 @@ export const AutomationSchema = Schema.Struct({
   /** Timeout for the entire automation run in milliseconds */
   timeout: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 900_000 })),
       Schema.annotate({
         description: 'Total automation timeout in ms (1000-900000, default: 300000)',
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 900_000 }))
     )
   ),
 
@@ -135,10 +138,10 @@ export const AutomationSchema = Schema.Struct({
     Schema.Struct({
       limit: Schema.optional(
         Schema.Finite.pipe(
-          Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 50 })),
           Schema.annotate({
             description: 'Max simultaneous runs of this automation (1-50)',
-          })
+          }),
+          Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 50 }))
         )
       ),
     }).pipe(

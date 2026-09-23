@@ -31,21 +31,26 @@ import { Schema } from 'effect'
  * - {{trigger.data.triggerType}} — what triggered the failed automation
  */
 export const AutomationFailureTriggerSchema = Schema.Struct({
-  type: Schema.Literal('automation-failure'),
+  type: Schema.Literal('automation-failure').pipe(
+    Schema.annotate({
+      description:
+        "Constant value 'automation-failure' for type discrimination in discriminated unions",
+    })
+  ),
   automations: Schema.optional(
     Schema.Array(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
         Schema.annotate({
           description: 'Automation name to watch for failures (kebab-case)',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/))
       )
     ).pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'List of automation names to watch. If omitted, triggers on any automation failure.',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).pipe(

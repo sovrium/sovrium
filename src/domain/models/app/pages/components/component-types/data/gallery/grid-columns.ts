@@ -13,32 +13,32 @@ import { Schema } from 'effect'
 export const GalleryGridColumnsSchema = Schema.Struct({
   mobile: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6)),
-      Schema.annotate({ description: 'Number of columns on mobile (default: 1)' })
+      Schema.annotate({ description: 'Number of columns on mobile (default: 1)' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6))
     )
   ),
   sm: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6)),
-      Schema.annotate({ description: 'Number of columns on small screens (>= 640px)' })
+      Schema.annotate({ description: 'Number of columns on small screens (>= 640px)' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6))
     )
   ),
   md: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6)),
-      Schema.annotate({ description: 'Number of columns on medium screens (>= 768px)' })
+      Schema.annotate({ description: 'Number of columns on medium screens (>= 768px)' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6))
     )
   ),
   lg: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6)),
-      Schema.annotate({ description: 'Number of columns on large screens (>= 1024px)' })
+      Schema.annotate({ description: 'Number of columns on large screens (>= 1024px)' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6))
     )
   ),
   xl: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6)),
-      Schema.annotate({ description: 'Number of columns on extra-large screens (>= 1280px)' })
+      Schema.annotate({ description: 'Number of columns on extra-large screens (>= 1280px)' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(6))
     )
   ),
 }).annotate({

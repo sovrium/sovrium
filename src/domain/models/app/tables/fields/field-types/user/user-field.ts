@@ -28,8 +28,16 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const UserFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('user'),
-    allowMultiple: Schema.optional(Schema.Boolean),
+    type: Schema.Literal('user').pipe(
+      Schema.annotate({
+        description: "Constant value 'user' for type discrimination in discriminated unions",
+      })
+    ),
+    allowMultiple: Schema.optional(
+      Schema.Boolean.annotate({
+        description: 'Lets the field hold several users instead of exactly one.',
+      })
+    ),
   }),
   Schema.annotate({
     title: 'User Field',

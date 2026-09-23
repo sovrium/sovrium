@@ -55,8 +55,10 @@
  *
  * ── SQLite ────────────────────────────────────────────────────────────────
  * Nothing to do and nothing at risk: every timestamp type maps to `TEXT`, the
- * `SQLITE_ISO_NOW` write is UTC-by-construction with an explicit `Z`, and SQLite
- * has no `ALTER COLUMN` at all. This module self-skips.
+ * `SQLITE_ISO_NOW` write is UTC-by-construction with an explicit `Z`, and the
+ * engine never emits `ALTER COLUMN` on SQLite (see
+ * `generateColumnReshapeStatements` in
+ * `./schema-migration/migration-statements`). This module self-skips.
  */
 
 import { sql } from 'drizzle-orm'

@@ -19,8 +19,13 @@ import { Schema } from 'effect'
  * ```
  */
 export const ViewSortSchema = Schema.Struct({
-  field: Schema.String,
-  direction: Schema.Literals(['asc', 'desc']),
+  field: Schema.String.annotate({
+    description: 'Field the records are ordered by.',
+  }),
+  direction: Schema.Literals(['asc', 'desc']).annotate({
+    description:
+      'Which way the order runs: `asc` from smallest or earliest, `desc` from largest or latest.',
+  }),
 }).pipe(
   Schema.annotate({
     title: 'View Sort',

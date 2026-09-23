@@ -16,13 +16,24 @@ import { ActionBaseFields } from '../base'
  */
 export const AuthAssignRoleActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('auth'),
-  operator: Schema.Literal('assignRole'),
+  type: Schema.Literal('auth').pipe(
+    Schema.annotate({
+      description: "Constant value 'auth' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('assignRole').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'auth' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     userId: TemplateStringSchema.pipe(Schema.annotate({ description: 'Target user ID' })),
     role: TemplateStringSchema.pipe(
       Schema.annotate({ description: 'Role to assign (admin, member, viewer, or custom)' })
     ),
+  }).annotate({
+    description: 'Which user is given which role.',
   }),
 }).pipe(
   Schema.annotate({

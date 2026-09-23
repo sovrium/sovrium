@@ -159,6 +159,10 @@ export const DataTableGroupBySchema = Schema.Struct({
    */
   thenBy: Schema.optional(
     Schema.Array(DataTableGroupByLevelSchema).pipe(
+      Schema.annotate({
+        description:
+          'Up to 2 additional grouping levels, applied in order inside the primary level (3 levels total)',
+      }),
       Schema.check(
         Schema.isMinLength(1, {
           message: 'groupBy.thenBy must name at least one field, or be omitted entirely',
@@ -167,11 +171,7 @@ export const DataTableGroupBySchema = Schema.Struct({
           message:
             'groupBy.thenBy accepts at most 2 levels — a data table groups at most 3 levels deep (the primary groupBy plus two nested levels)',
         })
-      ),
-      Schema.annotate({
-        description:
-          'Up to 2 additional grouping levels, applied in order inside the primary level (3 levels total)',
-      })
+      )
     )
   ),
 }).annotate({

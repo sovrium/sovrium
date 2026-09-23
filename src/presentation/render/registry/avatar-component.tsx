@@ -44,6 +44,7 @@ import {
   type AvatarSize,
   type AvatarStatus,
 } from '../../design/display-default-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
@@ -235,7 +236,7 @@ const renderOverflow = (hidden: number, size: AvatarSize): ReactElement | undefi
  */
 export const avatarComponent: ComponentRenderer = ({ elementPropsWithSpacing, component }) => {
   const source = (component ?? {}) as unknown as Readonly<Record<string, unknown>>
-  const { className: authorClassName, ...rest } = elementPropsWithSpacing
+  const { className: authorClassName, ...rest } = omitInternalMarkers(elementPropsWithSpacing)
   const size = sizeOf(source)
   const shape = shapeOf(source)
   const label = text(source, 'label')

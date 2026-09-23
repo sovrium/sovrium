@@ -99,8 +99,16 @@ export const ClickInteractionSchema = Schema.Struct({
       description: 'External URL to open',
     })
   ),
-  openInNewTab: Schema.optional(Schema.Boolean),
-  scrollTo: Schema.optional(ElementIdSelectorSchema),
+  openInNewTab: Schema.optional(
+    Schema.Boolean.annotate({
+      description: 'Opens the link in a new browser tab instead of the current one.',
+    })
+  ),
+  scrollTo: Schema.optional(
+    ElementIdSelectorSchema.annotate({
+      description: 'Scrolls the page to the element with this id instead of navigating.',
+    })
+  ),
   toggleElement: Schema.optional(
     ElementIdSelectorSchema.annotate({
       description: 'Element ID to show/hide',

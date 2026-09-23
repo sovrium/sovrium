@@ -62,6 +62,7 @@ import {
   computeFormFieldClasses,
   computeFormFieldLabelClasses,
 } from '../../../design/forms-default-classes'
+import { omitInternalMarkers } from '../../props/internal-marker-props'
 import type { ElementProps } from '../html-element-renderer'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { FormFieldConfig } from '@/domain/models/app/pages/components/component-types/data/form'
@@ -249,7 +250,7 @@ export function renderEndpointForm(
 
   return (
     <form
-      {...props}
+      {...omitInternalMarkers(props)}
       className={mergedClassName}
       data-action-type="endpoint"
       data-endpoint-config={endpointConfigJson}

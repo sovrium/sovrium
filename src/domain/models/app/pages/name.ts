@@ -25,12 +25,12 @@ import { Schema } from 'effect'
  *
  */
 export const PageNameSchema = Schema.String.pipe(
-  Schema.check(Schema.isMinLength(1), Schema.isMaxLength(63)),
   Schema.annotate({
     title: 'Page Name',
     description: 'Human-readable name for the page',
     examples: ['Home', 'About Us', 'Home Page', 'Pricing', 'Contact'],
-  })
+  }),
+  Schema.check(Schema.isMinLength(1), Schema.isMaxLength(63))
 )
 
 /** @public */

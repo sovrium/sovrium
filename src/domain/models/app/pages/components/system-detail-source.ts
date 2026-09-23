@@ -61,12 +61,12 @@ import { Schema } from 'effect'
 export const SystemDetailSourceSchema = Schema.Struct({
   /** The named detail endpoint to fetch the single record from (required) */
   endpoint: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description:
         'Detail endpoint path to fetch one record from. The bound record id is injected into the `:param` placeholder (e.g. /api/admin/automations/runs/:runId)',
       examples: ['/api/admin/automations/runs/:runId'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /**
    * Param whose value is injected into the endpoint's `:param` placeholder

@@ -32,6 +32,23 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # BASE_URL=http://localhost:3000
 # DATABASE_URL=postgresql://user:password@localhost:5432/dbname   # omit → SQLite
 
+# ── Running under a supervisor ─────────────────────────────────────────
+# A supervising process — the Sovrium desktop app, a systemd unit, a CI step —
+# knows which folder holds the app but does not choose the working directory the
+# binary is launched from. These four let it say so without a \`cd\`. A relative
+# SOVRIUM_DATA_DIR resolves against the project directory, so one value means a
+# different folder under each project.
+# SOVRIUM_PROJECT_DIR=/srv/contact-book   # config discovery root, and the $ref jail
+# SOVRIUM_CONFIG_FILE=app.yaml            # the config file WITHIN that root
+# SOVRIUM_SHUTDOWN_ON_STDIN_CLOSE=1       # stop on end-of-file; Windows has no SIGTERM
+# SOVRIUM_INSTALL_METHOD=desktop          # binary | homebrew | scoop | docker | desktop
+
+# ── Letting your AI client edit the config ────────────────────────────
+# Read by \`sovrium mcp\` alone, and only when the project directory was named
+# explicitly — by --project or SOVRIUM_PROJECT_DIR above. Off by default; set on
+# a deployed server it does nothing, and the boot says so.
+# MCP_CONFIG_WRITE=1                      # offer the config write + undo tools
+
 # ── Auth (only when app.auth is enabled) ──────────────────────────────
 # Generate both with: sovrium secret generate
 # AUTH_SECRET=

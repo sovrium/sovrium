@@ -52,8 +52,17 @@ import { ActionBaseFields } from '../base'
  */
 export const FileParseXlsxActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('parseXlsx'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('parseXlsx').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Storage key of the workbook to parse */
     source: Schema.optional(
@@ -129,20 +138,25 @@ export const FileParseXlsxActionSchema = Schema.Struct({
     /** Number of rows to skip from the top, applied before `header` */
     skipRows: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
         Schema.annotate({
           description:
             'Number of rows to skip from the top, applied before `header` is taken (default: 0)',
+        }),
+        Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
+      )
+    ),
+  })
+    .annotate({
+      description:
+        'The spreadsheet to read: which sheet, which range, and whether the first row is a header.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter((props) => (props.source ?? props.key) !== undefined, {
+          message: 'parseXlsx requires `source` (or `key`)',
         })
       )
     ),
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter((props) => (props.source ?? props.key) !== undefined, {
-        message: 'parseXlsx requires `source` (or `key`)',
-      })
-    )
-  ),
 }).pipe(
   Schema.annotate({
     identifier: 'FileParseXlsxAction',

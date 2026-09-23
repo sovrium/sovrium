@@ -29,7 +29,8 @@ import { Schema, SchemaGetter } from 'effect'
  * Env vars:
  *   MCP_ENABLED, MCP_TRANSPORT, MCP_MOUNT_PATH,
  *   MCP_RATE_LIMIT_PER_MINUTE, MCP_RATE_LIMIT_PER_DAY,
- *   MCP_AUDIT_ENABLED, MCP_EXPOSE_INTERNALS, MCP_CONFIRM_DESTRUCTIVE
+ *   MCP_AUDIT_ENABLED, MCP_EXPOSE_INTERNALS, MCP_CONFIRM_DESTRUCTIVE,
+ *   MCP_CONFIG_WRITE
  *
  * Retired (refused at boot when MCP_ENABLED=true — see `validateMcpEnv`):
  *   MCP_TOKEN_ADMIN, MCP_TOKEN_MEMBER, MCP_TOKEN_VIEWER,
@@ -43,6 +44,9 @@ import { Schema, SchemaGetter } from 'effect'
 // EFFECT 4: `Schema.transform(from, to, {strict, decode, encode})` ->
 // `from.pipe(Schema.decodeTo(to, {decode, encode}))` with each side a
 // `SchemaGetter` (migration/v3-to-v4.md:14284); `strict` no longer exists.
+/** The three spellings {@link BooleanFromString} decodes as `true`. */
+const TRUTHY_ENV_VALUES: ReadonlySet<string> = new Set(['true', 'TRUE', '1'])
+
 const BooleanFromString = Schema.Literals(['true', 'false', 'TRUE', 'FALSE', '1', '0']).pipe(
   Schema.decodeTo(Schema.Boolean, {
     decode: SchemaGetter.transform(
@@ -126,6 +130,14 @@ export const McpEnvSchema = Schema.Struct({
       })
     )
   ),
+  configWrite: Schema.optional(
+    BooleanFromString.pipe(
+      Schema.annotate({
+        description:
+          'Register the four stdio config WRITE tools (MCP_CONFIG_WRITE). Default: false. Honoured only by `sovrium mcp` AND only when the project directory was named explicitly; an HTTP-served instance registers no write tool whatever this says (ADR-022 A8, surface 10).',
+      })
+    )
+  ),
 })
 
 export type McpEnvConfig = Schema.Schema.Type<typeof McpEnvSchema>
@@ -143,6 +155,7 @@ export const MCP_ENV_DEFAULTS = {
   auditEnabled: true,
   exposeInternals: true,
   confirmDestructive: true,
+  configWrite: false,
 } as const
 
 // ---------------------------------------------------------------------------
@@ -158,6 +171,7 @@ export type ResolvedMcpEnvConfig = {
   readonly auditEnabled: boolean
   readonly exposeInternals: boolean
   readonly confirmDestructive: boolean
+  readonly configWrite: boolean
 }
 
 export const resolveMcpEnv = (parsed: McpEnvConfig): ResolvedMcpEnvConfig => ({
@@ -169,7 +183,42 @@ export const resolveMcpEnv = (parsed: McpEnvConfig): ResolvedMcpEnvConfig => ({
   auditEnabled: parsed.auditEnabled ?? MCP_ENV_DEFAULTS.auditEnabled,
   exposeInternals: parsed.exposeInternals ?? MCP_ENV_DEFAULTS.exposeInternals,
   confirmDestructive: parsed.confirmDestructive ?? MCP_ENV_DEFAULTS.confirmDestructive,
+  configWrite: parsed.configWrite ?? MCP_ENV_DEFAULTS.configWrite,
 })
+
+/**
+ * Whether `MCP_CONFIG_WRITE` asks for the stdio write tools.
+ *
+ * Read standalone rather than through {@link parseMcpEnvConfig} because the two
+ * callers cannot afford that function's failure mode. `sovrium mcp` boots no
+ * server and never looks at `MCP_TRANSPORT` or `MCP_MOUNT_PATH`, so a stray
+ * value in one of those must not make the verb throw before it has answered a
+ * single request; and the HTTP boot notice below has to be printable on the way
+ * to the very refusal a decode failure would otherwise pre-empt.
+ *
+ * It is NOT a rule of {@link validateMcpEnv}: every rule there fails the boot,
+ * and this variable must not ([internal ref] A8 bound 2 is about tool REGISTRATION —
+ * an HTTP instance carrying the flag boots and serves, it simply compiles no
+ * write tool).
+ *
+ * @public
+ */
+export const parseMcpConfigWrite = (env: NodeJS.ProcessEnv = process.env): boolean =>
+  TRUTHY_ENV_VALUES.has(env.MCP_CONFIG_WRITE ?? '')
+
+/**
+ * What an HTTP-served instance tells an operator who set `MCP_CONFIG_WRITE`.
+ *
+ * The one thing this must not be is silent: the operator believes they enabled
+ * config writes over the network, and they did not. It names the variable AND
+ * where the tools do live, so the notice is actionable rather than merely
+ * disapproving.
+ *
+ * @public
+ */
+export const MCP_CONFIG_WRITE_IGNORED_NOTICE =
+  '[mcp] MCP_CONFIG_WRITE is set, but the config write tools are stdio-only and are never ' +
+  'registered on an HTTP-served instance. Run `sovrium mcp --project <dir>` to use them.'
 
 // ---------------------------------------------------------------------------
 // Validation — startup checks beyond decode (cross-field rules)
@@ -252,4 +301,5 @@ export const parseMcpEnvConfig = (env: NodeJS.ProcessEnv = process.env): McpEnvC
     auditEnabled: env.MCP_AUDIT_ENABLED,
     exposeInternals: env.MCP_EXPOSE_INTERNALS,
     confirmDestructive: env.MCP_CONFIRM_DESTRUCTIVE,
+    configWrite: env.MCP_CONFIG_WRITE,
   })

@@ -20,10 +20,13 @@ export const CommandPaletteTypeLiteral = Schema.Literal('command-palette')
  * quick-action runtime with a search affordance backed by `endpoint`; omitting
  * it keeps the built-in palette.
  *
- * The endpoint answers `{ items: [...] }` where each item carries at least a
- * `label`, an `href` and a `kind`; `kindLabels` names each `kind` for the
- * group headings, so a result list reads "Tables / Forms / Pages" rather than
- * "table / form / page".
+ * The endpoint is called with `?q=<term>` appended and `credentials: 'include'`,
+ * and answers results ALREADY GROUPED:
+ * `{ query, groups: [{ type, results: [{ type, entityId, title, href, updatedAt }] }] }`.
+ * `title` is the row's text and `href` its navigation target; `kindLabels` names
+ * each GROUP's `type` for the heading, so a result list reads "Records / Forms"
+ * rather than "record / form". Anything that is not a 200 of that shape renders
+ * the no-results state.
  *
  * @example
  * ```yaml
@@ -32,24 +35,24 @@ export const CommandPaletteTypeLiteral = Schema.Literal('command-palette')
  *     endpoint: /api/admin/search
  *     placeholder: $t:palette.placeholder
  *     kindLabels:
- *       table: Tables
+ *       record: Records
  *       form: Forms
  * ```
  */
 export const CommandPaletteSearchSchema = Schema.Struct({
   /** Read endpoint the palette queries as the visitor types */
   endpoint: Schema.String.pipe(
+    Schema.annotate({
+      description: 'Read endpoint the palette queries as the visitor types',
+      examples: ['/api/admin/search', '/api/search'],
+    }),
     Schema.check(
       Schema.isMinLength(1),
       Schema.isPattern(/^\//, {
         message:
           'command-palette search endpoint must be a path starting with / — the palette queries this instance, never another origin',
       })
-    ),
-    Schema.annotate({
-      description: 'Read endpoint the palette queries as the visitor types',
-      examples: ['/api/admin/search', '/api/search'],
-    })
+    )
   ),
   /** Input placeholder; accepts a `$t:` translation key */
   placeholder: Schema.optional(
@@ -59,15 +62,16 @@ export const CommandPaletteSearchSchema = Schema.Struct({
     })
   ),
   /**
-   * Group heading per result `kind`.
+   * Group heading per result group `type`.
    *
-   * A result's `kind` is a machine token (`table`, `form`); a heading is a
+   * A group's `type` is a machine token (`record`, `form`); a heading is a
    * human noun. Without the map the headings print the token, which reads as
    * an internal name leaking into the UI.
    */
   kindLabels: Schema.optional(
     Schema.Record(Schema.String, Schema.String).annotate({
-      description: 'Result-kind to group-heading map; values accept $t: keys',
+      description:
+        "Map of a result group's `type` to the heading shown above it; values accept $t: keys. An unmapped type prints as itself.",
     })
   ),
 }).annotate({

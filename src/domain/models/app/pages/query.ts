@@ -27,19 +27,23 @@ import { Schema } from 'effect'
 export const PageQueryPropSchema = Schema.Struct({
   /** Value used when the URL omits the parameter or supplies one outside `enum` */
   default: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Value used when the URL omits the parameter or supplies one outside enum',
       examples: ['7d', 'all'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** The closed allow-list of accepted values */
-  enum: Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))).pipe(
-    Schema.check(Schema.isMinLength(1)),
+  enum: Schema.Array(
+    Schema.String.annotate({ description: 'One value the parameter may carry' }).pipe(
+      Schema.check(Schema.isMinLength(1))
+    )
+  ).pipe(
     Schema.annotate({
       description: 'Closed allow-list of accepted values; anything else falls back to default',
       examples: [['24h', '7d', '30d']],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /**
    * The value an UNKNOWN URL value resolves to, when that has to be told apart

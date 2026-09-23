@@ -15,8 +15,8 @@ import { Schema } from 'effect'
 const ContentDirSortSchema = Schema.Struct({
   /** Frontmatter field to sort by */
   field: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'Frontmatter field to sort by (e.g., date)' })
+    Schema.annotate({ description: 'Frontmatter field to sort by (e.g., date)' }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /** Sort order */
@@ -57,11 +57,11 @@ const ContentDirNavTabSchema = Schema.Struct({
    * docs sidebar wrapper. The app's tab-strip markup matches on this value.
    */
   id: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description:
         'Stable tab identifier, announced as data-docs-active-zone on the docs sidebar (e.g. "tables")',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /**
@@ -73,11 +73,11 @@ const ContentDirNavTabSchema = Schema.Struct({
    */
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Tab display label, also the breadcrumb root-crumb name. Already-localised per locale. Absent = humanized id.',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 
@@ -90,11 +90,11 @@ const ContentDirNavTabSchema = Schema.Struct({
    */
   href: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           "Tab landing URL used as the breadcrumb root href. Absent = derived from the tab's first sidebar entry (self-healing).",
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 
@@ -112,15 +112,15 @@ const ContentDirNavTabSchema = Schema.Struct({
    */
   sections: Schema.Array(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'A groupBy section slug owned by this tab' })
+      Schema.annotate({ description: 'A groupBy section slug owned by this tab' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ).pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description:
         'Section slugs owned by this tab, in sidebar group order within the tab (orthogonal to contentDir.sort, which orders entries inside each group)',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).pipe(
   Schema.annotate({
@@ -186,20 +186,20 @@ const ContentDirNavSchema = Schema.Struct({
   /** Frontmatter field used to group sidebar entries into sections */
   groupBy: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Frontmatter field used to group sidebar entries (e.g., category)',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 
   /** Frontmatter field used as the sidebar link label */
   labelFrom: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Frontmatter field used as the sidebar link label (e.g., title)',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 
@@ -313,8 +313,8 @@ const ContentDirNavSchema = Schema.Struct({
 export const ContentDirSchema = Schema.Struct({
   /** Directory path containing markdown files */
   directory: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'Directory containing markdown content files' })
+    Schema.annotate({ description: 'Directory containing markdown content files' }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /** How to derive the URL slug from each file */
@@ -340,19 +340,19 @@ export const ContentDirSchema = Schema.Struct({
    */
   index: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Slug of the index article served at the collection base path (page path minus its trailing dynamic segment). The slugged URL 301-redirects to the base path. E.g. "introduction".',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 
   /** Glob pattern to filter which files to include */
   include: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Glob pattern to filter files (e.g., *.md)' })
+      Schema.annotate({ description: 'Glob pattern to filter files (e.g., *.md)' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 
@@ -389,11 +389,11 @@ export const ContentDirSchema = Schema.Struct({
    */
   editUrl: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Edit-this-page URL template for docs articles. Placeholders: {slug} (resolved article slug), {path} (source file path relative to directory, = {slug}.md), {lang} (active request language, empty when no /:lang/ prefix). Absent = no edit link (opt-in, default off). E.g. https://github.com/acme/repo/edit/main/docs/{lang}/{slug}.md',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 
@@ -420,11 +420,11 @@ export const ContentDirSchema = Schema.Struct({
    */
   issueUrl: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Report-an-issue URL template for docs articles. Same placeholders as editUrl ({slug}, {path}, {lang}) but OPTIONAL — a bare issue-tracker URL with no placeholder is valid (passes through verbatim). Absent = no issue link (opt-in, default off). E.g. https://github.com/acme/repo/issues/new',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 
@@ -440,11 +440,11 @@ export const ContentDirSchema = Schema.Struct({
    */
   contributionNote: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Per-locale contribution note rendered (raw string) in the docs article contribution footer, beside the edit/issue links. Not interpolated. Absent = no note (opt-in, default off).',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).pipe(

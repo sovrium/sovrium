@@ -21,8 +21,8 @@ export const navigationMenuFields = {
   ...i18nFields,
   navItems: Schema.optional(
     Schema.Array(NavItemSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Navigation items with optional sub-menus' })
+      Schema.annotate({ description: 'Navigation items with optional sub-menus' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**

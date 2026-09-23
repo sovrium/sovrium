@@ -37,8 +37,17 @@ import { DestinationPropSchema } from './shared'
  */
 export const FileTransformImageActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('transformImage'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('transformImage').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Storage key of the source image */
     key: Schema.optional(
@@ -70,20 +79,20 @@ export const FileTransformImageActionSchema = Schema.Struct({
     /** Target width in pixels */
     width: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isGreaterThan(0), Schema.isInt()),
         Schema.annotate({
           description: 'Target width in pixels (1-2500)',
-        })
+        }),
+        Schema.check(Schema.isGreaterThan(0), Schema.isInt())
       )
     ),
 
     /** Target height in pixels */
     height: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isGreaterThan(0), Schema.isInt()),
         Schema.annotate({
           description: 'Target height in pixels (1-2500)',
-        })
+        }),
+        Schema.check(Schema.isGreaterThan(0), Schema.isInt())
       )
     ),
 
@@ -130,30 +139,35 @@ export const FileTransformImageActionSchema = Schema.Struct({
     /** Output quality for lossy formats */
     quality: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
         Schema.annotate({
           description: 'Output quality for lossy formats (1-100, default: 80)',
-        })
+        }),
+        Schema.check(Schema.isBetween({ minimum: 1, maximum: 100 }))
       )
     ),
 
     /** Storage destination for transformed file */
     destination: DestinationPropSchema,
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter((props) => (props.key ?? props.source) !== undefined, {
-        message: 'transformImage requires `key` (or `source`)',
-      }),
-      Schema.makeFilter(
-        (props) =>
-          props.width === undefined || props.height === undefined || props.fit !== undefined,
-        {
-          message:
-            'transformImage requires `fit` (`fill` or `inside`) when both `width` and `height` are set',
-        }
+  })
+    .annotate({
+      description:
+        'The image to transform, the size and fit to produce, the output format, and where it is written.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter((props) => (props.key ?? props.source) !== undefined, {
+          message: 'transformImage requires `key` (or `source`)',
+        }),
+        Schema.makeFilter(
+          (props) =>
+            props.width === undefined || props.height === undefined || props.fit !== undefined,
+          {
+            message:
+              'transformImage requires `fit` (`fill` or `inside`) when both `width` and `height` are set',
+          }
+        )
       )
-    )
-  ),
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'FileTransformImageAction',

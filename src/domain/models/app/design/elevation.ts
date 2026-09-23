@@ -42,6 +42,8 @@ export const DesignElevationSchema = guardedKeyRecord(
     keyHint: 'An elevation level name is kebab-case (lowercase letters, digits and hyphens).',
     keyTitle: 'Elevation Level',
     keyExamples: ['none', 'sm', 'lg', '2xl'],
+    description:
+      "The app's shadow levels, from flat to furthest off the page. Each name becomes the suffix of a shadow utility.",
   }
 ).pipe(
   Schema.annotate({

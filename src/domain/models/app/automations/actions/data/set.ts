@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const DataSetActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('data'),
-  operator: Schema.Literal('set'),
+  type: Schema.Literal('data').pipe(
+    Schema.annotate({
+      description: "Constant value 'data' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('set').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'data' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Value to compute and expose as `steps.<name>.value` (supports templates) */
     value: TemplateStringSchema.pipe(
@@ -26,6 +35,8 @@ export const DataSetActionSchema = Schema.Struct({
         description: 'Value to compute and expose as steps.<name>.value (supports templates)',
       })
     ),
+  }).annotate({
+    description: 'The value to store for later steps to read.',
   }),
 }).pipe(
   Schema.annotate({

@@ -16,6 +16,11 @@
  *        which is how an IN-PLACE hot swap reaches the page. The listener
  *        survives the swap, so there is no reconnect left to carry the news
  *        and it has to be sent over the connection the page already holds;
+ *      * a pushed `{"type":"error", findings}` message, which is how a REFUSED
+ *        save reaches it. That one is not an optimisation: a refusal changes
+ *        nothing the page can observe — the last-good server keeps answering
+ *        200 with a good page — so without this message the only place the
+ *        news exists is a terminal the reader is not looking at;
  *      * the `generation` token in the preamble, which is how a FULL RESTART
  *        reaches it. That path tears the server down, the `EventSource`
  *        reconnects against the freshly built app (a new `chainDevReloadRoutes`
@@ -61,16 +66,86 @@ export const DEV_RELOAD_SSE_PATH = '/__sovrium_dev/reload'
 export const DEV_RELOAD_SCRIPT_PATH = '/assets/dev-reload.js'
 
 /**
- * The injected client. Opens the SSE stream and reloads the page on either
- * signal: a pushed `reload` message (an in-place hot swap), or a `connected`
- * preamble whose `generation` differs from the last one seen (a full restart,
- * observed on reconnect). sessionStorage remembers the last-seen generation
- * across the page reload so the freshly-loaded page does not reload again.
- * Heartbeats and any other message are ignored.
+ * The half of the client that paints a REFUSED save, kept as its own constant.
+ *
+ * Framework-free and inline-styled on purpose: this ships to every dev page, and
+ * a stylesheet it depended on would be one more thing a refused save could have
+ * broken. It is a module constant rather than part of `buildClientScript`
+ * because the composed function would otherwise be the longest in the file for
+ * no reason a reader benefits from.
+ *
+ * ## Why it sits OVER the page rather than replacing it
+ *
+ * The previous version IS still serving — that is what `kept` means — so hiding
+ * it would tell the reader the opposite of the truth. The panel is anchored to
+ * the bottom, bounded to a fraction of the viewport and scrolls its own
+ * overflow, so the running app stays both visible and usable while the news is
+ * on screen.
+ *
+ * ## Why it prints `accepted` in full
+ *
+ * It is the only part that says what to write INSTEAD. A truncated list reads as
+ * the complete one, which is how a reader is sent away from a legal value with
+ * confidence — the same reason the producers of that list are all-or-nothing
+ * about it (see `unionDiscriminantValues`).
+ */
+const OVERLAY_CLIENT = `
+  var OVERLAY_ID = '__sovrium_dev_overlay'
+  var MONO = 'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-word'
+  function clearOverlay() {
+    var node = document.getElementById(OVERLAY_ID)
+    if (node && node.parentNode) node.parentNode.removeChild(node)
+  }
+  function overlayRow(label, text, mono) {
+    var row = document.createElement('div')
+    row.textContent = label + text
+    row.style.cssText = 'margin-top:4px;opacity:.9;' + (mono ? MONO : '')
+    return row
+  }
+  function paintOverlay(findings) {
+    if (!document.body) return
+    clearOverlay()
+    var box = document.createElement('div')
+    box.id = OVERLAY_ID
+    box.setAttribute('data-sovrium-dev-overlay', '')
+    box.setAttribute('role', 'alert')
+    box.style.cssText =
+      'position:fixed;left:0;right:0;bottom:0;z-index:2147483647;max-height:45vh;' +
+      'overflow:auto;padding:16px 20px;background:#221215;color:#ffe9ec;' +
+      'border-top:3px solid #e5484d;font:13px/1.5 ui-sans-serif,system-ui,sans-serif'
+    var head = document.createElement('strong')
+    head.textContent = 'Sovrium refused this save. The previous version is still running.'
+    head.style.cssText = 'display:block;font-size:14px'
+    box.appendChild(head)
+    for (var i = 0; i < findings.length; i++) {
+      var finding = findings[i] || {}
+      var item = document.createElement('div')
+      item.style.cssText = 'margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.14)'
+      item.appendChild(overlayRow('', String(finding.message || 'Invalid configuration'), false))
+      if (finding.path) item.appendChild(overlayRow('at ', String(finding.path), true))
+      if (finding.sourceFile) item.appendChild(overlayRow('in ', String(finding.sourceFile), true))
+      if (finding.accepted && finding.accepted.length) {
+        item.appendChild(overlayRow('Accepted: ', finding.accepted.join(', '), true))
+      }
+      box.appendChild(item)
+    }
+    document.body.appendChild(box)
+  }
+`
+
+/**
+ * The injected client. Opens the SSE stream and reacts to three signals: a
+ * pushed `reload` message (an in-place hot swap), a pushed `error` message (a
+ * save the server refused, which changes nothing it serves and so cannot be
+ * noticed any other way), or a `connected` preamble whose `generation` differs
+ * from the last one seen (a full restart, observed on reconnect).
+ * sessionStorage remembers the last-seen generation across the page reload so
+ * the freshly-loaded page does not reload again. Heartbeats are ignored.
  */
 const buildClientScript = (): string =>
   `(function () {
   var KEY = '__sovrium_reload_generation'
+${OVERLAY_CLIENT}
   try {
     var source = new EventSource(${JSON.stringify(DEV_RELOAD_SSE_PATH)})
     source.onmessage = function (event) {
@@ -81,7 +156,16 @@ const buildClientScript = (): string =>
         return
       }
       if (!message) return
+      if (message.type === 'error') {
+        paintOverlay(Array.isArray(message.findings) ? message.findings : [])
+        return
+      }
       if (message.type === 'reload') {
+        // Cleared here as well as by the reload itself: a navigation that is
+        // slow, or blocked by an onbeforeunload handler, would otherwise leave
+        // a refusal on screen over an app that has already been corrected —
+        // and a permanent alarm over a healthy page is worse than no alarm.
+        clearOverlay()
         location.reload()
         return
       }

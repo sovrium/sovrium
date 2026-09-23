@@ -6,7 +6,9 @@
  */
 
 import { Effect } from 'effect'
+import { parseShutdownOnStdinClose } from '@/domain/models/process-env/desktop'
 import { logError, logInfo, logWarning } from '@/infrastructure/logging'
+import { cleanupLockFileSync } from '@/infrastructure/server/lock-file-cleanup'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
 
 /**
@@ -34,6 +36,13 @@ export interface ShutdownProcess {
   readonly on: (signal: ShutdownSignal, handler: () => void) => void
   readonly exit: (code: number) => void
   readonly schedule: (handler: () => void, ms: number) => { readonly unref: () => void }
+  /**
+   * Call `handler` when the process' stdin reaches end-of-file.
+   *
+   * Registered ONLY under `SOVRIUM_SHUTDOWN_ON_STDIN_CLOSE=1` — see
+   * {@link parseShutdownOnStdinClose} for why it cannot be unconditional.
+   */
+  readonly onStdinClose: (handler: () => void) => void
 }
 
 const nodeProcess: ShutdownProcess = {
@@ -41,11 +50,74 @@ const nodeProcess: ShutdownProcess = {
     // eslint-disable-next-line functional/no-expression-statements -- register a process signal handler
     process.on(signal, handler)
   },
+  onStdinClose: (handler) => {
+    // `end` is the EOF event and `close` covers a descriptor that goes away
+    // without one; both are registered because a supervisor may do either, and
+    // the caller's once-guard makes the overlap harmless.
+    //
+    // `resume()` is load-bearing: a paused stream never reaches EOF, so
+    // without it the handler is registered and simply never fires. Nothing in
+    // `sovrium start` reads stdin, so putting it in flowing mode costs nothing.
+    /* eslint-disable functional/no-expression-statements -- attach stream listeners */
+    process.stdin.on('end', handler)
+    process.stdin.on('close', handler)
+    process.stdin.resume()
+    /* eslint-enable functional/no-expression-statements */
+  },
   exit: (code) => {
     // eslint-disable-next-line functional/no-expression-statements -- terminate the process
     process.exit(code)
   },
   schedule: (handler, ms) => setTimeout(handler, ms),
+}
+
+/**
+ * The one graceful stop, whatever asked for it.
+ *
+ * `reason` only changes the log line. Everything downstream — the lock-file
+ * removal, the watchdog, the exit code — is shared, which is what makes an EOF
+ * stop indistinguishable from a signal stop to an operator reading the exit
+ * code or to the next `sovrium start` reading the lock file.
+ *
+ * The lock-file removal is OWNED HERE rather than by the signal handlers,
+ * because a stop can now begin without a signal. Registering it on
+ * SIGTERM/SIGINT alone left an EOF stop exiting 0 with the lock file still on
+ * disk, which the next `sovrium start` reports as a live instance. It is
+ * synchronous and idempotent, so the signal path — where the registered
+ * handler has already run — pays nothing for the second call.
+ *
+ * Module-level rather than a closure inside the controller: it needs only the
+ * host and the current stop target, and both are already explicit.
+ */
+const beginShutdown = (
+  host: ShutdownProcess,
+  targetState: ReadonlyMap<'server', ServerInstance>,
+  reason: string
+): void => {
+  logInfo(`[server] ${reason} — stopping`)
+
+  cleanupLockFileSync()
+
+  const watchdog = host.schedule(() => {
+    logError('[server] shutdown timed out — exiting')
+    host.exit(1)
+  }, SHUTDOWN_WATCHDOG_MS)
+  // A referenced timer would hold the loop open for the full watchdog window
+  // AFTER an already-clean stop, turning a 50 ms shutdown into a 5 s one.
+  watchdog.unref()
+
+  const target = targetState.get('server')
+  const stopped = target ? Effect.runPromise(target.stop) : Promise.resolve()
+  // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget: the continuations end the process
+  void stopped.then(
+    () => {
+      host.exit(0)
+    },
+    (error: unknown) => {
+      logError('[server] stop failed', error)
+      host.exit(1)
+    }
+  )
 }
 
 /** A controller owning one process' signal handlers. */
@@ -88,7 +160,7 @@ export const createShutdownController = (
   // per-process state that has to survive between calls without a `let` or a
   // mutable object type (see `telemetry/error-reporter.ts`).
   const targetState = new Map<'server', ServerInstance>()
-  const flags = new Map<'installed' | 'signalled', true>()
+  const flags = new Map<'installed' | 'signalled' | 'stdinClosed', true>()
 
   const onSignal = (signal: ShutdownSignal) => (): void => {
     if (flags.get('signalled') === true) {
@@ -98,28 +170,25 @@ export const createShutdownController = (
     }
     // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- set-once guard
     flags.set('signalled', true)
-    logInfo(`[server] received ${signal} — stopping`)
+    beginShutdown(host, targetState, `received ${signal}`)
+  }
 
-    const watchdog = host.schedule(() => {
-      logError('[server] shutdown timed out — exiting')
-      host.exit(1)
-    }, SHUTDOWN_WATCHDOG_MS)
-    // A referenced timer would hold the loop open for the full watchdog window
-    // AFTER an already-clean stop, turning a 50 ms shutdown into a 5 s one.
-    watchdog.unref()
-
-    const target = targetState.get('server')
-    const stopped = target ? Effect.runPromise(target.stop) : Promise.resolve()
-    // eslint-disable-next-line functional/no-expression-statements -- fire-and-forget: the continuations end the process
-    void stopped.then(
-      () => {
-        host.exit(0)
-      },
-      (error: unknown) => {
-        logError('[server] stop failed', error)
-        host.exit(1)
-      }
-    )
+  /**
+   * Stop once on EOF, and treat it as having been signalled.
+   *
+   * Its own guard because `end` and `close` can both fire for one closure, and
+   * a second call through the signal guard would exit 1 on what is really a
+   * single request. Setting `signalled` too means a supervisor that closes
+   * stdin AND then sends a signal gets the documented "a second request is an
+   * order" behaviour rather than two stops racing each other.
+   */
+  const onStdinClose = (): void => {
+    if (flags.get('stdinClosed') === true || flags.get('signalled') === true) return
+    /* eslint-disable functional/no-expression-statements, functional/immutable-data -- set-once guards */
+    flags.set('stdinClosed', true)
+    flags.set('signalled', true)
+    /* eslint-enable functional/no-expression-statements, functional/immutable-data */
+    beginShutdown(host, targetState, 'stdin closed')
   }
 
   return {
@@ -132,6 +201,8 @@ export const createShutdownController = (
         flags.set('installed', true)
         host.on('SIGINT', onSignal('SIGINT'))
         host.on('SIGTERM', onSignal('SIGTERM'))
+        // Conditional, never unconditional: see `parseShutdownOnStdinClose`.
+        if (parseShutdownOnStdinClose()) host.onStdinClose(onStdinClose)
       }),
   }
 }

@@ -18,17 +18,17 @@ import { Schema } from 'effect'
 export const RetryConfigSchema = Schema.Struct({
   /** Maximum number of retry attempts (1-10) */
   maxAttempts: Schema.Finite.pipe(
-    Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 10 })),
-    Schema.annotate({ description: 'Maximum retry attempts (1-10)' })
+    Schema.annotate({ description: 'Maximum retry attempts (1-10)' }),
+    Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 10 }))
   ),
 
   /** Delay between retries in milliseconds (100-60000) */
   delayMs: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 100, maximum: 60_000 })),
       Schema.annotate({
         description: 'Base delay between retries in milliseconds (100-60000, default: 1000)',
-      })
+      }),
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 100, maximum: 60_000 }))
     )
   ),
 

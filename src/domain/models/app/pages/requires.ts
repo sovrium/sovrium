@@ -61,7 +61,14 @@ export const PAGE_CAPABILITIES = [
 export const PageCapabilitySchema = Schema.Literals([...PAGE_CAPABILITIES]).annotate({
   identifier: 'PageCapability',
   title: 'Page Capability',
-  description: 'A capability of the host app that a page requires in order to be served',
+  // POLARITY-NEUTRAL ON PURPOSE. One node serves `pages[].requires`,
+  // `visibility.declares` AND `visibility.unlessDeclares`, and it carries an
+  // `identifier`, so annotating it at a use site would FORK its `$def`. A
+  // sentence written for the positive polarity therefore reached the negative
+  // key too and told that reader the opposite of what the key does. The
+  // direction belongs to the key name; this says only what the VALUE is.
+  description:
+    'A capability of the host app — a feature its own config declares — named by a page requirement or by a component visibility gate',
 })
 
 /** @public */

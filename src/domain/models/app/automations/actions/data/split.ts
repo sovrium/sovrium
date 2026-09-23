@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const DataSplitActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('data'),
-  operator: Schema.Literal('split'),
+  type: Schema.Literal('data').pipe(
+    Schema.annotate({
+      description: "Constant value 'data' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('split').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'data' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Template reference to the array to chunk */
     input: TemplateStringSchema.pipe(
@@ -27,9 +36,11 @@ export const DataSplitActionSchema = Schema.Struct({
 
     /** Maximum size of each chunk (positive integer) */
     size: Schema.Finite.pipe(
-      Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Maximum size of each chunk (positive integer)' })
+      Schema.annotate({ description: 'Maximum size of each chunk (positive integer)' }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     ),
+  }).annotate({
+    description: 'The list to cut into batches, and how large each batch is.',
   }),
 }).pipe(
   Schema.annotate({

@@ -42,8 +42,17 @@ import { isValidTimezone, PatternProp, TimezoneProp } from './props'
  */
 export const DateParseActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('date'),
-  operator: Schema.Literal('parse'),
+  type: Schema.Literal('date').pipe(
+    Schema.annotate({
+      description: "Constant value 'date' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('parse').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'date' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** The string to read. */
     input: TemplateStringSchema.pipe(
@@ -73,15 +82,19 @@ export const DateParseActionSchema = Schema.Struct({
         })
       )
     ),
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter(({ timezone }) =>
-        timezone !== undefined && !isValidTimezone(timezone)
-          ? `Invalid IANA timezone: ${timezone}`
-          : undefined
+  })
+    .annotate({
+      description: 'The text to read as a date, the pattern it follows, and the time zone.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter(({ timezone }) =>
+          timezone !== undefined && !isValidTimezone(timezone)
+            ? `Invalid IANA timezone: ${timezone}`
+            : undefined
+        )
       )
-    )
-  ),
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'DateParseAction',

@@ -21,10 +21,10 @@ export const breadcrumbFields = {
   ...i18nFields,
   breadcrumbItems: Schema.optional(
     Schema.Array(BreadcrumbItemSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description: 'Ordered breadcrumb segments from root to current page',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -88,11 +88,11 @@ export const breadcrumbFields = {
     Schema.Struct({
       /** Crumb label; accepts a `$t:` key and `$app.name` */
       label: Schema.String.pipe(
-        Schema.check(Schema.isMinLength(1)),
         Schema.annotate({
           description: 'Root-crumb label; accepts a $t: translation key and $app.name',
           examples: ['Home', '$app.name', '$t:nav.home'],
-        })
+        }),
+        Schema.check(Schema.isMinLength(1))
       ),
     }).annotate({
       identifier: 'BreadcrumbHome',

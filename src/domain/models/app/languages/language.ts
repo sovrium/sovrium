@@ -27,16 +27,16 @@ import { TranslationsSchema } from './translations'
  *
  */
 export const LanguageCodeSchema = Schema.String.pipe(
-  Schema.check(
-    Schema.isPattern(/^[a-z]{2}$/, {
-      message: 'Language code must be 2 lowercase letters (ISO 639-1 format, e.g., en, fr, es)',
-    })
-  ),
   Schema.annotate({
     title: 'Language Code',
     description: 'Short language code (2 letters) for URLs and routing',
     examples: ['en', 'fr', 'es', 'de', 'ar', 'he'],
-  })
+  }),
+  Schema.check(
+    Schema.isPattern(/^[a-z]{2}$/, {
+      message: 'Language code must be 2 lowercase letters (ISO 639-1 format, e.g., en, fr, es)',
+    })
+  )
 )
 
 /**
@@ -81,14 +81,20 @@ export const LanguageCodeSchema = Schema.String.pipe(
 export const LanguagesSchema = Schema.Struct({
   default: LanguageCodeSchema,
   supported: Schema.Array(LanguageConfigSchema).pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Supported Languages',
       description: 'List of supported languages',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   fallback: Schema.optional(LanguageCodeSchema),
-  detectBrowser: Schema.optional(Schema.Boolean),
+  detectBrowser: Schema.optional(
+    Schema.Boolean.annotate({
+      title: 'Detect Browser Language',
+      description:
+        "Picks the language from the reader's browser on a first visit, when the address itself does not name one.",
+    })
+  ),
   persistSelection: Schema.optional(
     Schema.Boolean.annotate({
       title: 'Persist Language Selection',

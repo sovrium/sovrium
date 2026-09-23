@@ -52,11 +52,11 @@ import { TemplateStringSchema } from '../../template'
  * template is longer than its result.
  */
 export const LinkActionSlugSchema = TemplateStringSchema.pipe(
-  Schema.check(Schema.isMinLength(1), Schema.isMaxLength(200)),
   Schema.annotate({
     description:
       "The path segment after /l/, as a template (e.g. 'product-{{trigger.record.handle}}'). The RESOLVED value must be lowercase alphanumeric with single '-' or '_' separators, and must not name a reserved slug.",
-  })
+  }),
+  Schema.check(Schema.isMinLength(1), Schema.isMaxLength(200))
 )
 
 /**
@@ -66,44 +66,47 @@ export const LinkActionSlugSchema = TemplateStringSchema.pipe(
  * config-side schema does not cap them either.
  */
 export const LinkActionDestinationSchema = TemplateStringSchema.pipe(
-  Schema.check(Schema.isMinLength(1)),
   Schema.annotate({
     description:
       "Where the link sends the visitor, as a template. The RESOLVED value must be a root-relative path or an absolute http(s) URL (e.g. 'https://example.com/products/{{trigger.record.handle}}').",
-  })
+  }),
+  Schema.check(Schema.isMinLength(1))
 )
 
 /** Operator-facing name, shown in the admin console. */
 export const LinkActionTitleSchema = TemplateStringSchema.pipe(
-  Schema.check(Schema.isMinLength(1), Schema.isMaxLength(500)),
   Schema.annotate({
     description: 'Human-facing name for this link, shown in the admin console. Templated.',
-  })
+  }),
+  Schema.check(Schema.isMinLength(1), Schema.isMaxLength(500))
 )
 
 /** Free-form operator notes. Never rendered publicly. */
 export const LinkActionNotesSchema = TemplateStringSchema.pipe(
-  Schema.check(Schema.isMinLength(1), Schema.isMaxLength(4000)),
   Schema.annotate({
     description: 'Free-form operator notes, shown in the admin console only. Templated.',
-  })
+  }),
+  Schema.check(Schema.isMinLength(1), Schema.isMaxLength(4000))
 )
 
 /** Filing tags used to group and filter links in the console. */
 export const LinkActionTagsSchema = Schema.Array(
   TemplateStringSchema.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(200)))
 ).pipe(
-  Schema.check(Schema.isMaxLength(20)),
   Schema.annotate({
     description:
       'Filing tags used to group and filter links in the admin console. Each entry is templated; each RESOLVED entry must be lowercase alphanumeric with single separators.',
-  })
+  }),
+  Schema.check(Schema.isMaxLength(20))
 )
 
 /** A campaign parameter on a sparse edit: a template, or `null` to clear it. */
 const UtmPatchValueSchema = Schema.NullOr(
   TemplateStringSchema.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(500)))
-)
+).annotate({
+  description:
+    'The new value of this campaign parameter, templated. An explicit `null` removes the parameter from the link; omitting the key leaves it as it was.',
+})
 
 /**
  * A SPARSE edit of the campaign block.
@@ -119,6 +122,12 @@ const UtmPatchValueSchema = Schema.NullOr(
  * a create has nothing to merge against, so it has no use for `null`.
  */
 export const LinkActionUtmPatchSchema = Schema.Struct({
+  // The five keys SHARE one sentence, on the definition. Annotating each use
+  // site would read better — a reader of `term` would be told about `term` —
+  // and it was measured: the emitter already collapses this node into one
+  // anonymous `$def` referenced five times, so five annotations fork it into
+  // five inlined copies and the published document grows by ~6 KB for a
+  // wording improvement. The key name carries the specificity instead.
   /** `utm_source` — where the traffic came from. `null` clears it. */
   source: Schema.optional(UtmPatchValueSchema),
 

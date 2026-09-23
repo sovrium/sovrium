@@ -19,14 +19,14 @@ export const progressFields = {
   ...i18nFields,
   progressValue: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-      Schema.annotate({ description: 'Current progress value (0 to progressMax)' })
+      Schema.annotate({ description: 'Current progress value (0 to progressMax)' }),
+      Schema.check(Schema.isGreaterThanOrEqualTo(0))
     )
   ),
   progressMax: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isGreaterThan(0)),
-      Schema.annotate({ description: 'Maximum progress value (default: 100)' })
+      Schema.annotate({ description: 'Maximum progress value (default: 100)' }),
+      Schema.check(Schema.isGreaterThan(0))
     )
   ),
   showLabel: Schema.optional(
@@ -46,7 +46,11 @@ export const progressFields = {
    * how many stages there are and nothing about what any of them is.
    */
   steps: Schema.optional(
-    Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1))))
+    Schema.Array(
+      Schema.String.annotate({ description: 'One step label, shown under its marker' }).pipe(
+        Schema.check(Schema.isMinLength(1))
+      )
+    )
       .pipe(Schema.check(Schema.isMinLength(2)))
       .annotate({
         description:

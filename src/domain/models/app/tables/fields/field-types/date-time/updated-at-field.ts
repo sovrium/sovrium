@@ -28,7 +28,11 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const UpdatedAtFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('updated-at'),
+    type: Schema.Literal('updated-at').pipe(
+      Schema.annotate({
+        description: "Constant value 'updated-at' for type discrimination in discriminated unions",
+      })
+    ),
   }),
   Schema.annotate({
     title: 'Updated At Field',

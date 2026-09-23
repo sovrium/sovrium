@@ -34,15 +34,17 @@ import { WebhookRetrySchema } from './retry'
 export const WebhookSchema = Schema.Struct({
   /** Unique webhook name within the table. */
   name: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Webhook Name',
       description: 'Unique webhook identifier within the table',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /** Destination URL for the outgoing HTTP POST request. */
-  url: Schema.String.pipe(
+  url: Schema.String.annotate({
+    description: 'Address the record event is POSTed to. It has to be an `http` or `https` URL.',
+  }).pipe(
     Schema.check(
       Schema.makeFilter(
         (value) => {
@@ -67,11 +69,11 @@ export const WebhookSchema = Schema.Struct({
 
   /** Record events that trigger this webhook. At least one required. */
   events: Schema.Array(Schema.Literals(['create', 'update', 'delete'])).pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       title: 'Webhook Events',
       description: 'Record CRUD events that trigger webhook delivery',
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /** Whether this webhook is active (default: true). */

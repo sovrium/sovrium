@@ -52,11 +52,12 @@ export const BuiltInAnalyticsSchema = Schema.Union([
      */
     retentionDays: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 730 })),
         Schema.annotate({
           title: 'Retention Days',
           description: 'Number of days to retain analytics data (1-730)',
-        })
+          defaultNote: '365',
+        }),
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 730 }))
       )
     ),
 
@@ -67,7 +68,12 @@ export const BuiltInAnalyticsSchema = Schema.Union([
      * Useful for excluding admin pages, API docs, or internal routes.
      */
     excludedPaths: Schema.optional(
-      Schema.Array(Schema.String).pipe(
+      Schema.Array(
+        Schema.String.annotate({
+          description:
+            'One glob pattern. A path matching it records no event — `/admin/*` excludes everything beneath `/admin`.',
+        })
+      ).pipe(
         Schema.annotate({
           title: 'Excluded Paths',
           description: 'Glob patterns for paths excluded from tracking',
@@ -81,7 +87,12 @@ export const BuiltInAnalyticsSchema = Schema.Union([
      * When true, visitors with DNT:1 header will not be tracked.
      * Defaults to true for privacy compliance.
      */
-    respectDoNotTrack: Schema.optional(Schema.Boolean),
+    respectDoNotTrack: Schema.optional(
+      Schema.Boolean.annotate({
+        description: 'Records nothing for a visitor whose browser asks not to be tracked.',
+        defaultNote: 'true',
+      })
+    ),
 
     /**
      * Session timeout in minutes (optional).
@@ -91,11 +102,12 @@ export const BuiltInAnalyticsSchema = Schema.Union([
      */
     sessionTimeout: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 120 })),
         Schema.annotate({
           title: 'Session Timeout',
           description: 'Session timeout in minutes (1-120)',
-        })
+          defaultNote: '30',
+        }),
+        Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 120 }))
       )
     ),
   }),

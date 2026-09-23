@@ -17,7 +17,11 @@ import { Schema } from 'effect'
  * and can be restricted to specific auth roles.
  */
 export const ManualTriggerSchema = Schema.Struct({
-  type: Schema.Literal('manual'),
+  type: Schema.Literal('manual').pipe(
+    Schema.annotate({
+      description: "Constant value 'manual' for type discrimination in discriminated unions",
+    })
+  ),
 
   /** Button label for admin interface */
   label: Schema.optional(
@@ -41,6 +45,7 @@ export const ManualTriggerSchema = Schema.Struct({
   requiredRole: Schema.optional(
     Schema.String.pipe(
       Schema.annotate({
+        defaultNote: 'admin',
         description: 'Auth role required to trigger this automation (default: admin)',
       })
     )

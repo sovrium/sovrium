@@ -29,9 +29,18 @@ import { createOptionsSchema } from '../validation-utils'
  */
 export const SingleSelectFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('single-select'),
+    type: Schema.Literal('single-select').pipe(
+      Schema.annotate({
+        description:
+          "Constant value 'single-select' for type discrimination in discriminated unions",
+      })
+    ),
     options: createOptionsSchema('single-select'),
-    default: Schema.optional(Schema.String),
+    default: Schema.optional(
+      Schema.String.annotate({
+        description: 'Choice a new record starts on. It has to be one of the options.',
+      })
+    ),
     /** Behavioral conditions that dynamically change field properties based on selected value */
     conditions: Schema.optional(
       Schema.Array(
@@ -46,6 +55,9 @@ export const SingleSelectFieldSchema = BaseFieldSchema.pipe(
               description: 'Property changes to apply when condition matches',
             })
           ),
+        }).annotate({
+          description:
+            'One condition: the option value that triggers it, and the property changes it applies.',
         })
       ).pipe(
         Schema.annotate({

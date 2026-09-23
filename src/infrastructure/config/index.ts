@@ -18,7 +18,8 @@ export {
   fileExists,
   readFileContent,
 } from './file-loader'
-export type { LoadedConfigGraph } from './file-loader'
+export type { LoadedConfigGraph, ConfigGraphLoadOptions } from './file-loader'
 export { fetchRemoteSchema } from './remote-loader'
 export { resolveRefs, resolveRefsWithSources, collectRefSources } from './ref-resolver'
+export type { ConfigGraphOverlay } from './ref-resolver'
 export { discoverDefaultConfigFile } from './config-discovery'

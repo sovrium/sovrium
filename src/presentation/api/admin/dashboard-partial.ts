@@ -34,7 +34,7 @@ const PARTIAL_PARAM = '_partial'
 /**
  * The stable swap-target marker the partial extracts.
  *
- * Emitted by the console's own shell component, `apps/admin/config/components/shell.ts`,
+ * Emitted by the console's own shell component, `src/admin/config/components/shell.ts`,
  * which is where it moved when the TypeScript shell that used to wrap every
  * surface was deleted. The two spellings must agree; nothing but this comment
  * links them, because one is a config string and the other a server constant.

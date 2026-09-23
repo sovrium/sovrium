@@ -46,6 +46,7 @@ import { Schema } from 'effect'
  */
 export const AuthApiKeysConfigSchema = Schema.Boolean.pipe(
   Schema.annotate({
+    defaultNote: 'false',
     title: 'Self-Service API Keys',
     description:
       'Enable self-service API keys: a signed-in user can create, list and revoke their own keys and authenticate /api/* requests with the x-api-key header. Keys inherit their creator’s role.',

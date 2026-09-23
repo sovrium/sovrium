@@ -17,6 +17,11 @@ import { LinkUtmSchema } from './utm'
  * the console never has to case-fold.
  */
 const LinkTagSchema = Schema.String.pipe(
+  Schema.annotate({
+    description:
+      'One filing tag: lowercase alphanumeric with single `-` or `_` separators, 1-40 characters.',
+    examples: ['q3-launch', 'newsletter'],
+  }),
   Schema.check(
     Schema.isMinLength(1),
     Schema.isMaxLength(40),

@@ -94,7 +94,13 @@ export const InlinePrefillSchema = Schema.Struct({
    * override them. The values are still validated server-side. Defaults to
    * false (fields are visible with the prefilled values as defaults).
    */
-  lockPrefill: Schema.optional(Schema.Boolean),
+  lockPrefill: Schema.optional(
+    Schema.Boolean.annotate({
+      defaultNote: 'false',
+      description:
+        'Hides the prefilled field and submits the value as it stands, so the person cannot change it.',
+    })
+  ),
 }).annotate({
   // Distinct from the embedded-form component's `InlinePrefill` identifier
   // (`src/domain/models/app/pages/components/component-types/data/form/index.ts`).

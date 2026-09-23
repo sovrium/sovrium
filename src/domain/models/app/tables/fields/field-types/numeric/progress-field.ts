@@ -29,25 +29,29 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const ProgressFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('progress'),
+    type: Schema.Literal('progress').pipe(
+      Schema.annotate({
+        description: "Constant value 'progress' for type discrimination in discriminated unions",
+      })
+    ),
     color: Schema.optional(
       Schema.String.pipe(
+        Schema.annotate({
+          description: 'Color of the progress bar',
+        }),
         Schema.check(
           Schema.isPattern(/^#[0-9a-fA-F]{6}$/, {
             message: 'Color of the progress bar',
           })
-        ),
-        Schema.annotate({
-          description: 'Color of the progress bar',
-        })
+        )
       )
     ),
     default: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100)),
         Schema.annotate({
           description: 'Default progress value (0-100) when creating new records',
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100))
       )
     ),
   }),

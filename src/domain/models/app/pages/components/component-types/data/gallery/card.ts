@@ -25,9 +25,13 @@ export const GalleryCardSchema = Schema.Struct({
     })
   ),
   children: Schema.optional(
-    Schema.Array(Schema.Record(Schema.String, Schema.Unknown)).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Child component definitions for the card body' })
+    Schema.Array(
+      Schema.Record(Schema.String, Schema.Unknown).annotate({
+        description: 'One child component definition, rendered inside the card',
+      })
+    ).pipe(
+      Schema.annotate({ description: 'Child component definitions for the card body' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   onClick: Schema.optional(ActionSchema),
@@ -35,8 +39,8 @@ export const GalleryCardSchema = Schema.Struct({
     Schema.Struct({
       children: Schema.optional(
         Schema.Array(Schema.Record(Schema.String, Schema.Unknown)).pipe(
-          Schema.check(Schema.isMinLength(1)),
-          Schema.annotate({ description: 'Components rendered in the hover overlay' })
+          Schema.annotate({ description: 'Components rendered in the hover overlay' }),
+          Schema.check(Schema.isMinLength(1))
         )
       ),
     }).annotate({ description: 'Overlay content displayed on card hover' })

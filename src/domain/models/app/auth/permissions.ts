@@ -42,13 +42,19 @@ export { isAdminRole }
 export const PermissionValueSchema = Schema.Union([
   Schema.Literal('all'),
   Schema.Literal('authenticated'),
-  Schema.Array(Schema.String).pipe(
-    Schema.check(Schema.isMinLength(1)),
+  Schema.Array(
+    Schema.String.annotate({
+      description:
+        'One role name that has access — a built-in role or one declared in `auth.roles`.',
+      examples: ['admin', 'editor', 'member', 'viewer'],
+    })
+  ).pipe(
     Schema.annotate({
       title: 'Role List',
       description: 'Array of role names that have access (e.g., admin, editor). At least one role.',
       examples: [['admin'], ['admin', 'editor'], ['admin', 'member', 'viewer']],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 ]).pipe(
   Schema.annotate({

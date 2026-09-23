@@ -78,24 +78,24 @@ export const AgentCapabilitiesSchema = Schema.Struct({
   /** Table names the agent can access (must reference tables defined in the schema) */
   tables: Schema.Array(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Table name the agent can access' })
+      Schema.annotate({ description: 'Table name the agent can access' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ).pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Table names the agent can access (must reference tables defined in the schema)',
       examples: [['tickets', 'customers']],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 
   /** Action types the agent can perform */
   actions: Schema.Array(AgentActionSchema).pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Action types the agent can perform',
       examples: [['record.read', 'record.update']],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).pipe(
   Schema.annotate({

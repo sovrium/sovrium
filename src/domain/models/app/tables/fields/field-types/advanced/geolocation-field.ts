@@ -27,7 +27,11 @@ import { BaseFieldSchema } from '../base-field'
  */
 export const GeolocationFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('geolocation'),
+    type: Schema.Literal('geolocation').pipe(
+      Schema.annotate({
+        description: "Constant value 'geolocation' for type discrimination in discriminated unions",
+      })
+    ),
   }),
   Schema.annotate({
     title: 'Geolocation Field',

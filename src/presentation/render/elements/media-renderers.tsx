@@ -7,6 +7,7 @@
 
 import { type ReactElement } from 'react'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ElementProps } from './html-element-renderer'
 
 /**
@@ -15,7 +16,7 @@ import type { ElementProps } from './html-element-renderer'
 export function renderImage(props: ElementProps): ReactElement {
   return (
     <img
-      {...props}
+      {...omitInternalMarkers(props)}
       alt={(props.alt as string | undefined) || ''}
     />
   )
@@ -37,7 +38,7 @@ export function renderAvatar(props: ElementProps): ReactElement {
 
   return (
     <img
-      {...props}
+      {...omitInternalMarkers(props)}
       style={style}
       alt={(props.alt as string | undefined) || ''}
       className={resolveClasses('rounded-full', props.className as string | undefined)}
@@ -52,7 +53,7 @@ export function renderAvatar(props: ElementProps): ReactElement {
 export function renderThumbnail(props: ElementProps): ReactElement {
   return (
     <img
-      {...props}
+      {...omitInternalMarkers(props)}
       alt={(props.alt as string | undefined) || ''}
       className={resolveClasses('rounded-md', props.className as string | undefined)}
     />
@@ -66,7 +67,7 @@ export function renderThumbnail(props: ElementProps): ReactElement {
 export function renderHeroImage(props: ElementProps): ReactElement {
   return (
     <img
-      {...props}
+      {...omitInternalMarkers(props)}
       alt={(props.alt as string | undefined) || ''}
       className={resolveClasses('rounded-t-lg', props.className as string | undefined)}
     />
@@ -114,7 +115,7 @@ export function renderVideo(
     sources: _sources,
     src,
     ...rest
-  } = props as {
+  } = omitInternalMarkers(props) as {
     autoplay?: boolean
     aspectRatio?: string
     tracks?: readonly VideoTrack[]
@@ -165,7 +166,7 @@ export function renderAudio(
   props: ElementProps,
   children: readonly React.ReactNode[]
 ): ReactElement {
-  return <audio {...props}>{children}</audio>
+  return <audio {...omitInternalMarkers(props)}>{children}</audio>
 }
 
 /**
@@ -175,5 +176,5 @@ export function renderIframe(
   props: ElementProps,
   children: readonly React.ReactNode[]
 ): ReactElement {
-  return <iframe {...props}>{children}</iframe>
+  return <iframe {...omitInternalMarkers(props)}>{children}</iframe>
 }

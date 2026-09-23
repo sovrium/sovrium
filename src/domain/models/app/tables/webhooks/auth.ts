@@ -32,7 +32,10 @@ import { Schema } from 'effect'
  */
 export const WebhookAuthSchema = Schema.Union([
   Schema.Struct({
-    type: Schema.Literal('hmac'),
+    type: Schema.Literal('hmac').annotate({
+      description:
+        'Which credential scheme the outgoing request carries: an HMAC signature of the body, a static API key, or a bearer token.',
+    }),
     /** HMAC secret (supports $env. references). */
     secret: Schema.String.pipe(
       Schema.annotate({ description: 'HMAC secret for signing (supports $env. references)' })
@@ -45,22 +48,38 @@ export const WebhookAuthSchema = Schema.Union([
     ),
     /** Header name for the signature (default: X-Signature). */
     header: Schema.optional(
-      Schema.String.pipe(Schema.annotate({ description: 'Header name for the HMAC signature' }))
+      Schema.String.pipe(
+        Schema.annotate({
+          description:
+            'Name of the header the credential is sent in. Defaults to `X-Signature` for `hmac` and `X-Api-Key` for `apiKey`.',
+        })
+      )
     ),
   }),
   Schema.Struct({
-    type: Schema.Literal('apiKey'),
+    type: Schema.Literal('apiKey').annotate({
+      description:
+        'Which credential scheme the outgoing request carries: an HMAC signature of the body, a static API key, or a bearer token.',
+    }),
     /** API key value (supports $env. references). */
     key: Schema.String.pipe(
       Schema.annotate({ description: 'API key value (supports $env. references)' })
     ),
     /** Header name for the API key (default: X-Api-Key). */
     header: Schema.optional(
-      Schema.String.pipe(Schema.annotate({ description: 'Header name for the API key' }))
+      Schema.String.pipe(
+        Schema.annotate({
+          description:
+            'Name of the header the credential is sent in. Defaults to `X-Signature` for `hmac` and `X-Api-Key` for `apiKey`.',
+        })
+      )
     ),
   }),
   Schema.Struct({
-    type: Schema.Literal('bearer'),
+    type: Schema.Literal('bearer').annotate({
+      description:
+        'Which credential scheme the outgoing request carries: an HMAC signature of the body, a static API key, or a bearer token.',
+    }),
     /** Bearer token value (supports $env. references). */
     token: Schema.String.pipe(
       Schema.annotate({ description: 'Bearer token (supports $env. references)' })

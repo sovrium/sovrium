@@ -36,8 +36,17 @@ import { DurationProps, isValidTimezone, TimezoneProp } from './props'
  */
 export const DateSubtractActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('date'),
-  operator: Schema.Literal('subtract'),
+  type: Schema.Literal('date').pipe(
+    Schema.annotate({
+      description: "Constant value 'date' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('subtract').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'date' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** The instant to shift. */
     input: TemplateStringSchema.pipe(
@@ -60,26 +69,30 @@ export const DateSubtractActionSchema = Schema.Struct({
         })
       )
     ),
-  }).pipe(
-    Schema.check(
-      Schema.makeFilter((props) => {
-        if (props.timezone !== undefined && !isValidTimezone(props.timezone))
-          return `Invalid IANA timezone: ${props.timezone}`
-        const hasDuration = [
-          props.years,
-          props.months,
-          props.weeks,
-          props.days,
-          props.hours,
-          props.minutes,
-          props.seconds,
-        ].some((v) => v !== undefined)
-        return hasDuration
-          ? undefined
-          : 'date:subtract requires at least one duration component (years, months, weeks, days, hours, minutes or seconds)'
-      })
-    )
-  ),
+  })
+    .annotate({
+      description: 'The date to move back, by how much, and in which time zone.',
+    })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter((props) => {
+          if (props.timezone !== undefined && !isValidTimezone(props.timezone))
+            return `Invalid IANA timezone: ${props.timezone}`
+          const hasDuration = [
+            props.years,
+            props.months,
+            props.weeks,
+            props.days,
+            props.hours,
+            props.minutes,
+            props.seconds,
+          ].some((v) => v !== undefined)
+          return hasDuration
+            ? undefined
+            : 'date:subtract requires at least one duration component (years, months, weeks, days, hours, minutes or seconds)'
+        })
+      )
+    ),
 }).pipe(
   Schema.annotate({
     identifier: 'DateSubtractAction',

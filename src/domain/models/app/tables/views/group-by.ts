@@ -20,8 +20,14 @@ import { Schema } from 'effect'
  * ```
  */
 export const ViewGroupBySchema = Schema.Struct({
-  field: Schema.String,
-  direction: Schema.optional(Schema.Literals(['asc', 'desc'])),
+  field: Schema.String.annotate({
+    description: 'Field whose value decides which group a record falls into.',
+  }),
+  direction: Schema.optional(
+    Schema.Literals(['asc', 'desc']).annotate({
+      description: 'Order the groups themselves appear in.',
+    })
+  ),
 }).pipe(
   Schema.annotate({
     title: 'View Group By',

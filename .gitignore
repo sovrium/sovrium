@@ -4,6 +4,7 @@ dist
 .sovrium
 .sovrium-wt
 apps/*/public/sovrium-search/
+src/admin/public/sovrium-search/
 website/build
 *.tgz
 cli.js.map
@@ -21,6 +22,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .env.production.local
 .env.local
 apps/*/.env.dev
+src/admin/.env.dev
 .types-build
 .eslintcache
 .prettiercache
@@ -59,6 +61,7 @@ prevalidation-result.json
 /.sovrium-binary-build.json
 sovrium-linux-*
 sovrium-darwin-*
+sovrium-windows-*
 .claude/scheduled_tasks.lock
 .claude/worktrees/
 env.txt
@@ -82,8 +85,8 @@ env.txt
 *.m4v
 *.mkv
 *.avi
-!apps/admin/assets/samples/*.webm
-!apps/admin/assets/samples/*.mp3
+!src/admin/assets/samples/*.webm
+!src/admin/assets/samples/*.mp3
 **/reviews/**/audio.wav
 **/reviews/**/frames/
 docs/growth/**/*.wav
@@ -91,3 +94,6 @@ docs/growth/offers/*/ressources/prospection/prive/
 apps/website/public/install
 .repository-analysis/
 tmp/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+desktop/src-tauri/sovrium-*

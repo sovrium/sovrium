@@ -76,12 +76,12 @@ export const CodeBlockConfigSchema = Schema.Struct({
   /** Named Shiki theme applied to fenced code blocks */
   theme: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Code Block Theme',
         description: 'Named Shiki theme for syntax highlighting (e.g., github-dark, github-light)',
         examples: ['github-dark', 'github-light', 'nord', 'dracula'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   /**
@@ -92,13 +92,13 @@ export const CodeBlockConfigSchema = Schema.Struct({
    */
   darkTheme: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         title: 'Code Block Dark Theme',
         description:
           'Named Shiki theme applied under the dark colour scheme. When omitted, `theme` applies in both schemes.',
         examples: ['github-dark', 'nord', 'dracula', 'catppuccin-mocha'],
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
 }).pipe(

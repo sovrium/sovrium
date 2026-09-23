@@ -18,6 +18,7 @@ import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization
 import { type Design } from '@/domain/models/app/design'
 import { type Languages } from '@/domain/models/app/languages'
 import { LanguageSwitcher } from '@/presentation/render/page/language-switcher'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import {
   getAnimationConfig,
   calculateStaggerDelay,
@@ -115,7 +116,7 @@ export function renderAlert(
   // attribute (React would log a warning, and even if quietly stripped, it
   // wouldn't serve the spec — the toggle target is the alert itself via
   // `data-alert-id`).
-  const { dismissible: _dismissible, ...domProps } = props as ElementProps & {
+  const { dismissible: _dismissible, ...domProps } = omitInternalMarkers(props) as ElementProps & {
     dismissible?: unknown
   }
 
@@ -192,8 +193,10 @@ export function renderList(
   content: string | undefined,
   design?: Design
 ): ReactElement {
+  const domProps = omitInternalMarkers(props)
+
   if (!content) {
-    return <ul {...props} />
+    return <ul {...domProps} />
   }
 
   const sanitizedContent = sanitizeRichTextHTML(content)
@@ -218,7 +221,7 @@ export function renderList(
     )
   })
 
-  return <ul {...props}>{renderedItems}</ul>
+  return <ul {...domProps}>{renderedItems}</ul>
 }
 
 /**
@@ -237,15 +240,17 @@ export function renderListItem(
   content: string | undefined,
   children: readonly React.ReactNode[]
 ): ReactElement {
+  const domProps = omitInternalMarkers(props)
+
   // If both content and children exist, render both (content first)
   if (content && children && children.length > 0) {
     return (
-      <li {...props}>
+      <li {...domProps}>
         {content}
         {children}
       </li>
     )
   }
   // Otherwise use content or children (whichever is present)
-  return <li {...props}>{content || children}</li>
+  return <li {...domProps}>{content || children}</li>
 }

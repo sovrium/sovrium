@@ -19,17 +19,21 @@ import { ActionTemplateVariablesSchema } from './variables'
 export const ActionTemplateSchema = Schema.Struct({
   /** Unique template name for $ref referencing */
   name: Schema.String.pipe(
+    Schema.annotate({
+      description: 'Unique action template name for $ref referencing (kebab-case)',
+    }),
     Schema.check(
       Schema.isPattern(/^[a-z][a-z0-9-]*$/),
       Schema.isMinLength(1),
       Schema.isMaxLength(100)
-    ),
-    Schema.annotate({
-      description: 'Unique action template name for $ref referencing (kebab-case)',
-    })
+    )
   ),
 
   /** The action configuration (any action type) */
+  // NOTE: no annotation here. `ActionSchema` is a codec whose ENCODED side is
+  // `Schema.Unknown`, and `Schema.Unknown` discards every annotation on the way
+  // to JSON Schema (measured on effect 4.0.0-rc.108, in every position). The
+  // prose lives on `ActionSchema` itself, where the AST keeps it.
   action: ActionSchema,
 
   /** Variable declarations with defaults */

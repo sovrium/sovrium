@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const FileSignUrlActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('signUrl'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('signUrl').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Storage key of the file */
     key: TemplateStringSchema.pipe(
@@ -30,10 +39,10 @@ export const FileSignUrlActionSchema = Schema.Struct({
     /** URL expiration time in seconds */
     expiresIn: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isGreaterThan(0)),
         Schema.annotate({
           description: 'URL expiration time in seconds (default: 3600)',
-        })
+        }),
+        Schema.check(Schema.isGreaterThan(0))
       )
     ),
 
@@ -54,6 +63,9 @@ export const FileSignUrlActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description:
+      'The file to sign a temporary link for, what the link allows, and how long it lasts.',
   }),
 }).pipe(
   Schema.annotate({

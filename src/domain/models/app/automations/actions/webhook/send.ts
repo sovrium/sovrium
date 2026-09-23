@@ -32,8 +32,17 @@ import { ActionBaseFields } from '../base'
  */
 export const WebhookSendActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('webhook'),
-  operator: Schema.Literal('send'),
+  type: Schema.Literal('webhook').pipe(
+    Schema.annotate({
+      description: "Constant value 'webhook' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('send').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'webhook' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     url: TemplateStringSchema.pipe(Schema.annotate({ description: 'Webhook destination URL' })),
     event: Schema.optional(
@@ -72,13 +81,15 @@ export const WebhookSendActionSchema = Schema.Struct({
     ),
     connection: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
         Schema.annotate({
           description:
             'Connection name for authentication (must reference app.connections[]). Auth headers are auto-injected.',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/))
       )
     ),
+  }).annotate({
+    description: 'The webhook to send: its address, method, headers, payload and signing secret.',
   }),
 }).pipe(
   Schema.check(

@@ -21,12 +21,12 @@ import { Schema } from 'effect'
  * blank bullet.
  */
 export const DesignPrincipleSchema = Schema.String.pipe(
-  Schema.check(Schema.isMinLength(1, { message: 'A design principle must not be empty' })),
   Schema.annotate({
     title: 'Design Principle',
     description: 'One design conviction, stated as a single sentence',
     examples: ['Restraint over ornament', 'The visitor is the hero, not the product'],
-  })
+  }),
+  Schema.check(Schema.isMinLength(1, { message: 'A design principle must not be empty' }))
 )
 
 /**

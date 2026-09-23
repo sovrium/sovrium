@@ -11,6 +11,7 @@ import {
   computeListShellClasses,
 } from '@/presentation/design/list-default-classes'
 import * as Renderers from '../elements'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 import type { ReactElement } from 'react'
 
@@ -230,14 +231,13 @@ function extractListProps(elementProps: Record<string, unknown>): {
   readonly dataSourceBound: boolean | undefined
   readonly pagination: ListPaginationProps
 } {
-  const {
-    _dataSourceBound,
-    _dataSourceError: _err,
-    _paginationPageSize,
-    _paginationTotalCount,
-    _paginationStyle,
-    ...domProps
-  } = elementProps
+  const { _dataSourceBound, _paginationPageSize, _paginationTotalCount, _paginationStyle } =
+    elementProps
+  // The destructure above READS the markers this list needs; `domProps` drops
+  // every marker, not just those. A list bound to a data source also carries
+  // `_record`, `_readOnly` and the `_list*` / `_search*` families, and naming
+  // five keys here left the rest of them on the `<ul>`.
+  const domProps = omitInternalMarkers(elementProps) as Record<string, unknown>
   return {
     domProps,
     dataSourceBound: _dataSourceBound as boolean | undefined,

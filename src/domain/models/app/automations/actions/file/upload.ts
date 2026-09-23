@@ -17,8 +17,17 @@ import { ActionBaseFields } from '../base'
  */
 export const FileUploadActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('file'),
-  operator: Schema.Literal('upload'),
+  type: Schema.Literal('file').pipe(
+    Schema.annotate({
+      description: "Constant value 'file' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('upload').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'file' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Source data for the upload */
     source: TemplateStringSchema.pipe(
@@ -44,6 +53,8 @@ export const FileUploadActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description: 'The file to store, the path it is stored under, and its content type.',
   }),
 }).pipe(
   Schema.annotate({

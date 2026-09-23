@@ -8,7 +8,10 @@
 /**
  * Pre-flight check for a SQLite field TYPE change over populated rows.
  *
- * SQLite has no `ALTER COLUMN`, so a field type change produces no ALTERs and
+ * The engine never emits `ALTER COLUMN` on SQLite — and no SQLite version
+ * supports the `TYPE` form anyway (see `generateColumnReshapeStatements` in
+ * `../schema-migration/migration-statements`) — so a field type change
+ * produces no ALTERs and
  * falls through to `recreateTableWithDataEffect`, whose `getCompatibleColumns`
  * copies by NAME only and leans on SQLite type AFFINITY — and affinity does not
  * reject. `'3.9'` lands as a REAL and `'not a number'` lands as TEXT, both in a

@@ -18,8 +18,17 @@ import { ActionBaseFields } from '../base'
  */
 export const DigestReleaseActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('digest'),
-  operator: Schema.Literal('release'),
+  type: Schema.Literal('digest').pipe(
+    Schema.annotate({
+      description: "Constant value 'digest' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('release').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'digest' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Digest bucket identifier to release */
     digestKey: TemplateStringSchema.pipe(
@@ -56,12 +65,14 @@ export const DigestReleaseActionSchema = Schema.Struct({
     /** Maximum number of items to release */
     limit: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isInt(), Schema.isGreaterThan(0)),
         Schema.annotate({
           description: 'Maximum number of items to release from the bucket',
-        })
+        }),
+        Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
       )
     ),
+  }).annotate({
+    description: 'Which digest to release, in what order, and how many entries at most.',
   }),
 }).pipe(
   Schema.annotate({

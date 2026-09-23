@@ -1,0 +1,79 @@
+[package]
+name = "sovrium-desktop"
+version = "0.26.0"
+description = "The Sovrium desktop shell — a native window and tray supervising the Sovrium binary as a sidecar."
+authors = ["ESSENTIAL SERVICES"]
+edition = "2021"
+license = "BUSL-1.1"
+publish = false
+
+# `version` is held equal to the repository root's package.json by
+# `scripts/release/sync-desktop-version.ts` and gated by `Desktop Version Drift`.
+# Do not hand-edit it; run the sync.
+
+[lib]
+# Tauri's own convention, and it is load-bearing on Windows: a bin and a lib of
+# the same name collide there. The bin below is a three-line shim that calls
+# into this.
+name = "sovrium_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+# `tray-icon` gates the whole `tauri::tray` module. The shell's window closes to
+# the tray rather than quitting, so without this feature the close button would
+# kill a running app — the tray is load-bearing, not decoration.
+#
+# `image-png` gates `Image::from_bytes`, which is how `tray.rs` loads the macOS
+# menu-bar template. Without it the constructor does not exist at all — the
+# method is `#[cfg(any(feature = "image-ico", feature = "image-png"))]` — so
+# dropping the feature is a compile error rather than a silent fallback.
+tauri = { version = "2.11.6", features = ["tray-icon", "image-png"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+# The facade `tauri-plugin-log` installs a sink for. Declared directly because
+# this crate CALLS `log::warn!`; relying on the plugin to pull it in transitively
+# would make the shell's own logging break on a plugin bump it has no other
+# reason to care about.
+log = "0.4.29"
+
+# The plugin set the shell needs, registered in lib.rs. Each is paired with a
+# JS package in ../package.json at the same version — the two halves of one
+# plugin, and they must move together.
+#
+# `single-instance` carries the `deep-link` feature deliberately: on Windows and
+# Linux a deep link opens a SECOND process, and without that feature the second
+# process is killed before it can hand the URL to the first. See lib.rs for why
+# it must also be registered first.
+tauri-plugin-deep-link = "2.4.10"
+tauri-plugin-dialog = "2.7.3"
+tauri-plugin-log = "2.9.2"
+tauri-plugin-opener = "2.5.5"
+tauri-plugin-shell = "2.3.6"
+tauri-plugin-store = "2.4.5"
+tauri-plugin-updater = "2.12.0"
+
+[target.'cfg(unix)'.dependencies]
+# For `kill(pid, SIGTERM)` and nothing else. The shell plugin's `CommandChild`
+# offers only `kill()`, which is `SIGKILL` on Unix — that would take the engine
+# down mid-write rather than letting `installShutdownHandlers` drain the socket
+# and unlink the lock file. A graceful stop needs the signal the engine handles.
+libc = "0.2.180"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+# Desktop-only by upstream's own gating; naming the target here keeps a future
+# mobile target compiling rather than failing on a plugin that has no mobile
+# implementation.
+tauri-plugin-single-instance = { version = "2.4.5", features = ["deep-link"] }
+
+[profile.release]
+# A desktop installer is downloaded once and run for months, so size and startup
+# are worth more than compile time here. `panic = "abort"` additionally removes
+# the unwinding tables, which is safe because the shell has no catch_unwind.
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

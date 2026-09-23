@@ -18,6 +18,7 @@ import {
   computeSearchInputFieldClasses,
   computeSearchInputIconClasses,
 } from '../../design/interactive-content-default-classes'
+import { omitInternalMarkers } from '../props/internal-marker-props'
 import { toUncontrolledFormProps } from '../props/uncontrolled-form-props'
 import { renderAuthForm, type AuthFormAction } from './auth-form-renderer'
 import {
@@ -49,7 +50,7 @@ export function renderLink(
   content: string | undefined,
   children: readonly React.ReactNode[]
 ): ReactElement {
-  return <a {...props}>{content || children}</a>
+  return <a {...omitInternalMarkers(props)}>{content || children}</a>
 }
 
 /**
@@ -189,7 +190,9 @@ function renderBareFormVariant(
   // wrote it got a form that looked and behaved exactly like an enabled one.
   // `<fieldset disabled>` is the HTML-native way to say it and the only one —
   // it disables every control it contains, which is what the declaration meant.
-  const { disabled, ...rest } = props as ElementProps & { readonly disabled?: unknown }
+  const { disabled, ...rest } = omitInternalMarkers(props) as ElementProps & {
+    readonly disabled?: unknown
+  }
   const authorClassName = rest.className as string | undefined
   const mergedClassName = resolveClasses(computeFormClasses(), authorClassName)
   const body = children.length > 0 ? children : <button type="submit">Submit</button>
@@ -542,7 +545,7 @@ export function renderCustomHTML(
   const sanitizedHTML = trusted ? (content ?? '') : sanitizeRichTextHTML(content ?? '')
   return (
     <div
-      {...props}
+      {...omitInternalMarkers(props)}
       data-component="customHTML"
       // Safe: HTML has been sanitized to remove <script>, inline handlers, javascript: URLs
       // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-rendered customHTML; called once during server render

@@ -56,11 +56,11 @@ export const SitemapConfigSchema = Schema.Union([
     /** Priority hint for search engines (0.0 to 1.0) */
     priority: Schema.optional(
       Schema.Finite.pipe(
-        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
         Schema.annotate({
           description: 'Sitemap priority (0.0 to 1.0, default: 0.5)',
           examples: [0.5, 0.8, 1.0],
-        })
+        }),
+        Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))
       )
     ),
     /** Change frequency hint */

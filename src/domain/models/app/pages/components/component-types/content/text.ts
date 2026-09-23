@@ -31,6 +31,7 @@ export const TextElementSchema = Schema.Literals([
   'blockquote',
   'code',
 ]).annotate({
+  defaultNote: 'p',
   title: 'Text Element',
   description: 'HTML element to render. Defaults to "p".',
 })

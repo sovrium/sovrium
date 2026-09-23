@@ -11,13 +11,17 @@ import { BaseFieldSchema } from '../base-field'
 
 export const CountFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
-    type: Schema.Literal('count'),
+    type: Schema.Literal('count').pipe(
+      Schema.annotate({
+        description: "Constant value 'count' for type discrimination in discriminated unions",
+      })
+    ),
     relationshipField: Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'relationshipField is required' })),
       Schema.annotate({
         description:
           'Name of the relationship field in the same table to count linked records from',
-      })
+      }),
+      Schema.check(Schema.isNonEmpty({ message: 'relationshipField is required' }))
     ),
     filters: Schema.optional(
       ViewFiltersSchema.pipe(

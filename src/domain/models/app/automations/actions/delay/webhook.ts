@@ -18,8 +18,17 @@ import { ActionBaseFields } from '../base'
  */
 export const DelayWebhookActionSchema = Schema.Struct({
   ...ActionBaseFields,
-  type: Schema.Literal('delay'),
-  operator: Schema.Literal('webhook'),
+  type: Schema.Literal('delay').pipe(
+    Schema.annotate({
+      description: "Constant value 'delay' for type discrimination in discriminated unions",
+    })
+  ),
+  operator: Schema.Literal('webhook').pipe(
+    Schema.annotate({
+      description:
+        "Selects the operation within the 'delay' action family; it decides which props the step takes",
+    })
+  ),
   props: Schema.Struct({
     /** Custom callback identifier (auto-generated if not provided) */
     callbackId: Schema.optional(
@@ -34,11 +43,11 @@ export const DelayWebhookActionSchema = Schema.Struct({
     /** Maximum time to wait for the callback */
     timeout: Schema.optional(
       Schema.String.pipe(
-        Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h|d)$/)),
         Schema.annotate({
           description:
             'Maximum time to wait for callback: number + unit (ms, s, m, h, d). Examples: "1h", "7d"',
-        })
+        }),
+        Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h|d)$/))
       )
     ),
 
@@ -59,6 +68,9 @@ export const DelayWebhookActionSchema = Schema.Struct({
         })
       )
     ),
+  }).annotate({
+    description:
+      'Which callback to wait for, how long to wait, and what to do if it never arrives.',
   }),
 }).pipe(
   Schema.annotate({

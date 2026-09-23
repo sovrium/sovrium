@@ -22,8 +22,8 @@ export const tooltipFields = {
   ),
   tooltipDelay: Schema.optional(
     Schema.Finite.pipe(
-      Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-      Schema.annotate({ description: 'Delay in milliseconds before showing tooltip' })
+      Schema.annotate({ description: 'Delay in milliseconds before showing tooltip' }),
+      Schema.check(Schema.isGreaterThanOrEqualTo(0))
     )
   ),
   floatingSide: Schema.optional(FloatingSideSchema),

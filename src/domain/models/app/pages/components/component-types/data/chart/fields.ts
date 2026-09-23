@@ -62,8 +62,8 @@ export const chartFields = {
   yAxis: Schema.optional(ChartAxisSchema),
   series: Schema.optional(
     Schema.Array(ChartSeriesSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
-      Schema.annotate({ description: 'Data series definitions for chart component' })
+      Schema.annotate({ description: 'Data series definitions for chart component' }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   legend: Schema.optional(ChartLegendSchema),
@@ -95,12 +95,12 @@ export const chartFields = {
       // Accessible name (aria-label) announced to screen-reader users when the
       // chart data source returns zero rows.
       name: Schema.String.pipe(
-        Schema.check(Schema.isMinLength(1)),
         Schema.annotate({
           description:
             'Accessible name (aria-label) for the empty-state region, rendered when the chart data source returns zero rows',
           examples: ['Aucune donnée', 'No data'],
-        })
+        }),
+        Schema.check(Schema.isMinLength(1))
       ),
       // Body text rendered inside the region; falls back to `emptyMessage`, then
       // a generic default, when omitted.

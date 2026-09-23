@@ -89,7 +89,10 @@ export const AiAccessOperationSchema = Schema.Literals([
   'create',
   'update',
   'delete',
-])
+]).annotate({
+  description:
+    'One CRUD operation to expose as a tool — `read` and `list` are the two reads, `create`, `update` and `delete` the three writes.',
+})
 
 export type AiAccessOperation = typeof AiAccessOperationSchema.Type
 
@@ -115,20 +118,20 @@ export type FieldExposure = typeof FieldExposureSchema.Type
 export const AiAccessConfigSchema = Schema.Struct({
   description: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isMaxLength(2000)),
       Schema.annotate({
         description:
           'Hand-written description shown to the AI client. Overrides auto-generated descriptions. The single biggest UX lever for steering AI behavior — explain when to use this tool, what context the AI needs, and any non-obvious constraints.',
-      })
+      }),
+      Schema.check(Schema.isMaxLength(2000))
     )
   ),
   operations: Schema.optional(
     Schema.Array(AiAccessOperationSchema).pipe(
-      Schema.check(Schema.isMinLength(1)),
       Schema.annotate({
         description:
           'Subset of CRUD operations to expose. Defaults to all 5 (read, list, create, update, delete) for tables. Automations and actions ignore this field — they expose a single invocation tool.',
-      })
+      }),
+      Schema.check(Schema.isMinLength(1))
     )
   ),
   fieldExposure: Schema.optional(
@@ -140,7 +143,14 @@ export const AiAccessConfigSchema = Schema.Struct({
     )
   ),
   whitelistFields: Schema.optional(
-    Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))).pipe(
+    Schema.Array(
+      Schema.String.pipe(
+        Schema.annotate({
+          description: 'One field name to expose, spelled as the table declares it.',
+        }),
+        Schema.check(Schema.isMinLength(1))
+      )
+    ).pipe(
       Schema.annotate({
         description:
           'Fields to expose when fieldExposure=whitelist. Required and must be non-empty when fieldExposure=whitelist; ignored otherwise.',

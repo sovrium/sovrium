@@ -13,12 +13,16 @@ import { Schema } from 'effect'
  * Triggered by authentication events.
  */
 export const AuthTriggerSchema = Schema.Struct({
-  type: Schema.Literal('auth'),
+  type: Schema.Literal('auth').pipe(
+    Schema.annotate({
+      description: "Constant value 'auth' for type discrimination in discriminated unions",
+    })
+  ),
   events: Schema.Array(
     Schema.Literals(['signUp', 'signIn', 'signOut', 'passwordReset', 'emailVerified'])
   ).pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({ description: 'Authentication events that trigger this automation' })
+    Schema.annotate({ description: 'Authentication events that trigger this automation' }),
+    Schema.check(Schema.isMinLength(1))
   ),
 }).pipe(
   Schema.annotate({

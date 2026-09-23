@@ -13,10 +13,10 @@ import { OAuth2PropsSchema, ApiKeyPropsSchema, BasicPropsSchema, BearerPropsSche
 const ConnectionBaseFields = {
   /** Connection name (kebab-case identifier, used as $connection.NAME) */
   name: Schema.String.pipe(
-    Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(100)),
     Schema.annotate({
       description: 'Connection name (kebab-case). Referenced in actions as $connection.NAME',
-    })
+    }),
+    Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(100))
   ),
 
   /** Human-readable label */
@@ -36,7 +36,11 @@ const ConnectionBaseFields = {
 
 export const OAuth2ConnectionSchema = Schema.Struct({
   ...ConnectionBaseFields,
-  type: Schema.Literal('oauth2'),
+  type: Schema.Literal('oauth2').pipe(
+    Schema.annotate({
+      description: "Constant value 'oauth2' for type discrimination in discriminated unions",
+    })
+  ),
   props: OAuth2PropsSchema,
 }).pipe(
   Schema.annotate({
@@ -50,7 +54,11 @@ export const OAuth2ConnectionSchema = Schema.Struct({
 
 export const ApiKeyConnectionSchema = Schema.Struct({
   ...ConnectionBaseFields,
-  type: Schema.Literal('apiKey'),
+  type: Schema.Literal('apiKey').pipe(
+    Schema.annotate({
+      description: "Constant value 'apiKey' for type discrimination in discriminated unions",
+    })
+  ),
   props: ApiKeyPropsSchema,
 }).pipe(
   Schema.annotate({
@@ -64,7 +72,11 @@ export const ApiKeyConnectionSchema = Schema.Struct({
 
 export const BasicConnectionSchema = Schema.Struct({
   ...ConnectionBaseFields,
-  type: Schema.Literal('basic'),
+  type: Schema.Literal('basic').pipe(
+    Schema.annotate({
+      description: "Constant value 'basic' for type discrimination in discriminated unions",
+    })
+  ),
   props: BasicPropsSchema,
 }).pipe(
   Schema.annotate({
@@ -78,7 +90,11 @@ export const BasicConnectionSchema = Schema.Struct({
 
 export const BearerConnectionSchema = Schema.Struct({
   ...ConnectionBaseFields,
-  type: Schema.Literal('bearer'),
+  type: Schema.Literal('bearer').pipe(
+    Schema.annotate({
+      description: "Constant value 'bearer' for type discrimination in discriminated unions",
+    })
+  ),
   props: BearerPropsSchema,
 }).pipe(
   Schema.annotate({

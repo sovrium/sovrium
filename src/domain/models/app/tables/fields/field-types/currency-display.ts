@@ -33,19 +33,21 @@ import { Schema } from 'effect'
  * rewrite the published description.
  */
 export const CurrencyCodeSchema = Schema.String.pipe(
-  Schema.check(Schema.isLengthBetween(3, 3), Schema.isPattern(/^[A-Z]{3}$/)),
   Schema.annotate({
+    defaultNote: 'USD',
     description: 'ISO 4217 three-letter currency code (e.g., USD, EUR, GBP)',
     examples: ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'],
-  })
+  }),
+  Schema.check(Schema.isLengthBetween(3, 3), Schema.isPattern(/^[A-Z]{3}$/))
 )
 
 /** Number of decimal places rendered. */
 export const CurrencyPrecisionSchema = Schema.Int.pipe(
-  Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(10)),
   Schema.annotate({
+    defaultNote: '2',
     description: 'Number of decimal places (0-10, default: 2 for most currencies)',
-  })
+  }),
+  Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(10))
 )
 
 /** Which side of the amount the symbol sits on. */

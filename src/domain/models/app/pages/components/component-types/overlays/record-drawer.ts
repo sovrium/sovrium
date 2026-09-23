@@ -64,8 +64,13 @@ export const RecordDrawerFieldRenderAsSchema = Schema.Literals([
 
 /** A single schema-derived form field the drawer renders a control for. */
 export const RecordDrawerFieldSchema = Schema.Struct({
-  name: Schema.String,
-  type: Schema.String,
+  name: Schema.String.annotate({
+    description: 'Field of the record this entry shows.',
+  }),
+  type: Schema.String.annotate({
+    description:
+      'Field type of this entry, naming the control the drawer renders for it. Left open rather than enumerated so a drawer bound to a system endpoint, which has no table schema to resolve a type from, can state one itself.',
+  }),
   /**
    * Display-name override for this panel entry, winning over the bound field's
    * own `label` (and over the raw `name` fallback).
@@ -82,12 +87,12 @@ export const RecordDrawerFieldSchema = Schema.Struct({
    */
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'label must not be empty' })),
       Schema.annotate({
         description:
           "Display-name override for this drawer entry (wins over the bound field's label, then the raw name). Required to name an entry on a system-bound drawer, which has no table field schema to resolve from.",
         examples: ['Prix unitaire', 'Statut'],
-      })
+      }),
+      Schema.check(Schema.isNonEmpty({ message: 'label must not be empty' }))
     )
   ),
   /**
@@ -98,12 +103,12 @@ export const RecordDrawerFieldSchema = Schema.Struct({
    */
   description: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'description must not be empty' })),
       Schema.annotate({
         description:
           "Guidance-text override rendered beside this drawer entry's value (wins over the bound field's description). Required to describe an entry on a system-bound drawer.",
         examples: ['Hors taxes, en euros.'],
-      })
+      }),
+      Schema.check(Schema.isNonEmpty({ message: 'description must not be empty' }))
     )
   ),
   /**
@@ -115,7 +120,13 @@ export const RecordDrawerFieldSchema = Schema.Struct({
    * drawer's `canEdit`.
    */
   renderAs: Schema.optional(RecordDrawerFieldRenderAsSchema),
-}).pipe(Schema.annotate({ identifier: 'RecordDrawerField', title: 'Record Drawer Field' }))
+}).pipe(
+  Schema.annotate({
+    identifier: 'RecordDrawerField',
+    title: 'Record Drawer Field',
+    description: 'One field of the record: its name, its type, and how its value is rendered',
+  })
+)
 
 /**
  * A footer action button the drawer renders below the record body
@@ -189,7 +200,13 @@ export const RecordDrawerActionSchema = Schema.Struct({
    * non-destructive footer action that fires immediately.
    */
   confirm: Schema.optional(ConfirmGateSchema),
-}).pipe(Schema.annotate({ identifier: 'RecordDrawerAction', title: 'Record Drawer Action' }))
+}).pipe(
+  Schema.annotate({
+    identifier: 'RecordDrawerAction',
+    title: 'Record Drawer Action',
+    description: 'One footer button: its label, the action it fires, and an optional confirm gate',
+  })
+)
 
 /**
  * Accessible role of the record-drawer surface ([internal ref] CAP-2).

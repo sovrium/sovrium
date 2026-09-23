@@ -246,8 +246,10 @@ const tableDdlFingerprint = (table: object, options: TableDdlInputs): string | u
  * Whether a changed table definition must be reconciled against the live
  * database — i.e. whether the change actually reaches the DDL.
  *
- * SQLite has no `ALTER COLUMN`, so a change that yields no incremental ALTERs is
- * reconciled by a full recreate (create temp, copy, DROP, rename). That recreate
+ * The engine never emits `ALTER COLUMN` on SQLite (see
+ * {@link generateColumnReshapeStatements} for why it is a deliberate choice
+ * rather than a missing feature), so a change that yields no incremental ALTERs
+ * is reconciled by a full recreate (create temp, copy, DROP, rename). That recreate
  * is destructive-in-passing: dropping a *referenced* parent table orphans its
  * children mid-transaction. So deciding to recreate on the strength of
  * {@link isTableDefinitionUnchanged} alone is wrong — that predicate compares the
@@ -300,11 +302,34 @@ export const needsDefinitionReconciliation = (options: {
  * Per-column `ALTER COLUMN` reshaping (TYPE change, SET/DROP NOT NULL,
  * SET/DROP DEFAULT).
  *
- * PostgreSQL-only — SQLite's `ALTER TABLE` has no `ALTER COLUMN` clause at all,
- * so these forms crash schema-init with `near "ALTER": syntax error`. On SQLite
- * these changes are reconciled by the recreate-and-copy path instead: when a
- * type/nullability/default change is the *only* change to a table, this returns
- * nothing, so `migrateExistingTableEffect` falls through to
+ * PostgreSQL-only — and this is the ONE place the reason is written down, because
+ * the obvious reason is no longer true.
+ *
+ * WHAT CHANGED. This used to read "SQLite has no `ALTER COLUMN` clause at all".
+ * That is now version-dependent, so the engine cannot rely on it. Measured
+ * 2026-09-20:
+ *
+ *   - SQLite 3.51.0 — rejects every form with `near "ALTER": syntax error`.
+ *     This is what a macOS host sees, because `bun:sqlite` links the SYSTEM
+ *     library there.
+ *   - SQLite 3.53.2 — ACCEPTS `ALTER COLUMN … SET NOT NULL` and `DROP NOT NULL`,
+ *     and still rejects `SET DEFAULT` and `TYPE`. This is what Bun bundles on
+ *     Linux, which is where the shipped binary and the container run.
+ *
+ * So the same statement succeeds or fails depending on the host the operator
+ * deployed to, and it covers only nullability even where it works.
+ *
+ * WHY THE BEHAVIOUR IS UNCHANGED ANYWAY. Emitting `ALTER COLUMN` on SQLite would
+ * buy a partial fast path for one of the three reshapes, on some hosts, while
+ * recreate-and-copy still has to exist for the other two and for the hosts that
+ * reject it. A reshape path that works on the maintainer's laptop and not on a
+ * user's server — or the reverse — is worse than one that behaves identically
+ * everywhere, so the engine deliberately never emits `ALTER COLUMN` on SQLite.
+ * Do not "restore" it on the strength of a newer SQLite.
+ *
+ * On SQLite these changes are reconciled by the recreate-and-copy path instead:
+ * when a type/nullability/default change is the *only* change to a table, this
+ * returns nothing, so `migrateExistingTableEffect` falls through to
  * `needsDefinitionReconciliation → recreateTableWithDataEffect`, which rebuilds
  * the table from the current schema (new column shapes inline) and copies the
  * data across. Renames / column adds / column drops remain expressible as

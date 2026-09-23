@@ -171,8 +171,12 @@ const FieldUnionSchema = Schema.Union(
  * @see [internal ref] for full specification
  */
 export const FieldsSchema = Schema.Array(FieldUnionSchema).pipe(
+  Schema.annotate({
+    title: 'Table Fields',
+    description:
+      'Columns of the table, in the order they are shown by default. Each one picks a field type, which decides how the value is stored, validated and edited.',
+  }),
   Schema.check(Schema.isMinLength(1)),
-  Schema.annotate({ title: 'Table Fields' }),
   // EFFECT 4: see the sibling note in `tables/index.ts` — `Schema.transform`
   // becomes `Schema.decodeTo` + a `SchemaTransformation`.
   Schema.decodeTo(

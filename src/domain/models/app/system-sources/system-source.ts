@@ -20,12 +20,12 @@ import { Schema } from 'effect'
  * `runs`. A name must start with an alphanumeric and may contain hyphens.
  */
 export const SystemSourceNameSchema = Schema.String.pipe(
-  Schema.check(Schema.isMinLength(1), Schema.isPattern(/^[a-z0-9][a-z0-9-]*$/)),
   Schema.annotate({
     title: 'System Source Name',
     description: 'Reference name of a system-source catalog entry (lowercase kebab-case)',
     examples: ['runs', 'audit-log', 'global-search'],
-  })
+  }),
+  Schema.check(Schema.isMinLength(1), Schema.isPattern(/^[a-z0-9][a-z0-9-]*$/))
 )
 
 /** @public Forward-prep for CAP-4: consumed when `{ systemSource: <name> }` interpreter resolution is wired. */
@@ -62,21 +62,23 @@ export const SystemSourceSchema = Schema.Struct({
   name: SystemSourceNameSchema,
   /** The read endpoint to fetch rows from (required) */
   endpoint: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
     Schema.annotate({
       description: 'Read endpoint path to fetch rows from (e.g. /api/admin/automations/runs)',
       examples: ['/api/admin/automations/runs', '/api/admin/search'],
-    })
+    }),
+    Schema.check(Schema.isMinLength(1))
   ),
   /** Array key in the response envelope (default: 'items') */
   rowsKey: Schema.optional(
     Schema.String.annotate({
+      defaultNote: 'items',
       description: "Key of the rows array in the response envelope (default: 'items')",
     })
   ),
   /** Row id key used to identify rows (default: 'id') */
   idKey: Schema.optional(
     Schema.String.annotate({
+      defaultNote: 'id',
       description: "Key of each row's unique id (default: 'id')",
     })
   ),

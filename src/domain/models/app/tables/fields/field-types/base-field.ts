@@ -50,13 +50,13 @@ const baseFieldStruct = Schema.Struct({
    */
   label: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'label must not be empty' })),
       Schema.annotate({
         title: 'Field Label',
         description:
           'External display name shown to end users, in place of the internal `name`. Resolution order on every surface: surface-level override, then this label, then the raw `name` verbatim.',
         examples: ['Unit price', 'Prix unitaire', 'Email address', 'Date de création'],
-      })
+      }),
+      Schema.check(Schema.isNonEmpty({ message: 'label must not be empty' }))
     )
   ),
   /**
@@ -78,7 +78,6 @@ const baseFieldStruct = Schema.Struct({
    */
   description: Schema.optional(
     Schema.String.pipe(
-      Schema.check(Schema.isNonEmpty({ message: 'description must not be empty' })),
       Schema.annotate({
         title: 'Field Description',
         description:
@@ -88,12 +87,37 @@ const baseFieldStruct = Schema.Struct({
           'We only use this to send the receipt — it is never shared.',
           'Format: SIRET, 14 digits, no spaces.',
         ],
+      }),
+      Schema.check(Schema.isNonEmpty({ message: 'description must not be empty' }))
+    )
+  ),
+  required: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotate({
+        title: 'Required',
+        description:
+          'Rejects a record whose value for this field is missing or empty, both through the API and in any generated form.',
       })
     )
   ),
-  required: Schema.optional(Schema.Boolean),
-  unique: Schema.optional(Schema.Boolean),
-  indexed: Schema.optional(Schema.Boolean),
+  unique: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotate({
+        title: 'Unique',
+        description:
+          'Rejects a record whose value for this field is already used by another record in the same table.',
+      })
+    )
+  ),
+  indexed: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotate({
+        title: 'Indexed',
+        description:
+          'Adds a database index on this field, so filtering and sorting on it stay fast as the table grows, at the cost of slightly slower writes.',
+      })
+    )
+  ),
 })
 
 /**
