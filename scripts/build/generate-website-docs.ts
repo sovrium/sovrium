@@ -33,6 +33,12 @@
  * error the renderer raises; importing the renderer keeps the guarantee and
  * the diagnostics.
  *
+ * Everything below that turns an article into a site FILE — the frontmatter,
+ * the link guard, the flattener, the project-article list — lives in
+ * `src/application/use-cases/admin/docs-site-export.ts`, because
+ * `sovrium docs --export` needs it inside the compiled binary, which cannot
+ * import `scripts/`. This script and that flag call the same function.
+ *
  * The generated markdown therefore differs from `sovrium docs <address>` in
  * exactly ONE way: a website frontmatter block is prepended. The body is
  * byte-identical. That is worth stating precisely, because the obvious
@@ -45,21 +51,21 @@
  * Measured at the time of writing: ONE markdown link across all 223 fragments,
  * and it is external (`https://llmstxt.org`). A link rewriter would therefore
  * be speculative code with no input. What is here instead is
- * {@link assertFragmentLinks}, which REFUSES a link the website could not
+ * `assertFragmentLinks`, which REFUSES a link the website could not
  * resolve — a relative path, a `.md`/`.ts` target, a source path. The day a
  * fragment gains a cross-reference this fails loudly rather than publishing a
  * dead link, and the rewriter is written then, against a real case.
  *
  * The two halves this campaign does NOT author — the option tables expanded
  * from annotations, and the Behaviour block rendered from acceptance-criteria
- * cells — get {@link flattenUnresolvableLinks} instead, which keeps the words
+ * cells — get `flattenUnresolvableLinks` instead, which keeps the words
  * and drops the dead target. Thirteen criteria link at a relative path today;
  * blocking a phase on another agent's cells would be worse, and so would
  * publishing the 404.
  *
  * ## Two allow-lists, and they are not the same kind of thing
  *
- * {@link PROJECT_ARTICLES} is permanent: the four articles about the PROJECT
+ * `PROJECT_ARTICLES` is permanent: the four articles about the PROJECT
  * rather than the software (licence, trademark, contributing, how it is built)
  * stay on the website by founder decision — they are not in the binary and
  * never will be.
@@ -87,17 +93,14 @@
 
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { Effect } from 'effect'
 import {
-  articleAddress,
-  embeddedDocKey,
-  locatedArticles,
-  renderManualArticle,
-} from '@/application/use-cases/admin/docs-manual'
+  PROJECT_ARTICLES,
+  renderSiteArticles as renderManualWebsiteArticles,
+} from '@/application/use-cases/admin/docs-site-export'
 import { SECTIONS } from '@/docs/sections'
 import { embeddedBehaviourFor, readEmbeddedDoc } from '@/infrastructure/assets/embedded-docs'
 import { printJournal, printStderr } from '@/infrastructure/logging/cli-output'
-import { markdownSegments, proseOf } from '../lib/markdown-segments'
-import type { LocatedArticle } from '@/application/use-cases/admin/docs-manual'
 
 export const REPO_ROOT = resolve(import.meta.dir, '..', '..')
 
@@ -109,21 +112,6 @@ export const NAV_MODULE = 'apps/website/config/pages/docs/_docs-nav.generated.ts
 
 /** The command a human runs to resolve a `Docs Payload Drift` finding. */
 export const FIX_COMMAND = 'bun run build:website-docs'
-
-/**
- * Articles about the PROJECT rather than the software.
- *
- * Founder decision, recorded in [internal ref]: these describe the licence, the
- * trademark, how to contribute and how Sovrium is built. None of it is a
- * property of the running binary, so none of it belongs in a manual the binary
- * prints. They are authored, and this generator leaves them alone.
- */
-export const PROJECT_ARTICLES: readonly string[] = [
-  'contributing',
-  'how-sovrium-is-built',
-  'license',
-  'trademark',
-]
 
 /**
  * Articles still authored on the website because their fragment does not exist.
@@ -145,176 +133,13 @@ export const PENDING_FRAGMENT_ARTICLES: readonly {
   // documents and the `admin` section was registered. The list is EMPTY, and
   // that is its finished state rather than a gap: every article the website
   // publishes is now either generated from the manual or in
-  // {@link PROJECT_ARTICLES}. Anything added here again owes a named owner and
+  // `PROJECT_ARTICLES`. Anything added here again owes a named owner and
   // an exit condition in the same commit.
 ]
 
 /** Every slug this generator must find on disk and must not produce. */
 const authoredSlugs = (): readonly string[] =>
   [...PROJECT_ARTICLES, ...PENDING_FRAGMENT_ARTICLES.map((row) => row.slug)].toSorted()
-
-// =============================================================================
-// Frontmatter
-// =============================================================================
-
-/**
- * The six keys the docs zone reads, in the order the corpus already uses.
- *
- * `markdown-page-resolver` groups by `section`, sorts by `order`, labels the
- * sidebar from `sidebarLabel` and synthesises SEO from `title`/`description`/
- * `keywords`. A seventh key would be dead weight, and a missing one is a
- * silently unlabelled sidebar entry.
- */
-interface Frontmatter {
-  readonly title: string
-  readonly description: string
-  readonly keywords: string
-  readonly section: string
-  readonly order: number
-  readonly sidebarLabel: string
-}
-
-/**
- * Whether a plain YAML scalar would be misread, by YAML or by Sovrium's own
- * splitter.
- *
- * Two readers, two different rules, and the emitter has to satisfy both.
- * `splitFrontmatter` splits on the FIRST colon and strips one leading and one
- * trailing quote character, so it tolerates `a: b: c`; strict YAML does not,
- * and the published tree is also read by GitHub on the public mirror. So the
- * stricter rule wins.
- */
-const needsQuoting = (value: string): boolean =>
-  value === '' ||
-  value !== value.trim() ||
-  /^[-?:,[\]{}#&*!|>'"%@`]/.test(value) ||
-  /:(\s|$)/.test(value) ||
-  /\s#/.test(value)
-
-/**
- * One frontmatter value, quoted only when it has to be.
- *
- * REFUSES rather than escaping. `splitFrontmatter` strips the outer quote pair
- * and performs no unescaping at all, so a `''` or a `\"` inside a quoted value
- * would survive into the parsed string and reach the page title. A value that
- * needs quoting and contains both quote characters therefore cannot be emitted
- * safely by either strategy — and shipping a mangled `<title>` is worse than
- * failing a build a human can fix in the annotation it came from.
- */
-export const yamlScalar = (key: string, value: string): string => {
-  if (!needsQuoting(value)) return `${key}: ${value}`
-  if (!value.includes("'")) return `${key}: '${value}'`
-  if (!value.includes('"') && !value.includes('\\')) return `${key}: "${value}"`
-  throw new Error(
-    `Cannot emit frontmatter "${key}" safely: the value needs quoting and contains both quote ` +
-      `characters.\n  Value: ${value}\n  Reword the manifest entry — the frontmatter parser ` +
-      'strips the outer quotes without unescaping, so no escaping strategy survives it.'
-  )
-}
-
-/** The frontmatter block, fences included, ending in a blank line. */
-export const renderFrontmatter = (front: Frontmatter): string =>
-  [
-    '---',
-    yamlScalar('title', front.title),
-    yamlScalar('description', front.description),
-    yamlScalar('keywords', front.keywords),
-    yamlScalar('section', front.section),
-    `order: ${front.order}`,
-    yamlScalar('sidebarLabel', front.sidebarLabel),
-    '---',
-    '',
-    '',
-  ].join('\n')
-
-// =============================================================================
-// Links
-// =============================================================================
-
-const MARKDOWN_LINK = /\[[^\]]*\]\(([^)\s]+)[^)]*\)/g
-
-/**
- * A link target the docs zone can actually resolve.
- *
- * An in-page anchor, an absolute URL, a mail link, or a site-root path. A
- * RELATIVE path is the one that cannot work: a fragment sits beside the code it
- * documents, the article sits at `/{lang}/docs/<slug>`, and nothing maps one
- * onto the other. `.md` and `.ts` targets are the same defect wearing a
- * different spelling.
- */
-const isWebResolvable = (target: string): boolean =>
-  target.startsWith('#') ||
-  target.startsWith('/') ||
-  /^(https?|mailto):/.test(target) ||
-  target.startsWith('data:')
-
-/**
- * Every link target in a piece of markdown that the website could not follow.
- *
- * Reads PROSE only: link syntax quoted inside a code span or a fenced block is
- * a specimen being documented, not a link anyone can click. See
- * {@link markdownSegments}, in `[internal ref]` — shared with
- * `check-docs-links.ts`, which needs the same distinction.
- */
-export const unresolvableTargets = (markdown: string): readonly string[] =>
-  proseOf(markdown)
-    .flatMap((prose) => [...prose.matchAll(MARKDOWN_LINK)])
-    .map((match) => match[1] ?? '')
-    .filter((target) => !isWebResolvable(target))
-
-/**
- * Refuse a FRAGMENT that carries a link the website could not follow.
- *
- * Scoped to the hand-written fragment, which is the half [internal ref] put under this
- * campaign's control and which is clean today — so the guard is live rather
- * than aspirational. Deliberately a refusal rather than a rewrite: there is no
- * cross-reference in the corpus, so a rewriter would be a guess about a
- * convention nobody has chosen. This makes the day someone writes the first one
- * the day the convention gets designed, instead of the day a reader hits a 404.
- */
-export const assertFragmentLinks = (address: string, fragment: string): void => {
-  const bad = unresolvableTargets(fragment)
-  if (bad.length === 0) return
-  throw new Error(
-    `Fragment for "${address}" carries ${bad.length} link target(s) the website cannot resolve: ` +
-      `${bad.join(', ')}.\n  A fragment may link to an anchor, an absolute URL or a site-root ` +
-      'path. A relative or source-file target has no meaning at /{lang}/docs/<slug> — either ' +
-      'make it a `/en/docs/<slug>` link or name the article in prose.'
-  )
-}
-
-/**
- * Turn `[text](unresolvable)` into `text`, keeping the words and dropping the
- * dead link.
- *
- * For the two halves of an article this campaign does NOT author: the option
- * tables, expanded from schema annotations, and the Behaviour block, rendered
- * from acceptance-criteria cells in `[internal ref]`. Both belong to
- * `[internal ref]`, and both were written for readers inside the
- * repository — measured at the time of writing, 13 criteria link at a relative
- * `index.md#…` or `../../decisions/…` path, which resolves to a 404 under
- * `/en/docs/<slug>` and resolved to nothing at all in `sovrium docs`.
- *
- * Flattened rather than refused, because refusing would block a whole phase on
- * twenty-seven cells in another agent's tree; flattened rather than left alone,
- * because a 404 in published documentation is not an acceptable default. The
- * count is printed in the drift gate's census, so it is a visible backlog that
- * drains to zero rather than a silent rewrite.
- *
- * Rewrites PROSE only. A code span or a fenced block is reassembled verbatim —
- * quoting `[a](b.md)` to document the syntax is not a dead link, and flattening
- * it corrupts the very thing the criterion is describing.
- */
-export const flattenUnresolvableLinks = (markdown: string): string =>
-  markdownSegments(markdown)
-    .map((segment) =>
-      segment.kind === 'code'
-        ? segment.text
-        : segment.text.replaceAll(MARKDOWN_LINK, (whole, target: string) =>
-            isWebResolvable(target) ? whole : (/\[([^\]]*)\]/.exec(whole)?.[1] ?? whole)
-          )
-    )
-    .join('')
 
 // =============================================================================
 // Rendering
@@ -329,44 +154,34 @@ export interface GeneratedArticle {
   readonly flattened: readonly string[]
 }
 
-/** Render one located article into its website file. */
-const renderOne = async (located: LocatedArticle): Promise<GeneratedArticle> => {
-  const { article, section } = located
-  const fragment = await readEmbeddedDoc(embeddedDocKey(article.body))
-  assertFragmentLinks(articleAddress(located), fragment)
-  const rendered = renderManualArticle({
-    article,
-    body: fragment,
-    behaviour: embeddedBehaviourFor(article.slug),
-  })
-  return {
-    slug: article.slug,
-    path: `${EN_DOCS_DIR}/${article.slug}.md`,
-    flattened: unresolvableTargets(rendered),
-    content:
-      renderFrontmatter({
-        title: article.title,
-        description: article.description,
-        keywords: article.keywords.join(', '),
-        section: section.slug,
-        order: article.order,
-        sidebarLabel: article.sidebarLabel,
-      }) + flattenUnresolvableLinks(rendered),
-  }
-}
-
 /**
  * Every article the manual publishes, rendered, sorted by file name.
  *
- * Sorted by SLUG rather than by walk order: the output is a directory, and a
- * directory has no order — sorting by slug makes the census line and the drift
- * report stable regardless of how the manifests happen to be arranged.
+ * The rendering itself is `renderSiteArticles` in
+ * `src/application/use-cases/admin/docs-site-export.ts` — the SAME function
+ * `sovrium docs --export` calls — so the committed tree and a binary's export
+ * cannot disagree. This only places each file under {@link EN_DOCS_DIR}, and
+ * re-throws a render failure's own cause so the message a human reads is the
+ * renderer's, not a wrapper's.
  */
-export const renderWebsiteArticles = async (
+export const renderSiteArticles = async (
   sections: readonly (typeof SECTIONS)[number][] = SECTIONS
 ): Promise<readonly GeneratedArticle[]> => {
-  const rendered = await Promise.all(locatedArticles(sections).map(renderOne))
-  return rendered.toSorted((left, right) => left.slug.localeCompare(right.slug))
+  const result = await Effect.runPromise(
+    Effect.result(
+      renderManualWebsiteArticles(sections, {
+        readFragment: readEmbeddedDoc,
+        behaviourFor: embeddedBehaviourFor,
+      })
+    )
+  )
+  if (result._tag === 'Failure') throw result.failure.cause
+  return result.success.map((article) => ({
+    slug: article.slug,
+    path: `${EN_DOCS_DIR}/${article.file}`,
+    content: article.content,
+    flattened: article.flattened,
+  }))
 }
 
 // =============================================================================
@@ -457,7 +272,7 @@ export const readTreeSlugs = (root: string = REPO_ROOT): readonly string[] => {
 
 /** Compute the whole plan without touching the tree. */
 export const planGeneration = async (root: string = REPO_ROOT): Promise<GenerationPlan> => {
-  const articles = await renderWebsiteArticles()
+  const articles = await renderSiteArticles()
   const generated = new Set(articles.map((article) => article.slug))
   const authored = authoredSlugs()
   const onDisk = new Set(readTreeSlugs(root))

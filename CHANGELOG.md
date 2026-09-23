@@ -1,3 +1,15 @@
+## [0.27.0](https://github.com/sovrium/sovrium/compare/v0.26.0...v0.27.0) (2026-09-23)
+
+### Features
+
+- **cli**: add sovrium docs --export for documentation sites
+
+### Bug Fixes
+
+- **config**: report excess properties without a regular expression that backtracks on long keys
+- **pages**: keep what is typed into a form inside a tab panel
+- **build**: build the binary from the committed manual payload when the story corpus is absent
+
 ## [0.26.0](https://github.com/sovrium/sovrium/compare/v0.25.0...v0.26.0) (2026-09-23)
 
 ### Features

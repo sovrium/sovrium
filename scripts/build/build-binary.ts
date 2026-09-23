@@ -30,6 +30,7 @@ import * as Layer from 'effect/Layer'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { CommandServiceLive, spawn } from '../lib/effect/command-service'
 import { writeBinaryBuildStamp } from './binary-build-stamp'
+import { STORY_ROOTS, docsPayloadPaths, storyCorpusRootsPresent } from './generate-embedded-docs'
 import type { CommandService } from '../lib/effect/command-service'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
@@ -290,6 +291,161 @@ const compileBinary = (
   })
 
 // ---------------------------------------------------------------------------
+// The manual payload: regenerate it, or build from what is committed
+// ---------------------------------------------------------------------------
+
+/**
+ * Two floors on the committed manual payload, so "the file is there" cannot
+ * stand in for "the manual is there".
+ *
+ * A payload whose walk collected nothing does not throw — it writes a header
+ * and an empty object literal, roughly 600 bytes each — and every downstream
+ * check of the form "the module parsed" stays green over a binary whose
+ * `sovrium docs` renders an empty manual. The floors sit an order of magnitude
+ * under the real payloads (41 KB and 1.0 MB at v0.26.0) and an order of
+ * magnitude over an empty one, so they catch a stub or a truncation without
+ * becoming a second thing to maintain as the corpus grows.
+ */
+export const DOCS_MANIFEST_MIN_BYTES = 8000
+export const DOCS_BEHAVIOUR_MIN_BYTES = 32_000
+
+/** What the build decided to do about the manual, and why. */
+export type DocsPayloadPlan =
+  { readonly _tag: 'Regenerate' } | { readonly _tag: 'UseCommitted'; readonly reason: string }
+
+/** What `verifyCommittedDocsPayload` measured, for the one line it prints. */
+export interface CommittedDocsPayload {
+  readonly fragments: number
+  readonly articles: number
+}
+
+/**
+ * Regenerate the manual, or build from the committed payload — decided from the
+ * corpus on disk, and never from a swallowed error.
+ *
+ * `generate-embedded-docs.ts` derives the Behaviour half from the acceptance
+ * criteria under `[internal ref]`, which the PUBLIC MIRROR does not carry
+ * and must not: the user stories are an internal product contract. The GitHub
+ * release lanes build from that mirror, so on them the generator's walk hits
+ * ENOENT and — correctly, by design — throws. v0.26.0 tagged and then failed in
+ * all four binary lanes on exactly that, leaving a draft release with no assets.
+ *
+ * The answer is not to make the walk forgiving. Both payloads are COMMITTED and
+ * held byte-current by `Generated Assets Drift` on [internal ref], so where the corpus
+ * is absent the committed payload is not a fallback — it is the same bytes a
+ * green gate already verified, and rebuilding it would be the less trustworthy
+ * of the two. Where the corpus IS present the generator runs exactly as before,
+ * so a local or [internal ref] build still fails closed on drift.
+ *
+ * A PARTIAL corpus is a third state and fails loudly: it is neither a checkout
+ * nor the mirror, and building either way from it would silently ship a manual
+ * missing whole personas' behaviour.
+ */
+export const planDocsPayload = (root: string): Effect.Effect<DocsPayloadPlan, BuildBinaryError> =>
+  Effect.gen(function* () {
+    const present = storyCorpusRootsPresent(root)
+    if (present.length === STORY_ROOTS.length) return { _tag: 'Regenerate' as const }
+    if (present.length === 0) {
+      return {
+        _tag: 'UseCommitted' as const,
+        reason: `no user-story corpus under ${STORY_ROOTS.join(', ')} — this is the public mirror`,
+      }
+    }
+    return yield* new BuildBinaryError({
+      message:
+        `Partial user-story corpus: ${present.length} of ${STORY_ROOTS.length} roots present ` +
+        `(${present.join(', ')}). A partial corpus is neither a full checkout nor the public ` +
+        `mirror, and the manual built from it would be short by whole personas. Restore the ` +
+        `missing root(s), or remove all of them to build from the committed payload.`,
+    })
+  })
+
+/**
+ * Assert the committed manual payload is present and substantial enough to be
+ * worth compiling into a binary.
+ *
+ * Three checks, each answering a way the payload has actually been wrong:
+ * the files exist; each clears its floor above; and every fragment the manifest
+ * names still resolves on disk. That last one is the mirror's own failure mode —
+ * a fragment the allowlist strips would leave the manifest pointing at nothing,
+ * which `bun build --compile` reports as an unresolved import several minutes
+ * later and with no mention of the manual.
+ *
+ * The behaviour module is IMPORTED rather than pattern-matched, because a
+ * truncated or half-written payload parses as prose and fails as a module.
+ */
+export const verifyCommittedDocsPayload = (
+  root: string
+): Effect.Effect<CommittedDocsPayload, BuildBinaryError> =>
+  Effect.gen(function* () {
+    const paths = docsPayloadPaths(root)
+
+    for (const [label, path, floor] of [
+      ['embedded-docs.generated.ts', paths.manifest, DOCS_MANIFEST_MIN_BYTES],
+      ['embedded-docs-behaviour.generated.ts', paths.behaviour, DOCS_BEHAVIOUR_MIN_BYTES],
+    ] as const) {
+      if (!existsSync(path)) {
+        return yield* new BuildBinaryError({
+          message: `Committed manual payload missing: ${label}. The binary would ship no manual.`,
+        })
+      }
+      const { size } = statSync(path)
+      if (size < floor) {
+        return yield* new BuildBinaryError({
+          message:
+            `Committed manual payload too small: ${label} is ${formatSize(size)}, ` +
+            `under the ${formatSize(floor)} floor. An empty payload is what a generator that ` +
+            `collected nothing writes, so this is a stub rather than a manual.`,
+        })
+      }
+    }
+
+    const manifest = readFileSync(paths.manifest, 'utf8')
+    const fragments = [
+      ...manifest.matchAll(/^import _d\d+ from '(.+?)' with \{ type: 'file' \}$/gm),
+    ]
+      .map((match) => match[1])
+      .filter((specifier): specifier is string => specifier !== undefined)
+    const missing = fragments
+      .map((specifier) => specifier.replace(/^\.\.\/\.\.\/\.\.\//, ''))
+      .filter((relativePath) => !existsSync(join(root, relativePath)))
+    if (missing.length > 0) {
+      return yield* new BuildBinaryError({
+        message:
+          `${missing.length} documentation fragment(s) named by the committed manifest are not ` +
+          `on disk, so the compile would fail on an unresolved import: ` +
+          `${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ', …' : ''}`,
+      })
+    }
+
+    const behaviour = yield* Effect.tryPromise({
+      try: () => import(paths.behaviour) as Promise<{ readonly EMBEDDED_DOCS_BEHAVIOUR?: unknown }>,
+      catch: (cause) =>
+        new BuildBinaryError({
+          message: `Committed manual payload does not import: embedded-docs-behaviour.generated.ts — ${String(cause)}`,
+        }),
+    })
+    const { EMBEDDED_DOCS_BEHAVIOUR: payload } = behaviour
+    if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+      return yield* new BuildBinaryError({
+        message:
+          'Committed manual payload exports no EMBEDDED_DOCS_BEHAVIOUR object: ' +
+          'embedded-docs-behaviour.generated.ts',
+      })
+    }
+    const articles = Object.keys(payload).length
+    if (articles === 0) {
+      return yield* new BuildBinaryError({
+        message:
+          'Committed manual payload describes zero articles, so every Behaviour block would be ' +
+          'empty: embedded-docs-behaviour.generated.ts',
+      })
+    }
+
+    return { fragments: fragments.length, articles }
+  })
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -393,11 +549,27 @@ const main: Effect.Effect<void, BuildBinaryError, CommandService> = Effect.gen(f
   // harvest read manifests this same build is about to rewrite. Running it
   // after every other generator means the binary compiles from a tree nothing
   // else still intends to change.
-  yield* run(
-    ['bun', 'run', 'scripts/build/generate-embedded-docs.ts'],
-    'Generate embedded documentation payload',
-    CODEGEN_TIMEOUT_MS
-  )
+  //
+  // It is also the ONE step of this pipeline that reads a tree the public
+  // mirror strips — measured, not assumed: every other generator above was run
+  // against an assembled mirror tree and exited 0. So this is the one step that
+  // asks first whether it can run at all; see `planDocsPayload`.
+  const docsPlan = yield* planDocsPayload(PROJECT_ROOT)
+  if (docsPlan._tag === 'Regenerate') {
+    yield* run(
+      ['bun', 'run', 'scripts/build/generate-embedded-docs.ts'],
+      'Generate embedded documentation payload',
+      CODEGEN_TIMEOUT_MS
+    )
+  } else {
+    console.log('\nGenerate embedded documentation payload')
+    console.log(`  ${docsPlan.reason}`)
+    const payload = yield* verifyCommittedDocsPayload(PROJECT_ROOT)
+    console.log(
+      `  building from the committed payload: ${payload.fragments} fragment(s), ` +
+        `${payload.articles} article(s)`
+    )
+  }
 
   // Compile each target
   for (const target of targets) {

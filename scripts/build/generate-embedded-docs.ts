@@ -45,16 +45,32 @@
  * (also run automatically by `build:binary`.)
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { SECTIONS } from '@/docs/sections'
 import { printFailure } from '@/infrastructure/logging/cli-output'
 import { REPO_ROOT, walkSync } from '../lib/drift/walk'
 import { parseUserStorySections, type AcceptanceCriterionRow } from '../lib/user-story-criteria'
 
-const ASSETS_DIR = join(REPO_ROOT, 'src', 'infrastructure', 'assets')
-const DOCS_OUT = join(ASSETS_DIR, 'embedded-docs.generated.ts')
-const BEHAVIOUR_OUT = join(ASSETS_DIR, 'embedded-docs-behaviour.generated.ts')
+/**
+ * The two modules this generator writes, root-parameterized.
+ *
+ * Exported because `build-binary.ts` reads them rather than regenerating them
+ * wherever the user-story corpus is absent (see {@link storyCorpusRootsPresent}),
+ * and two spellings of "the committed payload" is exactly the drift that would
+ * make that branch verify a file nothing produces.
+ */
+export const docsPayloadPaths = (
+  root: string
+): { readonly manifest: string; readonly behaviour: string } => {
+  const assets = join(root, 'src', 'infrastructure', 'assets')
+  return {
+    manifest: join(assets, 'embedded-docs.generated.ts'),
+    behaviour: join(assets, 'embedded-docs-behaviour.generated.ts'),
+  }
+}
+
+const { manifest: DOCS_OUT, behaviour: BEHAVIOUR_OUT } = docsPayloadPaths(REPO_ROOT)
 
 /** Import paths in the generated files are relative to `src/infrastructure/assets/`. */
 const REL_ROOT = '../../..'
@@ -71,6 +87,24 @@ export const STORY_ROOTS: readonly string[] = [
   'docs/user-stories/as-end-user',
   'docs/user-stories/as-business-admin',
 ]
+
+/**
+ * Which of {@link STORY_ROOTS} exist under `root` — the question that decides
+ * whether this generator can run at all.
+ *
+ * The public mirror carries no `[internal ref]` tree and must not: the user stories are
+ * an internal product contract. So on the mirror this returns nothing, and
+ * `build-binary.ts` builds the manual from the committed payload instead of
+ * calling this generator. It returns the PRESENT roots rather than a boolean
+ * because a partial corpus is neither state, and silently treating it as either
+ * would ship a manual missing whole personas' behaviour.
+ *
+ * The walk itself must keep throwing on a missing directory — an unknown corpus
+ * is not an empty one — so the decision belongs here, before the walk, and never
+ * in a `catch` around it.
+ */
+export const storyCorpusRootsPresent = (root: string): readonly string[] =>
+  STORY_ROOTS.filter((storyRoot) => existsSync(join(root, storyRoot)))
 
 // ---------------------------------------------------------------------------
 // 1. The fragments

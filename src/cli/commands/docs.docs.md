@@ -17,6 +17,8 @@ sovrium docs --list-sections                  # the section slugs, and how many 
 sovrium docs --section tables --full          # one section in full, repeatable
 sovrium docs --full                           # the whole manual, for a context window
 sovrium docs --full --format llms --output llms-full.txt
+sovrium docs --export content/docs/en         # every article, as files a docs site can build
+sovrium docs --export content/docs/en --force # replace a previous export
 ```
 
 Markdown is the default, for the reason `sovrium design-system` already gives: the intended reader is a model reading a context window, and piping the manual into a prompt should need no flag. `--format json` is for tooling.
@@ -62,6 +64,48 @@ What this does **not** prove is worth stating plainly rather than implying: "aut
 ## Determinism
 
 `sovrium docs --full` is a pure function of the binary: two runs of one binary produce identical bytes. That is what lets a consumer pin a version, regenerate, and treat any diff as a real change rather than as noise.
+
+## Exporting for a documentation site
+
+`sovrium docs --export <dir>` writes the whole manual as a directory a documentation site can build from, using nothing but the binary — no source tree, no network.
+
+- **One file per article**, `<dir>/<slug>.md`: a six-key frontmatter block (`title`, `description`, `keywords`, `section`, `order`, `sidebarLabel`) followed by exactly the body `sovrium docs <section>/<slug>` prints. Links a website cannot follow — a relative path, a source file — are flattened to their words. The files are byte-identical to the English articles on the published Sovrium site, which are generated from this same renderer.
+- **One manifest**, `<dir>/_nav.json`, carrying what a sidebar needs without re-reading the articles:
+
+  ```json
+  {
+    "format": "sovrium-docs-export",
+    "schemaVersion": 1,
+    "engine": "<sovrium --version>",
+    "lang": "en",
+    "tabs": ["…"],
+    "sections": [
+      {
+        "slug": "app-schema",
+        "title": "App Schema",
+        "tab": "platform",
+        "order": 9000,
+        "articles": [
+          {
+            "slug": "llms-txt",
+            "title": "Publish llms.txt",
+            "sidebarLabel": "Publish llms.txt",
+            "order": 9060,
+            "file": "llms-txt.md"
+          }
+        ]
+      }
+    ],
+    "files": ["…"]
+  }
+  ```
+
+  Sections are in reading order and articles in section order; `tabs` is in first-appearance order; `files` is every file the export wrote other than the manifest, sorted. Labels, icons and landing paths are not in it — they are your site's copy.
+
+- **A non-empty directory is refused** without `--force`, and nothing is written. A missing directory is created with its parents; an empty one is accepted.
+- **`--force` replaces what the export owns and nothing else.** Ownership is the previous export's own `_nav.json` `files` list: those files are removed, the new set is written, and anything the manifest never listed — pages your site authors beside the exported ones — is left untouched. A directory with no manifest has no owned files, so `--force` then only overwrites the paths it writes. It never clears the directory.
+- **It is its own output mode.** It refuses to run without a directory, and refuses to combine with an address, a subcommand, `--full`, `--list-sections`, `--section`, `--output` or `--format`, naming both flags.
+- **Deterministic.** Two exports from one binary are byte-identical, manifest included — no timestamp, no absolute path — so a site can pin a version, regenerate, and treat any diff as a real change.
 
 ## Pointing an agent at it
 

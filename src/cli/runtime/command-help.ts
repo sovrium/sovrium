@@ -199,6 +199,9 @@ const DOCS_HELP_TEXT = [
   '  --list-sections               Print the section slugs and exit',
   '  --lang <code>                 Manual locale; `en` only, anything else refused',
   '  --output <path>               Write to a file instead of stdout (creates parent dirs)',
+  '  --export <dir>                Write every article plus _nav.json into <dir> (refuses a',
+  '                                non-empty dir without --force)',
+  '  --force                       With --export, replace the files a previous export owns',
   '  --help, -h                    Show this help message',
   '',
   'Exit codes:',
@@ -214,6 +217,7 @@ const DOCS_HELP_TEXT = [
   '  sovrium docs env DATABASE_URL                 # One variable',
   '  sovrium docs cli migrate                      # One command',
   '  sovrium docs --full --output MANUAL.md        # The whole manual',
+  "  sovrium docs --export content/docs/en         # A docs site's article tree",
 ].join('\n')
 
 const VALIDATE_HELP_TEXT = [

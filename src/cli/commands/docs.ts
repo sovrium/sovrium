@@ -55,7 +55,9 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { Effect, Console } from 'effect'
 import { printStderr } from '@/infrastructure/logging/cli-output'
+import { exportDocs } from './docs-export'
 import { renderDocsRequest, type DocsFormat } from './docs-render'
+import { getCurrentVersion } from './update'
 
 /** The formats this command emits, and the spellings it accepts for them. */
 const MARKDOWN_FORMATS: ReadonlySet<string> = new Set(['md', 'markdown'])
@@ -76,6 +78,12 @@ export interface DocsCommandOptions {
   readonly listSections: boolean
   /** Every `--section <slug>`, narrowing `--full` and the table of contents. */
   readonly sections: readonly string[]
+  /** Whether `--export` was passed at all, with or without a directory. */
+  readonly exportRequested?: boolean
+  /** The `--export <dir>` target; absent when the flag had no directory. */
+  readonly exportDir?: string
+  /** `--force` — let `--export` replace a previous export. */
+  readonly force?: boolean
 }
 
 /**
@@ -140,6 +148,70 @@ const emit = async (content: string, outputPath: string | undefined): Promise<vo
   Effect.runSync(Console.log(`Manual written to ${outputPath}.`))
 }
 
+/** Stop with a refusal on stderr and exit 1. */
+const refuse = (message: string): never => {
+  printStderr(message)
+  // eslint-disable-next-line functional/no-expression-statements
+  process.exit(1)
+}
+
+/**
+ * The other output mode an `--export` was combined with, if any.
+ *
+ * `--export` is its own destination and its own shape, so pairing it with a
+ * flag that chooses either is refused BY NAME rather than resolved by picking
+ * one: a caller who got the other output would not know it.
+ */
+const conflictingMode = (options: DocsCommandOptions): string | undefined => {
+  if (options.args.length > 0) return `an address or subcommand ("${options.args.join(' ')}")`
+  if (options.full) return '--full'
+  if (options.listSections) return '--list-sections'
+  if (options.sections.length > 0) return '--section'
+  if (options.outputPath !== undefined) return '--output'
+  if (options.format !== undefined) return '--format'
+  return undefined
+}
+
+/** Why an `--export` invocation is malformed, or `undefined` when it is not. */
+const exportArgumentRefusal = (options: DocsCommandOptions): string | undefined => {
+  const conflict = conflictingMode(options)
+  if (conflict !== undefined) {
+    return (
+      `Error: --export cannot be combined with ${conflict}.\n\n` +
+      `  --export writes every article plus _nav.json into a directory; it takes no\n` +
+      `  address and chooses its own format and destination.`
+    )
+  }
+  if (options.exportDir === undefined) {
+    return (
+      `Error: --export needs a directory.\n\n` +
+      `  Usage: sovrium docs --export <dir> [--force]\n` +
+      `  It never falls back to the working directory, which is usually a project root.`
+    )
+  }
+  return undefined
+}
+
+/**
+ * `--export <dir>`: validate the combination, then write the export.
+ *
+ * Refusals come first and write nothing — including the directory itself.
+ */
+const handleExport = async (options: DocsCommandOptions): Promise<void> => {
+  const invalid = exportArgumentRefusal(options)
+  const result =
+    invalid !== undefined
+      ? { kind: 'refused' as const, reason: invalid }
+      : await exportDocs({
+          target: options.exportDir ?? '',
+          force: options.force === true,
+          engine: await getCurrentVersion(),
+        })
+  return result.kind === 'refused'
+    ? refuse(result.reason)
+    : Effect.runSync(Console.log(result.notice))
+}
+
 /**
  * Handle the `docs` command.
  *
@@ -150,6 +222,7 @@ export const handleDocsCommand = async (options: DocsCommandOptions): Promise<vo
   // who mistyped the format or the locale learns it immediately rather than
   // after the manual has been assembled.
   resolveLang(options.lang)
+  if (options.exportRequested === true) return handleExport(options)
   const format = resolveFormat(options.format)
 
   const rendered = await renderDocsRequest({

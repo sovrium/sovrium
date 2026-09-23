@@ -207,6 +207,47 @@ function extractFormValues(el: HTMLElement): Record<string, string> {
 }
 
 /**
+ * Writes the LIVE state of every form control in `el` back into its MARKUP.
+ *
+ * `innerHTML` serialises ATTRIBUTES, and a value someone has typed lives in the
+ * `value` PROPERTY — the attribute still says whatever the server rendered. Two
+ * captures read `el.innerHTML`: the Suspense fallback built in
+ * {@link mountIslandsWithin}, and the `ssrHtml` an island keeps by declaring
+ * `data-island-ssr`. Both are re-inserted into the document, so both used to
+ * hand back a copy of the page with every entered value reverted — silently,
+ * with nothing thrown and nothing logged.
+ *
+ * The case that exposed it is a record form inside a tab panel. The tabs island
+ * captures its panel as markup and re-inserts it, and the form island then
+ * mounts against that copy; a name typed before the islands mounted was
+ * serialised away, so the form posted the value the page had loaded with. The
+ * record was saved unchanged and the edit simply disappeared.
+ *
+ * Mutating a subtree `createRoot` is about to discard is safe by construction:
+ * all this does is make the serialisation say what is on screen. File inputs
+ * are skipped — a selection cannot be written as an attribute, and travels
+ * separately through {@link extractPendingFiles}.
+ */
+function inlineLiveFormState(el: HTMLElement): void {
+  el.querySelectorAll('input').forEach((input) => {
+    if (input.type === 'file') return
+    if (input.type === 'checkbox' || input.type === 'radio') {
+      input.toggleAttribute('checked', input.checked)
+      return
+    }
+    input.setAttribute('value', input.value)
+  })
+  // A `<textarea>` has no `value` attribute at all: its markup CONTENT is the
+  // value, so the text node is what has to be replaced.
+  el.querySelectorAll('textarea').forEach((area) => {
+    area.replaceChildren(document.createTextNode(area.value))
+  })
+  el.querySelectorAll('option').forEach((option) => {
+    option.toggleAttribute('selected', option.selected)
+  })
+}
+
+/**
  * A file the user picked against the SSR skeleton, before the island mounted.
  *
  * The twin of {@link extractFormValues} for the one input type that hook
@@ -316,6 +357,9 @@ function capturePreMountInput(
   readonly mergedProps: Record<string, unknown>
   readonly pendingFiles: readonly PendingFileSelection[]
 } {
+  // Ahead of BOTH markup captures — the `ssrHtml` below, and the Suspense
+  // fallback `mountIslandsWithin` reads off the same element a moment later.
+  inlineLiveFormState(el)
   const initialValues = extractFormValues(el)
   const withValues = Object.keys(initialValues).length > 0 ? { ...props, initialValues } : props
   return {

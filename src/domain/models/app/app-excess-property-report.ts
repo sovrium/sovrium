@@ -985,18 +985,54 @@ const withoutEchoedValue = (finding: DecodeFinding): DecodeFinding =>
  * ${expected}, got ${input}\`` — so this matches a documented format rather than
  * guessing at prose. Read, do not re-derive: `vendor/effect`, `SchemaIssue.ts`.
  *
- * Anchored to the FIRST occurrence and run to the end of the line, because a
- * rendered value may itself contain `, got ` and this has to fail toward
- * stripping. What survives is `Expected <type>`, which is the half a reader
- * needs.
+ * `clauseStart` below takes the FIRST occurrence and drops everything after it,
+ * because a rendered value may itself contain `, got ` and this has to fail
+ * toward stripping. What survives is `Expected <type>`, which is the half a
+ * reader needs.
  */
-const REPORTED_INPUT_CLAUSE = /, got .*$/
+const REPORTED_INPUT_CLAUSE = ', got '
+
+/**
+ * The four characters a JavaScript `.` refuses to match.
+ *
+ * NOT the same set as the `split('\n')` below, and that gap is the whole reason
+ * this constant exists: a config authored on Windows reaches the splitter as
+ * CRLF and leaves a `\r` on the end of every line, and `\u2028`/`\u2029` can sit
+ * inside a rejected value verbatim.
+ */
+const LINE_TERMINATORS = ['\n', '\r', '\u2028', '\u2029'] as const
+
+/**
+ * Where a line's reported-input clause starts, or `-1`. Pure, and LINEAR.
+ *
+ * This was the regex `/, got .*$/` until a ReDoS audit, and that regex was
+ * quadratic rather than wrong. `.` never matched a line terminator while `$`
+ * (no `m` flag) only ever matched end-of-input, so a line carrying one could
+ * never satisfy the tail — and the engine answered by re-walking the entire
+ * remainder from each of the N occurrences of `, got `. Measured before the
+ * fix: 96 KB of `", got "` followed by one `\r` took 606 ms, quadrupling on
+ * every doubling. The input is a config file, so its length is the author's.
+ *
+ * The semantics are preserved exactly rather than approximated. Because `$` is
+ * end-of-input, a match could only ever have landed AFTER the last line
+ * terminator, so the first occurrence in that tail is precisely the one the
+ * regex would have found — which is why the search starts there and not at
+ * zero. `lastIndexOf` and `indexOf` are both linear; nothing here backtracks.
+ */
+const clauseStart = (line: string): number =>
+  line.indexOf(
+    REPORTED_INPUT_CLAUSE,
+    Math.max(...LINE_TERMINATORS.map((terminator) => line.lastIndexOf(terminator))) + 1
+  )
 
 /** Every line of a message with its reported-input clause removed. Pure. */
 const withoutReportedInput = (message: string): string =>
   message
     .split('\n')
-    .map((line) => line.replace(REPORTED_INPUT_CLAUSE, ''))
+    .map((line) => {
+      const clause = clauseStart(line)
+      return clause === -1 ? line : line.slice(0, clause)
+    })
     .join('\n')
 
 /**

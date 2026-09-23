@@ -152,6 +152,16 @@ export interface ParsedArgs {
    */
   readonly docsSections?: readonly string[]
   /**
+   * `--export <dir>` — `sovrium docs` writes every article plus a manifest.
+   *
+   * `exportRequested` is carried separately from the directory because a bare
+   * `--export` must be REFUSED by name, not read as "no export": run from a
+   * project root, silently falling back to the working directory would write
+   * two hundred files beside `app.ts`.
+   */
+  readonly exportRequested?: boolean
+  readonly exportDir?: string
+  /**
    * Every positional argument AFTER the command word, in argv order.
    *
    * `sovrium docs` addresses articles, subcommands and lookup keys positionally
@@ -186,6 +196,19 @@ const getFlagValue = (argv: readonly string[], flag: string): string | undefined
  * for `--output`, wrong for `--table`. A trailing `--table` with no argument
  * contributes nothing rather than swallowing the next flag.
  */
+/**
+ * A value-flag's value, where a following FLAG counts as no value at all.
+ *
+ * `getFlagValue` returns the next token whatever it is, which would read
+ * `docs --export --full` as an export into a directory named `--full`. For a
+ * flag whose value is a path the caller will write into, that is the wrong
+ * guess in the most expensive direction.
+ */
+const getFlagPathValue = (argv: readonly string[], flag: string): string | undefined => {
+  const value = getFlagValue(argv, flag)
+  return value === undefined || value.startsWith('-') ? undefined : value
+}
+
 const getFlagValues = (argv: readonly string[], flag: string): readonly string[] =>
   argv.flatMap((arg, index) => {
     if (arg !== flag) return []
@@ -220,6 +243,9 @@ const FLAG_VALUE_OPTIONS = [
   // section nobody registered.
   '--lang',
   '--section',
+  // `sovrium docs --export <dir>`. Both lists, same reason: absent here, the
+  // directory would be read as the article address.
+  '--export',
   // `sovrium mcp --project <dir>`. Both lists again, and this one bites in a
   // way the others do not: `--project /tmp/app` leaves `/tmp/app` in the
   // positional stream, where `isConfigFile` matches it on the `/` and rewrites
@@ -291,6 +317,9 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   // print the accepted locale and the registered section slugs.
   '--lang',
   '--section',
+  // `sovrium docs --export <dir>`. Absent from this set the flag is refused
+  // before dispatch as an unknown flag.
+  '--export',
   // `sovrium mcp --project <dir>`. Absent from this set the flag is refused
   // before dispatch, so the verb would be unreachable however completely it is
   // implemented.
@@ -401,6 +430,8 @@ interface ParsedFlags {
   readonly listSections: boolean
   readonly lang: string | undefined
   readonly docsSections: readonly string[]
+  readonly exportRequested: boolean
+  readonly exportDir: string | undefined
   readonly projectDir: string | undefined
 }
 
@@ -437,6 +468,8 @@ const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
   listSections: argv.includes('--list-sections'),
   lang: getFlagValue(argv, '--lang'),
   docsSections: getFlagValues(argv, '--section'),
+  exportRequested: argv.includes('--export'),
+  exportDir: getFlagPathValue(argv, '--export'),
   projectDir: getFlagValue(argv, '--project'),
 })
 
@@ -487,6 +520,8 @@ const buildStandardResult = (
     listSections: flags.listSections,
     lang: flags.lang,
     docsSections: flags.docsSections,
+    exportRequested: flags.exportRequested,
+    exportDir: flags.exportDir,
     positionalArgs: nonFlagArgs.slice(1),
     projectDir: flags.projectDir,
   }

@@ -57,70 +57,101 @@ export interface MarkdownSegment {
   readonly text: string
   readonly kind: 'prose' | 'code'
 }
-
 /** A line that OPENS a fence: ≤3 spaces, then ≥3 backticks or tildes. */
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})(.*)$/
 
 /**
- * Split a non-fenced run into prose and inline code spans.
+ * A backtick run and, when one exists, the span it opens.
  *
- * CommonMark's code-span rule, and the whole reason a regex cannot stand in for
- * it: a backtick RUN of length N opens a span, and only a run of EXACTLY N
- * closes it. That is what makes ``` ``a ` b`` ``` one span rather than two, and
- * what makes an unmatched run ordinary text — so a lone backtick in prose must
- * not swallow the rest of the paragraph.
+ * CommonMark's code-span rule: a backtick RUN of length N opens a span, and
+ * only a run of EXACTLY N closes it. That is what makes ``` ``a ` b`` ``` one
+ * span rather than two, and what makes an unmatched run ordinary text — so a
+ * lone backtick in prose must not swallow the rest of the paragraph.
+ *
+ * Two details carry the rule. The lookahead capture `(?=(`+))\1` makes the
+ * opening run POSSESSIVE: a plain `(`+)` would backtrack to a shorter run and
+ * pair ``` `` ``` with a later single backtick. And the closer must be a whole
+ * run — not preceded and not followed by another backtick — so a run of a
+ * different length inside the span is content, never a closer. When no closer
+ * exists the match is the bare run, which the caller reads as literal text and
+ * scans past, exactly as the run would be skipped by hand.
+ */
+const CODE_SPAN = /(?=(`+))\1(?:[\s\S]*?(?<!`)\1(?!`))?/g
+
+/** One matched code span: where it starts and where it ends. */
+interface SpanRange {
+  readonly start: number
+  readonly end: number
+}
+
+/**
+ * Split a non-fenced run into prose and inline code spans.
  *
  * Scanned across the whole run rather than line by line, because a code span
  * legally spans newlines inside a paragraph.
  */
 const inlineSegments = (text: string): readonly MarkdownSegment[] => {
-  const segments: MarkdownSegment[] = []
-  let proseStart = 0
-  let index = 0
+  const spans: readonly SpanRange[] = [...text.matchAll(CODE_SPAN)]
+    .filter((match) => match[0].length > (match[1]?.length ?? 0))
+    .map((match) => ({ start: match.index, end: match.index + match[0].length }))
 
-  const runEnd = (from: number): number => {
-    let end = from
-    while (text[end] === '`') end += 1
-    return end
-  }
+  const walked = spans.reduce<{
+    readonly segments: readonly MarkdownSegment[]
+    readonly cursor: number
+  }>(
+    (state, span) => ({
+      segments: [
+        ...state.segments,
+        ...(span.start > state.cursor
+          ? [{ text: text.slice(state.cursor, span.start), kind: 'prose' as const }]
+          : []),
+        { text: text.slice(span.start, span.end), kind: 'code' as const },
+      ],
+      cursor: span.end,
+    }),
+    { segments: [], cursor: 0 }
+  )
 
-  while (index < text.length) {
-    if (text[index] !== '`') {
-      index += 1
-      continue
-    }
-    const openEnd = runEnd(index)
-    const length = openEnd - index
+  return walked.cursor < text.length
+    ? [...walked.segments, { text: text.slice(walked.cursor), kind: 'prose' }]
+    : walked.segments
+}
 
-    let cursor = openEnd
-    let closeEnd = -1
-    while (cursor < text.length) {
-      if (text[cursor] !== '`') {
-        cursor += 1
-        continue
-      }
-      const candidateEnd = runEnd(cursor)
-      if (candidateEnd - cursor === length) {
-        closeEnd = candidateEnd
-        break
-      }
-      cursor = candidateEnd
-    }
+/** An open fence: its marker character and the length of its opening run. */
+interface OpenFence {
+  readonly marker: string
+  readonly length: number
+}
 
-    if (closeEnd === -1) {
-      // No closer: the backticks are literal text, so keep scanning past them.
-      index = openEnd
-      continue
-    }
+/** Whether `line` closes `fence`: same marker, at least as long, nothing after. */
+const closesFence = (line: string, fence: OpenFence): boolean => {
+  const closing = FENCE_OPEN.exec(line)
+  return (
+    closing?.[1]?.startsWith(fence.marker) === true &&
+    closing[1].length >= fence.length &&
+    (closing[2] ?? '').trim() === ''
+  )
+}
 
-    if (index > proseStart) segments.push({ text: text.slice(proseStart, index), kind: 'prose' })
-    segments.push({ text: text.slice(index, closeEnd), kind: 'code' })
-    index = closeEnd
-    proseStart = closeEnd
-  }
+/** The fence `line` opens, if it opens one. */
+const openedFence = (line: string): OpenFence | undefined => {
+  const opening = FENCE_OPEN.exec(line)
+  const marker = opening?.[1]
+  // A backtick info string may not itself contain a backtick (CommonMark).
+  if (!marker || (marker.startsWith('`') && (opening?.[2] ?? '').includes('`'))) return undefined
+  return { marker: marker[0] ?? '`', length: marker.length }
+}
 
-  if (proseStart < text.length) segments.push({ text: text.slice(proseStart), kind: 'prose' })
-  return segments
+/** Append one line: a code line is its own segment, prose lines merge. */
+const appendLine = (
+  segments: readonly MarkdownSegment[],
+  text: string,
+  kind: MarkdownSegment['kind']
+): readonly MarkdownSegment[] => {
+  const last = segments.at(-1)
+  return kind === 'prose' && last?.kind === 'prose'
+    ? [...segments.slice(0, -1), { text: last.text + text, kind: 'prose' }]
+    : [...segments, { text, kind }]
 }
 
 /**
@@ -136,47 +167,26 @@ const inlineSegments = (text: string): readonly MarkdownSegment[] => {
  */
 export const fencedSegments = (markdown: string): readonly MarkdownSegment[] => {
   const lines = markdown.split('\n')
-  const segments: MarkdownSegment[] = []
-  let prose: string[] = []
-  let fence: { readonly marker: string; readonly length: number } | undefined
-
-  const flushProse = (): void => {
-    if (prose.length === 0) return
-    // Each entry already carries its own newline, so this is a plain re-join.
-    segments.push({ text: prose.join(''), kind: 'prose' })
-    prose = []
-  }
-
-  for (const [position, line] of lines.entries()) {
-    const text = position === lines.length - 1 ? line : `${line}\n`
-
-    if (fence) {
-      segments.push({ text, kind: 'code' })
-      const closing = FENCE_OPEN.exec(line)
-      if (
-        closing?.[1]?.startsWith(fence.marker) &&
-        closing[1].length >= fence.length &&
-        (closing[2] ?? '').trim() === ''
-      )
-        fence = undefined
-      continue
-    }
-
-    const opening = FENCE_OPEN.exec(line)
-    const marker = opening?.[1]
-    // A backtick info string may not itself contain a backtick (CommonMark).
-    if (marker && !(marker.startsWith('`') && (opening?.[2] ?? '').includes('`'))) {
-      flushProse()
-      segments.push({ text, kind: 'code' })
-      fence = { marker: marker[0] ?? '`', length: marker.length }
-      continue
-    }
-
-    prose.push(text)
-  }
-
-  flushProse()
-  return segments
+  return lines.reduce<{
+    readonly segments: readonly MarkdownSegment[]
+    readonly fence: OpenFence | undefined
+  }>(
+    (state, line, position) => {
+      const text = position === lines.length - 1 ? line : `${line}\n`
+      if (state.fence) {
+        return {
+          segments: appendLine(state.segments, text, 'code'),
+          fence: closesFence(line, state.fence) ? undefined : state.fence,
+        }
+      }
+      const opened = openedFence(line)
+      return {
+        segments: appendLine(state.segments, text, opened ? 'code' : 'prose'),
+        fence: opened,
+      }
+    },
+    { segments: [], fence: undefined }
+  ).segments
 }
 
 /**

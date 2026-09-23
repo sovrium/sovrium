@@ -253,6 +253,9 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
       full: parsed.full ?? false,
       listSections: parsed.listSections ?? false,
       sections: parsed.docsSections ?? [],
+      exportRequested: parsed.exportRequested ?? false,
+      exportDir: parsed.exportDir,
+      force: parsed.forceFlag,
     }),
   seed: async () =>
     handleSeedCommand({
