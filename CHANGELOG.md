@@ -1,3 +1,9 @@
+## [0.28.0](https://github.com/sovrium/sovrium/compare/v0.27.1...v0.28.0) (2026-09-23)
+
+### Features
+
+- **ai**: add speech-to-text transcription action and provider
+
 ## [0.27.1](https://github.com/sovrium/sovrium/compare/v0.27.0...v0.27.1) (2026-09-23)
 
 ### Bug Fixes

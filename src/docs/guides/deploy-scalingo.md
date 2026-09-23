@@ -15,7 +15,7 @@ https://github.com/sovrium/scalingo-buildpack
 
 ```text
 # .sovrium-version — the release to download; bump it to upgrade
-0.25.0
+0.27.0
 ```
 
 Pin whichever release you want from the project's releases page; the buildpack verifies the checksum before installing it. A version that does not exist fails the build rather than deploying something unexpected.

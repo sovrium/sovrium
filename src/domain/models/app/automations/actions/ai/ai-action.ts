@@ -10,6 +10,7 @@ import { AiAgentActionSchema } from './agent'
 import { AiClassifyActionSchema } from './classify'
 import { AiExtractActionSchema } from './extract'
 import { AiGenerateActionSchema } from './generate'
+import { AiTranscribeActionSchema } from './transcribe'
 
 /**
  * AI Action — union of all AI/LLM operators
@@ -18,13 +19,14 @@ export const AiActionSchema = Schema.Union([
   AiGenerateActionSchema,
   AiClassifyActionSchema,
   AiExtractActionSchema,
+  AiTranscribeActionSchema,
   AiAgentActionSchema,
 ]).pipe(
   Schema.annotate({
     identifier: 'AiAction',
     title: 'AI Action',
     description:
-      'AI/LLM operations: text generation, classification, structured extraction, and agent task delegation',
+      'AI operations: text generation, classification, structured extraction, audio transcription, and agent task delegation',
   })
 )
 

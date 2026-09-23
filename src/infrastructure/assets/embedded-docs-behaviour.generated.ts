@@ -1515,6 +1515,13 @@ export const EMBEDDED_DOCS_BEHAVIOUR = {
         "When `AI_MODEL` is missing, startup fails with error: \"AI_MODEL required for openai-compatible provider (no default model)\"",
       ],
     },
+    {
+      id: "US-AI-SPEECH-TO-TEXT",
+      title: "Configure Speech-to-Text via Environment Variables",
+      criteria: [
+
+      ],
+    },
   ],
   "ai-rag": [
     {
@@ -2761,6 +2768,13 @@ export const EMBEDDED_DOCS_BEHAVIOUR = {
       title: "AI Text Generation",
       criteria: [
         "AI generate action sends prompt to LLM provider and returns generated text",
+      ],
+    },
+    {
+      id: "US-AUTOMATIONS-ACTIONS-AI-TRANSCRIBE",
+      title: "AI Audio Transcription",
+      criteria: [
+
       ],
     },
   ],

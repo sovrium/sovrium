@@ -86,3 +86,27 @@ AI_MODEL=my-deployed-model
 ```
 
 Any agent can override the model, temperature and maximum length for itself, falling back to these defaults when it does not.
+
+## Speech-to-text
+
+Transcription uses its own endpoint, configured apart from the language model. Sovrium ships no speech model: it sends recordings to one speech server you run — an OpenAI-compatible server such as Speaches or LocalAI, or whisper.cpp's bundled server — exactly as it talks to Ollama. Leave `STT_PROVIDER` unset and speech-to-text stays off: the app boots, and a transcription step fails with "speech-to-text is not configured".
+
+| Variable             | Holds                                                                                         |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| `STT_PROVIDER`       | `openai-compatible`, `whisper-cpp`, `openai` or `mistral`; the master switch                  |
+| `STT_BASE_URL`       | The speech endpoint; requests go to `/audio/transcriptions` (or `/inference` for whisper.cpp) |
+| `STT_API_KEY`        | The key for a cloud provider; local servers usually need none                                 |
+| `STT_MODEL`          | The default model, used by any tier not set on its own                                        |
+| `STT_MODEL_FAST`     | The model for the `fast` tier (live dictation)                                                |
+| `STT_MODEL_ACCURATE` | The model for the `accurate` tier (recordings you keep)                                       |
+| `STT_TIMEOUT_MS`     | The upper bound on one transcription request (default 600000)                                 |
+| `STT_MAX_FILE_BYTES` | The largest recording sent (default 104857600)                                                |
+
+Configuration names a tier or an exact model, never a server. `ECO_AI_PROVIDER_PRECEDENCE` applies unchanged: under `local-only`, a cloud speech provider is refused at startup. `/api/health` reports the speech provider and the model each tier resolves to.
+
+```bash
+STT_PROVIDER=whisper-cpp
+STT_BASE_URL=http://127.0.0.1:8080
+STT_MODEL=large-v3
+STT_MODEL_FAST=large-v3-turbo
+```

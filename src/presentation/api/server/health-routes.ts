@@ -20,6 +20,7 @@ import {
   buildAiHealthStatusWithEcoRouting,
   healthResponseSchema,
 } from '@/domain/models/api/health/health'
+import { buildSpeechHealthStatus } from '@/domain/models/api/health/speech-health'
 import { resolveOllamaBaseUrl } from '@/domain/models/process-env/ai/ai-eco-routing'
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
 import { internalError } from '@/presentation/api/runtime/auth-helpers'
@@ -58,6 +59,7 @@ export const handleHealthCheck = async (c: Context, app: App) => {
         name: getLiveApp()?.name ?? app.name,
       },
       ai: buildAiHealthStatusWithEcoRouting(process.env, ollamaReachable, app.agents ?? []),
+      speech: buildSpeechHealthStatus(process.env),
     }
 
     // Validate response against schema (ensures type safety)

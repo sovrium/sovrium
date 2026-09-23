@@ -6,3 +6,4 @@
  */
 
 export * from './health'
+export * from './speech-health'

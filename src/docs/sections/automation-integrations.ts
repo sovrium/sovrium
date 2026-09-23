@@ -172,6 +172,7 @@ export const automationIntegrations = defineSection({
         'ai generate',
         'ai classify',
         'ai extract',
+        'ai transcribe',
         'ai agent',
         'openai',
         'anthropic',
@@ -189,6 +190,7 @@ export const automationIntegrations = defineSection({
         'US-AUTOMATIONS-ACTIONS-AI-ERROR-HANDLING',
         'US-AUTOMATIONS-ACTIONS-AI-EXTRACT',
         'US-AUTOMATIONS-ACTIONS-AI-GENERATE',
+        'US-AUTOMATIONS-ACTIONS-AI-TRANSCRIBE',
       ],
     }),
     defineArticle({

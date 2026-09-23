@@ -58,9 +58,19 @@ const EXTENSION_MIME_MAP: Readonly<Record<string, string>> = {
   // depend on these two entries as much as on the route that serves them.
   // Note that `webm` names a CONTAINER and one extension resolves to one type
   // here, so an audio-only `.webm` would be announced as video — which is why
-  // the audio sample is an `.mp3`.
+  // the audio sample is an `.mp3`, and why an audio recording in a `.webm`
+  // travels with an explicit MIME type (the speech-to-text action also accepts
+  // `video/webm` as an audio container). `.weba` is the audio-only spelling.
   webm: 'video/webm',
+  weba: 'audio/webm',
   mp3: 'audio/mpeg',
+  // Audio recordings a speech-to-text engine transcribes.
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  opus: 'audio/ogg',
+  m4a: 'audio/mp4',
+  flac: 'audio/flac',
   // Fonts
   woff: 'font/woff',
   woff2: 'font/woff2',

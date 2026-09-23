@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import { isoDateTime } from '@/domain/models/api/combinators/formats'
 import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import { speechHealthStatusSchema } from '@/domain/models/api/health/speech-health'
 import {
   resolveAiEcoRouting,
   type AiEcoRouting,
@@ -120,6 +121,9 @@ export const healthResponseSchema = Schema.Struct({
     name: Schema.String.annotate({ description: 'Application name from configuration' }),
   }).annotate({ description: 'Application metadata' }),
   ai: aiHealthStatusSchema.annotate({ description: 'AI subsystem status' }),
+  speech: optionalField(
+    speechHealthStatusSchema.annotate({ description: 'Speech-to-text subsystem status' })
+  ),
 })
 
 /**

@@ -32,6 +32,7 @@ import type { TableRepository } from '@/application/ports/repositories/tables/ta
 import type { AiService } from '@/application/ports/services/ai-service'
 import type { ImageTransformService } from '@/application/ports/services/image-transform-service'
 import type { ServerOrigin } from '@/application/ports/services/server-origin'
+import type { SpeechService } from '@/application/ports/services/speech-service'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { App } from '@/domain/models/app'
 
@@ -212,6 +213,7 @@ export type StepRequirements =
   | AiEmbeddingRepository
   | StorageService
   | ImageTransformService
+  | SpeechService
   | LinkRepository
   | ServerOrigin
 
@@ -234,6 +236,7 @@ export type RunRequirements =
   | AiEmbeddingRepository
   | StorageService
   | ImageTransformService
+  | SpeechService
   | LinkRepository
   | ServerOrigin
 

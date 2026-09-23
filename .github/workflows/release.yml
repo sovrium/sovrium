@@ -343,6 +343,15 @@ jobs:
         # to pwsh, and the steps below are the same `$VAR`/`sha256sum` shell as
         # their macOS and Linux siblings — a per-OS dialect here is how a release
         # step works on two platforms and silently does nothing on the third.
+        #
+        # One shell is NOT one toolbox, and v0.27.1 is what that costs. Git Bash
+        # here is Git for Windows, which bundles only `sed awk grep findutils
+        # coreutils` + `unzip`; the rest of what a step calls has to come from
+        # the runner image's PATH. So `sha256sum`, `cp`, `rm`, `chmod`, `find`
+        # and `basename` are safe because coreutils/findutils ship WITH bash,
+        # `jq`/`gh`/`7z` are safe because the image installs them, and `zip` is
+        # in neither. Check a new command against both lists before adding it —
+        # every step in this job is Windows-only and nothing else exercises it.
         shell: bash
     steps:
       - name: Checkout code
@@ -374,15 +383,49 @@ jobs:
           retention-days: 1
           path: sovrium-windows-x64.exe
 
+      # `7z`, NOT `zip`. Git Bash on `windows-latest` is a Git for Windows
+      # install, whose bundled MSYS2 subset is `sed awk grep findutils coreutils`
+      # plus `unzip` — and no `zip` at any point
+      # (git-for-windows/build-extra `make-file-list.sh`, `UTIL_PACKAGES`). So
+      # `sha256sum`, `cp`, `chmod` and friends resolve here and `zip` does not,
+      # which is the asymmetry that took v0.27.1's release down with
+      # `zip: command not found` AFTER the engine had already built and uploaded.
+      # 7-Zip is a first-class entry in the runner image's own software report
+      # ("7zip 26.03" under Tools) and that report calls it as a bare `7z`, so it
+      # is on the PATH the Actions runner hands to Git Bash — the same
+      # inheritance that already makes `jq` work in `Read version` above.
+      #
+      # The archive layout is load-bearing and is guaranteed by construction
+      # rather than asserted: 7z stores each operand's path AS GIVEN, and the
+      # operand here is a bare filename with no directory component, so the
+      # `.exe` can only land at the archive root. That is what Scoop's
+      # `"bin": "sovrium-windows-x64.exe"` (scripts/build/scoop/sovrium.json.template)
+      # resolves against, and a wrapper folder would break `scoop install` while
+      # leaving every other job in this workflow green.
+      #
+      # `rm -f` first because `a` ADDS to an existing archive instead of
+      # replacing it. The workspace is fresh today, so this only makes the
+      # single-file guarantee unconditional rather than incidental.
       - name: Package binary
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          zip "sovrium-${VERSION}-windows-x64.zip" "sovrium-windows-x64.exe"
+          rm -f "sovrium-${VERSION}-windows-x64.zip"
+          7z a -tzip "sovrium-${VERSION}-windows-x64.zip" "sovrium-windows-x64.exe"
 
+      # `sha256sum` is coreutils, so it ships with Git Bash itself — unlike
+      # `zip` above, and unlike macOS, whose lane uses `shasum -a 256` because
+      # it has no `sha256sum` at all. The operand is a bare filename with no
+      # directory component, which is what keeps the emitted line
+      # `<hash>  sovrium-<version>-windows-x64.zip` free of any backslash:
+      # `sha256sum` echoes its operand verbatim, so a Windows-style path handed
+      # in here would be copied straight into the file that
+      # `aggregate-checksums` concatenates and that a user runs
+      # `sha256sum -c` against.
       - name: Generate checksum
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           sha256sum "sovrium-${VERSION}-windows-x64.zip" > "sovrium-${VERSION}-windows-x64.sha256"
+          cat "sovrium-${VERSION}-windows-x64.sha256"
 
       - name: Upload to GitHub Release
         env:

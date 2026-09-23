@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import { handleAiClassify, handleAiExtract, handleAiGenerate } from './ai'
 import { handleAiAgent } from './ai-agent'
+import { handleAiTranscribe } from './ai-transcribe'
 import { handleAnalyticsTrack } from './analytics'
 import { handleApprovalRequest } from './approval'
 import {
@@ -145,6 +146,7 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['ai/classify', handleAiClassify],
   ['ai/extract', handleAiExtract],
   ['ai/agent', handleAiAgent],
+  ['ai/transcribe', handleAiTranscribe],
   ['analytics/track', handleAnalyticsTrack],
   ['approval/request', handleApprovalRequest],
   ['link/create', handleLinkCreate],

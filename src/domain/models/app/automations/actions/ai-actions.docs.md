@@ -1,15 +1,16 @@
 # AI Actions
 
-> Four operators running language-model work as automation steps — free-form generation, classification, structured extraction, and an autonomous agent.
+> Five operators running AI work as automation steps — free-form generation, classification, structured extraction, an autonomous agent, and audio transcription.
 
 Provider and model are explicit per action, and credentials come from a stored connection. A self-hosted or custom endpoint is pointed at once through the `AI_BASE_URL` environment variable rather than per action, so moving a deployment between endpoints does not touch the configuration.
 
-| Operator   | Does                                                             |
-| ---------- | ---------------------------------------------------------------- |
-| `generate` | Produces free-form text, or JSON, from a prompt                  |
-| `classify` | Assigns an input to one of a fixed set of categories             |
-| `extract`  | Pulls structured data matching a schema out of unstructured text |
-| `agent`    | Invokes a configured agent to perform a multi-step task          |
+| Operator     | Does                                                             |
+| ------------ | ---------------------------------------------------------------- |
+| `generate`   | Produces free-form text, or JSON, from a prompt                  |
+| `classify`   | Assigns an input to one of a fixed set of categories             |
+| `extract`    | Pulls structured data matching a schema out of unstructured text |
+| `agent`      | Invokes a configured agent to perform a multi-step task          |
+| `transcribe` | Turns a stored audio recording into text                         |
 
 <!-- sovrium:options AiActionSchema -->
 
@@ -66,6 +67,22 @@ Classifying into a **closed** list is what makes the result usable in a branch: 
 ```
 
 `schema` describes the shape you want back. Pair it with a file action that turns a PDF into text first — extraction reads text, not documents.
+
+## `transcribe`
+
+Turns a stored recording into text on the speech endpoint the operator configures. `source` is a storage key or an attachment field's value; the output is `text`, `language`, `durationSeconds` and `model`, plus `segments` when `timestamps: true`.
+
+```yaml
+- name: transcrire
+  type: ai
+  operator: transcribe
+  props:
+    source: '{{trigger.data.record.enregistrement}}'
+    language: fr
+    prompt: 'Dupont, SIRET, devis'
+```
+
+To keep the transcript on the record, follow it with a `record/update` writing `{{steps.transcrire.text}}` into a long-text field — there is no transcript field type. `quality` picks the tier (`accurate` by default here, because a kept recording rewards fidelity); `model` names one exact model instead. `prompt` is a vocabulary hint for names and jargon, not an instruction. A file that is not audio fails the step before anything is sent.
 
 ## `agent`
 

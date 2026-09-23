@@ -361,7 +361,7 @@ export type Action =
     } & Props<{
         readonly data: { readonly [key: string]: unknown }
       }>)
-  // ── ai (3 operator variants) ──
+  // ── ai (4 operator variants) ──
   | (ActionBase & {
       readonly type: 'ai'
       readonly operator: 'generate'
@@ -409,6 +409,20 @@ export type Action =
         readonly schema: { readonly [key: string]: unknown }
         readonly connection?: string
         readonly baseUrl?: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'ai'
+      readonly operator: 'transcribe'
+    } & Props<{
+        // No `provider`: the speech provider is infrastructure, resolved from
+        // STT_PROVIDER — see `ai/transcribe.ts`.
+        readonly source: string
+        readonly bucket?: string
+        readonly language?: string
+        readonly quality?: 'fast' | 'accurate'
+        readonly model?: string
+        readonly prompt?: string
+        readonly timestamps?: boolean
       }>)
   // ── approval ──
   | (ActionBase & {

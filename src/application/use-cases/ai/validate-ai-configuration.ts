@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
+import { speechConfigurationRefusal } from '@/application/use-cases/ai/validate-speech-configuration'
 import { validateModelString } from '@/domain/models/process-env/ai/ai-model-string'
 import {
   SUPPORTED_AI_PROVIDERS,
@@ -176,7 +177,8 @@ export const validateAiConfiguration = (
     checkModelPresence(provider, processEnv) ??
     checkModelStringFormat(processEnv['AI_MODEL']) ??
     checkTemperatureRange(processEnv['AI_TEMPERATURE']) ??
-    checkMaxTokensRange(processEnv['AI_MAX_TOKENS'])
+    checkMaxTokensRange(processEnv['AI_MAX_TOKENS']) ??
+    speechConfigurationRefusal(app, processEnv)
   // Only the REFUSAL opens a span: a validator that passes did no work worth a
   // trace entry, while one that refuses is the reason a boot stopped.
   return message === undefined

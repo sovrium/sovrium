@@ -7,6 +7,7 @@
 
 import { Effect, Layer } from 'effect'
 import { AiServiceLive } from '@/infrastructure/ai/ai-service-live'
+import { SpeechServiceLive } from '@/infrastructure/ai/speech/speech-service-live'
 import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
 import { AiEmbeddingRepositoryActive } from '@/infrastructure/database/repositories/ai/ai-embedding-repository-live'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
@@ -101,6 +102,10 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   ConnectionRepositoryLive,
   ConnectionTokenRepositoryLive,
   AiServiceLive,
+  // `SpeechService` — the `ai/transcribe` handler's speech endpoint (`STT_*`).
+  // Its construction reads env only and cannot fail; an unset `STT_PROVIDER`
+  // yields an inert service whose transcriptions fail with a readable reason.
+  SpeechServiceLive,
   // `AiEmbeddingRepository` — the knowledge-retrieval read behind the
   // `ai/agent` handler. `Active` and never `Live`: the Postgres-only pgvector
   // `<=>` search is invalid SQL on SQLite, and the handler swallows a retrieval

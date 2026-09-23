@@ -39,6 +39,21 @@ AI is disabled until a provider is set, and an unrecognised value aborts the boo
 
 Provider-specific aliases are read when the generic variable is absent: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `MISTRAL_API_KEY` and `GOOGLE_API_KEY` stand in for the generic key, and `OLLAMA_BASE_URL` for the generic base URL. **The generic name always wins when both are set**, which is worth knowing before debugging a key that appears to be ignored.
 
+## Speech-to-text
+
+A separate endpoint from the language model, never derived from `AI_BASE_URL`. Unset `STT_PROVIDER` keeps transcription off without stopping the app.
+
+| Variable             | Default          | Purpose                                                                      |
+| -------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| `STT_PROVIDER`       | unset (disabled) | `openai-compatible`, `whisper-cpp`, `openai` or `mistral`                    |
+| `STT_BASE_URL`       | provider default | Speech server URL (`/audio/transcriptions`, or `/inference` for whisper.cpp) |
+| `STT_API_KEY`        | —                | Key for a cloud speech provider                                              |
+| `STT_MODEL`          | per provider     | Default speech model                                                         |
+| `STT_MODEL_FAST`     | `STT_MODEL`      | Model for the `fast` tier                                                    |
+| `STT_MODEL_ACCURATE` | `STT_MODEL`      | Model for the `accurate` tier                                                |
+| `STT_TIMEOUT_MS`     | `600000`         | Upper bound on one transcription request                                     |
+| `STT_MAX_FILE_BYTES` | `104857600`      | Largest recording sent                                                       |
+
 ## Email
 
 With no SMTP host set, email is disabled and sends are logged rather than delivered — there is never a silent fallback to a local mail catcher. In development the whole message reaches the journal, links included; in production only a one-line notice does. The startup banner warns only when the config makes email load-bearing, so a bare email-and-password app boots quietly.
