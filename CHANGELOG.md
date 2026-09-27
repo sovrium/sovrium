@@ -1,3 +1,9 @@
+## [0.29.1](https://github.com/sovrium/sovrium/compare/v0.29.0...v0.29.1) (2026-09-27)
+
+### Bug Fixes
+
+- **cli**: detect the compiled binary on Windows so migrations and assets resolve from the embedded payload
+
 ## [0.29.0](https://github.com/sovrium/sovrium/compare/v0.28.0...v0.29.0) (2026-09-27)
 
 ### BREAKING CHANGES

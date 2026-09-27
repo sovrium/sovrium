@@ -8,13 +8,40 @@
 import { resolve, basename, dirname } from 'node:path'
 
 /**
+ * The roots of Bun's virtual filesystem inside a `bun build --compile` binary.
+ *
+ * Bun mounts the embedded modules under a different root per platform
+ * (`vendor/bun/src/standalone_graph/StandaloneModuleGraph.rs`, `BASE_PATH` and
+ * `BASE_PUBLIC_PATH`): `/$bunfs/` on POSIX, and on Windows the drive-lettered
+ * `B:\~BUN\` — with `B:/~BUN/` as its forward-slash public spelling, which
+ * Bun's own predicate accepts too. A Windows path may also carry an NT prefix
+ * (`\\?\`), which Bun strips before comparing, and so does this.
+ */
+const BUNFS_ROOTS: readonly string[] = ['/$bunfs/', 'B:\\~BUN\\', 'B:/~BUN/']
+
+const NT_PREFIX = '\\\\?\\'
+
+/**
+ * Whether a path lies inside Bun's standalone virtual filesystem.
+ *
+ * A POSIX-only `startsWith('/$bunfs/')` answers `false` on every Windows
+ * binary, which sends each compiled-mode branch down its dev-mode disk path —
+ * and the first one to run, the migration resolver, then looks for
+ * `drizzle/` under the working directory and fails the boot.
+ */
+export const isBunfsPath = (path: string): boolean => {
+  const canonical = path.startsWith(NT_PREFIX) ? path.slice(NT_PREFIX.length) : path
+  return BUNFS_ROOTS.some((root) => canonical.startsWith(root))
+}
+
+/**
  * Whether we're running inside a `bun build --compile` standalone binary.
  *
  * In compiled mode, import.meta.dir points into Bun's virtual filesystem
- * (/$bunfs/root/...) where only bundled JS modules exist — no templates/,
- * agents/, or package.json on disk.
+ * (`/$bunfs/root` on POSIX, `B:\~BUN\root` on Windows) where only bundled JS
+ * modules exist — no templates/, agents/, or package.json on disk.
  */
-export const isCompiled = import.meta.dir.startsWith('/$bunfs/')
+export const isCompiled = isBunfsPath(import.meta.dir)
 
 /**
  * Whether we're running from the bundled dist/ output (npm package)
