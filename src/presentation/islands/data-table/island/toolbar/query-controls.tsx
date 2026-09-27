@@ -6,7 +6,32 @@
  */
 
 import { computeTableToolbarButtonClasses } from '@/presentation/design/table-default-classes'
+import { resolvePageLocale } from '../../../runtime/page-locale'
 import { GroupMenu } from '../group-menu'
+
+interface QueryCaptions {
+  readonly importRows: string
+  readonly filter: string
+  readonly sort: string
+}
+
+/**
+ * The captions the grid writes ITSELF, by primary language subtag of the page
+ * (`<html lang>` ← `meta.lang`). Everything else on a grid — column labels, the
+ * search placeholder, the empty message — is authored, so it is already in the
+ * page's language; these three words are the grid's own, and on a French page
+ * they read « Importer · Filtrer · Trier » rather than English above French
+ * headers. A language not listed keeps the English captions.
+ */
+const QUERY_CAPTIONS: Readonly<Record<string, QueryCaptions>> = {
+  en: { importRows: 'Import', filter: 'Filter', sort: 'Sort' },
+  fr: { importRows: 'Importer', filter: 'Filtrer', sort: 'Trier' },
+}
+
+function resolveQueryCaptions(): QueryCaptions {
+  const language = resolvePageLocale().split('-')[0]?.toLowerCase() ?? 'en'
+  return QUERY_CAPTIONS[language] ?? QUERY_CAPTIONS['en']!
+}
 
 interface BadgeButtonProps {
   /** Doubles as the button's visible text and its accessible name. */
@@ -53,10 +78,13 @@ function BadgeButton({ label, badgeTestId, count, onClick }: BadgeButtonProps) {
  */
 export interface QueryControlsProps {
   /**
-   * Read-only system-source grid: the rows come from a read endpoint, so there
-   * is no DB table to import into and the affordance is hidden.
+   * Whether Import is offered. Import writes records, so it follows the same
+   * `create` gate as `+ New record` — a caller the table's `create` grant does
+   * not admit is shown no Import rather than a control the server refuses —
+   * and it is hidden on a read-only system-source grid, whose rows come from a
+   * read endpoint with no DB table to import into.
    */
-  readonly readOnly: boolean
+  readonly canImport: boolean
   readonly onOpenImportDialog: () => void
   readonly filtersEnabled: boolean
   readonly onOpenFilterOverlay: () => void
@@ -76,20 +104,21 @@ export interface QueryControlsProps {
 }
 
 export function QueryControls(props: QueryControlsProps) {
+  const captions = resolveQueryCaptions()
   return (
     <>
-      {!props.readOnly && (
+      {props.canImport && (
         <button
           type="button"
           className={computeTableToolbarButtonClasses()}
           onClick={props.onOpenImportDialog}
         >
-          Import
+          {captions.importRows}
         </button>
       )}
       {props.filtersEnabled && (
         <BadgeButton
-          label="Filter"
+          label={captions.filter}
           badgeTestId="filter-badge"
           count={props.activeFilterCount}
           onClick={props.onOpenFilterOverlay}
@@ -97,7 +126,7 @@ export function QueryControls(props: QueryControlsProps) {
       )}
       {props.sortEnabled && (
         <BadgeButton
-          label="Sort"
+          label={captions.sort}
           badgeTestId="sort-badge"
           count={props.activeSortCount}
           onClick={props.onOpenSortOverlay}

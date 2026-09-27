@@ -1,6 +1,6 @@
 # Form Conditional Logic
 
-> Showing, requiring or disabling a field based on what the submitter has entered — one condition shape used by three rules.
+> Showing or requiring a field based on what the submitter has entered — one condition shape shared by three rules.
 
 `visibleWhen`, `requiredWhen` and `disabledWhen` all share the same condition shape, so learning one teaches all three.
 
@@ -14,15 +14,19 @@ fields:
     name: company_name
     inputType: short-text
     label: Company name
-    visibleWhen: { field: has_company, operator: eq, value: true }
-    requiredWhen: { field: has_company, operator: eq, value: true }
+    visibleWhen: { field: has_company, operator: eq, value: 'on' }
+    requiredWhen: { field: has_company, operator: eq, value: 'on' }
 ```
 
-| Rule           | Effect when the condition is **true**                             |
-| -------------- | ----------------------------------------------------------------- |
-| `visibleWhen`  | The field is shown; when false it is hidden and not submitted     |
-| `requiredWhen` | The field becomes required; when false it is optional             |
-| `disabledWhen` | The field is disabled and not editable; when false it is editable |
+A checkbox on a single-page form is sent as `on` when ticked and not at all when left clear.
+
+| Rule           | Effect when the condition is **true**                         |
+| -------------- | ------------------------------------------------------------- |
+| `visibleWhen`  | The field is shown; when false it is hidden and not submitted |
+| `requiredWhen` | The field becomes required; when false it is optional         |
+| `disabledWhen` | Accepted and validated, but not yet applied on a hosted form  |
+
+On a hosted form, a page that embeds one with `formRef`, and a dialog that wraps one, `visibleWhen` and `requiredWhen` are applied live as the person answers, and the page is served with them already applied to its prefilled values. A field hidden by `visibleWhen` is taken off screen and its inputs disabled, so it is neither validated nor sent; `requiredWhen` switches the input's required state. The server applies the same rules again on submit, so a rule always decides what is stored. A rule that reads a `hidden: true` field is applied by the server only, because that field's value never reaches the page.
 
 Each rule lives on the common field base, so it applies to any input-bearing kind. A `section` field supports `visibleWhen` to show or hide an entire labelled group.
 
@@ -64,11 +68,9 @@ visibleWhen:
 
 Unlike an automation's condition group, these **do** nest, so a disjunction of conjunctions is expressible here directly.
 
-## `disabledWhen` keeps the field present
+## `disabledWhen` is not yet applied on a hosted form
 
-A disabled field still renders and still submits its current value; it simply cannot be edited. Reach for `visibleWhen` when a field should disappear and stop submitting entirely, and for `disabledWhen` when the value should stay but be locked.
-
-That distinction decides what lands in the record, so it is worth being deliberate about: hiding a field discards what was typed into it, and disabling one keeps it.
+A form declared under `forms` accepts `disabledWhen` and validates its condition, but does not act on it yet: the field stays editable in the browser, and the server stores whatever it receives for it. Do not rely on it to lock a value. When a field should drop out under a condition, use `visibleWhen`: a field it hides is neither validated nor sent, and what was typed into it is discarded.
 
 ## Step branching
 

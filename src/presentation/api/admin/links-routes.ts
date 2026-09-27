@@ -95,6 +95,7 @@ import {
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
 import { badRequest, internalError, notFound } from '@/presentation/api/runtime/auth-helpers'
+import { conditionalRead } from '@/presentation/api/runtime/conditional-read'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { LinkRepository } from '@/application/ports/repositories/links/link-repository'
@@ -244,7 +245,7 @@ async function handleListLinks(c: Context, app: App): Promise<Response> {
   })
   if (!body.success) return internalError(c, 'Failed to build the links catalog')
 
-  c.header('Cache-Control', 'no-store')
+  // Cache headers come from `conditionalRead()` on the route.
   return c.json(body.data, 200)
 }
 
@@ -537,7 +538,7 @@ export function chainAdminLinksRoutes<T extends Hono>(honoApp: T, resolveApp: ()
   return honoApp
     .post('/api/admin/links/:slug/disable', (c) => handleSetLinkDisabled(c, resolveApp(), true))
     .post('/api/admin/links/:slug/enable', (c) => handleSetLinkDisabled(c, resolveApp(), false))
-    .get('/api/admin/links', (c) => handleListLinks(c, resolveApp()))
+    .get('/api/admin/links', conditionalRead(), (c) => handleListLinks(c, resolveApp()))
     .post('/api/admin/links', (c) => handleCreateLink(c, resolveApp()))
     .get('/api/admin/links/:slug', (c) => handleLinkDetail(c, resolveApp()))
     .patch('/api/admin/links/:slug', (c) => handleUpdateLink(c, resolveApp()))

@@ -7,12 +7,14 @@
 
 import {
   renderClosedFormPage,
+  type ClosedFormRequest,
   type ClosedReason,
 } from '@/presentation/render/forms/form-closed-renderer'
 import {
   renderEmbedFormPage,
   renderFormPage,
   renderFormStepFragment,
+  type StepFragmentState,
 } from '@/presentation/render/forms/form-renderer'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
@@ -46,12 +48,12 @@ export const FormRenderers = {
     app: Readonly<App>,
     form: Readonly<Form>,
     stepId: string,
-    draftValues: Readonly<Record<string, unknown>>
-  ): string => renderFormStepFragment(app, form, stepId, draftValues),
+    state: StepFragmentState
+  ): string => renderFormStepFragment(app, form, stepId, state),
   renderClosedForm: (
     app: Readonly<App>,
     form: Readonly<Form>,
     reason: ClosedReason,
-    opensAt?: string
-  ): string => renderClosedFormPage(app, form, reason, opensAt),
+    request?: ClosedFormRequest
+  ): string => renderClosedFormPage(app, form, reason, request),
 } as const

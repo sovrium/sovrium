@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   createVolatileFormulaTriggers,
@@ -26,7 +25,7 @@ import {
   generateUpdatedByTriggers,
   generateUpdatedAtTriggers,
 } from '../generators/trigger-generators'
-import { shouldUseView, getBaseTableName } from '../lookup/lookup-view-generators'
+import { shouldUseView, getPhysicalTableName } from '../lookup/lookup-view-generators'
 import {
   executeSQLStatements,
   executeSQLStatementsParallel,
@@ -103,10 +102,8 @@ export const applyTableFeatures = (
   table: Table
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    // Sanitize table name for PostgreSQL
-    const sanitized = sanitizeTableName(table.name)
-    // Determine actual table name (base table if using VIEW)
-    const physicalTableName = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
+    // The physical relation (the base table if the table is view-backed)
+    const physicalTableName = getPhysicalTableName(table)
 
     // Create table object with physical table name for trigger generation
     const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
@@ -142,10 +139,8 @@ export const applyTableFeaturesWithoutIndexes = (
   table: Table
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    // Sanitize table name for PostgreSQL
-    const sanitized = sanitizeTableName(table.name)
-    // Determine actual table name (base table if using VIEW)
-    const physicalTableName = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
+    // The physical relation (the base table if the table is view-backed)
+    const physicalTableName = getPhysicalTableName(table)
 
     // Create table object with physical table name for trigger generation
     const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table

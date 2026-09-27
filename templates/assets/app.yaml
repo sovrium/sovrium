@@ -1,9 +1,10 @@
-name: assets
-version: 1.0.0
+name: arden-assets
+version: 2.0.0
 description: >-
-  Asset tracker — laptops, monitors, vehicles, and everything else the company
-  owns: barcoded, photographed, valued, assigned to a person, and grouped by
-  location. A quarterly cron nudges the team to run an inventory check.
+  An asset register for a small firm: everything it owns grouped by category,
+  with the tag, the holder and the place of each asset, check-outs with their
+  return dates, the assets missing at the last count, a lifecycle board, cards
+  to walk the floor with, and the locations.
 
 auth:
   $ref: ./config/auth.yaml
@@ -14,13 +15,18 @@ design:
 tables:
   - $ref: ./config/tables/locations.yaml
   - $ref: ./config/tables/assets.yaml
+  - $ref: ./config/tables/check_outs.yaml
+  - $ref: ./config/tables/asset_events.yaml
 
+# Listed in the order of the sidebar: the Register is the home page.
 pages:
-  - $ref: ./config/pages/sign-in.yaml
-  - $ref: ./config/pages/inventory.yaml
+  - $ref: ./config/pages/register.yaml
+  - $ref: ./config/pages/lifecycle.yaml
   - $ref: ./config/pages/gallery.yaml
-  - $ref: ./config/pages/board.yaml
+  - $ref: ./config/pages/locations.yaml
+  - $ref: ./config/pages/sign-in.yaml
 
-# Automations run server-side with full history in your own database.
-automations:
-  - $ref: ./config/automations/quarterly-inventory-check.yaml
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over the last row of a grid.
+badge:
+  placement: footer

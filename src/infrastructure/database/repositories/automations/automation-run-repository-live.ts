@@ -86,6 +86,7 @@ const toStep = (row: Readonly<typeof automationRunSteps.$inferSelect>): Persiste
   completedAt: toIso(row.completedAt),
   durationMs: row.durationMs,
   error: row.error,
+  logs: row.logs,
 })
 
 /**
@@ -114,6 +115,7 @@ const stepValues = (runId: string, steps: readonly CreateStepInput[]) =>
     ...(step.completedAt !== undefined ? { completedAt: step.completedAt } : {}),
     ...(step.durationMs !== undefined ? { durationMs: step.durationMs } : {}),
     ...(step.error !== undefined ? { error: step.error } : {}),
+    ...(step.logs !== undefined ? { logs: step.logs as object } : {}),
   }))
 
 /**
@@ -273,7 +275,10 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
       // values ('completed', 'failed', 'timed-out', etc.).
       const [updated] = await db
         .update(automationRuns)
-        .set({ status: input.status })
+        .set({
+          status: input.status,
+          ...(input.startedAt !== undefined ? { startedAt: input.startedAt } : {}),
+        })
         .where(eq(automationRuns.id, input.id))
         .returning()
       if (!updated) return undefined

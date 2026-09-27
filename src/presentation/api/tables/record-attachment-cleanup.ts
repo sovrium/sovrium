@@ -17,7 +17,8 @@
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { parseJsonObjectCell } from '@/domain/kernel/sql/sqlite-json-cell'
-import { DEFAULT_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
+import { parseBucketFileUrl } from '@/domain/kernel/url/bucket-file-url'
+import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
@@ -36,7 +37,7 @@ export interface AttachmentRef {
 /**
  * Extract the storage key from an attachment field value.
  * Handles both plain string keys and metadata objects (when storeMetadata: true).
- * Metadata objects store the key inside the url: "/api/buckets/default/files/<key>"
+ * Metadata objects store the key inside the url: "/api/buckets/<bucket>/files/<key>"
  *
  * The value arrives from a RAW database row, so the metadata object is only an
  * object on PostgreSQL. `storeMetadata: true` promotes the column to JSONB and
@@ -52,10 +53,12 @@ function extractAttachmentKey(value: unknown): string | undefined {
   if (typeof parsed === 'string' && parsed.length > 0) return parsed
   if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
     const obj = parsed as Record<string, unknown>
-    if (typeof obj['url'] === 'string') {
-      const key = obj['url'].split('/').at(-1)
-      if (key && key.length > 0) return key
-    }
+    // Only a bucket download URL names a stored object. The last path segment
+    // of an ARBITRARY url is not a key: reading it as one let a record whose
+    // attachment was `{ url: 'https://x/<key>' }` — a shape the reference
+    // confinement rightly ignores, since it names no stored file — delete that
+    // key out of the column's bucket when the record was purged.
+    if (typeof obj['url'] === 'string') return parseBucketFileUrl(obj['url'])?.key
   }
   return undefined
 }
@@ -63,7 +66,7 @@ function extractAttachmentKey(value: unknown): string | undefined {
 /**
  * Collect storage keys from single-attachment fields in a raw DB record,
  * each paired with the bucket its column declares (falling back to the
- * implicit `default`, the same resolution the read path uses for the URL).
+ * built-in `system`, the same resolution the read path uses for the URL).
  * Handles both plain string keys and storeMetadata objects (url-embedded key).
  */
 export function collectAttachmentKeys(
@@ -77,7 +80,7 @@ export function collectAttachmentKeys(
     .filter((f) => f.type === 'single-attachment')
     .map((f) => ({
       key: extractAttachmentKey(record[f.name]),
-      bucket: resolveFieldBucket(app, tableName, f.name) ?? DEFAULT_BUCKET_NAME,
+      bucket: resolveFieldBucket(app, tableName, f.name) ?? SYSTEM_BUCKET_NAME,
     }))
     .filter((ref): ref is AttachmentRef => ref.key !== undefined)
 }

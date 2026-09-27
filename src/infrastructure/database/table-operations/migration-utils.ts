@@ -6,9 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { shouldUseView, getBaseTableName } from '../lookup/lookup-view-generators'
+import { getPhysicalTableName } from '../lookup/lookup-view-generators'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 import { generateCreateTableSQL, type TableDdlInputs } from './create-table-sql'
 import { areTypesCompatible } from './type-compatibility'
@@ -209,8 +208,7 @@ export const recreateTableWithDataEffect = (
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     const { tx, table, existingColumns } = options
-    const sanitized = sanitizeTableName(table.name)
-    const physicalTableName = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
+    const physicalTableName = getPhysicalTableName(table)
     const tempTableName = `${physicalTableName}_migration_temp`
 
     // Create temporary table with new schema

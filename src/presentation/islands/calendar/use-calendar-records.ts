@@ -5,7 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useRecordsQuery, type RecordsDataSource } from '../hooks/use-records-query'
+import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
+import {
+  buildFilterParam,
+  useRecordsQuery,
+  type RecordsDataSource,
+} from '../hooks/use-records-query'
 
 /**
  * Fetches all records for the calendar view in a single page.
@@ -17,5 +22,12 @@ import { useRecordsQuery, type RecordsDataSource } from '../hooks/use-records-qu
  * calendar components — this hook only owns the fetch.
  */
 export function useCalendarRecords(dataSource: RecordsDataSource | undefined) {
-  return useRecordsQuery('calendar', dataSource)
+  return useRecordsQuery(
+    'calendar',
+    dataSource,
+    useLazySharedFilter(
+      { bindTo: dataSource?.bindTo, sharedFilter: dataSource?.sharedFilter },
+      buildFilterParam(dataSource?.filter)
+    )
+  )
 }

@@ -26,10 +26,20 @@ const aSwitch: TypePageBody = {
       children: [{ type: 'switch', checked: true }],
     },
     {
+      // The unchecked track is the state with no fill to carry its edge, so
+      // it is drawn on its own: the outline is what keeps it visible.
+      label: 'unchecked',
+      children: [{ type: 'switch', checked: false }],
+    },
+    {
       label: 'with label',
       children: [
         { type: 'switch', checked: true, props: { label: 'Remind me before the close date' } },
       ],
+    },
+    {
+      label: 'with label, unchecked',
+      children: [{ type: 'switch', checked: false, props: { label: 'Send the weekly digest' } }],
     },
   ],
 }

@@ -19,6 +19,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { searchIndex, type SearchIndex, type SearchResult } from './matcher'
+import { querySessionIndex } from './session-query'
 import type { ChangeEvent, KeyboardEvent } from 'react'
 
 const DEBOUNCE_MS = 150
@@ -122,30 +123,42 @@ function useSearchState(): SearchState {
   return { query, results, isOpen, setQuery, setResults, setIsOpen }
 }
 
+/** The static public index, loaded once and matched in the browser. */
+const matchStaticIndex = async (
+  q: string,
+  maxResults: number
+): Promise<ReadonlyArray<SearchResult>> => {
+  const loaded = await loadIndex()
+  return loaded ? searchIndex(loaded, q, maxResults) : []
+}
+
 function useRunSearch(
   state: SearchState,
-  effectiveMaxResults: number
+  effectiveMaxResults: number,
+  sessionIndex: boolean
 ): (q: string) => Promise<void> {
   const { setResults, setIsOpen } = state
+  // Only the latest query may paint: a slow answer to "EU" must not overwrite
+  // the answer to "EUR" that arrived first.
+  const latest = useRef('')
   return useCallback(
     async (q: string): Promise<void> => {
       const trimmed = q.trim()
+      // eslint-disable-next-line functional/immutable-data -- ref tracks the latest query
+      latest.current = trimmed
       if (trimmed.length < MIN_QUERY_LENGTH) {
         setResults([])
         setIsOpen(false)
         return
       }
-      const loaded = await loadIndex()
-      if (!loaded) {
-        setResults([])
-        setIsOpen(false)
-        return
-      }
-      const matched = searchIndex(loaded, trimmed, effectiveMaxResults)
+      const matched = sessionIndex
+        ? await querySessionIndex(trimmed, effectiveMaxResults)
+        : await matchStaticIndex(trimmed, effectiveMaxResults)
+      if (latest.current !== trimmed) return
       setResults(matched)
       setIsOpen(matched.length > 0)
     },
-    [effectiveMaxResults, setResults, setIsOpen]
+    [effectiveMaxResults, sessionIndex, setResults, setIsOpen]
   )
 }
 
@@ -222,12 +235,15 @@ function useLifecycleEffects(
   }, [containerRef])
 }
 
-export function usePageSearch(effectiveMaxResults: number): PageSearchController {
+export function usePageSearch(
+  effectiveMaxResults: number,
+  sessionIndex = false
+): PageSearchController {
   const state = useSearchState()
   const containerRef = useRef<HTMLDivElement | null>(null)
   const debounce = useDebounce()
 
-  const runSearch = useRunSearch(state, effectiveMaxResults)
+  const runSearch = useRunSearch(state, effectiveMaxResults, sessionIndex)
   const onChange = useChangeHandler(state, runSearch, debounce)
   const onKeyDown = useKeyDownHandler(state, debounce)
   useLifecycleEffects(state.isOpen, state.setIsOpen, containerRef)

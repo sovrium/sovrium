@@ -6,6 +6,7 @@
  */
 
 import { Popover } from '@base-ui/react/popover'
+import { useLiveInjectedMarkup } from './live-injected-markup'
 import {
   computePopoverDescriptionClasses,
   computePopoverPopupClasses,
@@ -34,9 +35,17 @@ function SSRSkeletonSpan({ html }: { readonly html: string }): ReactElement {
   return <span dangerouslySetInnerHTML={{ __html: html }} />
 }
 
-function SSRSkeletonDiv({ html }: { readonly html: string }): ReactElement {
-  // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR-only first-paint skeleton
-  return <div dangerouslySetInnerHTML={{ __html: html }} />
+/**
+ * The popup body, brought to life: injected when the popover opens, its scripts
+ * run and its island markers mounted — so a form placed in a popover submits
+ * through its action — and unmounted when it closes.
+ *
+ * SECURITY: `html` is server-rendered from the app's configuration, not user
+ * input.
+ */
+function PopoverChildren({ html }: { readonly html: string }): ReactElement {
+  const ref = useLiveInjectedMarkup(html)
+  return <div ref={ref} />
 }
 
 /**
@@ -86,7 +95,7 @@ export default function PopoverIsland({
                 {description}
               </Popover.Description>
             )}
-            {childrenHtml && <SSRSkeletonDiv html={childrenHtml} />}
+            {childrenHtml && <PopoverChildren html={childrenHtml} />}
             <Popover.Arrow className="text-background-overlay">
               <svg
                 width="12"

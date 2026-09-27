@@ -8,6 +8,7 @@
 import { createHmac } from 'node:crypto'
 import { resolveStorageSigningSecret } from '@/application/use-cases/storage/signing-secret'
 import { parseJsonArrayCell, parseJsonObjectCell } from '@/domain/kernel/sql/sqlite-json-cell'
+import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { resolveStoragePublicAccess } from '@/domain/models/process-env/storage/storage-public-access'
 import type { TransformedRecord, RecordFieldValue, FormattedFieldValue } from './record-transformer'
@@ -48,9 +49,6 @@ import type { App } from '@/domain/models/app'
 
 /** Default signed-URL lifetime in seconds (mirrors signed-urls.ts). */
 const DEFAULT_EXPIRES_IN_SECONDS = 3600
-
-/** The implicit bucket used when a column declares no `bucket` binding. */
-const DEFAULT_BUCKET = 'default'
 
 /**
  * Resolve the HMAC secret used to sign storage URL tokens. Shares one resolver
@@ -207,7 +205,7 @@ const enrichField = (
 /**
  * Decorate every attachment field on `record.fields` with a downloadable URL
  * bound to the bucket declared on that column (falling back to the implicit
- * `'default'` bucket — NOT to the first declared bucket; see
+ * built-in `system` bucket — NOT to the first declared bucket; see
  * {@link resolveFieldBucket}).
  */
 const enrichRecordAttachments = (
@@ -226,7 +224,7 @@ const enrichRecordAttachments = (
     Object.entries(record.fields).map(([name, value]) => {
       const fieldType = fieldTypeOf(app, tableName, name)
       if (fieldType === undefined || !ATTACHMENT_FIELD_TYPES.has(fieldType)) return [name, value]
-      const bucket = resolveFieldBucket(app, tableName, name) ?? DEFAULT_BUCKET
+      const bucket = resolveFieldBucket(app, tableName, name) ?? SYSTEM_BUCKET_NAME
       // Monotone: the operator-global toggle keeps winning, and the per-bucket
       // `public: true` flag only ever turns MORE things public — so no
       // private-path assertion can regress.

@@ -48,8 +48,9 @@ import {
 } from '@/domain/models/api/admin/connections/connections'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import {
+  deriveConnectionHealth,
   deriveConnectionRowAction,
-  deriveConnectionStatus,
+  deriveTokenStatus,
   soonestExpiryMs,
 } from '@/domain/models/app/admin/connection-status'
 
@@ -92,7 +93,7 @@ function buildConnectionItem(
     ...(appToken === undefined ? [] : [appToken.expiresAt]),
   ])
   const type = String(row['type'])
-  const status = deriveConnectionStatus(soonestMs)
+  const status = deriveConnectionHealth([...tokens, ...(appToken === undefined ? [] : [appToken])])
   const tokenCount = tokens.length + (appToken === undefined ? 0 : 1)
   return {
     id: String(row['id']),
@@ -119,7 +120,7 @@ function buildUserToken(summary: Readonly<ConnectionUserSummary>): ConnectionUse
   return {
     userId: summary.userId,
     expiresAt: expiryToIso(summary.expiresAt),
-    status: deriveConnectionStatus(summary.expiresAt),
+    status: deriveTokenStatus(summary),
   }
 }
 

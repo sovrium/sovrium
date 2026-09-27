@@ -62,7 +62,7 @@ export interface InlineAutoSave {
  * component's footer `actions`, where the full `ActionSchema` is honoured.
  */
 export type DataTableRowClickAction =
-  | { readonly type: 'navigate'; readonly path: string }
+  | { readonly type: 'navigate'; readonly path: string; readonly openInNewTab?: boolean }
   | { readonly type: 'openDrawer'; readonly component: string }
 
 /**

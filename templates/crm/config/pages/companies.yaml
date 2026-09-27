@@ -1,129 +1,90 @@
+# The accounts. Opening one lists its people and its deals, so a rep sees the
+# whole relationship before a call.
 name: companies
-path: /
+path: /companies
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Companies
-  description: Your accounts, in a live database grid
+  title: Companies · Kestrel CRM
+  description: Your accounts, with their people and their deals.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: Companies
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Every account you track — grouped, sorted, and editable like a spreadsheet.
-
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: border rounded-lg p-5 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: Add a company
-          - type: form
-            dataSource:
-              table: companies
-            fields:
-              - field: name
-              - field: industry
-              - field: size
-              - field: website
-              - field: annual_revenue
-              - field: is_active
-            action:
-              type: crud
-              operation: create
-              table: companies
-              onSuccess:
-                navigate: /
-                toast:
-                  message: Company created
-                  variant: success
-
-      - type: table
-        dataSource:
-          table: companies
-          sort:
-            - field: name
-              direction: asc
-        columns:
-          - field: name
-            label: Company
-            sortable: true
-            filterable: true
-          - field: industry
-            label: Industry
-            sortable: true
-            filterable: true
-          - field: size
-            label: Size
-          - field: annual_revenue
-            label: Annual Revenue
-            align: right
-            format: currency
-          - field: website
-            label: Website
-          - field: is_active
-            label: Active
-            align: center
-            format: check-cross
-          - field: created_at
-            label: Added
-            format: relative-date
-        selection:
-          mode: multiple
-        search:
-          enabled: true
-          placeholder: Search companies...
-        groupBy:
-          field: industry
-          direction: asc
-        summary:
-          - field: name
-            function: count
-            label: Companies
-          - field: annual_revenue
-            function: sum
-            label: Total Revenue
-        # `toolbar.viewSwitcher` renders one button per entry of `views`. With
-        # `views` omitted it falls back to ['grid'] — a one-button switcher that
-        # does nothing. Declaring the set is what makes the tab real, and
-        # listing `kanban` requires `kanbanGroupBy`.
-        views:
-          - grid
-          - kanban
-        kanbanGroupBy:
-          field: industry
-        toolbar:
-          search: true
-          filters: true
-          sort: true
-          groupBy: true
-          views: true
-          viewSwitcher: true
-          export: true
-          columnToggle: true
-        pagination:
-          pageSize: 25
-          pageSizeOptions: [10, 25, 50, 100]
-        bulkActions:
-          - label: Delete
-            confirm: Delete the selected companies?
-            action:
-              type: crud
-              operation: delete
-              table: companies
-        emptyMessage: No companies yet. Create your first account to get started.
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Companies
+          - type: container
+            props:
+              className: flex flex-col gap-4 px-5 pb-5 pt-4
+            children:
+              - type: table
+                dataSource:
+                  table: companies
+                  view: companies_directory
+                columns:
+                  - { field: name, label: Company, sortable: true }
+                  - { field: industry, label: Industry, filterable: true }
+                  - { field: size, label: Size }
+                  - { field: website, label: Website }
+                  - { field: annual_revenue, label: Annual revenue, format: currency, align: right }
+                search:
+                  enabled: true
+                  placeholder: Search companies
+                toolbar:
+                  search: true
+                  filters: true
+                  export: true
+                pagination:
+                  pageSize: 25
+                onRowClick:
+                  action: openDrawer
+                  component: company-detail
+                emptyMessage: No companies yet. Add an account, then link its people to it.
+              - type: drawer
+                id: company-detail
+                drawerSide: right
+                drawerSize: md
+                canEdit: false
+                dataSource:
+                  table: companies
+                props:
+                  title: Company
+                recordFields:
+                  - { name: name, type: single-line-text, label: Company }
+                  - { name: industry, type: single-select, label: Industry }
+                  - { name: size, type: single-select, label: Size }
+                  - { name: website, type: url, label: Website }
+                  - { name: annual_revenue, type: currency, label: Annual revenue }
+                related:
+                  - label: People
+                    table: contacts
+                    field: company
+                    columns:
+                      - { field: name, label: Name }
+                      - { field: title, label: Title }
+                    sort:
+                      - { field: name, direction: asc }
+                    emptyMessage: No contact at this company yet.
+                  - label: Deals
+                    table: deals
+                    field: company
+                    columns:
+                      - { field: name, label: Deal }
+                      - { field: stage, label: Stage }
+                      - { field: value, label: Value }
+                    emptyMessage: No deal with this company yet.

@@ -371,8 +371,9 @@ const renderMountedSurface = async (input: MountedRenderInput): Promise<Response
     return c.redirect(result.redirect, 302)
   }
   // No page matched the requested sub-path — render the console's own
-  // not-found within the console config.
-  return c.html(await config.renderNotFoundPage(scopedApp), 404)
+  // not-found within the console config, in the operator's remembered language
+  // — the same resolved value the page itself would use.
+  return c.html(await config.renderNotFoundPage(scopedApp, preferredLanguage), 404)
 }
 
 /**

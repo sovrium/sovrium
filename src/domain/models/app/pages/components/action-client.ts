@@ -84,6 +84,17 @@ export const NavigateActionSchema = Schema.Struct({
   path: Schema.String.annotate({
     description: 'Destination URL path (supports $record.X substitution)',
   }),
+  /**
+   * Open the destination in a new tab, opened with `noopener,noreferrer` so it
+   * gets no handle on the page that opened it.
+   */
+  openInNewTab: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Opens the address in a new tab instead of leaving the page. The new tab gets no handle on this one.',
+      examples: [true],
+    })
+  ),
   /** Optional success handler (rarely used for pure navigation). */
   onSuccess: Schema.optional(ActionResponseSchema),
   /** Optional error handler (e.g. router rejection). */

@@ -16,6 +16,32 @@ export class StorageError extends Data.TaggedError('StorageError')<{
 }> {}
 
 /**
+ * The storage catalog has no object answering this key under the named bucket —
+ * absent, bound to another bucket, or bound to none. Adapters shape all three
+ * alike so a bucket-scoped caller can never tell them apart (S1
+ * anti-enumeration), and carry it as a `StorageError` `cause`.
+ *
+ * A typed marker rather than message text: a caller that must separate "no such
+ * object" (a verdict about the key) from "the catalog could not be read" (an
+ * outage) branches on {@link isStorageObjectNotFound}, never on wording. The
+ * message keeps the legacy `File not found: <key>` text because
+ * `isNotFoundError` (the HTTP 404 mapping) still reads messages from every
+ * adapter, the S3 SDK's included.
+ */
+export class StorageObjectNotFound extends Data.TaggedError('StorageObjectNotFound')<{
+  readonly key: string
+  readonly message: string
+}> {}
+
+/** The not-found marker for `key`, with its canonical message. */
+export const storageObjectNotFound = (key: string): Readonly<StorageObjectNotFound> =>
+  new StorageObjectNotFound({ key, message: `File not found: ${key}` })
+
+/** Whether a storage failure is the catalog's "no such object" verdict (never an outage). */
+export const isStorageObjectNotFound = (error: Readonly<StorageError>): boolean =>
+  error.cause instanceof StorageObjectNotFound
+
+/**
  * A caller that declines to attribute the operation to any bucket.
  *
  * Storage keys are FLAT — every declared bucket addresses one physical

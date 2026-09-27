@@ -72,10 +72,18 @@
  */
 
 import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
+import { FORM_RUNTIME_AUDIO_RECORDER_SCRIPT } from './form-runtime-audio-recorder'
+import {
+  FORM_RUNTIME_CONDITION_EVALUATOR_SCRIPT,
+  FORM_RUNTIME_CONDITIONS_SCRIPT,
+  runtimeConditionsConfig,
+  type RuntimeConditionsConfig,
+} from './form-runtime-conditions'
 import { FORM_RUNTIME_FILE_HANDLERS_SCRIPT } from './form-runtime-file-handlers'
 import { resolveOnErrorText, resolveOnSuccessText } from './form-runtime-i18n'
 import { FORM_RUNTIME_MULTI_STEP_SCRIPT } from './form-runtime-multi-step'
 import { FORM_RUNTIME_ONE_QUESTION_SCRIPT } from './form-runtime-one-question'
+import { FORM_RUNTIME_RATING_SCRIPT } from './form-runtime-rating'
 import type { Form, FormOnError, FormOnSuccess } from '@/domain/models/app/forms'
 import type { Languages } from '@/domain/models/app/languages'
 
@@ -84,7 +92,7 @@ import type { Languages } from '@/domain/models/app/languages'
  * subset of the form schema — everything the client needs to mutate the
  * DOM after a submit, with no server-only state leaking through.
  */
-export interface FormRuntimeConfig {
+export interface FormRuntimeConfig extends RuntimeConditionsConfig {
   readonly formName: string
   readonly onSuccess?: FormOnSuccess
   readonly onError?: FormOnError
@@ -124,6 +132,7 @@ export function buildFormRuntimeConfig(
     multiStep: isMultiStep,
     stepIds: isMultiStep ? form.steps!.map((step) => step.id) : [],
     oneQuestion: isOneQuestion,
+    ...runtimeConditionsConfig(form),
   }
 }
 
@@ -144,7 +153,9 @@ export function buildFormRuntimeConfig(
  * empty string" rule by [internal ref].
  */
 export const FORM_RUNTIME_SCRIPT = `(function () {
-  var configEl = document.querySelector('script[data-form-config]')
+  // Prefer the config and form beside THIS script, so two embedded forms on one page each bind their own.
+  var self = document.currentScript, scope = (self && self.parentNode) || document, near = self && self.previousElementSibling
+  var configEl = near && near.hasAttribute('data-form-config') ? near : document.querySelector('script[data-form-config]')
   if (!configEl) return
   var config
   try {
@@ -154,8 +165,9 @@ export const FORM_RUNTIME_SCRIPT = `(function () {
   }
   var formName = config.formName
   if (!formName) return
-  var form = document.querySelector('form[data-form-name="' + formName + '"]')
-  if (!form) return
+  var sel = 'form[data-form-name="' + formName + '"]', form = scope.querySelector(sel) || document.querySelector(sel)
+  if (!form || form.hasAttribute('data-form-runtime')) return // bind once, however often this runs
+  form.setAttribute('data-form-runtime', '')
   // The runtime owns validation end-to-end: it inspects each input via
   // checkValidity() and renders inline error markers. Disabling native
   // validation here (rather than in the SSR markup) keeps the no-JS
@@ -167,10 +179,7 @@ export const FORM_RUNTIME_SCRIPT = `(function () {
   var stepIds = Array.isArray(config.stepIds) ? config.stepIds : []
   var isMultiStep = config.multiStep === true && stepIds.length > 0
   var isOneQuestion = config.oneQuestion === true
-  // Single source of truth for the named-inputs selector. Repeated as a
-  // bare string literal three times in earlier revisions; centralising it
-  // removes duplication and makes future changes (e.g. excluding a new
-  // input variant) a one-line edit.
+  // Single source of truth for the named-inputs selector.
   var INPUT_SELECTOR = 'input[name], textarea[name], select[name]'
   function namedInputs() {
     return form.querySelectorAll(INPUT_SELECTOR)
@@ -185,6 +194,8 @@ export const FORM_RUNTIME_SCRIPT = `(function () {
 
 ${FORM_RUNTIME_MULTI_STEP_SCRIPT}
 ${FORM_RUNTIME_ONE_QUESTION_SCRIPT}
+${FORM_RUNTIME_CONDITION_EVALUATOR_SCRIPT}
+${FORM_RUNTIME_CONDITIONS_SCRIPT}
 
   // ---- Inline validation -----------------------------------------------------
   function clearFieldErrors() {
@@ -360,6 +371,8 @@ ${FORM_RUNTIME_ONE_QUESTION_SCRIPT}
     // above is not enough — the flow itself has to rewind to step 1, and the
     // server-side draft has to stop prefilling later steps with the answers
     // just submitted. \`showStep\` does both; \`preserve\` is what survives.
+    applyConditions()
+    paintRatings()
     if (isMultiStep) showStep(0, preserve)
     if (!force && onSuccess.message) renderToast(onSuccess.message, 'success')
   }
@@ -405,6 +418,8 @@ ${FORM_RUNTIME_ONE_QUESTION_SCRIPT}
 
   // ---- File-input handling (sliced into form-runtime-file-handlers.ts) ----
 ${FORM_RUNTIME_FILE_HANDLERS_SCRIPT}
+${FORM_RUNTIME_AUDIO_RECORDER_SCRIPT}
+${FORM_RUNTIME_RATING_SCRIPT}
   // ---- Submit interception ---------------------------------------------------
   function collectInitialValues(formEl) {
     var snapshot = {}
@@ -414,22 +429,6 @@ ${FORM_RUNTIME_FILE_HANDLERS_SCRIPT}
       if (snapshot[input.name] === undefined) snapshot[input.name] = input.defaultValue || ''
     })
     return snapshot
-  }
-
-  function buildJsonPayload() {
-    var formData = new FormData(form)
-    var payload = {}
-    // Repeated keys (multi-select / checkbox groups / array hidden inputs) must
-    // collect into an array — a plain overwrite keeps only the last value.
-    formData.forEach(function (value, key) {
-      if (Object.prototype.hasOwnProperty.call(payload, key)) {
-        if (Array.isArray(payload[key])) payload[key].push(value)
-        else payload[key] = [payload[key], value]
-      } else {
-        payload[key] = value
-      }
-    })
-    return payload
   }
 
   function handleSubmissionResult(result) {
@@ -471,7 +470,7 @@ ${FORM_RUNTIME_FILE_HANDLERS_SCRIPT}
       fetchInit = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(buildJsonPayload()),
+        body: JSON.stringify(snapshotValues()),
       }
     }
     fetch(form.action, fetchInit)

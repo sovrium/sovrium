@@ -28,6 +28,10 @@ Creates a foreign-key link to another table. This is the field the other two rea
 
 `relatedTable` must name a table the config declares. A link to a table that does not exist is refused when the config is decoded, rather than at the first query that follows it.
 
+`displayField` names the field of the related table that stands for a linked record wherever one is shown, so a grid reads `Zoom` rather than the key `30`. The stored key never changes: filtering, sorting and editing keep using it. That label is a value of the related table, so a reader sees it only if they may read that field there; anyone else sees the key.
+
+A page can show a different field of the related table in one grid column with `columns[].displayField`; see the table component.
+
 ## `lookup`
 
 Reads one field from the record on the other end of a relationship. It is **read-only by construction**: the value lives in the related table, and writing it here would give one fact two homes that could disagree.

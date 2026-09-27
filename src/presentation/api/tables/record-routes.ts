@@ -14,6 +14,7 @@ import {
   createRecordRequestSchema,
   updateRecordRequestSchema,
 } from '@/domain/models/api/tables/records'
+import { conditionalRead } from '@/presentation/api/runtime/conditional-read'
 import { effectValidator } from '@/presentation/api/runtime/effect-validator'
 import { handleGetRecordHistory } from './activity-handlers'
 import { handleFormBulkDelete, handleFormBulkUpdate } from './bulk-form-handlers'
@@ -49,8 +50,11 @@ import type { Hono } from 'hono'
 // eslint-disable-next-line max-lines-per-function -- fluent RPC chain, see above
 export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
   return honoApp
-    .get('/api/tables/:tableId/records', effectValidator('query', listRecordsQuerySchema), (c) =>
-      handleListRecords(c, resolveApp())
+    .get(
+      '/api/tables/:tableId/records',
+      effectValidator('query', listRecordsQuerySchema),
+      conditionalRead(),
+      (c) => handleListRecords(c, resolveApp())
     )
     .get('/api/tables/:tableId/trash', (c) => handleListTrash(c, resolveApp()))
     .post('/api/tables/:tableId/records/bulk-delete', (c) => handleFormBulkDelete(c, resolveApp()))
@@ -60,7 +64,9 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp:
     )
     .get('/api/tables/:tableId/subscribe/sse', (c) => handleSubscribe(c, resolveApp()))
     .get('/api/tables/:tableId/subscribe', (c) => handleSubscribe(c, resolveApp()))
-    .get('/api/tables/:tableId/records/:recordId', (c) => handleGetRecord(c, resolveApp()))
+    .get('/api/tables/:tableId/records/:recordId', conditionalRead(), (c) =>
+      handleGetRecord(c, resolveApp())
+    )
     .patch(
       '/api/tables/:tableId/records/:recordId',
       effectValidator('json', updateRecordRequestSchema),

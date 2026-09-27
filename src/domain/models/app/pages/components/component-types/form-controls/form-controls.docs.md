@@ -77,7 +77,7 @@ The toolbar vocabulary is closed — `bold`, `italic`, `strike`, `heading`, `lis
 
 Omitting `toolbar` gives the default six: bold, italic, heading, list, link, code-block. An empty array is **not** the same statement and is legal: it means a toolbar-free editor, where the slash menu remains the way to reach every block action the toolbar would have enabled.
 
-`value` is sanitised on the way in, so `$record.<field>` of stored rich text is safe. `imageBucket` defaults to `default`, and the image button and paste handler insert the URL, never the bytes.
+`value` is sanitised on the way in, so `$record.<field>` of stored rich text is safe. `imageBucket` defaults to the built-in `system` bucket, and the image button and paste handler insert the URL, never the bytes.
 
 ## `code-editor`
 

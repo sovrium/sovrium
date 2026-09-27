@@ -35,6 +35,7 @@ import { Effect } from 'effect'
 import { collectOutboundClick } from '@/application/use-cases/analytics/collect-outbound-click'
 import { matchesAnyGlobPattern } from '@/domain/kernel/matching/glob-matcher'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import type { Context } from 'hono'
 
@@ -70,6 +71,7 @@ export function handleClick(c: Context, config: ClickHandlerConfig): Response {
         pagePath: body.pagePath,
         ip: getRequestClientIp(c),
         userAgent: c.req.header('user-agent') ?? '',
+        timeZone: resolveOperatorTimezone(),
       })
     ).pipe(
       // effect-swallow: an outbound-click beacon. The visitor has already left for the destination, so there is nobody to report a failure to, and the endpoint answers 204 either way.

@@ -19,9 +19,10 @@
  * system `tar` on PATH), then copied with
  * init's additive rules: an existing file is never clobbered (`--force`
  * clobbers `app.yaml` only) and `.git/` never lands. The published
- * `sovrium/<slug>-template` mirrors ship their own `CLAUDE.md`,
- * `[internal ref]`, README, and deploy manifests, so nothing is
- * overwritten here — CLAUDE.md is generated only when the template ships none.
+ * `sovrium/<slug>-template` mirrors ship their own `CLAUDE.md`, README, and
+ * deploy manifests, so nothing is overwritten here — CLAUDE.md is generated
+ * only when the template ships none. The agent skills come from the binary,
+ * never from the template tree.
  *
  * There is no checksum for codeload tarballs; TLS to github.com is the
  * integrity boundary (documented trade-off, same as `gh repo clone`).

@@ -81,6 +81,29 @@ export const checkSentinelGuard = (
   })
 }
 
+/**
+ * Decrypt the `token_fields` envelope into its string map. A missing column
+ * value, or one that does not decode to a flat object of strings, is no fields.
+ */
+const decodeTokenFields = (
+  envelope: unknown
+): { readonly tokenFields: Readonly<Record<string, string>> } | undefined => {
+  if (typeof envelope !== 'string' || envelope === '') return undefined
+  // The envelope is ours (written by `encodeTokenFields`); its content is a flat string map.
+  const parsed: unknown = JSON.parse(decryptToken(envelope))
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined
+  const entries = Object.entries(parsed as Record<string, unknown>).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string'
+  )
+  return { tokenFields: Object.fromEntries(entries) }
+}
+
+/** Encrypt a token-fields map for the `token_fields` column; nothing when there are none. */
+const encodeTokenFields = (
+  fields: Readonly<Record<string, string>> | undefined
+): { readonly tokenFields?: string } =>
+  fields === undefined ? {} : { tokenFields: encryptToken(JSON.stringify(fields)) }
+
 const decodeRow = (row: Readonly<Record<string, unknown>>): ConnectionTokenPlaintext => {
   const refreshEnvelope = row['refreshToken'] as string | null | undefined
   const expiresAt = row['expiresAt'] as Date | null | undefined
@@ -94,6 +117,7 @@ const decodeRow = (row: Readonly<Record<string, unknown>>): ConnectionTokenPlain
         ? decryptToken(refreshEnvelope)
         : undefined,
     expiresAt: expiresAt instanceof Date ? expiresAt : undefined,
+    ...decodeTokenFields(row['tokenFields']),
     createdAt: row['createdAt'] as Date,
     updatedAt: row['updatedAt'] as Date,
   }
@@ -112,6 +136,10 @@ const decodeAppRow = (row: Readonly<Record<string, unknown>>): ConnectionAppToke
         ? decryptToken(refreshEnvelope)
         : undefined,
     expiresAt: expiresAt instanceof Date ? expiresAt : undefined,
+    ...decodeTokenFields(row['tokenFields']),
+    ...(typeof row['grantFingerprint'] === 'string'
+      ? { grantFingerprint: row['grantFingerprint'] }
+      : {}),
     createdAt: row['createdAt'] as Date,
     updatedAt: row['updatedAt'] as Date,
   }
@@ -202,7 +230,7 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
       return rows[0] !== undefined ? decodeRow(rows[0] as Record<string, unknown>) : undefined
     }),
 
-  upsertForUser: ({ connectionId, userId, accessToken, refreshToken, expiresAt }) =>
+  upsertForUser: ({ connectionId, userId, accessToken, refreshToken, expiresAt, tokenFields }) =>
     Effect.gen(function* () {
       // Defense-in-depth: refuse to persist a sentinel-shaped
       // access token in production. The seeder no-ops at NODE_ENV ===
@@ -233,6 +261,7 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
           accessToken: accessEnvelope,
           ...(refreshEnvelope !== undefined ? { refreshToken: refreshEnvelope } : {}),
           ...(expiresAt !== undefined ? { expiresAt } : {}),
+          ...encodeTokenFields(tokenFields),
         }
 
         // Single statement, atomic against the
@@ -304,6 +333,7 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
         return {
           userId: String(r['userId']),
           expiresAt: expires instanceof Date ? expires : undefined,
+          hasRefreshToken: typeof r['refreshToken'] === 'string' && r['refreshToken'] !== '',
           createdAt: r['createdAt'] as Date,
           updatedAt: r['updatedAt'] as Date,
         }
@@ -323,7 +353,14 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
       return rows[0] !== undefined ? decodeAppRow(rows[0] as Record<string, unknown>) : undefined
     }),
 
-  upsertForApp: ({ connectionId, accessToken, refreshToken, expiresAt }) =>
+  upsertForApp: ({
+    connectionId,
+    accessToken,
+    refreshToken,
+    expiresAt,
+    tokenFields,
+    grantFingerprint,
+  }) =>
     Effect.gen(function* () {
       // Same defense-in-depth as `upsertForUser`, and it matters
       // MORE here: a sentinel parked in the shared store would make every
@@ -346,6 +383,8 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
           accessToken: accessEnvelope,
           ...(refreshEnvelope !== undefined ? { refreshToken: refreshEnvelope } : {}),
           ...(expiresAt !== undefined ? { expiresAt } : {}),
+          ...encodeTokenFields(tokenFields),
+          ...(grantFingerprint !== undefined ? { grantFingerprint } : {}),
         }
 
         const [row] = await db
@@ -381,6 +420,7 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
       const rows = await db
         .select({
           expiresAt: connectionAppTokens.expiresAt,
+          refreshToken: connectionAppTokens.refreshToken,
           createdAt: connectionAppTokens.createdAt,
           updatedAt: connectionAppTokens.updatedAt,
         })
@@ -392,6 +432,7 @@ export const ConnectionTokenRepositoryLive = Layer.succeed(ConnectionTokenReposi
       const expires = row['expiresAt']
       return {
         expiresAt: expires instanceof Date ? expires : undefined,
+        hasRefreshToken: typeof row['refreshToken'] === 'string' && row['refreshToken'] !== '',
         createdAt: row['createdAt'] as Date,
         updatedAt: row['updatedAt'] as Date,
       }

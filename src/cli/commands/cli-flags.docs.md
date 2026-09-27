@@ -8,34 +8,37 @@ Flags may appear anywhere in the invocation — before the command, after the co
 
 `sovrium <command> --help` prints the authoritative option list for one command, with its environment variables and examples. This is the map across commands, which is the thing one `--help` cannot show you.
 
-| Flag                 | Commands                                   | What it does                                                                           |
-| -------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `--watch`, `-w`      | `start`                                    | Watch the configuration and hot-reload on change.                                      |
-| `--publicDir <path>` | `start`, `build`                           | Static-asset directory to serve, or copy into the build output.                        |
-| `--no-publicDir`     | `start`, `build`                           | Serve no static assets. Overrides both the env var and the default.                    |
-| `--output <path>`    | `schema`, `types`, `docs`, `design-system` | Where to write: a directory for `types`, a file for the rest.                          |
-| `--typescript`       | `init`                                     | Scaffold a typed `app.ts`. Refuses `--template`.                                       |
-| `--template <name>`  | `init`                                     | Bundled template name, or a GitHub repo as `owner/repo[#ref]`.                         |
-| `--name <name>`      | `init`                                     | App name written into the scaffolded config.                                           |
-| `--force`            | `init`                                     | Overwrite an existing config file.                                                     |
-| `--from-url <url>`   | `init`                                     | Fork one published `.yaml`, `.yml` or `.json` config over HTTPS.                       |
-| `--git`              | `init`                                     | Initialise a git repository and land the scaffold as one commit.                       |
-| `--dir <path>`       | `seed`                                     | Seed-file directory.                                                                   |
-| `--mode <mode>`      | `seed`                                     | `if-empty`, `upsert` or `replace`.                                                     |
-| `--table <name>`     | `seed`                                     | Restrict to one table. Repeatable.                                                     |
-| `--dry-run`          | `seed`, `migrate`                          | Report the plan and write nothing.                                                     |
-| `--check`            | `migrate`                                  | Report whether the upgrade is safe to attempt, and write nothing.                      |
-| `--format <name>`    | `design-system`, `docs`                    | `md` (default) or `json`; `docs` also takes `llms`. An unknown one is refused by name. |
-| `--full`             | `docs`                                     | Print the whole manual rather than an index.                                           |
-| `--section <slug>`   | `docs`                                     | Restrict to one section. Repeatable.                                                   |
-| `--list-sections`    | `docs`                                     | Print the registered section slugs and exit.                                           |
-| `--lang <code>`      | `docs`                                     | Manual locale. `en` only; anything else is refused by name.                            |
-| `--password <value>` | `admin create`                             | Admin password. Omit it to be prompted, which requires a TTY.                          |
-| `--message <text>`   | `reload`                                   | Operator note recorded against the new configuration version.                          |
-| `--json`             | `validate`                                 | Report the verdict as one JSON document on stdout. Exit codes stand.                   |
-| `--project <dir>`    | `mcp`                                      | Directory to read the config from. Beats `SOVRIUM_PROJECT_DIR`.                        |
-| `--version`, `-v`    | any                                        | Print the version and exit. Always wins, wherever it appears.                          |
-| `--help`, `-h`       | any                                        | Print help and exit. With a command in front, prints that command's.                   |
+| Flag                  | Commands                                                | What it does                                                                           |
+| --------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `--watch`, `-w`       | `start`                                                 | Watch the configuration and hot-reload on change.                                      |
+| `--publicDir <path>`  | `start`, `build`                                        | Static-asset directory to serve, or copy into the build output.                        |
+| `--no-publicDir`      | `start`, `build`                                        | Serve no static assets. Overrides both the env var and the default.                    |
+| `--output <path>`     | `schema`, `types`, `docs`, `design-system`, `changelog` | Where to write: a directory for `types`, a file for the rest.                          |
+| `--typescript`        | `init`                                                  | Scaffold a typed `app.ts`. Refuses `--template`.                                       |
+| `--template <name>`   | `init`                                                  | Bundled template name, or a GitHub repo as `owner/repo[#ref]`.                         |
+| `--name <name>`       | `init`                                                  | App name written into the scaffolded config.                                           |
+| `--force`             | `init`                                                  | Overwrite an existing config file.                                                     |
+| `--from-url <url>`    | `init`                                                  | Fork one published `.yaml`, `.yml` or `.json` config over HTTPS.                       |
+| `--git`               | `init`                                                  | Initialise a git repository and land the scaffold as one commit.                       |
+| `--dir <path>`        | `seed`                                                  | Seed-file directory.                                                                   |
+| `--mode <mode>`       | `seed`                                                  | `if-empty`, `upsert` or `replace`.                                                     |
+| `--table <name>`      | `seed`                                                  | Restrict to one table. Repeatable.                                                     |
+| `--dry-run`           | `seed`, `migrate`                                       | Report the plan and write nothing.                                                     |
+| `--check`             | `migrate`                                               | Report whether the upgrade is safe to attempt, and write nothing.                      |
+| `--allow-destructive` | `migrate`                                               | Apply a plan that drops a table still holding rows. One-shot; the boot always refuses. |
+| `--format <name>`     | `design-system`, `docs`, `changelog`                    | `md` (default) or `json`; `docs` also takes `llms`. An unknown one is refused by name. |
+| `--full`              | `docs`                                                  | Print the whole manual rather than an index.                                           |
+| `--section <slug>`    | `docs`                                                  | Restrict to one section. Repeatable.                                                   |
+| `--list-sections`     | `docs`                                                  | Print the registered section slugs and exit.                                           |
+| `--lang <code>`       | `docs`                                                  | Manual locale. `en` only; anything else is refused by name.                            |
+| `--list`              | `changelog`                                             | List every release the binary carries, newest first.                                   |
+| `--since <version>`   | `changelog`                                             | Every release after that version, its breaking changes gathered first.                 |
+| `--password <value>`  | `admin create`                                          | Admin password. Omit it to be prompted, which requires a TTY.                          |
+| `--message <text>`    | `reload`                                                | Operator note recorded against the new configuration version.                          |
+| `--json`              | `validate`                                              | Report the verdict as one JSON document on stdout. Exit codes stand.                   |
+| `--project <dir>`     | `mcp`                                                   | Directory to read the config from. Beats `SOVRIUM_PROJECT_DIR`.                        |
+| `--version`, `-v`     | any                                                     | Print the version and exit. Always wins, wherever it appears.                          |
+| `--help`, `-h`        | any                                                     | Print help and exit. With a command in front, prints that command's.                   |
 
 `sovrium version` and `sovrium help` are the bare-word spellings of the last two, and behave identically.
 

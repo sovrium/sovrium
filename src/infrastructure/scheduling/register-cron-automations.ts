@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
 import { runCronAutomation } from '@/application/use-cases/automations/run-cron-automation'
 import { logError } from '@/infrastructure/logging/logger'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'effect'
 
@@ -16,7 +17,9 @@ type Automation = NonNullable<App['automations']>[number]
 type CronTriggerLike = {
   readonly type: 'cron'
   readonly expression: string
-  readonly timezone: string
+  // Optional: the schema carries no default, and an omitted zone resolves to
+  // the operator timezone at registration.
+  readonly timezone?: string
 }
 type CronScheduleService = Effect.Success<typeof CronScheduler>
 
@@ -78,7 +81,7 @@ const scheduleOne = (
   return scheduler
     .schedule(trigger.expression, callback, {
       jobId: automation.name,
-      timezone: trigger.timezone,
+      timezone: trigger.timezone ?? resolveOperatorTimezone(),
     })
     .pipe(
       Effect.catch((err) =>

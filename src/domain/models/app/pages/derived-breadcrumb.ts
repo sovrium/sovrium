@@ -20,6 +20,11 @@ export interface DerivedCrumbOptions {
   readonly home?: { readonly label: string }
   /** Mount base every href hangs off; empty for a standalone app. */
   readonly basePath?: string
+  /**
+   * Path segments (as they appear in the URL, before relabelling) whose crumb
+   * keeps its label but carries no `href` — a prefix that answers no page.
+   */
+  readonly unlinked?: readonly string[]
 }
 
 /** One crumb of a derived trail. The last one carries no `href`. */
@@ -56,6 +61,11 @@ export interface DerivedCrumb {
  *
  * buildDerivedCrumbs('/data', undefined, { home: { label: 'Ops' }, basePath: '/ops' })
  * // [ { label: 'Ops', href: '/ops' }, { label: 'data' } ]
+ *
+ * buildDerivedCrumbs('/automations/runs/42', { runs: 'Run' }, { unlinked: ['runs'] })
+ * // [ { label: 'automations', href: '/automations' },
+ * //   { label: 'Run' },
+ * //   { label: '42' } ]
  * ```
  */
 export function buildDerivedCrumbs(
@@ -64,6 +74,7 @@ export function buildDerivedCrumbs(
   options?: DerivedCrumbOptions
 ): readonly DerivedCrumb[] {
   const base = options?.basePath ?? ''
+  const unlinked = new Set(options?.unlinked ?? [])
   const segments = (path.split('?')[0] ?? '').split('/').filter((segment) => segment.length > 0)
 
   const derived = segments.map((segment, index) => {
@@ -71,7 +82,11 @@ export function buildDerivedCrumbs(
     const isLast = index === segments.length - 1
     // The prefix is rebuilt from the ORIGINAL segments, not the labelled ones —
     // a relabelled crumb must still link to the path it came from.
-    return isLast ? { label } : { label, href: `${base}/${segments.slice(0, index + 1).join('/')}` }
+    // An unlinked segment is matched on the URL segment too, so the name in
+    // config is the slug a person reads in the address bar, not its label.
+    return isLast || unlinked.has(segment)
+      ? { label }
+      : { label, href: `${base}/${segments.slice(0, index + 1).join('/')}` }
   })
 
   const { home } = options ?? {}

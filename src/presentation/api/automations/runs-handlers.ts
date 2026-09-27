@@ -33,6 +33,7 @@ import { signalCancellation } from '@/application/use-cases/automations/run/sche
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { isAutomationStoreFailure } from '@/presentation/api/runtime/automation-error-responses'
 import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import { resolveApprovalCaller } from './approvals-handlers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -194,32 +195,15 @@ const resolveApprovalErrorResponse = (c: Context, error: ResolveApprovalError) =
  * run (its downstream actions execute); rejecting terminates it (the remaining
  * actions never run).
  *
- * AUTH POSTURE (capability-token model — matches the sibling `/runs/:id/cancel`
- * and `/runs/:id/replay` endpoints):
- *   - Resolution requires BOTH the `runId` AND the `approvalId`, and the two
- *     must link (the approval row's `run_id` must equal `runId`, else 404). Both
- *     are `gen_random_uuid()` v4 UUIDs (~122 bits each) — not enumerable, not
- *     sequential. They are the de-facto access tokens; no extra session gate is
- *     layered on top here. The `/api/automations/*` middleware extracts the
- *     session into context (when `app.auth` is configured) but intentionally
- *     does NOT `requireAuth()` on the wildcard — webhook triggers under the same
- *     prefix must stay anonymous-friendly.
- *   - Non-leak invariant the token model relies on: the `approvalId` is NEVER
- *     surfaced to an unprivileged HTTP surface. The `approval/request` handler's
- *     step `output` is `{ status: 'pending', timeout?, onTimeout? }` (no id);
- *     the webhook/manual response surfaces `status: 'waiting-approval'` (no id);
- *     the runs GET API surfaces `triggerData` + step output (no id); and the
- *     agent-approvals GET API reads a separate in-memory store filtered by
- *     `agentName`, so DB-only automation-step rows (`agent_name` null) are
- *     invisible there. An approver obtains the id out-of-band (e.g. the approval
- * notification), exactly as the [internal ref] RESUME contract assumes.
- *   - RESIDUAL RISK (platform-wide S5, NOT specific to this feature): when an
- *     app has no `app.auth` configured, the entire `/api/automations/*` surface
- *     — these endpoints, cancel, replay, the runs read API — is fully anonymous.
- *     The capability-token model is the only barrier in that configuration.
- * Tightening it to a mandatory admin session would EXCEED the locked [internal ref]
- *     spec (which authenticates the caller but asserts no gate); flagged for the
- *     main planner rather than changed unilaterally.
+ * WHO MAY RESOLVE ([internal ref], superseding [internal ref]'s capability-token posture):
+ *   - No session → the canonical 401, before anything is read. This holds for an
+ *     app with no `app.auth` too: nobody can be an approver there.
+ *   - A signed-in caller the request does not name (`all-admins` → an
+ *     admin-tier role; a list → the caller's email ignoring case, or their
+ *     role) → the SAME 404 an unknown id gets, checked before the status so a
+ *     closed request is not confirmed by a 409.
+ *   - An approver resolving a closed request → 409 with its status.
+ *   The run stays `waiting-approval` after every refusal.
  */
 export async function handleResolveApproval(c: Context, app: App, decision: 'approve' | 'reject') {
   const runId = c.req.param('runId')
@@ -228,12 +212,16 @@ export async function handleResolveApproval(c: Context, app: App, decision: 'app
     return c.json({ success: false, message: 'Run id and approval id required' }, 400)
   }
 
+  const resolved = await resolveApprovalCaller(c)
+  if (!resolved.ok) return resolved.response
+
   const program = resolveAutomationApproval({
     runId,
     approvalId,
     decision,
     app,
     processEnv: process.env,
+    caller: resolved.caller,
   })
   const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
   if (result._tag === 'Failure') {

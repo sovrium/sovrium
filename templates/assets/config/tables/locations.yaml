@@ -1,3 +1,8 @@
+# Locations — the places an asset can sit: an office, the storeroom, a repair
+# shop, or "Remote" for kit that lives at someone's home.
+#
+# What sits at a place is read from the register itself (filter the Register
+# or the Gallery by location), so no figure here can drift from it.
 id: 1
 name: locations
 fields:
@@ -5,20 +10,29 @@ fields:
     name: name
     type: single-line-text
     required: true
+    unique: true
   - id: 2
     name: address
     type: long-text
+  - id: 4
+    name: kind
+    type: single-select
+    options:
+      - Office
+      - Storeroom
+      - Remote
+      - Repair shop
   - id: 3
     name: created_at
     type: created-at
 
+# Anyone signed in reads the places; only an admin adds, renames or removes one,
+# since every asset points at it.
 permissions:
   read: authenticated
   create:
     - admin
-    - member
   update:
     - admin
-    - member
   delete:
     - admin

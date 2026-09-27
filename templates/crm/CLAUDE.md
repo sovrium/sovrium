@@ -1,27 +1,29 @@
-# crm-workspace
+# kestrel-crm
 
-An Airtable/Baserow-style database workspace — manage Companies, Contacts, Deals, and Tasks through interactive grids, a kanban pipeline, a task calendar, and a contact gallery. Built on Sovrium's default theming.
+Kestrel CRM — a sales CRM for a small team. The pipeline board is the home page, with the
+four figures a sales lead asks for; contacts and companies open in a drawer without leaving
+their list; tasks sit on a calendar beside what is due next; and a records assistant reads
+and edits all four tables.
 
 ## This app at a glance
 
 - **Tables** (4): companies, contacts, deals, tasks
-- **Pages** (6): sign-in, companies, contacts, deals, tasks, assistant
+- **Pages** (6): pipeline (`/`), contacts, companies, tasks, assistant, sign-in
 - **Automations** (1): deal-won-notification
 - **AI agents** (1): records-assistant
 - **Singletons**: auth, design
+- **Seed data**: `seed/` — two sign-in accounts, eight companies, ten contacts, thirteen
+  deals and eleven tasks, dated relative to the day you seed
 - **Static assets**: `public/` (served at the site root)
 
 Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
 
-## Your Claude Code setup
+## Working on this app with an AI assistant
 
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+design system is in `config/design.yaml`: read its comments before changing a colour, and
+keep colour for outcomes (won, stalled, lost, overdue).
 
 ---
 
@@ -31,21 +33,50 @@ YAML config files (a single `app.yaml` to start, split via `$ref` as the app gro
 served by the `sovrium` runtime. There is no hand-written
 server or UI code to maintain.
 
-## The manual ships inside the binary — do not search the web
+## Documentation
 
-The complete Sovrium manual is printed by the binary you are running, so it can never
-describe a different version. Read it there rather than from a web page:
+The Sovrium manual ships inside the binary. Where you read it depends on whether you can
+run commands.
+
+**With a shell** (Claude Code, Cursor, Codex, a terminal), `sovrium docs` is the manual for
+the version you run, so it can never describe a different one. Start there:
 
 ```bash
-sovrium docs search <topic>    # Find the article covering a topic
+sovrium docs                   # The table of contents
+sovrium docs search <words>    # Find the article covering a topic
 sovrium docs <section>/<slug>  # Read it
 sovrium docs config <path>     # Look one option up (e.g. tables[].fields[].type)
 sovrium docs env <NAME>        # Look one environment variable up
 sovrium docs cli <verb>        # Look one command up
+sovrium schema                 # The full JSON Schema of this binary
 ```
 
-The docs describe THIS binary — check `sovrium --version`. Pretrained knowledge of
-Sovrium may describe a different one; where the two disagree, the binary wins.
+**Agent skills.** `.claude/skills/` holds the skills written by `sovrium skills` for the
+version in this project: start from `sovrium-app` for any change to the config. After
+upgrading Sovrium, run `sovrium skills` again to refresh them — a file you edited is kept
+unless you pass `--force`. For Codex, Copilot, Gemini CLI or OpenCode, run
+`sovrium skills --target agents` to write them to `.agents/skills/` as well.
+
+**If your client cannot run commands** (for example Claude Desktop connected through
+`sovrium mcp`, whose tools edit the config but serve no documentation), read the published
+copy instead:
+
+- **Start at the index:** `https://sovrium.com/llms.txt` — a plain-text list of every published
+  page, one titled line each with a short description. Pick a page from there instead of
+  guessing a slug.
+- **Fetch that page with `.md` appended.** Every docs page has a raw-markdown twin:
+  `https://sovrium.com/en/docs/configuration-refs.md` is about 3.8 KB against 121 KB for the
+  same page as HTML. Always take the `.md`.
+- **Never fetch `https://sovrium.com/llms-full.txt`** — the entire corpus in one file, roughly
+  3 MB; a single call floods the context window. Use the index, one page at a time.
+- The index carries English and French — prefer `/en/…`, switch to `/fr/…` for a French user.
+
+That copy describes the latest release, which may not be the one in this project. Compare
+with `sovrium --version`, or with the version the MCP server reports when it connects.
+
+Where sources disagree, the binary wins: `sovrium docs` and `sovrium schema` describe the one
+you are actually running, the website describes the latest release, and pretrained knowledge
+of Sovrium may describe an older one.
 
 ## How to work in this project (read first)
 
@@ -220,21 +251,3 @@ the zero-config SQLite database (`database.db`), the server lock file, and local
 storage. Set `DATABASE_URL` to use PostgreSQL instead. Relocate the whole folder with
 the `SOVRIUM_DATA_DIR` env var. Operator settings live in **environment variables**, not
 in `app.yaml`.
-
-## Documentation
-
-`sovrium schema` is the local contract — it prints the JSON Schema of the binary sitting in
-this project. When the published docs and `sovrium schema` disagree, the schema wins: the
-website describes some released version, the schema describes the one you are actually running.
-
-- **Start at the index:** `https://sovrium.com/llms.txt` — a plain-text list of every published
-  page, one titled line each with a short description. Pick a page from there instead of
-  guessing a slug.
-- **Fetch that page with `.md` appended.** Every docs page has a raw-markdown twin:
-  `https://sovrium.com/en/docs/configuration-refs.md` is about 3.8 KB against 121 KB for the
-  same page as HTML. Always take the `.md`.
-- **Never fetch `https://sovrium.com/llms-full.txt`** — the entire corpus in one file, roughly
-  3 MB; a single call floods the context window. Use the index, one page at a time.
-- The index carries English and French — prefer `/en/…`, switch to `/fr/…` for a French user.
-- Docs home: https://sovrium.com/docs
-- Local schema reference: `sovrium schema`

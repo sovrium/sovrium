@@ -50,6 +50,14 @@ import { Schema } from 'effect'
  * is a `Schema.Literals`, and value failures do still throw, so a `byZone`
  * entry naming a step that does not exist is refused normally.
  *
+ * ## Which step a page runs at
+ *
+ * `resolveDensityStep` (`density-service.ts`) decides it per page: the step
+ * `byZone` names for the zone governing the page's declared path, else
+ * `default`, else `compact`. Every rendered document carries the answer as
+ * `data-density` on `<html>`, `compact` included, and the ladder's
+ * `[data-density='…']` blocks are what make it paint.
+ *
  * ## Why `floors` can be declared but never changed
  *
  * `floors` is a **publication echo, not a control**. Both members are pinned
@@ -244,6 +252,31 @@ export const DensitySchema = Schema.Struct({
   steps: DensityStepsSchema,
 
   /**
+   * The step every page runs at unless its zone assigns another.
+   *
+   * Optional, and its absence means `compact` — the step the platform has
+   * always rendered at, because its numbers ARE the literals the recipes used
+   * to hard-code. An app that declares nothing therefore renders exactly as it
+   * did before this key existed.
+   *
+   * Spelled inline rather than reusing {@link DensityStepNameSchema}: that one
+   * carries an `identifier`, and re-annotating an identified schema to give
+   * this property its own description would publish two different nodes under
+   * one definition name. The literal set is the same three names, and a typo
+   * (`cosy`) is refused at decode, naming the key.
+   */
+  default: Schema.optional(
+    Schema.Literals(['compact', 'cozy', 'roomy']).pipe(
+      Schema.annotate({
+        title: 'Default Density Step',
+        description:
+          "The density step every page runs at when its zone assigns none: 'compact', 'cozy' or 'roomy'. Omitted, pages run at 'compact' — the spacing Sovrium has always rendered.",
+        examples: ['cozy'],
+      })
+    )
+  ),
+
+  /**
    * Which step each zone runs at. Keys must name a `design.zones[].zone`,
    * cross-validated at decode time in `design-validation.ts`.
    *
@@ -263,7 +296,8 @@ export const DensitySchema = Schema.Struct({
     ).pipe(
       Schema.annotate({
         title: 'Density By Zone',
-        description: 'Which density step each declared zone runs at',
+        description:
+          'Which density step each declared zone runs at, overriding `default` for the pages that zone governs',
         examples: [{ product: 'compact', marketing: 'roomy' }],
       })
     )

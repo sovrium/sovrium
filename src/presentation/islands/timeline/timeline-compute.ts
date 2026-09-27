@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { readDisplayText } from '../runtime/record-display-label'
 import type { TableRecord } from '../runtime/types'
 
 /**
@@ -34,6 +35,11 @@ export interface TimelineItem {
   readonly kind: 'bar' | 'point'
   readonly colorValue?: string
   readonly group?: string
+  /**
+   * The name the group is shown under, when the grouping field stores a key the
+   * records API labelled (a relationship's related row, a user's account).
+   */
+  readonly groupLabel?: string
   /** Ids of the records this one follows. Empty when it follows nothing. */
   readonly dependsOn: readonly string[]
 }
@@ -41,6 +47,8 @@ export interface TimelineItem {
 /** A swimlane groups timeline items under a shared header label. */
 export interface TimelineLane {
   readonly key: string
+  /** The lane's header: its group's resolved label, else its key. */
+  readonly label: string
   readonly items: readonly TimelineItem[]
 }
 
@@ -81,6 +89,16 @@ function readDependencyIds(record: TableRecord, field: string | undefined): read
   })
 }
 
+/** The `groupLabel` overlay of one record: the resolved label of its group, or nothing. */
+function groupLabelOf(
+  record: TableRecord,
+  groupBy: string | undefined
+): { readonly groupLabel?: string } {
+  if (!groupBy) return {}
+  const label = readDisplayText(record, groupBy)
+  return label === undefined ? {} : { groupLabel: label }
+}
+
 /**
  * Resolves a single record into a timeline item, or `undefined` when the
  * record has no parseable start date.
@@ -106,6 +124,7 @@ function recordToTimelineItem(
     kind: end !== undefined ? 'bar' : 'point',
     colorValue: readOptionalField(record, config.colorField),
     group: readOptionalField(record, config.groupBy),
+    ...groupLabelOf(record, config.groupBy),
     dependsOn: readDependencyIds(record, config.dependencyField),
   }
 }
@@ -126,25 +145,27 @@ export function buildTimelineItems(
 }
 
 /**
- * Groups timeline items into swimlanes by their `group` value. Lane order
- * follows first-appearance order in the item list. Returns a single lane
+ * Groups timeline items into swimlanes by their `group` value, each headed by
+ * its group's resolved label when it has one. Lane order follows
+ * first-appearance order in the item list. Returns a single lane
  * with key `''` when `groupBy` is not configured.
  */
 export function buildTimelineLanes(
   items: readonly TimelineItem[],
   groupBy: string | undefined
 ): readonly TimelineLane[] {
-  if (!groupBy) return [{ key: '', items }]
+  if (!groupBy) return [{ key: '', label: '', items }]
 
   const order = items.reduce<readonly string[]>((acc, item) => {
     const key = item.group ?? ''
     return acc.includes(key) ? acc : [...acc, key]
   }, [])
 
-  return order.map((key) => ({
-    key,
-    items: items.filter((item) => (item.group ?? '') === key),
-  }))
+  return order.map((key) => {
+    const laneItems = items.filter((item) => (item.group ?? '') === key)
+    const label = laneItems.find((item) => item.groupLabel !== undefined)?.groupLabel ?? key
+    return { key, label, items: laneItems }
+  })
 }
 
 /** Inclusive [min, max] epoch-ms bounds covering every item's span. */

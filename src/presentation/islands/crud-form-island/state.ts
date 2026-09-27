@@ -6,6 +6,8 @@
  */
 
 import { useState } from 'react'
+import { recordValueText } from '@/presentation/design/field-type-behavior'
+import { readResponseToken } from '../hooks/use-save-tokens'
 import { useCreateRecord, useUpdateRecord, useDeleteRecord } from '../hooks/use-table-mutations'
 import { type FieldDef } from '../parts/crud-form/fields'
 import { type CrudFormIslandProps, type FormState, type SubmitContext } from './types'
@@ -24,12 +26,7 @@ function buildInitialValues(
       // `{ name, url, size }`) must be JSON-serialised, not coerced via
       // `String()` (which would yield "[object Object]") so the file-field
       // island can re-parse the existing attachment in edit mode (FORM-037).
-      const recordValue =
-        fromRecord !== undefined && fromRecord !== null
-          ? typeof fromRecord === 'object'
-            ? JSON.stringify(fromRecord)
-            : String(fromRecord)
-          : ''
+      const recordValue = recordValueText(fromRecord)
       // Initial values (from URL/external) > record (edit mode) > defaultValue (create mode)
       const value = fromInitial ?? (recordValue !== '' ? recordValue : fallbackDefault)
       return [f.name, value]
@@ -76,6 +73,13 @@ export function useCrudFormState(props: CrudFormIslandProps) {
   } = props
   const [values, setValues] = useState(() => buildInitialValues(fields, record, initialValues))
   const [state, setState] = useState<FormState>({ isPending: false })
+  // The version the form was filled from, then the one each save produced: a
+  // second save from the same form must not conflict with the first one.
+  const [updatedAt, setUpdatedAt] = useState(() => readResponseToken(record))
+  const rememberUpdatedAt = (response: unknown) => {
+    const token = readResponseToken(response)
+    if (token !== undefined) setUpdatedAt(token)
+  }
   const resetValues = () =>
     setValues((prev) => buildResetValues(fields, prev, preserveFields ?? []))
   const ctx: SubmitContext = {
@@ -83,6 +87,8 @@ export function useCrudFormState(props: CrudFormIslandProps) {
     tableName: table,
     fields,
     recordId,
+    ...(updatedAt !== undefined && { updatedAt }),
+    rememberUpdatedAt,
     redirectUrl,
     successToast,
     resetOnSuccess,

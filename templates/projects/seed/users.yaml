@@ -1,0 +1,23 @@
+# The five people of Fernhill, created as sign-in accounts before any table is
+# filled, so projects and tasks can name them as owners and assignees.
+#
+# Camille leads the projects and is the admin; the four others are members who
+# work their own tasks. No password is written here: every account takes
+# `SOVRIUM_SEED_PASSWORD` from the environment, so a password never lands in a
+# file you might commit.
+users:
+  - email: camille.roux@fernhill.example
+    name: Camille Roux
+    role: admin
+  - email: yann.kerbrat@fernhill.example
+    name: Yann Kerbrat
+    role: member
+  - email: aicha.diallo@fernhill.example
+    name: Aïcha Diallo
+    role: member
+  - email: jonas.weber@fernhill.example
+    name: Jonas Weber
+    role: member
+  - email: marta.silva@fernhill.example
+    name: Marta Silva
+    role: member

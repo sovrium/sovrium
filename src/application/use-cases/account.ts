@@ -165,6 +165,9 @@ function buildExportPayload(sources: Readonly<ExportSources>) {
       // so this is safe on both dialects (without it the Zod contract rejects the
       // numeric value and the export 500s on the zero-config SQLite default).
       emailVerified: Boolean(user.emailVerified),
+      // The two operator-email preferences, coerced for the same SQLite reason.
+      notifyAutomationAlerts: Boolean(user.notifyAutomationAlerts),
+      notifyWeeklyDigest: Boolean(user.notifyWeeklyDigest),
       role: normalizeRole(user.role),
       createdAt: new Date(user.createdAt).toISOString(),
       updatedAt: new Date(user.updatedAt).toISOString(),

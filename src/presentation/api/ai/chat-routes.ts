@@ -17,6 +17,7 @@ import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { chatRequestSchema } from '@/domain/models/api/ai/chat'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { isSystemAgentName } from '@/domain/models/app/agents/agent-identity'
 import { type ContextPageScope } from '@/domain/models/app/agents/ai-chat-context'
 import { buildChatToolDefinitions } from '@/domain/models/app/agents/ai-chat-tools'
 import {
@@ -25,7 +26,17 @@ import {
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
-import { resolveAgentTurnBinding, type AgentTurnBinding } from '@/presentation/api/ai/agent-chat'
+import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
+import {
+  agentAttribution,
+  resolveAgentTurnBinding,
+  resolveSystemAgentTurnBinding,
+  type AgentTurnBinding,
+} from '@/presentation/api/ai/agent-chat'
+import {
+  createAiAnonRateLimit,
+  type AiAnonRateLimit,
+} from '@/presentation/api/ai/ai-anon-rate-limit'
 import { recordChatActivity } from '@/presentation/api/ai/chat-activity-log'
 import { buildChatContextPrompt } from '@/presentation/api/ai/chat-context-prompt'
 import { appendConversationTurn } from '@/presentation/api/ai/chat-conversation-store'
@@ -220,19 +231,9 @@ const applyChatRateLimit = (
   const session = getSessionContext(c as unknown as Context)
   const principalKey = session?.userId ?? 'anonymous'
   const decision = checkChatRateLimit(principalKey)
-  if (decision.limited) {
-    return {
-      rejected: c.json(
-        errorBody({
-          error: 'You have exceeded the AI chat rate limit. Please try again later.',
-          code: ApiErrorCode.RATE_LIMITED,
-        }),
-        429,
-        { 'Retry-After': decision.retryAfter.toString() }
-      ),
-    }
-  }
-  return { decision }
+  return decision.limited
+    ? { rejected: rateLimitedResponse(c as unknown as Context, decision.retryAfter) }
+    : { decision }
 }
 
 /**
@@ -261,40 +262,71 @@ export const runAgentBoundChatTurn = async (
   app: App,
   req: { readonly message: string; readonly sessionId: string; readonly agentName: string }
 ): Promise<Response> => {
-  const binding = resolveAgentTurnBinding(app, req.agentName)
-  if (binding === undefined) {
-    return c.json(
-      errorBody({
-        error: `Agent '${req.agentName}' is not declared in the app schema.`,
-        code: ApiErrorCode.NOT_FOUND,
-      }),
-      404
-    )
+  const scope = await resolveAgentTurnScope(c, app, req.agentName)
+  if (scope === undefined) {
+    const error = `Agent '${req.agentName}' is not declared in the app schema.`
+    return c.json(errorBody({ error, code: ApiErrorCode.NOT_FOUND }), 404)
   }
-  const session = getSessionContext(c as unknown as Context)
-  const actorName = session?.userId ?? 'anonymous'
+  const actorName = getSessionContext(c as unknown as Context)?.userId ?? 'anonymous'
   return runChatTurn(c, {
     services: requireDomainContext(c),
-    systemPrompt: binding.systemPrompt,
+    systemPrompt: scope.binding.systemPrompt,
     message: req.message,
     sessionId: req.sessionId,
     actorName,
-    // The agent acts under its DECLARED role, not the caller's — that is what
-    // makes an agent's reach a property of the config rather than of whoever
-    // happens to be chatting with it. An agent has no
-    // user identity and therefore no group memberships, so its effective-role
-    // list is its declared role alone: widening this to the CALLER's groups
-    // would be a privilege escalation, not a group-awareness fix.
-    userRole: binding.role,
-    effectiveRoles: [binding.role],
+    userRole: scope.userRole,
+    effectiveRoles: scope.effectiveRoles,
     app,
-    agent: binding,
+    agent: scope.binding,
   })
 }
 
-const handleChat = async (c: Readonly<Context>, app?: App): Promise<Response> => {
+interface AgentTurnScope {
+  readonly binding: AgentTurnBinding
+  readonly userRole: string
+  readonly effectiveRoles: readonly string[]
+}
+
+/**
+ * The binding of an agent-bound turn and the principal its tools read as.
+ *
+ * A DECLARED agent acts under its declared role, not the caller's — that is
+ * what makes an agent's reach a property of the config rather than of whoever
+ * happens to be chatting with it. An agent has no user
+ * identity and therefore no group memberships, so its effective-role list is
+ * its declared role alone: widening this to the CALLER's groups would be a
+ * privilege escalation, not a group-awareness fix.
+ *
+ * The built-in System Agent is the one exception, and deliberately so: it is
+ * the caller's own read-only assistant, so it reads AS the caller. Its prompt
+ * and its tools are built from the tables the caller may read, which is what
+ * keeps it from handing a member a table only an admin may read.
+ */
+const resolveAgentTurnScope = async (
+  c: Readonly<Context>,
+  app: App,
+  agentName: string
+): Promise<AgentTurnScope | undefined> => {
+  if (isSystemAgentName(agentName)) {
+    const { userRole, effectiveRoles } = await resolveUserPrincipal(c)
+    const readable = toToolCallTables(app, userRole, effectiveRoles)
+    return { binding: resolveSystemAgentTurnBinding(app, readable), userRole, effectiveRoles }
+  }
+  const binding = resolveAgentTurnBinding(app, agentName)
+  return binding && { binding, userRole: binding.role, effectiveRoles: [binding.role] }
+}
+
+const handleChat = async (
+  c: Readonly<Context>,
+  app: App | undefined,
+  anonLimit: AiAnonRateLimit
+): Promise<Response> => {
   const disabled = aiDisabledResponse(c)
   if (disabled) return disabled
+  // The anonymous limit (apps without `auth`) runs first, so a refused caller
+  // reaches neither the body parser nor the model.
+  const anonymous = anonLimit(c as unknown as Context, app, 'chat')
+  if (anonymous !== undefined) return anonymous
   const parsed = await parseRequestBody(c)
   if ('error' in parsed) {
     return c.json(errorBody({ error: parsed.error, code: ApiErrorCode.BAD_REQUEST }), 400)
@@ -477,7 +509,7 @@ const chatProviderFailure = async (
  * every turn.
  */
 const replayedHistory = async (input: ChatTurnInput): Promise<ReadonlyArray<ChatMessage>> =>
-  input.agent !== undefined
+  input.agent !== undefined && input.agent.builtIn !== true
     ? []
     : loadDurableHistory(input.services, input.actorName, input.sessionId)
 
@@ -544,7 +576,7 @@ const runChatTurn = async (c: Readonly<Context>, input: ChatTurnInput): Promise<
       sessionId: input.sessionId,
       userMessage: input.message,
       rateLimitRemaining: input.rateLimitRemaining,
-      ...(agent !== undefined && { agentName: agent.name }),
+      ...(agentAttribution(agent) !== undefined && { agentName: agentAttribution(agent) }),
     })
   }
 
@@ -584,7 +616,7 @@ const finishAgentTurn = async (
     sessionId: input.sessionId,
     userMessage: input.message,
     assistantReply: reply,
-    agentName: agent.name,
+    ...(agentAttribution(agent) !== undefined && { agentName: agentAttribution(agent) }),
   })
   await recordChatActivity(input.services, {
     action: 'ai.chat.message',
@@ -607,9 +639,15 @@ const finishAgentTurn = async (
 // keeping this file under the `max-lines` cap. This handler stays here so the
 // route registration and auth wiring are co-located with the buffered route.
 
-const handleChatStream = async (c: Readonly<Context>): Promise<Response> => {
+const handleChatStream = async (
+  c: Readonly<Context>,
+  app: App | undefined,
+  anonLimit: AiAnonRateLimit
+): Promise<Response> => {
   const disabled = aiDisabledResponse(c)
   if (disabled) return disabled
+  const anonymous = anonLimit(c as unknown as Context, app, 'chat')
+  if (anonymous !== undefined) return anonymous
   const parsed = await parseRequestBody(c)
   if ('error' in parsed) {
     return c.json(errorBody({ error: parsed.error, code: ApiErrorCode.BAD_REQUEST }), 400)
@@ -641,10 +679,13 @@ const handleChatStream = async (c: Readonly<Context>): Promise<Response> => {
  * MCP tool catalog rather than table tools.
  */
 export function chainAiChatRoutes<T extends Hono>(honoApp: T, app?: App): T {
+  // One window per route chain, shared by the buffered and streamed routes: an
+  // anonymous visitor's chat budget is the same whichever transport it uses.
+  const anonLimit = createAiAnonRateLimit()
   const withChat = honoApp
-    .post('/api/ai/chat', (c) => handleChat(c as unknown as Readonly<Context>, app))
+    .post('/api/ai/chat', (c) => handleChat(c as unknown as Readonly<Context>, app, anonLimit))
     .post('/api/ai/chat/stream', (c) =>
-      handleChatStream(c as unknown as Readonly<Context>)
+      handleChatStream(c as unknown as Readonly<Context>, app, anonLimit)
     ) as unknown as T
   // Conversation-history routes (GET list, GET :sessionId, DELETE :sessionId)
   // for durable chat memory. Auth is

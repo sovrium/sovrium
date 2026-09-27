@@ -6,7 +6,7 @@ A KPI card states one number. It aggregates the records its `dataSource` binds a
 
 <!-- sovrium:options type:kpi depth=3 -->
 
-`label` is the metric's name and `icon` draws beside the value. `kpiAggregate` is `{ function, field }` — `function` is required, and `field` is omitted for `count`. `kpiFormat` is `{ type, options }`, where `type` is `number`, `currency`, `percentage`, `compact` or `bytes`. `thresholds` are `{ value, color }` entries that recolour the card once a value is crossed, over `red`, `green`, `yellow`, `blue` and `gray`.
+`label` is the metric's name and `icon` draws beside the value. `kpiAggregate` is `{ function, field }` — `function` is required, and `field` is omitted for `count`. `kpiFormat` is `{ type, options }`, where `type` is `number`, `currency`, `percentage`, `compact` or `bytes`. A `number` format writes the figure in the page's language — a page whose `meta.lang` is `fr-FR` groups thousands with a space and uses a decimal comma — and reads `minimumFractionDigits` and `maximumFractionDigits` from `options`, so `options: { maximumFractionDigits: '1' }` shows an average of 493.875 as `493.9`, or `493,9` on a French page. A `currency` format shows the precision of the field it summarises — a whole-euro field reads `€667,000`, a field with two decimals keeps its cents — and `currency` and `compact` write the figure in the page language, as `number` does (`667 000 €`, `1,2 M` on a French page). `options.currency` names the currency when declared; a field that declares its own `thousandsSeparator` keeps it on any page. `thresholds` are `{ value, color }` entries that recolour the card once a value is crossed, over `red`, `green`, `yellow`, `blue` and `gray`.
 
 ```yaml
 tables:

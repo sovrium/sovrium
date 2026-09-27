@@ -123,7 +123,7 @@ const compileTableTools = (
     name: `${appName}_${table.name}_${operation}`,
     description: buildTableToolDescription(table.name, operation, access),
     inputSchema: buildToolInputSchema(operation, table, access),
-    annotations: buildTableToolAnnotations(operation, access, confirmDestructive),
+    annotations: buildTableToolAnnotations({ operation, operations, access, confirmDestructive }),
   }))
 }
 
@@ -295,16 +295,28 @@ const resolveOperations = (access: AiAccess | undefined): ReadonlyArray<AiAccess
  * `requireConfirmation: true` from the rich aiAccess form forces
  * `destructiveHint=true` regardless of the operation type — this is the
  * lever for tagging non-reversible side effects (e.g. send-email).
+ *
+ * `annotations.readOnly` is table-wide but `readOnlyHint` is per tool, and a
+ * client may run a read-only tool without asking. So the override is honoured
+ * only when every exposed operation is a read: on a table that also exposes
+ * writes, the verb decides — read and list stay read-only, create, update and
+ * delete never are — because either override value would otherwise mark one
+ * half of the table's tools with the opposite of what they do.
  */
-const buildTableToolAnnotations = (
-  operation: AiAccessOperation,
-  access: AiAccess | undefined,
-  confirmDestructive: boolean
-): CompiledToolAnnotations => {
-  const overrides = typeof access === 'object' ? access.annotations : undefined
+const buildTableToolAnnotations = (input: {
+  readonly operation: AiAccessOperation
+  readonly operations: ReadonlyArray<AiAccessOperation>
+  readonly access: AiAccess | undefined
+  readonly confirmDestructive: boolean
+}): CompiledToolAnnotations => {
+  const { operation, operations, access, confirmDestructive } = input
+  const authored = typeof access === 'object' ? access.annotations : undefined
+  const exposesWrites = operations.some((op) => !isReadOperation(op))
+  const overrides =
+    exposesWrites && authored !== undefined ? { ...authored, readOnly: undefined } : authored
   const requireConfirmation =
     typeof access === 'object' ? (access.requireConfirmation ?? false) : false
-  const isReadOnly = operation === 'read' || operation === 'list'
+  const isReadOnly = isReadOperation(operation)
   const isDestructive = operation === 'delete'
   const isIdempotent = operation !== 'create'
   const merged = mergeAnnotations(
@@ -367,6 +379,9 @@ const forceDestructiveOnConfirmation = (
   if (!requireConfirmation) return annotations
   return { ...annotations, destructiveHint: true }
 }
+
+const isReadOperation = (operation: AiAccessOperation): boolean =>
+  operation === 'read' || operation === 'list'
 
 const mergeAnnotations = (
   defaults: CompiledToolAnnotations,

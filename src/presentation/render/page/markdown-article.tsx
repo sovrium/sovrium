@@ -42,7 +42,9 @@ import type { ResolvedMarkdownPage } from '@/presentation/render/markdown/markdo
 const ARTICLE_LAYOUT_CLASSES: Readonly<
   Record<Exclude<ResolvedMarkdownPage['layout'], 'none'>, string>
 > = {
-  prose: 'mx-auto max-w-3xl px-4 py-12',
+  // `prose` shares the docs layout's typographic recipe (headings, lists, code
+  // and quotes read the same in both); `max-w-3xl` keeps the centred column.
+  prose: 'prose dark:prose-invert mx-auto max-w-3xl px-4 py-12',
   // `min-w-0` lets the article shrink inside the flex row so long code blocks
   // and wide tables scroll within the column instead of overflowing it.
   // `prose` mints the markdown typography from the `@tailwindcss/typography`
@@ -298,7 +300,8 @@ function renderArticle(
 function renderDocsLayout(
   markdown: ResolvedMarkdownPage,
   article: Readonly<ReactElement>,
-  toc: Readonly<ReactElement> | undefined
+  toc: Readonly<ReactElement> | undefined,
+  labels: DocsChromeLabels
 ): Readonly<ReactElement> {
   if (markdown.collectionNav === undefined) return article
   // 3-column docs shell: left collection nav | article (min-w-0) | right TOC.
@@ -310,8 +313,13 @@ function renderDocsLayout(
     // short article still fills the viewport below the sticky header.
     <div className="bg-background min-h-[calc(100dvh-6.5rem)]">
       <style dangerouslySetInnerHTML={DOCS_PROSE_PATCH_HTML} />
-      <div className="mx-auto flex w-full max-w-7xl items-start gap-4 px-4 lg:gap-8 lg:px-6">
-        <DocsSidebarNav nav={markdown.collectionNav} />
+      {/* Below `lg` the navigation is a menu button above the article, so the row
+          stacks; from `lg` it is the three columns it has always been. */}
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pt-4 lg:flex-row lg:items-start lg:gap-8 lg:px-6 lg:pt-0">
+        <DocsSidebarNav
+          nav={markdown.collectionNav}
+          menuLabel={labels.menu}
+        />
         {article}
         {toc}
       </div>
@@ -337,7 +345,7 @@ function renderMarkdownBody(
     labels
   )
   if (markdown.layout === 'docs') {
-    return renderDocsLayout(markdown, article, sidebarToc)
+    return renderDocsLayout(markdown, article, sidebarToc, labels)
   }
   if (sidebarToc !== undefined) {
     return (

@@ -58,6 +58,12 @@ The disposition is the one with nuance. Only **raster** images are ever served i
 
 A non-ASCII filename is emitted in the encoded form, so a header never breaks on a multi-byte name.
 
+## Files named by a record
+
+A record or form submission that names an existing file must name one uploaded to that column's bucket and downloadable by the writer's role; otherwise the write is refused with a 400 that never says whether the file exists.
+
+The three conditions — the file is known to storage, it was uploaded into the column's bucket, and the writer's role may download from that bucket — are all evaluated for every reference, and a refusal carries one message whichever of them failed: `Attachment must reference a file uploaded to this field's bucket that you can access`. Without this rule, a key is a read by proxy: a member who may write a record but not download from a restricted bucket could name a restricted file in a record they can read, and every reader that trusts the record would then serve it.
+
 ## What this does not cover
 
 Two things the platform will not do for you:

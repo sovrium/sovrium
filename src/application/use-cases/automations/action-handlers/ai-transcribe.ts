@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { SpeechService } from '@/application/ports/services/speech-service'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
+import { oversizedRecordingRefusal } from '@/domain/models/process-env/ai/speech'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   audioMimeForTranscription,
@@ -63,22 +64,56 @@ const rawSource = (
 }
 
 /**
- * The recording's MIME type: the attachment's own, else the catalog's, else the key's.
+ * The recording's catalog row, read ONCE for both its MIME type and its size,
+ * or `undefined` when the key has none.
  *
- * A failed catalog lookup is swallowed without a log on purpose: "no catalog
- * row" is the ordinary case for a key written outside the upload route, and the
- * extension fallback answers it. A real storage failure is not lost — the
- * download that follows hits the same store and logs its cause.
+ * A failed lookup is swallowed without a log on purpose: "no catalog row" is
+ * the ordinary case for a key written outside the upload route, and the
+ * fallbacks answer it — the extension for the MIME type, the speech service's
+ * own check on the downloaded bytes for the size. A real storage failure is
+ * not lost: the download that follows hits the same store and logs its cause.
  */
-const resolveMimeType = (source: TranscribeSource) =>
+const readCatalogRow = (source: TranscribeSource) =>
   Effect.gen(function* () {
-    if (source.mimeType !== undefined) return source.mimeType
     const storage = yield* StorageService
     const metadata = yield* Effect.result(storage.getMetadata(source.key, source.bucket))
-    const cataloged = metadata._tag === 'Success' ? metadata.success.contentType : undefined
-    return cataloged !== undefined && cataloged !== 'application/octet-stream'
-      ? cataloged
-      : inferMimeFromKey(source.key)
+    return metadata._tag === 'Success' ? metadata.success : undefined
+  })
+
+/** The recording's MIME type: the attachment's own, else the catalog's, else the key's. */
+const resolveMimeType = (source: TranscribeSource, catalogued: string | undefined): string => {
+  if (source.mimeType !== undefined) return source.mimeType
+  return catalogued !== undefined && catalogued !== 'application/octet-stream'
+    ? catalogued
+    : inferMimeFromKey(source.key)
+}
+
+/**
+ * Everything decided before a byte is downloaded: the audio MIME type, or the
+ * reason the step fails. A recording whose CATALOGUED size is over
+ * `STT_MAX_FILE_BYTES` is refused here, so a two-hour recording is never read
+ * into memory only to be refused by the speech service afterwards.
+ */
+type Preflight = { readonly refusal: string } | { readonly audioMime: string }
+
+const preflight = (source: TranscribeSource) =>
+  Effect.gen(function* () {
+    const row = yield* readCatalogRow(source)
+    const mimeType = resolveMimeType(source, row?.contentType)
+    const audioMime = audioMimeForTranscription(mimeType)
+    if (audioMime === undefined) {
+      const notAudio: Preflight = {
+        refusal: `ai.transcribe needs an audio recording, but "${source.fileName}" is ${mimeType}`,
+      }
+      return notAudio
+    }
+    const { maxFileBytes } = yield* SpeechService
+    const oversized =
+      row === undefined || maxFileBytes === undefined
+        ? undefined
+        : oversizedRecordingRefusal(row.size, maxFileBytes)
+    const decided: Preflight = oversized === undefined ? { audioMime } : { refusal: oversized }
+    return decided
   })
 
 const toOutput = (transcript: Transcript): Readonly<Record<string, unknown>> => ({
@@ -99,13 +134,9 @@ export const handleAiTranscribe: ActionHandler = (action, _app, _automation, run
       return failure('ai.transcribe requires a source: a storage key or an attachment value')
     }
 
-    const mimeType = yield* resolveMimeType(source)
-    const audioMime = audioMimeForTranscription(mimeType)
-    if (audioMime === undefined) {
-      return failure(
-        `ai.transcribe needs an audio recording, but "${source.fileName}" is ${mimeType}`
-      )
-    }
+    const checked = yield* preflight(source)
+    if ('refusal' in checked) return failure(checked.refusal)
+    const { audioMime } = checked
 
     const storage = yield* StorageService
     // The step fails either way, but its message cannot tell a missing key from

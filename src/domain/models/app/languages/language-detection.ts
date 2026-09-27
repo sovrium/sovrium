@@ -146,6 +146,20 @@ export function resolvePreferredLanguage(
 }
 
 /**
+ * The declared `supported[]` entry a language value names, by either spelling
+ * — the short `code` (`fr`) or the full `locale` (`fr-FR`). The one match the
+ * three `findDeclared*` readers below share, so they cannot disagree about
+ * which declaration a value means.
+ */
+const findSupportedLanguage = (
+  languages: Languages | undefined,
+  raw: string | undefined
+): Languages['supported'][number] | undefined =>
+  languages && raw
+    ? languages.supported.find((language) => language.code === raw || language.locale === raw)
+    : undefined
+
+/**
  * Resolve the locale a raw language value means for this app — DECLAREDNESS
  * only, with no view on whether the app wants preferences remembered.
  *
@@ -176,10 +190,7 @@ export function findDeclaredLanguage(
   languages: Languages | undefined,
   raw: string | undefined
 ): string | undefined {
-  if (!languages || !raw) return undefined
-  const declared = languages.supported.find(
-    (language) => language.code === raw || language.locale === raw
-  )
+  const declared = findSupportedLanguage(languages, raw)
   return declared ? (declared.locale ?? declared.code) : undefined
 }
 
@@ -211,7 +222,35 @@ export function findDeclaredLanguageCode(
   languages: Languages | undefined,
   raw: string | undefined
 ): string | undefined {
-  if (!languages || !raw) return undefined
-  return languages.supported.find((language) => language.code === raw || language.locale === raw)
-    ?.code
+  return findSupportedLanguage(languages, raw)?.code
+}
+
+/**
+ * The text DIRECTION of a declared language — `supported[].direction`.
+ *
+ * Every app document sets `<html dir>` from this — pages, hosted forms and
+ * the closed-form page — and they must answer the same way: a page and a
+ * hosted form of the same app, in the same language, may not disagree about
+ * which side the text starts on.
+ *
+ * Accepts either spelling (`ar` or `ar-SA`), like its siblings, because the
+ * resolved document language is sometimes a code and sometimes a locale. A
+ * language the app does not declare — or an app with no `languages` block —
+ * reads left to right, which is also what a declared language omitting
+ * `direction` means.
+ *
+ * @param languages - The app's own languages configuration
+ * @param lang - The resolved document language
+ * @returns `'rtl'` only when the matching declared language says so
+ *
+ * @example
+ * findDeclaredDirection(languages, 'ar')    // => 'rtl'
+ * findDeclaredDirection(languages, 'en-US') // => 'ltr'
+ * findDeclaredDirection(undefined, 'ar')    // => 'ltr' (no declaration)
+ */
+export function findDeclaredDirection(
+  languages: Languages | undefined,
+  lang: string | undefined
+): 'ltr' | 'rtl' {
+  return findSupportedLanguage(languages, lang)?.direction ?? 'ltr'
 }

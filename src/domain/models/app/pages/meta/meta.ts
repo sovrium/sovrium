@@ -12,6 +12,7 @@ import { DnsPrefetchSchema } from './dns-prefetch'
 import { FaviconSchema, FaviconSetSchema, FaviconsConfigSchema } from './favicon'
 import { OpenGraphSchema } from './open-graph'
 import { PreloadSchema } from './preload'
+import { StructuredDataFieldSchema } from './structured-data-synthesis'
 import { TwitterCardSchema } from './twitter'
 
 // Re-export all section schemas and types
@@ -124,11 +125,7 @@ export const MetaSchema = Schema.Struct({
   customElements: Schema.optional(CustomElementsSchema),
   // Aliases for test compatibility
   twitterCard: Schema.optional(TwitterCardSchema),
-  structuredData: Schema.optionalKey(
-    Schema.UndefinedOr(Schema.Unknown).annotate({
-      description: 'Alias of `schema`, kept for configs written against the older name.',
-    })
-  ),
+  structuredData: Schema.optionalKey(Schema.UndefinedOr(StructuredDataFieldSchema)),
   'og:site_name': Schema.optional(
     Schema.String.annotate({
       description: 'OpenGraph site name (shorthand for openGraph.siteName)',

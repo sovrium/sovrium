@@ -1,0 +1,55 @@
+# What happened to an asset, in plain words, newest last.
+#
+# The MacBook lent to Tomás carries its whole story, as its drawer shows it:
+# registered, repaired, lent to Sarah and back, lent to Tomás. The others carry
+# the line that explains where they are today. Dates are relative to the day the
+# seed runs.
+records:
+  - key: ev-0262-registered
+    fields:
+      asset: '@assets.ar-0262'
+      happened_on: '{{today-208d}}'
+      event: Registered
+      detail: €1,890 · Paris HQ
+  - key: ev-0262-keyboard
+    fields:
+      asset: '@assets.ar-0262'
+      happened_on: '{{today-114d}}'
+      event: Keyboard replaced under warranty
+      detail: Ateliers Rémi · €0
+  - key: ev-0262-sarah-back
+    fields:
+      asset: '@assets.ar-0262'
+      happened_on: '{{today-27d}}'
+      event: Checked in by Sarah Lemoine
+      detail: 'Condition: good'
+  - key: ev-0262-tomas-out
+    fields:
+      asset: '@assets.ar-0262'
+      happened_on: '{{today-14d}}'
+      event: Checked out to Tomás Ferreira
+      detail: By Claire Arden · return today
+  - key: ev-0576-missing
+    fields:
+      asset: '@assets.ar-0576'
+      happened_on: '{{today-3d}}'
+      event: Not found at the count
+      detail: Desk 9 was empty · counted by Claire Arden
+  - key: ev-1252-repair
+    fields:
+      asset: '@assets.ar-1252'
+      happened_on: '{{today-6d}}'
+      event: Sent for repair
+      detail: Cracked hinge · Ateliers Rémi
+  - key: ev-1320-repair
+    fields:
+      asset: '@assets.ar-1320'
+      happened_on: '{{today-4d}}'
+      event: Sent for repair
+      detail: Battery swap · Ateliers Rémi
+  - key: ev-1498-retired
+    fields:
+      asset: '@assets.ar-1498'
+      happened_on: '{{today-160d}}'
+      event: Retired
+      detail: Written off · wiped and recycled

@@ -1,0 +1,1 @@
+ALTER TABLE "system"."automation_pauses" ADD COLUMN "reason" text;

@@ -47,6 +47,7 @@
  */
 
 import { buildFilterExpression } from '@/presentation/design/filter-expression'
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import {
   isOpenSpecimen,
   renderOpenDateRangePanel,
@@ -100,6 +101,7 @@ const richTextEditorComponent: ComponentRenderer = ({ component, rawProps, eleme
       className={marker.className}
       data-testid={marker.testId}
       data-island="rich-text-editor"
+      data-component-type={hostComponentType(elementProps)}
       data-island-props={JSON.stringify(props)}
     >
       <IslandSkeleton
@@ -133,6 +135,7 @@ const codeEditorComponent: ComponentRenderer = ({ component, rawProps, elementPr
       className={marker.className}
       data-testid={marker.testId}
       data-island="code-editor"
+      data-component-type={hostComponentType(elementProps)}
       data-island-props={JSON.stringify(props)}
     >
       <IslandSkeleton
@@ -179,6 +182,7 @@ const dateRangePickerComponent: ComponentRenderer = ({ component, rawProps, elem
       className={marker.className}
       data-testid={marker.testId}
       data-island={openPanelHtml === undefined ? 'date-range-picker' : undefined}
+      data-component-type={hostComponentType(elementProps)}
       data-island-props={openPanelHtml === undefined ? JSON.stringify(props) : undefined}
       data-specimen-open={openPanelHtml === undefined ? undefined : 'true'}
     >
@@ -250,6 +254,7 @@ const filterBarComponent: ComponentRenderer = ({ component, rawProps, elementPro
       className={marker.className}
       data-testid={marker.testId}
       data-island="filter-bar"
+      data-component-type={hostComponentType(elementProps)}
       data-island-props={JSON.stringify(props)}
     >
       <IslandSkeleton minHeight="2.25em" />

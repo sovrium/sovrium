@@ -31,17 +31,21 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { buildSystemSession } from '@/application/use-cases/automations/build-guest-session'
+import { referencesOf } from '@/application/use-cases/seed/seed-values'
 import { explainWriteFailure } from '@/application/use-cases/seed/seed-write-failure'
 import { upsertProgram } from '@/application/use-cases/tables/batch-operations'
-import { createRecordProgram } from '@/application/use-cases/tables/write-record-programs'
+import {
+  createRecordProgram,
+  updateRecordProgram,
+} from '@/application/use-cases/tables/write-record-programs'
 import { db } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { generateJunctionTableName } from '@/infrastructure/database/sql/sql-junction-tables'
 import { validateTableName } from '@/infrastructure/database/table-queries/statement/validation'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
-import { emptyKeyIndex, resolveSeedFields, withKey } from './seed-resolve'
+import { emptyKeyIndex, idOfKey, resolveSeedFields, withKey } from './seed-resolve'
 import type { Resolved, SeedKeyIndex, SeedResolveContext } from './seed-resolve'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { SeedTableConfig } from '@/application/use-cases/seed/seed-config'
 import type { PlannedSeedTable, SeedPlan } from '@/application/use-cases/seed/seed-plan'
 import type { App } from '@/domain/models/app'
@@ -57,6 +61,10 @@ export interface ExecuteSeedPlanInput {
   readonly mode: SeedMode
   readonly seedDir: string
   readonly dryRun: boolean
+  /** The actor every row is written as: the system, or the `--as` account. */
+  readonly session: Readonly<UserSession>
+  /** Account ids by lower-cased email, for `@user:<email>` values. */
+  readonly accounts: ReadonlyMap<string, string>
 }
 
 /** The report line(s) one table produced, and the index after writing it. */
@@ -107,10 +115,10 @@ const createOne = async (step: {
   readonly record: PlannedSeedTable['records'][number]
 }): Promise<SeedKeyIndex> => {
   const { input, context, index, table, record } = step
-  const resolved = await resolveSeedFields(context, index, record.fields)
+  const resolved = await resolveSeedFields(context, index, withoutSelfLinks(table, record.fields))
   const result = await runTableProgram(
     createRecordProgram({
-      session: buildSystemSession(),
+      session: input.session,
       tableName: table.name,
       fields: resolved.value,
       app: input.app,
@@ -131,6 +139,72 @@ const createOne = async (step: {
     : resolved.index
 }
 
+type PlannedFields = PlannedSeedTable['records'][number]['fields']
+
+/** True when a planned value links to a row of `table` itself. */
+const isSelfLink = (table: PlannedSeedTable, value: PlannedFields[string]): boolean =>
+  referencesOf(value).some((ref) => ref.table === table.name)
+
+/** A row's fields minus its links to the same table — what the insert writes. */
+const withoutSelfLinks = (table: PlannedSeedTable, fields: PlannedFields): PlannedFields =>
+  Object.fromEntries(Object.entries(fields).filter(([, value]) => !isSelfLink(table, value)))
+
+/** Only a row's links to the same table — what the second pass writes. */
+const selfLinksOf = (table: PlannedSeedTable, fields: PlannedFields): PlannedFields =>
+  Object.fromEntries(Object.entries(fields).filter(([, value]) => isSelfLink(table, value)))
+
+/**
+ * The second pass: write every link a row makes to a row of its own table.
+ *
+ * A self-link cannot go in with the insert, because the row it names may be
+ * defined later in the file and so have no id yet. Rows go in with the link
+ * empty; once every row of the table exists, each link is written onto the row
+ * that carries it. An `upsert` replay goes through here too, writing the same
+ * link again onto the row it merged rather than onto a new one.
+ */
+const writeSelfLinks = (
+  input: ExecuteSeedPlanInput,
+  context: SeedResolveContext,
+  index: SeedKeyIndex,
+  table: PlannedSeedTable
+): Promise<SeedKeyIndex> =>
+  table.records
+    .filter((record) => Object.keys(selfLinksOf(table, record.fields)).length > 0)
+    .reduce<Promise<SeedKeyIndex>>(
+      (previous, record) =>
+        previous.then(async (carried) => {
+          const resolved = await resolveSeedFields(
+            context,
+            carried,
+            selfLinksOf(table, record.fields)
+          )
+          const id = idOfKey(resolved.index, table.name, record.key)
+          if (id === undefined) {
+            // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
+            throw new SeedWriteError(
+              `${table.fileName} (key "${record.key}"): the row was not written, so its link ` +
+                `to the same table cannot be.`
+            )
+          }
+          const result = await runTableProgram(
+            updateRecordProgram(input.session, table.name, String(id), {
+              fields: resolved.value,
+              app: input.app,
+            })
+          )
+          if (result._tag === 'Failure') {
+            const explained = explainWriteFailure(result.failure, {
+              table: input.tables.find((candidate) => candidate.name === table.name),
+              fields: resolved.value,
+            })
+            // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
+            throw new SeedWriteError(`${table.fileName} (key "${record.key}"): ${explained}`)
+          }
+          return resolved.index
+        }),
+      Promise.resolve(index)
+    )
+
 /** Best-effort human text for whatever a table program failed with. */
 const describe = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
@@ -148,6 +222,7 @@ const createAll = (
         previous.then((carried) => createOne({ input, context, index: carried, table, record })),
       Promise.resolve(index)
     )
+    .then((created) => writeSelfLinks(input, context, created, table))
     .then((next) => ({
       value: [`${table.name}: created ${table.records.length} records`],
       index: next,
@@ -195,13 +270,17 @@ const upsertAll = async (
   >(
     (previous, record) =>
       previous.then(async (carried) => {
-        const one = await resolveSeedFields(context, carried.index, record.fields)
+        const one = await resolveSeedFields(
+          context,
+          carried.index,
+          withoutSelfLinks(table, record.fields)
+        )
         return { value: [...carried.value, one.value], index: one.index }
       }),
     Promise.resolve({ value: [], index })
   )
   const result = await runTableProgram(
-    upsertProgram(buildSystemSession(), table.name, {
+    upsertProgram(input.session, table.name, {
       recordsData: resolved.value,
       fieldsToMergeOn: table.mergeOn,
       returnRecords: true,
@@ -219,7 +298,8 @@ const upsertAll = async (
     // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
     throw new SeedWriteError(`${table.fileName}: ${explained}`)
   }
-  const next = await indexUpsertedKeys(resolved.index, table, resolved.value)
+  const indexed = await indexUpsertedKeys(resolved.index, table, resolved.value)
+  const next = await writeSelfLinks(input, context, indexed, table)
   return {
     value: [`${table.name}: created ${result.success.created}, updated ${result.success.updated}`],
     index: next,
@@ -266,12 +346,20 @@ const runReplaceDeletes = (input: ExecuteSeedPlanInput): Promise<void> =>
       )
     })
 
-/** The report a `--dry-run` prints instead of writing. */
-const dryRunLines = (plan: SeedPlan): readonly string[] =>
+/**
+ * The report a `--dry-run` prints instead of writing.
+ *
+ * Under `upsert` it says "would write", never "would create": whether each row
+ * is created or updated depends on what the table holds when the run happens,
+ * and a dry run that counted replayed rows as creations would misreport every
+ * idempotent re-import.
+ */
+export const dryRunLines = (plan: SeedPlan, mode: SeedMode): readonly string[] =>
   plan.order.flatMap((name) => {
     const table = plan.tables.find((candidate) => candidate.name === name)
-    return table === undefined
-      ? []
+    if (table === undefined) return []
+    return mode === 'upsert'
+      ? [`[dry-run] ${name}: would write ${table.records.length} records (mode: upsert)`]
       : [`[dry-run] ${name}: would create ${table.records.length} records`]
   })
 
@@ -283,13 +371,14 @@ const dryRunLines = (plan: SeedPlan): readonly string[] =>
  * code is the only signal the nightly reset produces.
  */
 export const executeSeedPlan = async (input: ExecuteSeedPlanInput): Promise<readonly string[]> => {
-  if (input.dryRun) return [...dryRunLines(input.plan), '[dry-run] no changes written']
+  if (input.dryRun) return [...dryRunLines(input.plan, input.mode), '[dry-run] no changes written']
 
   const cleared = input.mode === 'replace' ? runReplaceDeletes(input) : Promise.resolve()
   const context: SeedResolveContext = {
     plan: input.plan,
     tables: input.tables,
     seedDir: input.seedDir,
+    accounts: input.accounts,
   }
 
   return cleared.then(() =>

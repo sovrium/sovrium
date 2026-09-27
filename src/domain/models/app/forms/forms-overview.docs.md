@@ -41,6 +41,8 @@ submitTo:
 
 The table write and the ledger write happen inside **one transaction**; the automation runs only after both commit. A form can therefore dual-write and fire a workflow without the workflow ever seeing a row that was subsequently rolled back.
 
+A question left empty is stored empty — never as an empty string a relationship, a number or a date column refuses; a `status` column is a select of its options, and a `user` column offers a signed-in visitor the accounts by name. When the database refuses a submission, the reason is shown under the field it refused.
+
 ## Routes
 
 Every form is reachable at `/forms/{name}` whatever else is configured — a form with no `path` is not private, it is simply only reachable there. Setting `path` serves the form at that custom path **as well as** the canonical one, with no redirect; both URLs render the same form.
@@ -78,6 +80,8 @@ A form whose access is `all` may **not** carry a per-field default referencing t
 ## Embedding a form in a page
 
 A top-level form renders inline inside a page through the form control's `formRef`. The form is defined once and reused: fields, validation, conditional logic, multi-step layout, uploads and the success and error handling all flow from the declaration. The host page's access control is intersected with the form's own at render time.
+
+A `formRef` expands wherever it sits: a `dialog` with `formRef` inside any container, and a `form` with `formRef` inside a dialog's `children`, render the referenced form with its labels, rules and submission endpoint.
 
 ```yaml
 pages:

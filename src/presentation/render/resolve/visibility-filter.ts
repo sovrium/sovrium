@@ -9,17 +9,17 @@
  * Component-level visibility filtering for the page renderer.
  *
  * Extracted from `render-page.tsx` so the entry file stays under the
- * line cap. The three strategies are:
+ * line cap. EVERY gate excludes — none of them hides with CSS:
  *   - `capability` — fully exclude the component AND its subtree from the SSR
  *     output, based on what the CALLER may do (see
  *     {@link applyCallerCapabilityGate}). The same pass gates a data-table
  *     ACTION COLUMN, which carries its capability at its own root rather than
  *     under `visibility` (see {@link gateColumns}).
- *   - `condition` — fully exclude the component from the SSR output (the
- *     value never reaches the HTML for unauthorised users).
- *   - `when` / `roles` — render the component but inject `display: none`
- *     into its style prop (preserves DOM structure for client-side
- *     rehydration).
+ *   - `condition` / `when` / `roles` — fully exclude the component AND its
+ *     subtree from the SSR output, at any depth (see
+ *     {@link applyVisibilityToComponents}). These are access controls: a
+ *     reader they exclude must not receive the gated text at all, and a
+ *     `display: none` node still ships it in the bytes.
  *
  * Visibility config is read off `component.visibility` OR
  * `component.props.visibility`. BOTH positions are read because the schema
@@ -31,6 +31,7 @@
  * definitions.
  */
 
+import { splitGroupReferences } from '@/domain/models/app/auth/groups/group-reference'
 import { isAdminEquivalent, isAdminTier } from '@/domain/models/app/auth/roles'
 import { isCapabilityMet } from '@/domain/models/app/pages/page-requires'
 import { matchesConditionOperators } from '@/domain/models/app/tables/condition-operators'
@@ -38,7 +39,6 @@ import { isComponentReferenceNode } from '@/presentation/render/resolve/componen
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
-import type { Component } from '@/domain/models/app/pages/components'
 import type {
   CallerCapability,
   RuntimeCapability,
@@ -104,27 +104,57 @@ function evaluateCondition(
 }
 
 /**
- * Checks if the session role satisfies the role requirements of a visibility config.
+ * Checks if the session satisfies the role requirements of a visibility config.
+ *
+ * Page `access` (`isSessionAuthorized` in `page-access-check.ts`) matches its
+ * entries the same way, for the first two rules:
+ *   - a plain entry matches the session role or any `effectiveRoles` overlay;
+ *   - a `group:<name>` entry matches a member of that group.
+ *
+ * The admin rule is where the two DIFFER, deliberately. Page `access` lets an
+ * admin-equivalent session (`session.isUnrestricted`, which the auth context
+ * computes as `isAdminEquivalent(role, app)`) through EVERY role list. Here the
+ * same predicate applies only to a gate that NAMES `admin`: it admits the
+ * app's admin-equivalent role — the resolved top role when the app declares
+ * one above the built-in admin — in addition to the literal `admin` role the
+ * first rule already matches. A block gated `roles: [auditor]` is for
+ * auditors, and an administrator reaches it only by holding that role. A
+ * component composing `roles` with `capability` relies on exactly that (the
+ * two are AND-ed, and the administrator holds the capability but not the
+ * role).
  */
-function isRoleVisible(visibility: VisibilityConfig, session: SessionInfo | undefined): boolean {
+function isRoleVisible(
+  visibility: VisibilityConfig,
+  session: SessionInfo | undefined,
+  app: App
+): boolean {
   if (!visibility.roles || visibility.roles.length === 0) return true
   if (session === undefined) return false
-  return visibility.roles.includes(session.role)
+  const { roles, groups } = splitGroupReferences(visibility.roles)
+  if (holdsListedRole(roles, session, app)) return true
+  const userGroups = session.groups ?? []
+  return groups.some((group) => userGroups.includes(group))
+}
+
+/** True when the session role, an overlay role, or the admin bypass matches `roles`. */
+function holdsListedRole(roles: readonly string[], session: SessionInfo, app: App): boolean {
+  if (roles.includes(session.role)) return true
+  if ((session.effectiveRoles ?? []).some((role) => roles.includes(role))) return true
+  return roles.includes('admin') && isAdminEquivalent(session.role, app)
 }
 
 /**
- * Determines if a section should be visible given the current session.
+ * True when the `when` / `roles` half of a visibility config admits the session.
  */
-function isSectionVisible(visibility: VisibilityConfig, session: SessionInfo | undefined): boolean {
+function isSessionGateMet(
+  visibility: VisibilityConfig,
+  session: SessionInfo | undefined,
+  app: App
+): boolean {
   const isAuthenticated = session !== undefined
-
   if (visibility.when === 'authenticated' && !isAuthenticated) return false
   if (visibility.when === 'unauthenticated' && isAuthenticated) return false
-  if (!isRoleVisible(visibility, session)) return false
-  if (visibility.condition !== undefined && !evaluateCondition(visibility.condition, session))
-    return false
-
-  return true
+  return isRoleVisible(visibility, session, app)
 }
 
 /**
@@ -150,87 +180,158 @@ function extractVisibility(node: unknown): VisibilityConfig | undefined {
 }
 
 /**
- * Returns true when visibility is purely condition-based (no when/roles).
- */
-function isConditionOnlyVisibility(visibility: VisibilityConfig): boolean {
-  return !visibility.when && (!visibility.roles || visibility.roles.length === 0)
-}
-
-/**
- * Applies visibility to a single section: either returns it unchanged,
- * or injects `display: none` into its style prop.
- */
-function applyVisibilityToSection(
-  section: Page['components'][number],
-  session: SessionInfo | undefined
-): Page['components'][number] {
-  // The VALUE, not the key: `specimen` declares a `component` field holding a
-  // whole component, and a key test would skip it here — leaving its `visible`
-  // and `roles` declarations inert while every sibling honoured theirs.
-  if (isComponentReferenceNode(section)) return section
-
-  const component = section as Component
-  const visibility = extractVisibility(component)
-  if (!visibility) return component
-
-  if (isConditionOnlyVisibility(visibility)) return component
-
-  if (isSectionVisible(visibility, session)) return component
-
-  return {
-    ...component,
-    props: {
-      ...(component.props ?? {}),
-      style: {
-        ...((component.props?.style as Record<string, unknown> | undefined) ?? {}),
-        display: 'none',
-      },
-    },
-  }
-}
-
-/**
- * True when a component node carries a `when`/`roles` visibility config that
- * EXCLUDES the given session. Condition-only visibility is ignored (it is
- * field-value based, not a session/role gate). Reads `props.visibility` (the
- * runtime convention) and tolerates a top-level `visibility` key (the schema
- * spreads `visibilityFields` at the component root).
+ * True when a node's `condition` / `when` / `roles` gates admit the session.
  *
- * Consumed by the embedded-formRef access check: a formRef hidden from this
+ * THE one rule both {@link applyVisibilityToComponents} and
+ * {@link isComponentHiddenForSession} answer with — a node is on the page for
+ * this session exactly when this returns true.
+ */
+function isNodeVisibleForSession(
+  node: unknown,
+  session: SessionInfo | undefined,
+  app: App
+): boolean {
+  if (typeof node !== 'object' || node === null) return true
+  if (isComponentReferenceNode(node as Page['components'][number])) return true
+  const visibility = extractVisibility(node)
+  if (visibility === undefined) return true
+  if (visibility.condition !== undefined && !evaluateCondition(visibility.condition, session)) {
+    return false
+  }
+  return isSessionGateMet(visibility, session, app)
+}
+
+/**
+ * True when a component node carries a `condition` / `when` / `roles`
+ * visibility config that EXCLUDES the given session.
+ *
+ * Consumed by the embedded-formRef passes that run BEFORE the page is pruned
+ * (the page-access check and the option-set read): a formRef excluded for this
  * session is not part of the page for that session, so its form-access gate
  * must not 404 the page (the submit endpoint still enforces form access
- * independently).
+ * independently). It is the negation of the very predicate
+ * {@link applyVisibilityToComponents} prunes with, so the two can never
+ * disagree about whether a gated form is on the page.
  */
 export function isComponentHiddenForSession(
   node: unknown,
-  session: SessionInfo | undefined
+  session: SessionInfo | undefined,
+  app: App
 ): boolean {
-  const visibility = extractVisibility(node)
-  if (!visibility) return false
-  if (isConditionOnlyVisibility(visibility)) return false
-  return !isSectionVisible(visibility, session)
+  return !isNodeVisibleForSession(node, session, app)
 }
 
 /**
- * Applies visibility filtering to page sections based on the current session.
+ * How one pruning pass decides: which nodes stay, and — for a surviving node —
+ * any reshaping of its own fields before its descendants are walked.
+ */
+interface PruneRule {
+  readonly keep: (node: unknown) => boolean
+  readonly reshape?: (node: object) => object
+}
+
+/** Same length and same elements by reference — the "nothing changed" test. */
+function isSameList(a: readonly unknown[], b: readonly unknown[]): boolean {
+  return a.length === b.length && a.every((item, i) => item === b[i])
+}
+
+/** Keep what `rule` admits from one list, then walk into whatever survives. */
+function pruneNodes(nodes: readonly unknown[], rule: PruneRule): readonly unknown[] {
+  return nodes.filter(rule.keep).map((node) => pruneNode(node, rule))
+}
+
+/**
+ * Walk a SURVIVING node: reshape it, then prune its `children` and every
+ * `responsive` breakpoint's `children`.
+ *
+ * A component REFERENCE is returned untouched — references are inlined before
+ * the page passes run (`component-reference-expansion.ts`), so one still here
+ * names a template that does not exist and has no subtree to walk. A string
+ * child (inline text) is returned as-is.
+ *
+ * Both child positions are walked because both are RENDERED server-side:
+ * `responsive.<bp>.children` is drawn into the HTML for every breakpoint and
+ * shown or hidden by a media-query class, so a gated node there that this walk
+ * skipped would ship to every reader — the exact leak exclusion exists to stop.
+ */
+function pruneNode(node: unknown, rule: PruneRule): unknown {
+  if (typeof node !== 'object' || node === null) return node
+  if (isComponentReferenceNode(node as Page['components'][number])) return node
+  const reshaped = rule.reshape === undefined ? node : rule.reshape(node)
+  return pruneResponsiveChildren(pruneChildren(reshaped, rule), rule)
+}
+
+/**
+ * Prune a node's `children`, keeping a `tabs` strip aligned with its bodies.
+ *
+ * `tabs.panels[i]` names the tab that shows `children[i]` — the alignment is
+ * positional, and decode refuses the two at different lengths. Dropping a
+ * gated body without dropping its panel would slide every later body under
+ * the wrong tab and leave the last tab empty. So when the two are aligned, a
+ * dropped child takes its panel with it: a reader the body is withheld from is
+ * not shown a tab for it either.
+ */
+function pruneChildren(node: object, rule: PruneRule): object {
+  const { children, panels } = node as {
+    readonly children?: readonly unknown[]
+    readonly panels?: readonly unknown[]
+  }
+  if (!Array.isArray(children) || children.length === 0) return node
+  const kept = children.map((child) => rule.keep(child))
+  const pruned = children.flatMap((child, i) => (kept[i] ? [pruneNode(child, rule)] : []))
+  if (isSameList(pruned, children)) return node
+  const alignedPanels =
+    Array.isArray(panels) && panels.length === children.length
+      ? { panels: panels.filter((_, i) => kept[i]) }
+      : {}
+  return { ...(node as Record<string, unknown>), children: pruned, ...alignedPanels }
+}
+
+/** Prune `responsive.<bp>.children` for every breakpoint that declares any. */
+function pruneResponsiveChildren(node: object, rule: PruneRule): object {
+  const { responsive } = node as { readonly responsive?: unknown }
+  if (typeof responsive !== 'object' || responsive === null) return node
+  const entries = Object.entries(responsive as Record<string, unknown>)
+  const pruned = entries.map(([breakpoint, variant]) => {
+    const { children } = (variant ?? {}) as { readonly children?: readonly unknown[] }
+    if (!Array.isArray(children) || children.length === 0) return [breakpoint, variant] as const
+    const kept = pruneNodes(children, rule)
+    return isSameList(kept, children)
+      ? ([breakpoint, variant] as const)
+      : ([breakpoint, { ...(variant as Record<string, unknown>), children: kept }] as const)
+  })
+  if (pruned.every(([, variant], i) => variant === entries[i]?.[1])) return node
+  return { ...(node as Record<string, unknown>), responsive: Object.fromEntries(pruned) }
+}
+
+/**
+ * Removes every component whose `condition` / `when` / `roles` gate excludes
+ * the current session, with its whole subtree, at any depth.
+ *
+ * ─── WHY EXCLUSION, NOT `display: none` ────────────────────────────────────
+ *
+ * These gates are access controls. A node styled `display: none` still ships
+ * its text in the response, so find-in-page, view-source, a copy of the page
+ * and every reader that ignores the stylesheet received the salary figure the
+ * gate was written to withhold. Nothing on the client re-shows such a node, so
+ * there is nothing a hidden copy could be kept for.
+ *
+ * ─── WHY IT RECURSES ───────────────────────────────────────────────────────
+ *
+ * A gated block is usually inside the layout container that frames it; a gate
+ * that stops applying at depth 2 validates and does nothing, which is the
+ * worst failure an access control has. Nodes carrying no gate are returned by
+ * reference, so an ungated page pays one walk and no copy.
  */
 export function applyVisibilityToComponents(
   components: Page['components'],
-  session: SessionInfo | undefined
+  session: SessionInfo | undefined,
+  app: App
 ): Page['components'] {
   if (!components) return components
-
-  return components
-    .filter((item) => {
-      if (isComponentReferenceNode(item)) return true
-
-      const component = item as Component
-      const visibility = extractVisibility(component)
-      if (!visibility?.condition) return true
-
-      return evaluateCondition(visibility.condition, session)
-    })
-    .map((item) => applyVisibilityToSection(item, session))
+  return pruneNodes(components, {
+    keep: (node) => isNodeVisibleForSession(node, session, app),
+  }) as Page['components']
 }
 
 /**
@@ -239,7 +340,7 @@ export function applyVisibilityToComponents(
  * Both predicates are pure functions of `(session.role, app)` — that is the
  * entry criterion the closed set is built on, and it is what lets the gate run
  * inside a synchronous render pass. `session.role` rather than `effectiveRoles`
- * mirrors `isRoleVisible` above and the predicate table on `CallerCapability`.
+ * matches the predicate table on `CallerCapability`.
  *
  * An ANONYMOUS caller holds nothing: a component gated on a capability is
  * absent for them without any `when: authenticated` written beside it.
@@ -283,26 +384,23 @@ function holdsCapability(ctx: GateContext, capability: CallerCapability): boolea
  *
  * ─── WHY A SEPARATE PASS, AND WHY IT EXCLUDES ──────────────────────────────
  *
- * `when` / `roles` inject `display: none` and leave the markup in the response.
- * For a power gate that is a disclosure rather than a style: a CSS-hidden
+ * A power gate must never leave markup in the response: a CSS-hidden
  * action column still ships every row action's endpoint to a caller forbidden
  * to call it (rule S1/S4), and a greyed-out control advertises a power the
  * admin-route middleware answers with 404. So an unmet capability removes the
  * node entirely — the strategy `condition` already uses.
  *
- * ─── WHY IT RECURSES WHERE THE `condition` FILTER DOES NOT ─────────────────
+ * ─── WHY IT RECURSES ───────────────────────────────────────────────────────
  *
- * The `condition` filter is deliberately flat (top-level sections only). A
- * capability gate cannot be: the affordances it exists to hide — an action
- * column, an Invite button — sit inside the layout containers a console page is
- * built from, and a gate that silently stops applying at depth 2 is the same
+ * The affordances a capability gate exists to hide — an action column, an
+ * Invite button — sit inside the layout containers a console page is built
+ * from, and a gate that silently stops applying at depth 2 is the same
  * "validates and does nothing" failure the root/props widening above fixes.
- * Recursing does not change the flat filter's behaviour, because a node
- * carrying no `capability` is returned by reference.
+ * A node carrying no `capability` is returned by reference.
  *
  * Composition with `when` / `roles` / `condition` is AND, and it is ordered:
  * this pass runs first, so a component whose capability IS met still goes on to
- * be hidden or excluded by the other three exactly as before.
+ * be excluded by the other three exactly as before.
  *
  * ─── THE SECOND QUESTION THIS PASS ANSWERS ─────────────────────────────────
  *
@@ -325,13 +423,17 @@ export function applyCallerCapabilityGate(
   const granted = grantedCapabilities === undefined ? undefined : new Set(grantedCapabilities)
   const runnable =
     input.runtimeCapabilities === undefined ? undefined : new Set(input.runtimeCapabilities)
-  return gateNodes(components, {
+  const ctx: GateContext = {
     session,
     app,
     hostApp,
     ...(granted !== undefined ? { granted } : {}),
     ...(runnable !== undefined ? { runnable } : {}),
     ...(queryValues !== undefined ? { queryValues } : {}),
+  }
+  return pruneNodes(components, {
+    keep: (node) => isCallerGateMet(node, ctx),
+    reshape: (node) => gateColumns(node, ctx),
   }) as Page['components']
 }
 
@@ -404,21 +506,15 @@ interface GateContext {
   readonly queryValues?: Readonly<Record<string, string>>
 }
 
-/** Filter one array of nodes, then recurse into whatever survives. */
-function gateNodes(nodes: readonly unknown[], ctx: GateContext): readonly unknown[] {
-  return nodes
-    .filter((node) => {
-      const visibility = extractVisibility(node)
-      if (visibility === undefined) return true
-      const { capability } = visibility
-      if (capability !== undefined && !holdsCapability(ctx, capability)) {
-        return false
-      }
-      if (!queryGateMet(visibility, ctx.queryValues)) return false
-      if (!runtimeGateMet(visibility, ctx.runnable)) return false
-      return hostDeclarationMet(visibility, ctx.hostApp)
-    })
-    .map((node) => gateChildren(node, ctx))
+/** True when a node's capability, URL-state, runtime and declaration gates all pass. */
+function isCallerGateMet(node: unknown, ctx: GateContext): boolean {
+  const visibility = extractVisibility(node)
+  if (visibility === undefined) return true
+  const { capability } = visibility
+  if (capability !== undefined && !holdsCapability(ctx, capability)) return false
+  if (!queryGateMet(visibility, ctx.queryValues)) return false
+  if (!runtimeGateMet(visibility, ctx.runnable)) return false
+  return hostDeclarationMet(visibility, ctx.hostApp)
 }
 
 /**
@@ -489,19 +585,16 @@ function queryGateMet(
  * ─── THE THIRD SUBJECT ─────────────────────────────────────────────────────
  *
  * {@link hostDeclarationMet} asks what the host app DECLARES. This asks whether
- * that declaration can actually run here — the conjunction
- * `appRequiresAi(hostApp) && isAiProviderConfigured(env)` that
- * `collectAiProviderPhases` already computes for the `AI disabled` startup
- * warning. The two disagree exactly where the key earns its place: on a host
+ * that declaration can actually run here — for `ai`, whether a provider is
+ * configured (every app carries the built-in System Agent, so nothing else is
+ * needed). The two disagree exactly where the key earns its place: on a host
  * declaring an agent with no provider, `declares: 'agents'` renders a composer
  * whose only possible outcome is a panel saying it is unavailable.
  *
  * ─── WHY THE ANSWER ARRIVES RESOLVED ───────────────────────────────────────
  *
  * The env half is read ONCE PER REQUEST by the caller, never here. A gate
- * reaching for `process.env` mid-render cannot be unit-tested per case, and
- * `appRequiresAi` walks the whole component tree — a cost that belongs to the
- * request, not to every node of this recursion.
+ * reaching for `process.env` mid-render cannot be unit-tested per case.
  *
  * ─── WHY EXCLUSION ─────────────────────────────────────────────────────────
  *
@@ -532,28 +625,6 @@ function hostDeclarationMet(visibility: VisibilityConfig, hostApp: App): boolean
   if (declares !== undefined && !isCapabilityMet(hostApp, declares)) return false
   if (unlessDeclares !== undefined && isCapabilityMet(hostApp, unlessDeclares)) return false
   return true
-}
-
-/**
- * Recurse into a surviving node's `children`, and gate its `columns`.
- *
- * A component REFERENCE is returned untouched — an unexpanded `$ref` has no
- * inlined children to walk, and `expandFormRefs` has already run for the ones
- * that do. A string child (inline text) is returned as-is.
- */
-function gateChildren(node: unknown, ctx: GateContext): unknown {
-  if (typeof node !== 'object' || node === null) return node
-  if (isComponentReferenceNode(node as Page['components'][number])) return node
-
-  const withColumns = gateColumns(node, ctx)
-  const { children } = withColumns as { readonly children?: readonly unknown[] }
-  if (!Array.isArray(children) || children.length === 0) return withColumns
-
-  const gated = gateNodes(children, ctx)
-  if (gated.length === children.length && gated.every((child, i) => child === children[i])) {
-    return withColumns
-  }
-  return { ...(withColumns as Record<string, unknown>), children: gated }
 }
 
 /**

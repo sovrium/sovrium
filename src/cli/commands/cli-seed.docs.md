@@ -45,6 +45,20 @@ records:
 
 Tables are written parents-first. You do not have to order the files yourself — the command reads your relationship fields and works out the order. A genuine cycle is refused by name rather than guessed at.
 
+A relationship to the same table is not a dependency between tables: rows are inserted with that link empty, and the link is written once the row it names exists — so a row may name one defined later in the file, and an `upsert` replay writes the same link again rather than a new row.
+
+```text
+# seed/employees.yaml
+records:
+  - key: ahmed
+    fields:
+      name: Ahmed Benali
+      manager: '@employees.ines'   # defined below
+  - key: ines
+    fields:
+      name: Inès Moreau
+```
+
 ## Linking records with `key`
 
 `key` names a record inside your seed files. It is never written to a column and never appears in your database — it exists so one record can point at another before either has an id. Reference it from another file as `@<table>.<key>`; a many-to-many field takes a list of those references.
@@ -55,10 +69,12 @@ For a one-to-many relationship the foreign key lives on the child, so you seed t
 
 A fixed date ages. A pipeline whose deals all closed last spring reads as abandoned by autumn, and a calendar seeded with fixed days is empty the moment you look at a different month. Write dates relative to the day the seed runs — `{{today}}`, `{{today+21d}}`, `{{today-3d}}` — and every replay recomputes them, so a demo reset nightly always shows work in progress.
 
+`--today <YYYY-MM-DD>` (or `SOVRIUM_SEED_TODAY`) sets the day every `{{today…}}` resolves against, so a seed reproduces the same dates on any day. The flag wins over the variable; a value that is not a real date is refused.
+
 ## Modes
 
 - **`if-empty`** — the default. Seeds a table only when it has no rows, so it is safe to run repeatedly. It counts soft-deleted rows as present, so a table you emptied through the app is not silently refilled underneath you.
-- **`upsert`** — matches existing rows on a natural key and updates them; creates the rest.
+- **`upsert`** — matches existing rows on a natural key and updates them; creates the rest. Rows it creates are recorded as written by the system, like every seeded row.
 - **`replace`** — deletes the table's rows, then inserts. For demo environments that reset.
 
 ### Choosing what `upsert` matches on
@@ -69,13 +85,51 @@ Without `mergeOn`, the command uses the table's single unique field. If the tabl
 
 `mergeOn` and `key` are different things: `key` links records inside your files, `mergeOn` names real columns in your database.
 
+### Keeping a row's original creation date
+
+A seed file may set one column the engine otherwise fills itself: `created_at`. Use it when importing rows from another system, so they keep the date they were really created instead of the date of the import.
+
+```yaml
+mergeOn: [code]
+records:
+  - key: printemps
+    fields:
+      code: recj8m0SAI0CM8Ha0
+      created_at: '2023-03-14T12:00:00Z'
+```
+
+It is written when the row is inserted, in every mode. It is never changed afterwards: when `upsert` matches an existing row, a `created_at` in the file is ignored, because a row is created once. `updated_at`, `deleted_at` and the author columns stay the engine's own.
+
+## Accounts and who wrote the rows
+
+By default every row is written by the system, so a `created-by` column reads `system`. `--as <email>` writes the whole run as that account, so `created-by` and `updated-by` carry its id. The account must already exist, or be listed in `seed/users.yaml`; an unknown email is refused before anything is written.
+
+`seed/users.yaml` lists sign-in accounts under a top-level `users:` key — `email`, `name`, `role`, and an optional `password`, else `SOVRIUM_SEED_PASSWORD`. They are created before any table, through the same path as `sovrium admin create`, so they can sign in; an email that already has an account is left unchanged, and an account with no password available, or with a role the app does not define, is refused before any account is created. The accounts are part of every run, including one restricted with `--table`.
+
+```text
+# seed/users.yaml
+users:
+  - email: ines@northwind.example
+    name: Inès Moreau
+    role: admin
+  - email: ahmed@northwind.example
+    name: Ahmed Benali
+    role: member
+```
+
+The `users:` key is what tells this file apart from the seed file of a table named `users`, which uses `records:`.
+
+A `user` field takes `'@user:<email>'`, resolved to that account's id. An email with no account is refused with the file, record, field and email.
+
 ## Options
 
 - **`[config]`** — the config file. Auto-discovered when omitted: `app.yaml`, then `app.yml`, then `app.ts`, inside the project directory.
 - **`--dir <path>`** — the seed directory. Defaults to a `seed` folder beside the **config file** rather than beside your shell, so the same command behaves identically from the project root or from a service unit with a different working directory. An explicit path is resolved against the working directory.
 - **`--mode <mode>`** — `if-empty`, `upsert` or `replace`. Defaults to `if-empty`.
 - **`--table <name>`** — seed only this table. Repeat for several.
-- **`--dry-run`** — report what would be written and write nothing.
+- **`--dry-run`** — report what would be written and write nothing. Under `upsert` it reports `would write N records (mode: upsert)`, because whether each row is created or updated is only known when it runs.
+- **`--as <email>`** — write every row as this account instead of the system.
+- **`--today <date>`** — the day `{{today…}}` resolves against, as `YYYY-MM-DD`. Overrides `SOVRIUM_SEED_TODAY`.
 
 ## Attachments
 
@@ -85,7 +139,7 @@ Put files in `seed/assets/` and reference them by name as `'@asset:northwind-log
 
 **It does not run your automations.** Records are written directly, so an automation that reacts to record creation will not have fired. If your app's demo value depends on something an automation produces — an activity log, a derived status — seed that too, written the way the automation would have written it.
 
-**Some fields are refused rather than half-written**, each with a message naming the file and record: a relationship pointing at its own table (it needs two passes, and is not supported yet), an attachment field on a bucket other than the default, and `upsert` on a table whose seed data carries many-to-many links. Refusing is deliberate — writing the row and dropping the links would leave you with data that looks complete and is not.
+**Some fields are refused rather than half-written**, each with a message naming the file and record: an attachment field on a bucket other than the built-in `system` one, and `upsert` on a table whose seed data carries many-to-many links. Refusing is deliberate — writing the row and dropping the links would leave you with data that looks complete and is not.
 
 ## When a record is rejected
 

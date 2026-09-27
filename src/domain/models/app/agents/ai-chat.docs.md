@@ -23,12 +23,12 @@ pages:
     path: /dashboard
     components:
       - type: ai-chat
+        agent: support-agent
+        placeholder: Ask about your tickets...
+        chatHeight: 600
+        showHistory: true
+        allowAttachments: false
         props:
-          agent: support-agent
-          placeholder: Ask about your tickets...
-          chatHeight: 600
-          showHistory: true
-          allowAttachments: false
           suggestions:
             - Which tickets are still open?
             - $t:chat.prompt.overdueInvoices
@@ -63,6 +63,10 @@ x-api-key: <your-api-key>
 
 The reply carries the text, the actions taken, and the session id to continue with.
 
+`POST /api/ai/transcriptions` turns a recording into text for chat dictation. Send `multipart/form-data` with a `file` part and optional `language` and `quality` fields; the answer is `{ text, language?, durationSeconds?, model }`. It needs a signed-in user when the app declares `auth` (otherwise 404). It refuses a missing, non-audio or over-25 MB file with 400, answers 429 when rate-limited (under the same `AI_CHAT_RATE_LIMIT` settings as chat messages, counted separately) and 503 when no speech provider is configured, and never stores the recording.
+
+`POST /api/ai/transcriptions` is bounded by `STT_TIMEOUT_MS`, not `API_TIMEOUT_MS`; a speech engine that does not answer in time returns 504, and one that fails returns 502. On an app without `auth`, anonymous callers are limited to `AI_ANON_RATE_LIMIT` transcriptions and chat messages per `AI_ANON_RATE_WINDOW` seconds per client address (default 10 per 60 s); the next request gets 429 with `Retry-After`.
+
 ## Everything happens through tool calls
 
 The model is presented with a set of tool definitions — query, mutate, trigger — and returns a call rather than prose containing data. Sovrium executes it **after a permission check** and feeds the result back, and the model then composes the final reply.
@@ -94,7 +98,7 @@ Per-user limits protect the provider and cap cost. They are operator settings ra
 | `AI_CHAT_RATE_WINDOW`    | The window length, in seconds             | 60                  |
 | `AI_CHAT_STREAM_TIMEOUT` | The deadline for the first streamed chunk | No deadline         |
 
-**Chat is not rate-limited until you set `AI_CHAT_RATE_LIMIT`.** There is no default cap: unset, empty, zero or non-numeric all disable the limiter entirely, and the window length then governs nothing. That is deliberate — a cap the operator did not choose would be wrong for most deployments in one direction or the other — but it means an instance exposing a public chat agent is exposing an uncapped path to a metered provider until this is set.
+**A user's chat is not rate-limited until you set `AI_CHAT_RATE_LIMIT`.** There is no default per-user cap: unset, empty, zero or non-numeric all disable the limiter entirely, and the window length then governs nothing. That is deliberate — a cap the operator did not choose would be wrong for most deployments in one direction or the other — but it means an app with `auth` exposing a chat agent to its users is exposing an uncapped path to a metered provider until this is set. An app without `auth` is different: every caller there is anonymous, and the anonymous limit described under the REST endpoint (`AI_ANON_RATE_LIMIT`, 10 per 60 s per client address by default) applies whether or not this is set.
 
 Once it is set, a limited request answers `429` with a retry header and the remaining quota. Each user has an independent counter, and an agent's calls respect the same limits as a person's.
 

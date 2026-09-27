@@ -482,6 +482,26 @@ export function hasReadPermission(
 }
 
 /**
+ * True when the table's EFFECTIVE read grant (inheritance resolved) is the
+ * `'authenticated'` rung — any session, no role required.
+ *
+ * {@link hasReadPermission} answers that rung `true` for every role, because
+ * every caller of the records API already holds a session: the route's session
+ * gate answers an anonymous request 401 before any evaluator runs. A server
+ * render has no such gate in front of it — it is the one reader an anonymous
+ * visitor reaches — so the read plan asks this separately and refuses the rung
+ * to a principal without a session.
+ */
+export function readRequiresSession(
+  table: Readonly<{ name: string; permissions?: unknown }> | undefined,
+  allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
+): boolean {
+  const effective = getEffectivePermissions(table, allTables) as
+    Readonly<{ read?: unknown }> | undefined
+  return classifyPermissionRung(toPermissionValue(effective?.read)) === 'any-session'
+}
+
+/**
  * Check if a user may comment on records in a table.
  *
  * Comment-ability follows `permissions.comment`, NOT read. The rule:

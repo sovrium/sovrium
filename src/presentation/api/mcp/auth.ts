@@ -64,6 +64,14 @@ export type McpCallerRole = 'admin' | 'member' | 'viewer'
 export interface McpCaller {
   readonly role: McpCallerRole
   readonly userId: string | undefined
+  /**
+   * The owner's account role exactly as `auth.user.role` stores it, before
+   * `mapUserRoleToMcpRole` collapses it. `role` above is the three-tier MCP
+   * view (a custom `editor` reads as `member`), which is right for tool
+   * visibility but wrong for a table's own `permissions`, which name roles as
+   * the records API sees them. Absent on the fail-closed fallback caller.
+   */
+  readonly accountRole?: string
 }
 
 /**
@@ -196,7 +204,10 @@ const authenticateWithApiKey = async (
     const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
     if (!session) return { ok: false, response: buildUnauthenticatedResponse() }
     const user = session.user as { readonly id: string; readonly role?: string }
-    return { ok: true, caller: { role: mapUserRoleToMcpRole(user.role), userId: user.id } }
+    return {
+      ok: true,
+      caller: { role: mapUserRoleToMcpRole(user.role), userId: user.id, accountRole: user.role },
+    }
   } catch {
     return { ok: false, response: buildUnauthenticatedResponse() }
   }
@@ -278,7 +289,11 @@ const bridgeClaimsToCaller = async (
   const row = await runDomainPromise(c as Context, lookup)
   // No user row for this subject: reject. Do NOT fall back to a role.
   if (row === undefined) return undefined
-  return { role: mapUserRoleToMcpRole(row.role ?? undefined), userId: subject }
+  return {
+    role: mapUserRoleToMcpRole(row.role ?? undefined),
+    userId: subject,
+    accountRole: row.role ?? undefined,
+  }
 }
 
 /**

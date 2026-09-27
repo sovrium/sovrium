@@ -25,6 +25,7 @@ import {
   resolveRowExpandDrawerProps,
   resolveRowExpandRowClick,
 } from '@/presentation/render/props/resolve-row-expand'
+import { hostClassName } from '@/presentation/render/registry/island-host-attributes'
 import { renderComponentSearchBar } from './component-search-bar'
 import { DataTableSkeleton } from './data-table-skeleton'
 import { islandCalendarComponent } from './island-calendar-component'
@@ -52,6 +53,8 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     //.
     searchSourceId: elementProps.id,
     dataSource: elementProps.dataSource,
+    // A grid reading through one of its table's views is read-only.
+    isViewBound: elementProps.isViewBound,
     columns: elementProps.columns,
     pagination: elementProps.pagination,
     search: elementProps.search,
@@ -137,6 +140,9 @@ function extractKanbanProps(elementProps: Record<string, unknown>): Record<strin
     // `optionValue → hex` for the field `card.colorField` names, resolved
     // server-side from `app.tables` (the island only ever sees records).
     colorFieldColors: elementProps.colorFieldColors,
+    // The declared display properties of the columns the card footer names,
+    // so a `currency` footer item prints the column's own currency.
+    fieldMeta: elementProps.fieldMeta,
   }
 }
 
@@ -168,6 +174,9 @@ function extractKpiProps(elementProps: Record<string, unknown>): Record<string, 
     label: elementProps.label,
     kpiAggregate: elementProps.kpiAggregate,
     kpiFormat: elementProps.kpiFormat,
+    // The aggregated field's currency display, resolved from `app.tables`, so
+    // a currency KPI shows the field's precision in the page language.
+    valueCurrency: elementProps.valueCurrency,
     icon: elementProps.icon,
     // Server-resolved icon geometry. The island draws from this instead of
     // resolving the name itself, which is what keeps lucide's ~2,000-icon set
@@ -246,6 +255,7 @@ export const recordBoundTimelineComponent: ComponentRenderer = ({ elementProps }
       data-island-props={propsJson}
       data-component-type="data-timeline"
       data-testid={elementProps['data-testid'] as string | undefined}
+      className={hostClassName(elementProps)}
     >
       {/* Loading skeleton — preserved as Suspense fallback. Reads the same
           shell recipe as the hydrated timeline, so the frame does not change
@@ -285,6 +295,7 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
         data-island-props={propsJson}
         data-component-type="gallery"
         data-testid={elementProps['data-testid'] as string | undefined}
+        className={hostClassName(elementProps)}
       >
         {/* Loading skeleton — preserved as Suspense fallback.
 
@@ -334,6 +345,7 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
         data-island-props={propsJson}
         data-component-type="kpi"
         data-testid={elementProps['data-testid'] as string | undefined}
+        className={hostClassName(elementProps)}
       >
         {/* Loading skeleton — preserved as Suspense fallback.
 
@@ -374,6 +386,7 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
         data-component="kanban"
         data-component-type="kanban"
         data-testid={elementProps['data-testid'] as string | undefined}
+        className={hostClassName(elementProps)}
       >
         {renderComponentSearchBar(elementProps.search)}
         {/* Loading skeleton — preserved as Suspense fallback */}
@@ -452,14 +465,17 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
         // without telling it so. That clip is why the frame carries the floor
         // too: it is the box that would otherwise cut a surviving grid off at
         // nothing when the column has no leftover to give.
-        className={`${computeTableShellClasses()} w-full${
-          fills
-            ? ` ${computeTableFillShellClasses({
-                rowHeight: elementProps['rowHeight'] as string | undefined,
-                framed: true,
-              })}`
-            : ''
-        }`}
+        className={hostClassName(
+          elementProps,
+          `${computeTableShellClasses()} w-full${
+            fills
+              ? ` ${computeTableFillShellClasses({
+                  rowHeight: elementProps['rowHeight'] as string | undefined,
+                  framed: true,
+                })}`
+              : ''
+          }`
+        )}
       >
         <DataTableSkeleton />
       </div>

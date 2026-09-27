@@ -1,0 +1,48 @@
+# The leads the recipes wrote, newest first: who, from which company, how they
+# came in, and when. Members read and add them; only an admin deletes one.
+name: leads
+path: /leads
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Leads · Kerlo Automations
+  description: The leads the recipes captured, newest first.
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: font-mono text-[15px] font-semibold text-foreground
+                content: Leads
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: table
+                dataSource:
+                  table: leads
+                  sort:
+                    - { field: captured_at, direction: desc }
+                columns:
+                  - { field: name, label: Name, sortable: true }
+                  - { field: company, label: Company }
+                  - { field: source, label: Source }
+                  - { field: captured_at, label: Captured, format: datetime, sortable: true }
+                  - { field: email, label: Email }
+                pagination:
+                  pageSize: 50
+                emptyMessage: Leads appear here as the webhook writes them. POST one to /api/automations/capture-lead-from-webhook/webhook with your token to write the first.

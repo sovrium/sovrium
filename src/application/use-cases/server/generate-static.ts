@@ -7,6 +7,7 @@
 
 import { Effect, Console, Schema } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
+import { StaticGenerationError } from '@/application/errors/static-generation-error'
 import {
   CSSCompiler as CSSCompilerService,
   type CSSCompilationError,
@@ -22,6 +23,7 @@ import { writePrecompiledCSS } from '@/infrastructure/css/cache/css-cache-servic
 import { getVersionedCssFileName } from '@/infrastructure/css/versioned-css-path'
 import { logDebug } from '@/infrastructure/logging'
 import { generateLlmsFiles } from './generate-llms-files'
+import { generateMarkdownTwinFiles } from './generate-markdown-twins'
 import {
   fs,
   path,
@@ -36,11 +38,11 @@ import {
   generateGitHubPagesFiles,
   type FileSystemLike,
 } from './generate-static-helpers'
+import { enumerateCollectionRecords, type CollectionRecordIndex } from './sitemap-record-fan-out'
 import {
   generateMultiLanguageFiles,
   generateSingleLanguageFiles,
 } from './static-language-generators'
-import type { StaticGenerationError } from '@/application/errors/static-generation-error'
 import type { App } from '@/domain/models/app'
 import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
@@ -61,7 +63,6 @@ export interface GenerateStaticOptions {
   readonly generateSitemap?: boolean
   readonly generateRobotsTxt?: boolean
   readonly hydration?: boolean
-  readonly generateManifest?: boolean
   readonly bundleOptimization?: 'split' | 'none'
   readonly publicDir?: string // Directory containing static assets to copy
   /**
@@ -142,16 +143,57 @@ function getServicesFromContext() {
 }
 
 /**
+ * Read the records the sitemap will list, once, when the build writes a
+ * sitemap. The same result feeds the record pages the build renders and the
+ * sitemap it writes (see `enumerateCollectionRecords`). Without a sitemap the
+ * build lists nothing, so it reads nothing and renders no record page.
+ */
+function enumerateListedRecords(
+  app: App,
+  options: GenerateStaticOptions,
+  pageRenderer: PageRendererService['Service']
+): Effect.Effect<CollectionRecordIndex, StaticGenerationError, never> {
+  if (!(options.generateSitemap ?? false)) return Effect.succeed(new Map())
+  return Effect.tryPromise({
+    try: () =>
+      enumerateCollectionRecords(app.pages ?? [], {
+        app,
+        fetchRecords: pageRenderer.fetchSitemapRecords,
+      }),
+    catch: (error) =>
+      new StaticGenerationError({
+        message: 'Failed to read the collection records the sitemap lists',
+        cause: error,
+      }),
+  }).pipe(Effect.withSpan('server.enumerate-listed-records'))
+}
+
+/**
+ * The concrete record addresses to render as pages. An address still carrying
+ * a route parameter (a `:lang` segment the language fan-out fills) names no
+ * single file, so it is left to the declared-page pass.
+ */
+const toRecordPagePaths = (records: CollectionRecordIndex): readonly string[] =>
+  [...records.values()]
+    .flat()
+    .map((entry) => entry.path)
+    .filter((path) => !path.includes('/:'))
+
+/**
  * Generate HTML files for single or multi-language apps
  */
 function generateHtmlFiles(
   app: App,
   outputDir: string,
   replaceAppTokens: (app: App, lang: string) => App,
-  serverFactory: ServerFactoryService['Service'],
-  pageRenderer: PageRendererService['Service'],
-  staticSiteGenerator: StaticSiteGeneratorService['Service']
+  services: {
+    readonly serverFactory: ServerFactoryService['Service']
+    readonly pageRenderer: PageRendererService['Service']
+    readonly staticSiteGenerator: StaticSiteGeneratorService['Service']
+  },
+  recordPagePaths: readonly string[]
 ) {
+  const { serverFactory, pageRenderer, staticSiteGenerator } = services
   return app.languages && app.pages
     ? generateMultiLanguageFiles(
         app,
@@ -159,9 +201,17 @@ function generateHtmlFiles(
         replaceAppTokens,
         serverFactory,
         pageRenderer,
-        staticSiteGenerator
+        staticSiteGenerator,
+        recordPagePaths
       )
-    : generateSingleLanguageFiles(app, outputDir, serverFactory, pageRenderer, staticSiteGenerator)
+    : generateSingleLanguageFiles(
+        app,
+        outputDir,
+        serverFactory,
+        pageRenderer,
+        staticSiteGenerator,
+        recordPagePaths
+      )
 }
 
 /**
@@ -204,21 +254,43 @@ function generateCssFile(
 }
 
 /**
+ * True for a file the build wrote for a listed record rather than a declared
+ * page. `file` is relative to the output directory (`blog/pricing-change.html`,
+ * or `en/blog/pricing-change.html` in a multi-language build, whose files sit
+ * under their language directory while the record addresses do not).
+ */
+const isRecordPageFile =
+  (recordPagePaths: ReadonlySet<string>, multiLanguage: boolean) =>
+  (file: string): boolean => {
+    const route = `/${file.replace(/\.html$/, '')}`
+    if (recordPagePaths.has(route)) return true
+    return multiLanguage && recordPagePaths.has(route.replace(/^\/[^/]+/, ''))
+  }
+
+/**
  * Optimize HTML files with formatting and transformations
+ *
+ * Record pages get the transformations (base path, hydration) but are not laid
+ * out by Prettier. Formatting costs tens of milliseconds a page, so a table of
+ * thousands of rows would spend minutes re-indenting whitespace; a browser and
+ * a crawler read the page identically either way.
  *
  * @param generatedFiles - List of generated file paths
  * @param outputDir - Output directory path
  * @param options - Static generation options
  * @param fsModule - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ * @param isRecordPage - Whether a file is a listed record's page
  */
 function optimizeHtmlFiles(
   generatedFiles: readonly string[],
   outputDir: string,
   options: GenerateStaticOptions,
-  fsModule: FileSystemLike
+  fsModule: FileSystemLike,
+  isRecordPage: (file: string) => boolean
 ) {
   return Effect.gen(function* () {
-    yield* formatHtmlFiles(generatedFiles, outputDir, fsModule, path)
+    const formatted = generatedFiles.filter((file) => !isRecordPage(file))
+    yield* formatHtmlFiles(formatted, outputDir, fsModule, path)
     yield* applyHtmlOptimizations({
       generatedFiles,
       outputDir,
@@ -230,21 +302,35 @@ function optimizeHtmlFiles(
 }
 
 /**
- * Generate all supporting files (sitemap, robots.txt, GitHub Pages files)
+ * Generate all supporting files (sitemap, robots.txt, llms files, the `.md`
+ * twins of content-directory articles, GitHub Pages files)
  */
 function generateSupportingFiles(
   app: App,
   outputDir: string,
   options: GenerateStaticOptions,
-  fs: FileSystemLike
+  fs: FileSystemLike,
+  collectionRecords: CollectionRecordIndex
 ) {
   return Effect.gen(function* () {
-    const sitemapFiles = yield* generateSitemapFile(app, outputDir, options, fs)
+    const sitemapFiles = yield* generateSitemapFile(
+      { app, collectionRecords },
+      outputDir,
+      options,
+      fs
+    )
     const robotsFiles = yield* generateRobotsFile(app, outputDir, options, fs)
     const llmsFiles = yield* generateLlmsFiles(app, outputDir, options, fs)
+    const twinFiles = yield* generateMarkdownTwinFiles(app, outputDir, fs)
     const githubFiles = yield* generateGitHubPagesFiles(outputDir, options, fs)
 
-    return [...sitemapFiles, ...robotsFiles, ...llmsFiles, ...githubFiles] as readonly string[]
+    return [
+      ...sitemapFiles,
+      ...robotsFiles,
+      ...llmsFiles,
+      ...twinFiles,
+      ...githubFiles,
+    ] as readonly string[]
   })
 }
 
@@ -293,14 +379,20 @@ export const generateStatic = (
     const services = yield* getServicesFromContext()
     const outputDir = options.outputDir || './static'
 
-    // Step 4: Generate HTML files
+    // Step 4: Read the listed records once, then generate HTML files —
+    // the declared pages plus one page per listed record
+    const collectionRecords = yield* enumerateListedRecords(
+      validatedApp,
+      options,
+      services.pageRenderer
+    )
+    const recordPagePaths = toRecordPagePaths(collectionRecords)
     const htmlFiles = yield* generateHtmlFiles(
       validatedApp,
       outputDir,
       replaceAppTokens,
-      services.serverFactory,
-      services.pageRenderer,
-      services.staticSiteGenerator
+      services,
+      recordPagePaths
     )
 
     // Step 5: Generate CSS and assets
@@ -323,10 +415,22 @@ export const generateStatic = (
     ] as readonly string[]
 
     // Step 6: Optimize HTML files
-    yield* optimizeHtmlFiles(generatedFiles, outputDir, options, fs)
+    yield* optimizeHtmlFiles(
+      generatedFiles,
+      outputDir,
+      options,
+      fs,
+      isRecordPageFile(new Set(recordPagePaths), validatedApp.languages !== undefined)
+    )
 
     // Step 7: Generate supporting files
-    const supportingFiles = yield* generateSupportingFiles(validatedApp, outputDir, options, fs)
+    const supportingFiles = yield* generateSupportingFiles(
+      validatedApp,
+      outputDir,
+      options,
+      fs,
+      collectionRecords
+    )
 
     // Combine all files immutably
     const allFiles = [...generatedFiles, ...supportingFiles] as readonly string[]

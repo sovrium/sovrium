@@ -734,3 +734,20 @@ export const assignableRoleNames = (app: AdminRoleResolvable): ReadonlySet<strin
  */
 export const isAssignableRole = (roleName: string, app: AdminRoleResolvable): boolean =>
   assignableRoleNames(app).has(roleName)
+
+/**
+ * Every role name that is admin-tier for this app ({@link isAdminTier}), as a
+ * list — the vocabulary a query can filter the `role` column by.
+ *
+ * The enumeration is the assignable vocabulary ({@link assignableRoleNames})
+ * narrowed by the tier predicate, so the two can never disagree: a role no
+ * write door accepts cannot be stored, and a stored role is listed here exactly
+ * when the operator plane admits it. Used to address the operator's emails —
+ * automation alerts and the weekly summary — to everyone who can act on them.
+ *
+ * Deliberately WIDER than the admin-equivalent pair the last-admin guard counts
+ * (`admin-role-guards.ts`): an `admin-viewer` or an `operator` cannot reach
+ * `/api/auth/admin/*`, but can read the console an alert links to.
+ */
+export const adminTierRoleNames = (app: AdminRoleResolvable): readonly string[] =>
+  [...assignableRoleNames(app)].filter((roleName) => isAdminTier(roleName, app))

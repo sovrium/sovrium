@@ -801,10 +801,11 @@ export type SidebarGroup = Schema.Schema.Type<typeof SidebarGroupSchema>
  * A rail is still present, still a navigation landmark, and still reachable by
  * keyboard in its declared order. An app that wants the sidebar to LEAVE the
  * layout on a phone and come back behind a button is describing a drawer, which
- * is a different affordance with a different control and is not this field.
- * The two compose: a sidebar may be a rail from one breakpoint down and be
- * hidden behind a drawer from a narrower one, because the drawer is the frame's
- * behaviour and the rail is the navigation's.
+ * is a different affordance with a different control: that is the sibling
+ * `drawer` key ({@link SidebarDrawerSchema}), not this one. The two compose: a
+ * sidebar may be a rail from one breakpoint down and be hidden behind a drawer
+ * from a narrower one, because the drawer is the frame's behaviour and the rail
+ * is the navigation's.
  */
 export const SidebarRailSchema = Schema.Struct({
   /**
@@ -835,6 +836,67 @@ export const SidebarRailSchema = Schema.Struct({
 
 /** @public */
 export type SidebarRail = Schema.Schema.Type<typeof SidebarRailSchema>
+
+/**
+ * The sidebar folds into a DRAWER behind a menu button below a breakpoint.
+ *
+ * On a phone a sidebar of any width costs the reader the page it sits beside,
+ * and a rail still spends a column the screen does not have. The drawer takes
+ * the navigation out of the layout entirely and puts one button in its place:
+ * pressing it opens the same groups as a modal panel over the page, and
+ * closing it — Escape, the backdrop, or following a link — hands focus back to
+ * the button. At the breakpoint and above, nothing changes: the sidebar renders
+ * inline exactly as it does without the key.
+ *
+ * ─── IT COMPOSES WITH `rail`, AND THE ORDER IS CHECKED ─────────────────────
+ *
+ * A console may want the full sidebar on a desktop, a rail on a laptop and a
+ * drawer on a phone. That reads as `rail: { below: xl }` with
+ * `drawer: { below: md }`: the drawer owns the narrowest range, the rail the one
+ * above it. A drawer whose breakpoint is at or above the rail's would own every
+ * width the rail was declared for, so the rail could never render — a key that
+ * decodes and does nothing. That pairing is refused at boot rather than
+ * accepted and ignored.
+ *
+ * ─── THE BUTTON NEEDS A NAME ───────────────────────────────────────────────
+ *
+ * The one control the reader sees below the breakpoint is the menu button, and
+ * an icon-only button is announced by its accessible name alone. `label` is that
+ * name, translatable like every other sidebar label; omitted, it reads "Menu".
+ */
+export const SidebarDrawerSchema = Schema.Struct({
+  /**
+   * The breakpoint at which the inline sidebar returns.
+   *
+   * A strict lower bound, read the way `rail.below` is: the drawer applies at
+   * every width BELOW it. `mobile` is refused for the same reason it is refused
+   * there — "below the base" is the empty range, and a drawer that can never
+   * apply is not a narrower drawer.
+   */
+  below: Schema.Literals(['sm', 'md', 'lg', 'xl', '2xl']).annotate({
+    description:
+      'Breakpoint at and above which the sidebar renders inline; below it the sidebar folds into a drawer behind a menu button',
+    examples: ['md', 'lg'],
+  }),
+  /** Accessible name of the menu button, or a `$t:` translation key */
+  label: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'Accessible name of the button that opens the drawer; accepts a $t: translation key (default: "Menu")',
+        examples: ['Menu', '$t:nav.menu'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
+}).annotate({
+  identifier: 'SidebarDrawer',
+  title: 'Sidebar Drawer',
+  description: 'Folds the sidebar into a drawer opened by a menu button below the named breakpoint',
+})
+
+/** @public */
+export type SidebarDrawer = Schema.Schema.Type<typeof SidebarDrawerSchema>
 
 export const sidebarFields = {
   ...coreFields,
@@ -900,6 +962,30 @@ export const sidebarFields = {
     SidebarRailSchema.annotate({
       description:
         'Render the sidebar as an icon rail below the named breakpoint; omitted, it renders in full at every width',
+    })
+  ),
+  /**
+   * Fold the sidebar into a DRAWER behind a menu button below a breakpoint.
+   *
+   * Omitted, the sidebar stays in the layout at every width. See
+   * {@link SidebarDrawerSchema} for what the drawer does when it opens and
+   * closes, and for how it composes with `rail`.
+   *
+   * @example
+   * ```yaml
+   * # inline sidebar from md up, a menu button and a drawer on a phone
+   * - type: sidebar
+   *   drawer: { below: md, label: Menu }
+   *   groups:
+   *     - label: Team
+   *       items:
+   *         - { label: Directory, href: /directory, icon: users }
+   * ```
+   */
+  drawer: Schema.optional(
+    SidebarDrawerSchema.annotate({
+      description:
+        'Fold the sidebar into a drawer opened by a menu button below the named breakpoint; omitted, it stays in the layout at every width',
     })
   ),
   /**

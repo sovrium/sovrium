@@ -6,58 +6,51 @@
  */
 
 import { Effect } from 'effect'
-import {
-  listViewsProgram,
-  getViewProgram,
-  getViewRecordsProgram,
-} from '@/application/use-cases/tables/table-operations'
-import {
-  getViewResponseSchema,
-  getViewRecordsResponseSchema,
-} from '@/domain/models/api/tables/tables'
-import { provideTableLive } from '@/infrastructure/layers/table-layer'
+import { listViewsProgram, getViewProgram } from '@/application/use-cases/tables/table-operations'
+import { listRecordsQuerySchema } from '@/domain/models/api/tables/params'
+import { getViewResponseSchema } from '@/domain/models/api/tables/tables'
 import { runEffect } from '@/presentation/api/runtime'
+import { conditionalRead } from '@/presentation/api/runtime/conditional-read'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { effectValidator } from '@/presentation/api/runtime/effect-validator'
+import { handleListViewRecords } from './view-records-handler'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
 export function chainViewRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
-  return honoApp
-    .get('/api/tables/:tableId/views', async (c) => {
-      // Session, tableId, and userRole are guaranteed by middleware chain
-      const { tableId, userRole } = getTableContext(c)
+  return (
+    honoApp
+      .get('/api/tables/:tableId/views', async (c) => {
+        // Session, tableId, and userRole are guaranteed by middleware chain
+        const { tableId, userRole } = getTableContext(c)
 
-      const program = Effect.gen(function* () {
-        const result = yield* listViewsProgram(tableId, resolveApp(), userRole)
-        // Return the views array directly (unwrapped) to match test expectations
-        // No schema validation - test expects minimal view objects without timestamps
-        return result
+        const program = Effect.gen(function* () {
+          const result = yield* listViewsProgram(tableId, resolveApp(), userRole)
+          // Return the views array directly (unwrapped) to match test expectations
+          // No schema validation - test expects minimal view objects without timestamps
+          return result
+        })
+
+        return runEffect(c, program)
       })
+      .get('/api/tables/:tableId/views/:viewId', async (c) => {
+        // Session, tableId, and userRole are guaranteed by middleware chain
+        const { tableId, userRole } = getTableContext(c)
 
-      return runEffect(c, program)
-    })
-    .get('/api/tables/:tableId/views/:viewId', async (c) => {
-      // Session, tableId, and userRole are guaranteed by middleware chain
-      const { tableId, userRole } = getTableContext(c)
-
-      return runEffect(
-        c,
-        getViewProgram(tableId, c.req.param('viewId'), resolveApp(), userRole),
-        getViewResponseSchema
+        return runEffect(
+          c,
+          getViewProgram(tableId, c.req.param('viewId'), resolveApp(), userRole),
+          getViewResponseSchema
+        )
+      })
+      // The query is typed by the records list's own schema — the same page,
+      // sort, search and filter parameters — so the grid's typed client can
+      // read a view the way it reads a table.
+      .get(
+        '/api/tables/:tableId/views/:viewId/records',
+        conditionalRead(),
+        effectValidator('query', listRecordsQuerySchema),
+        (c) => handleListViewRecords(c, resolveApp())
       )
-    })
-    .get('/api/tables/:tableId/views/:viewId/records', async (c) => {
-      const { session, tableId, userRole } = getTableContext(c)
-      const viewId = c.req.param('viewId')
-
-      const program = getViewRecordsProgram({
-        tableId,
-        viewId,
-        app: resolveApp(),
-        userRole,
-        session,
-      })
-
-      return runEffect(c, provideTableLive(program), getViewRecordsResponseSchema)
-    })
+  )
 }

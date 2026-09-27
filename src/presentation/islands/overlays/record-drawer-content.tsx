@@ -33,6 +33,7 @@
 /* eslint-disable react-perf/jsx-no-new-function-as-prop -- conventional confirm-gate + per-field/per-action event handlers (the footer-action confirm/cancel close over the armed action; a field's onChange closes over its name). These are transient surfaces rendered only while the drawer is open, not a hot path. Mirrors the same exemption in action-cell.tsx + inline-confirm-dialog.tsx. */
 
 import { useCallback, useState, type ReactElement } from 'react'
+import { withDisplayLabels } from '@/domain/models/app/pages/substitute-record-vars'
 import { fieldDescribedBy, fieldDescriptionId } from '@/presentation/design/field-display'
 import { executeFetchAction } from '../runtime/action-executor'
 import { AiRefinementMarker } from '../runtime/ai-refinement-marker'
@@ -40,6 +41,8 @@ import { readAiRefinementStatus } from '../runtime/ai-refinement-status'
 import { InlineConfirmDialog, ObjectConfirmDialog } from '../runtime/inline-confirm-dialog'
 import { RecordButton, type RecordButtonConfig } from '../runtime/record-button'
 import { RecordDrawerChildren } from './record-drawer-children'
+import { ReadOnlyValue } from './record-drawer-read-only-value'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { Action, FetchAction } from '@/domain/models/app/pages/components/action'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
 
@@ -55,6 +58,11 @@ export interface RecordDrawerField {
   readonly label?: string
   /** Guidance rendered beside the entry's value, already resolved server-side. */
   readonly description?: string
+  /**
+   * The bound column's declared currency display, when it has one — a
+   * read-only entry prints its amount the way the grid cell does.
+   */
+  readonly currency?: CurrencyDisplayOptions
   /** Structured-display selector (CAP-3). Non-`text` renders a read-only block. */
   readonly renderAs?: 'text' | 'json' | 'list' | 'key-value' | 'code'
   /**
@@ -264,11 +272,6 @@ function FieldInput({
   )
 }
 
-/** Coerce a record value to its read-only display string (matches the legacy system body). */
-function toReadOnlyText(value: unknown): string {
-  return value === null || value === undefined ? '' : String(value)
-}
-
 /**
  * A read-only labelled value (a plain non-structured field on a READ-ONLY drawer
  * — a system-detail binding, or a `canEdit: false` drawer). Renders a
@@ -290,7 +293,11 @@ function ReadOnlyField({
         data-field={field.name}
         className="text-foreground"
       >
-        {toReadOnlyText(value)}
+        <ReadOnlyValue
+          type={field.type}
+          value={value}
+          currency={field.currency}
+        />
       </span>
       <EntryDescription field={field} />
     </div>
@@ -313,7 +320,7 @@ function dispatchDrawerAction(action: Action, record: RawRecord): void {
 }
 
 const ACTION_BUTTON_CLASS =
-  'border-border text-foreground hover:bg-background-subtle rounded border px-3 py-1.5 text-md transition-colors'
+  'border-border text-foreground hover:bg-background-subtle rounded border px-3 py-1.5 text-md transition-colors disabled:cursor-not-allowed disabled:opacity-50'
 
 /**
  * A single footer action button. A `confirm`-bearing action arms the shared
@@ -323,9 +330,12 @@ const ACTION_BUTTON_CLASS =
 function DrawerActionButton({
   item,
   record,
+  disabled,
 }: {
   readonly item: DrawerAction
   readonly record: RawRecord
+  /** The record has not loaded yet: `$record.*` would resolve against nothing. */
+  readonly disabled: boolean
 }): ReactElement {
   const [confirming, setConfirming] = useState(false)
   const fire = useCallback(() => dispatchDrawerAction(item.action, record), [item.action, record])
@@ -359,6 +369,7 @@ function DrawerActionButton({
     <button
       type="button"
       className={ACTION_BUTTON_CLASS}
+      disabled={disabled}
       onClick={() => (item.confirm ? setConfirming(true) : fire())}
     >
       {item.label}
@@ -372,9 +383,11 @@ const NO_ACTIONS: ReadonlyArray<DrawerAction> = []
 function DrawerActions({
   actions,
   record,
+  loading,
 }: {
   readonly actions: ReadonlyArray<DrawerAction>
   readonly record: RawRecord
+  readonly loading: boolean
 }): ReactElement | null {
   // eslint-disable-next-line unicorn/no-null -- React components must return null (not undefined) to render nothing
   if (actions.length === 0) return null
@@ -385,6 +398,7 @@ function DrawerActions({
           key={`${item.label}-${index}`}
           item={item}
           record={record}
+          disabled={loading}
         />
       ))}
     </div>
@@ -416,6 +430,12 @@ export interface DrawerContentProps {
    * Absent unless children were declared — see `RecordDrawerChildren`.
    */
   readonly childrenHtml?: string
+  /**
+   * CAP-8: the related sections, already built by the island (they read their
+   * own rows). Placed after the record's fields and the composed children, and
+   * before the footer `actions`, which stay anchored at the bottom.
+   */
+  readonly related?: ReactElement
   readonly onChange: (name: string, value: string) => void
   readonly onSave: () => void
   /**
@@ -460,7 +480,7 @@ function DrawerFieldControl({
   ) : (
     <ReadOnlyField
       field={field}
-      value={record[field.name]}
+      value={withDisplayLabels(record)[field.name]}
     />
   )
 }
@@ -529,6 +549,42 @@ function DrawerField({
   )
 }
 
+/** The inline validation banner, or nothing when there is no error. */
+function DrawerError({ error }: { readonly error: string | undefined }): ReactElement | undefined {
+  if (!error) return undefined
+  return (
+    <p
+      role="alert"
+      aria-label="Validation error"
+      className="text-error-fg bg-error-bg border-error-border text-md rounded border p-2"
+    >
+      {error}
+    </p>
+  )
+}
+
+/** The save affordance: inert, like the fields, until the record has loaded. */
+function DrawerSaveButton({
+  label,
+  loading,
+  onSave,
+}: {
+  readonly label: string
+  readonly loading: boolean
+  readonly onSave: () => void
+}): ReactElement {
+  return (
+    <button
+      type="button"
+      onClick={onSave}
+      disabled={loading}
+      className="bg-primary text-primary-fg text-md mt-2 self-start rounded px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {label}
+    </button>
+  )
+}
+
 /**
  * The drawer's inner body — rendered as a Fragment so its children stay DIRECT
  * flex children of the surrounding panel (the dialog OR region wrapper owns the
@@ -544,6 +600,7 @@ export function DrawerContent({
   error,
   actions = NO_ACTIONS,
   childrenHtml,
+  related,
   onChange,
   onSave,
   table,
@@ -551,15 +608,7 @@ export function DrawerContent({
 }: DrawerContentProps): ReactElement {
   return (
     <>
-      {error && (
-        <p
-          role="alert"
-          aria-label="Validation error"
-          className="text-error-fg bg-error-bg border-error-border text-md rounded border p-2"
-        >
-          {error}
-        </p>
-      )}
+      <DrawerError error={error} />
       {fields.map((field) => (
         <DrawerField
           key={field.name}
@@ -573,14 +622,11 @@ export function DrawerContent({
         />
       ))}
       {canEdit && (
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={loading}
-          className="bg-primary text-primary-fg text-md mt-2 self-start rounded px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {saveLabel}
-        </button>
+        <DrawerSaveButton
+          label={saveLabel}
+          loading={loading}
+          onSave={onSave}
+        />
       )}
       {childrenHtml !== undefined && (
         <RecordDrawerChildren
@@ -588,9 +634,11 @@ export function DrawerContent({
           record={record}
         />
       )}
+      {related}
       <DrawerActions
         actions={actions}
         record={record}
+        loading={loading}
       />
     </>
   )

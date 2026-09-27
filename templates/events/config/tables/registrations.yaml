@@ -6,6 +6,10 @@ fields:
     type: relationship
     relatedTable: events
     relationType: many-to-one
+    # The public /register form renders this column as a dropdown of events;
+    # displayField names the column each choice is labelled with, while the
+    # stored value stays the event's row id.
+    displayField: name
     required: true
   - id: 2
     name: name

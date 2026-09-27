@@ -25,6 +25,13 @@
  *   - REJECT: mark the row `rejected` and finalise the paused run as
  *     terminal WITHOUT re-running; the downstream actions never execute.
  *
+ * WHO MAY RESOLVE: only an approver the request names. The caller is
+ * checked right after the row is found and BEFORE its status, and a caller
+ * the request does not name fails with `ApprovalNotFound` — so a stranger gets
+ * the same answer an unknown id gets, and cannot learn from a 409 that a closed
+ * request exists. A missing caller (no session) is refused the same way; the
+ * route answers 401 before it ever gets here.
+ *
  * Re-running the tail with `skipActionNames` is observationally identical to
  * resuming the same run (the downstream side-effect appears) and reuses the
  * existing engine path rather than threading a half-finished accumulator
@@ -34,6 +41,11 @@
 import { Effect } from 'effect'
 import { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
+import {
+  isNamedApprover,
+  toApproverList,
+  type ApprovalCaller,
+} from '@/domain/models/app/automations/actions/approval/approver-validation'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import {
   executeAutomationRun,
@@ -91,6 +103,11 @@ export interface ResolveApprovalOptions {
   readonly app: App
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly handlers?: ReadonlyMap<ActionKey, ActionHandler>
+  /**
+   * The signed-in person resolving the request. `undefined` resolves nothing:
+   * the request is answered as not found.
+   */
+  readonly caller: ApprovalCaller | undefined
 }
 
 type ResolveRequirements =
@@ -132,6 +149,7 @@ const loadResolutionTarget = (input: {
   readonly runId: string
   readonly approvalId: string
   readonly app: App
+  readonly caller: ApprovalCaller | undefined
 }): Effect.Effect<
   {
     readonly stepIndex: number
@@ -142,12 +160,17 @@ const loadResolutionTarget = (input: {
   AutomationApprovalRepository | AutomationRunRepository
 > =>
   Effect.gen(function* () {
-    const { runId, approvalId, app } = input
+    const { runId, approvalId, app, caller } = input
     const approvalRepo = yield* AutomationApprovalRepository
     // No `mapError` here: a read that FAILED is not a read that found nothing.
     // Absence is the `undefined` below, and only that becomes `ApprovalNotFound`.
     const approval = yield* approvalRepo.findById(approvalId)
     if (approval === undefined) {
+      return yield* Effect.fail({ _tag: 'ApprovalNotFound' as const, approvalId })
+    }
+    // BEFORE the run link and the status: a caller the request does not name
+    // must get exactly what an unknown id gets, never a 409 that confirms it.
+    if (caller === undefined || !isNamedApprover(toApproverList(approval.approvers), caller, app)) {
       return yield* Effect.fail({ _tag: 'ApprovalNotFound' as const, approvalId })
     }
     if (approval.runId !== runId) {
@@ -178,6 +201,28 @@ const loadResolutionTarget = (input: {
   })
 
 /**
+ * Claim the still-pending request for `status`. The write is conditional on
+ * `pending`, so when two callers resolve the same request at once only one
+ * claims it; the other is refused with the status the winner recorded, and
+ * the run resumes (or terminates) exactly once.
+ */
+const claimPendingApproval = (
+  approvalId: string,
+  status: 'approved' | 'rejected'
+): Effect.Effect<void, ResolveApprovalError, AutomationApprovalRepository> =>
+  Effect.gen(function* () {
+    const approvalRepo = yield* AutomationApprovalRepository
+    const claimed = yield* approvalRepo.resolvePending({ id: approvalId, status })
+    if (claimed !== undefined) return
+    const current = yield* approvalRepo.findById(approvalId)
+    return yield* Effect.fail({
+      _tag: 'ApprovalAlreadyResolved' as const,
+      approvalId,
+      status: current?.status ?? status,
+    })
+  })
+
+/**
  * Resolve a paused approval. On approve the run resumes (downstream actions
  * execute); on reject the paused run is finalised terminal and nothing else
  * runs. See module docstring for the full contract.
@@ -186,23 +231,22 @@ export const resolveAutomationApproval = (
   options: ResolveApprovalOptions
 ): Effect.Effect<ResolveApprovalResult, ResolveApprovalError, ResolveRequirements> =>
   Effect.gen(function* () {
-    const { runId, approvalId, decision, app, processEnv } = options
+    const { runId, approvalId, decision, app, processEnv, caller } = options
     const handlers = options.handlers ?? defaultActionHandlers
 
-    const target = yield* loadResolutionTarget({ runId, approvalId, app })
-    const approvalRepo = yield* AutomationApprovalRepository
+    const target = yield* loadResolutionTarget({ runId, approvalId, app, caller })
 
     if (decision === 'reject') {
       // Terminate: stamp the row rejected and mark the paused run failed.
       // No re-run — the downstream actions never execute.
-      yield* approvalRepo.updateStatus({ id: approvalId, status: 'rejected' })
+      yield* claimPendingApproval(approvalId, 'rejected')
       const runRepo = yield* AutomationRunRepository
       yield* runRepo.updateStatus({ id: runId, status: 'rejected' })
       return { decision: 'rejected', runId, approvalId } as const
     }
 
     // Approve: stamp the row approved, then resume by re-running the tail.
-    yield* approvalRepo.updateStatus({ id: approvalId, status: 'approved' })
+    yield* claimPendingApproval(approvalId, 'approved')
 
     // The automation itself was already resolved from `app.automations` in
     // `loadResolutionTarget`, so `resolveAutomationId` cannot report it missing:

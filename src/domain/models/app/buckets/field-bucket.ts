@@ -36,7 +36,7 @@ export const BUCKET_BOUND_FIELD_TYPES: ReadonlySet<string> = new Set([
  * agree:
  *
  * - The records read path, the CRUD-form file field and the record-field
- *   renderer fall back to the implicit `'default'` bucket. They are bulk
+ *   renderer fall back to the built-in `system` bucket. They are bulk
  *   projections over arbitrary columns, so silently adopting an unrelated
  *   declared bucket would mislabel every unbound attachment.
  * - `resolveFormBucket` (form file uploads) falls back to `buckets[0].name`:

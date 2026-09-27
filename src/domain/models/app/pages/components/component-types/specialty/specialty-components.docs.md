@@ -27,6 +27,8 @@ A control that switches the active language for an internationalised app.
 
 It declares no schema option of its own: `props` carries the HTML attributes and the display options, such as `className` and the label style. What languages it offers comes from the app's own language declaration, not from the component.
 
+The switcher never prints the app's `fallback` language. When one is declared it is exposed on the switcher as `data-fallback-language`, for a script or a stylesheet to read. The trigger, the popup and each language option are drawn with the design system's own chrome, so the control needs no styling of its own to sit in a header beside the navigation.
+
 ## `file-upload`
 
 A file selector with optional drag-and-drop.
@@ -43,7 +45,7 @@ Uploaded files land in a bucket, which is also where the size and type policy is
 - type: file-upload
   accept: 'image/*'
   maxFiles: 1
-  uploadAction: /api/buckets/default/files
+  uploadAction: /api/buckets/system/files
   props: { label: '$t:upload.change' }
 ```
 

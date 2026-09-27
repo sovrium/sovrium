@@ -4,9 +4,9 @@
 
 ## Health
 
-| Method | Path          | Description                           |
-| ------ | ------------- | ------------------------------------- |
-| `GET`  | `/api/health` | Server status. No credential required |
+| Method | Path          | Description                                                                                                                   |
+| ------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/health` | Server status. No credential required; an app with authentication answers `{ status, version }` unless the caller is an admin |
 
 ## Tables
 

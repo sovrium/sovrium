@@ -1,75 +1,150 @@
-# Sample pipeline. Stages are spread across the kanban board on purpose — a
-# demo where every card sits in one column shows nothing about the board.
+# Ten open deals across the four stages, two won and one lost this month.
 #
-# Close dates are relative, so the pipeline always straddles "this month" and
-# the calendar view is never empty.
+# Probability follows the stage (10, 30, 50 and 75 %), which is what the
+# weighted forecast on the Pipeline page multiplies by. Close dates are relative
+# to the day the seed runs: one open deal is already five days past its close
+# date, so the board always shows what a stalled deal looks like.
 records:
+  - key: osprey-rollout
+    fields:
+      name: Osprey — practice rollout
+      company: '@companies.osprey'
+      contact: '@contacts.hana'
+      stage: Prospect
+      value: 9600
+      probability: 10
+      close_date: '{{today+36d}}'
+      priority: 2
+      owner: '@user:ines.moreau@kestrel.example'
+  - key: lumen-expansion
+    fields:
+      name: Lumen — team expansion
+      company: '@companies.lumen'
+      contact: '@contacts.dana'
+      stage: Prospect
+      value: 18000
+      probability: 10
+      close_date: '{{today+51d}}'
+      priority: 2
+      owner: '@user:tom.achebe@kestrel.example'
+  - key: marlow-pilot
+    fields:
+      name: Marlow & Finch — pilot
+      company: '@companies.marlow'
+      contact: '@contacts.lea'
+      stage: Prospect
+      value: 6400
+      probability: 10
+      close_date: '{{today+27d}}'
+      priority: 1
+      owner: '@user:ines.moreau@kestrel.example'
+  - key: northwind-warehouse
+    fields:
+      name: Northwind — warehouse rollout
+      company: '@companies.northwind'
+      contact: '@contacts.marcus'
+      stage: Qualified
+      value: 156000
+      probability: 30
+      close_date: '{{today+68d}}'
+      priority: 3
+      owner: '@user:tom.achebe@kestrel.example'
+  - key: cardinal-security
+    fields:
+      name: Cardinal — security review
+      company: '@companies.cardinal'
+      contact: '@contacts.sebastien'
+      stage: Qualified
+      value: 112000
+      probability: 30
+      close_date: '{{today+45d}}'
+      priority: 3
+      owner: '@user:ines.moreau@kestrel.example'
+  - key: tidewater-inventory
+    fields:
+      name: Tidewater — lab inventory
+      company: '@companies.tidewater'
+      contact: '@contacts.oliver'
+      stage: Qualified
+      value: 42000
+      probability: 30
+      close_date: '{{today+22d}}'
+      priority: 2
+      owner: '@user:tom.achebe@kestrel.example'
+  - key: helios-pilot
+    fields:
+      name: Helios — clinical systems pilot
+      company: '@companies.helios'
+      contact: '@contacts.aisha'
+      stage: Proposal
+      value: 240000
+      probability: 50
+      close_date: '{{today+28d}}'
+      priority: 3
+      owner: '@user:ines.moreau@kestrel.example'
+  - key: pinewood-licences
+    fields:
+      name: Pinewood — term licences
+      company: '@companies.pinewood'
+      contact: '@contacts.gwen'
+      stage: Proposal
+      value: 21500
+      probability: 50
+      close_date: '{{today-5d}}'
+      priority: 1
+      owner: '@user:ines.moreau@kestrel.example'
   - key: northwind-renewal
     fields:
       name: Northwind — annual renewal
       company: '@companies.northwind'
+      contact: '@contacts.priya'
       stage: Negotiation
       value: 84000
       probability: 75
       close_date: '{{today+12d}}'
       priority: 3
-
-  - key: northwind-warehouse
+      owner: '@user:tom.achebe@kestrel.example'
+  - key: osprey-support
     fields:
-      name: Northwind — multi-warehouse rollout
-      company: '@companies.northwind'
-      stage: Qualified
-      value: 156000
-      probability: 40
-      close_date: '{{today+68d}}'
-      priority: 3
-
-  - key: helios-clinical
+      name: Osprey — support plan
+      company: '@companies.osprey'
+      contact: '@contacts.hana'
+      stage: Negotiation
+      value: 12000
+      probability: 75
+      close_date: '{{today+5d}}'
+      priority: 2
+      owner: '@user:ines.moreau@kestrel.example'
+  - key: lumen-addon
     fields:
-      name: Helios — clinical systems pilot
-      company: '@companies.helios'
-      stage: Proposal
-      value: 240000
-      probability: 55
-      close_date: '{{today+34d}}'
-      priority: 3
-
-  - key: lumen-migration
-    fields:
-      name: Lumen — spreadsheet migration
+      name: Lumen — analytics add-on
       company: '@companies.lumen'
+      contact: '@contacts.dana'
       stage: Won
-      value: 29000
+      value: 27000
       probability: 100
-      close_date: '{{today-9d}}'
+      close_date: '{{today-6d}}'
       priority: 2
-
-  - key: lumen-expansion
+      owner: '@user:tom.achebe@kestrel.example'
+  - key: tidewater-onboarding
     fields:
-      name: Lumen — team expansion
-      company: '@companies.lumen'
-      stage: Prospect
-      value: 18000
-      probability: 20
-      close_date: '{{today+90d}}'
+      name: Tidewater — onboarding pack
+      company: '@companies.tidewater'
+      contact: '@contacts.oliver'
+      stage: Won
+      value: 8800
+      probability: 100
+      close_date: '{{today-15d}}'
       priority: 1
-
-  - key: cardinal-security
+      owner: '@user:tom.achebe@kestrel.example'
+  - key: cardinal-fleet
     fields:
-      name: Cardinal — security review blocker
+      name: Cardinal — fleet tracking
       company: '@companies.cardinal'
-      stage: Qualified
-      value: 112000
-      probability: 35
-      close_date: '{{today+45d}}'
-      priority: 2
-
-  - key: pinewood-winback
-    fields:
-      name: Pinewood — win-back
-      company: '@companies.pinewood'
+      contact: '@contacts.sebastien'
       stage: Lost
-      value: 9500
+      value: 64000
       probability: 0
-      close_date: '{{today-52d}}'
-      priority: 1
+      close_date: '{{today-13d}}'
+      priority: 2
+      owner: '@user:ines.moreau@kestrel.example'

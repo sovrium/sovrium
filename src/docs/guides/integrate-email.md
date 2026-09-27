@@ -16,6 +16,8 @@ export SMTP_FROM_NAME="My App"
 sovrium start app.yaml
 ```
 
+`SMTP_FROM_NAME` is the display name recipients see beside the sender address. Leave it unset and emails go out under your app's `name`; `Sovrium` is used only when neither is available.
+
 Until `SMTP_HOST` is set, email is disabled and send attempts are logged rather than delivered — safe for local development. In development the whole message goes to the journal, links included, so a reset link can be copied straight out of the terminal; in production only a one-line notice naming the recipient and subject is logged. The startup banner warns about the missing transport when — and only when — the config makes email load-bearing. See **Troubleshooting: Auth, Email & MCP**.
 
 ## Verify

@@ -48,8 +48,11 @@ export function useRefreshWiring(
   // `change` event invalidates the query, triggering a re-fetch that re-applies
   // the server-side `dataSource.filter`/`sort` — no client-side predicate.
   const connectionStatus = useRealtimeSubscription({
-    // Realtime is a DB-table-only feature; a system source never enables it.
-    enabled: !ctx.isSystemSource && ctx.params.dataSource.refreshMode === 'realtime',
+    // Realtime is a DB-table-only feature; a system source never enables it,
+    // and neither does a view-bound grid — the subscription follows the
+    // TABLE's grants, which a visitor on a public view does not hold.
+    enabled:
+      !ctx.isSystemSource && !ctx.isViewBound && ctx.params.dataSource.refreshMode === 'realtime',
     table: ctx.tableKey,
     onChange: handleRefresh,
   })

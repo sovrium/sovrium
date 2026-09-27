@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac } from 'node:crypto'
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { resolveStorageSigningSecret } from '@/application/use-cases/storage/signing-secret'
@@ -16,10 +16,12 @@ import {
   evaluatePermission,
   permits,
 } from '@/domain/models/app/auth/permission-evaluation'
+import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { provideDomain, runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { payloadTooLarge, storageErrorBody } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { isNotFoundError } from '@/presentation/api/runtime/error-sanitizer'
+import { signedUrlTokenMatches } from './signed-url-token'
 import type { App } from '@/domain/models/app'
 import type { Bucket } from '@/domain/models/app/buckets'
 import type { Context } from 'hono'
@@ -89,15 +91,6 @@ function computeToken(spec: TokenSpec): string {
       ? `${base}|${constraints.contentType}|${constraints.maxSize}`
       : base
   return createHmac('sha256', signingSecret()).update(payload).digest('hex')
-}
-
-/**
- * Constant-time comparison of two hex token strings. Returns false when the
- * candidate is malformed (wrong length) rather than throwing.
- */
-function tokensMatch(expected: string, candidate: string): boolean {
-  if (expected.length !== candidate.length) return false
-  return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(candidate, 'hex'))
 }
 
 /** Parameters for {@link buildSignedUrl}. */
@@ -291,7 +284,7 @@ export function createHandleSignedServe(app: App) {
     }
 
     const expected = computeToken({ bucket: bucketName, path, operation: 'download', expires })
-    if (!tokensMatch(expected, token)) {
+    if (!signedUrlTokenMatches(expected, token)) {
       return c.json(storageErrorBody('Invalid signature', 'FORBIDDEN'), 403)
     }
     if (Date.now() > expires) {
@@ -341,7 +334,7 @@ function verifySignedUpload(c: Context, bucketName: string): SignedUploadParams 
     expires,
     constraints: { contentType, maxSize },
   })
-  if (!tokensMatch(expected, token)) {
+  if (!signedUrlTokenMatches(expected, token)) {
     return c.json(storageErrorBody('Invalid signature', 'FORBIDDEN'), 403)
   }
   if (Date.now() > expires) {
@@ -480,13 +473,13 @@ async function streamSignedDownload(c: Context, path: string, bucket: string): P
 }
 
 /**
- * Resolve the bucket config for a signed-URL request, falling back to an
- * implicit private `default` bucket when no explicit configuration is found.
+ * Resolve the bucket config for a signed-URL request: a declared bucket, or the
+ * built-in private `system` bucket.
  */
 function resolveSignBucket(app: App, bucketName: string | undefined): Bucket | undefined {
   const explicit = app.buckets?.find((b) => b.name === bucketName)
   if (explicit) return explicit
-  return bucketName === 'default' ? { name: 'default', public: false } : undefined
+  return bucketName === SYSTEM_BUCKET_NAME ? { name: SYSTEM_BUCKET_NAME, public: false } : undefined
 }
 
 /**

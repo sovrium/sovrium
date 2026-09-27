@@ -6,16 +6,17 @@
  */
 
 import { BarChartCanvas } from './bar-chart'
-import { aggregateRecords } from './chart-aggregate'
+import { aggregateRecords, decorateCategories, orderCategories } from './chart-aggregate'
 import { buildCategoryData } from './chart-series-shared'
 import { LineChartCanvas } from './line-chart'
 import { MultiAreaChart } from './multi-area-chart'
 import { MultiBarChart } from './multi-bar-chart'
 import { MultiLineChart } from './multi-line-chart'
 import { PieChartCanvas } from './pie-chart'
-import type { ChartAggregateConfig } from './chart-aggregate'
-import type { CategoryDatum, ChartSeriesConfig } from './chart-series-shared'
+import type { ChartAggregateConfig, ChartCategoryOption } from './chart-aggregate'
+import type { CategoryDatum, ChartAxisDisplay, ChartSeriesConfig } from './chart-series-shared'
 import type { TableRecord } from '../runtime/types'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { ReactElement } from 'react'
 
 /**
@@ -52,6 +53,26 @@ export interface ChartTooltipConfig {
 }
 
 /**
+ * What the server resolved about the fields a chart names, from `app.tables`:
+ * the grouping field's declared options (in declared order, with their labels
+ * and colours) and the plotted field's currency display. The island receives
+ * records only, never the field schema, so this is how a category keeps its
+ * option's place and colour and a currency axis its field's currency.
+ */
+export interface ChartFieldContext {
+  readonly categoryOptions?: readonly ChartCategoryOption[]
+  readonly valueCurrency?: CurrencyDisplayOptions
+}
+
+/**
+ * A pie or donut not grouped by a select field ranks its slices largest first
+ * unless `order` says otherwise — what a reader of a share-of-total expects,
+ * and what pies drew before categories could be ordered. Every other chart
+ * sorts such categories by name.
+ */
+const PIE_DEFAULT_ORDER = 'value-desc'
+
+/**
  * The two chart types drawn as arcs of a circle rather than as marks against a
  * pair of Cartesian axes. They share one canvas: a donut is a pie with a hole.
  */
@@ -79,7 +100,7 @@ interface SeriesChartArgs {
   readonly records: readonly TableRecord[]
   readonly chartType: ChartType | undefined
   readonly xAxis: ChartAxisConfig | undefined
-  readonly yAxis: ChartAxisConfig | undefined
+  readonly yAxis: ChartAxisDisplay | undefined
   readonly series: readonly ChartSeriesConfig[]
   readonly legend: ChartLegendConfig | undefined
   readonly tooltip: ChartTooltipConfig | undefined
@@ -156,6 +177,9 @@ interface CategoryChartArgs {
    * aggregate-bound chart silently ignored.
    */
   readonly tooltip: ChartTooltipConfig | undefined
+  /** The declared legend — a pie or donut lists one entry per slice. */
+  readonly legend: ChartLegendConfig | undefined
+  readonly fields: ChartFieldContext
   readonly accessibleName: string | undefined
 }
 
@@ -180,15 +204,29 @@ interface CategoryChartArgs {
  * performed here when the binding did not arrive with one.
  */
 function renderCategoryChart(args: CategoryChartArgs): ReactElement {
-  const { records, chartType, xField, yField, data, xAxis, yAxis, tooltip, accessibleName } = args
+  const { records, chartType, xField, yField, xAxis, yAxis, tooltip, legend, fields } = args
+  const { accessibleName } = args
+  // Every category takes its option's label and colour, whichever binding fed it.
+  const data = decorateCategories(
+    args.data ?? buildCategoryData(records, xField, yField),
+    fields.categoryOptions
+  )
   if (isArcChart(chartType)) {
+    // The raw axis pair arrives unordered: its slices follow the field's
+    // options when it declares them, and rank largest first otherwise — the
+    // order a pie has always drawn. The aggregate binding ordered its own.
+    const slices =
+      args.data === undefined
+        ? orderCategories(data, undefined, fields.categoryOptions, PIE_DEFAULT_ORDER)
+        : data
     return (
       <PieChartCanvas
         records={records}
         xField={xField}
         yField={yField}
-        data={data}
+        data={slices}
         donut={chartType === 'donut'}
+        legend={legend}
         accessibleName={accessibleName}
       />
     )
@@ -196,7 +234,7 @@ function renderCategoryChart(args: CategoryChartArgs): ReactElement {
   if (chartType === 'line') {
     return (
       <LineChartCanvas
-        data={data ?? buildCategoryData(records, xField, yField)}
+        data={data}
         accessibleName={accessibleName}
       />
     )
@@ -211,6 +249,7 @@ function renderCategoryChart(args: CategoryChartArgs): ReactElement {
       yAxis={yAxis}
       tooltip={tooltip}
       accessibleName={accessibleName}
+      valueCurrency={fields.valueCurrency}
     />
   )
 }
@@ -222,6 +261,8 @@ interface AggregatedChartArgs {
   readonly xAxis: ChartAxisConfig | undefined
   readonly yAxis: ChartAxisConfig | undefined
   readonly tooltip: ChartTooltipConfig | undefined
+  readonly legend: ChartLegendConfig | undefined
+  readonly fields: ChartFieldContext
   readonly accessibleName: string | undefined
 }
 
@@ -237,18 +278,17 @@ interface AggregatedChartArgs {
  * over.
  */
 function renderAggregatedChart(args: AggregatedChartArgs): ReactElement {
-  const { records, chartType, chartAggregate, xAxis, yAxis, tooltip, accessibleName } = args
-  const aggregated = aggregateRecords(records, chartAggregate)
+  const { records, chartAggregate, fields } = args
   return renderCategoryChart({
-    records,
-    chartType,
+    ...args,
     xField: chartAggregate.groupBy,
     yField: chartAggregate.field ?? '',
-    data: aggregated,
-    xAxis,
-    yAxis,
-    tooltip,
-    accessibleName,
+    data: aggregateRecords(
+      records,
+      chartAggregate,
+      fields.categoryOptions,
+      isArcChart(args.chartType) ? PIE_DEFAULT_ORDER : 'label'
+    ),
   })
 }
 
@@ -258,6 +298,8 @@ interface AxisBoundChartArgs {
   readonly xAxis: ChartAxisConfig | undefined
   readonly yAxis: ChartAxisConfig | undefined
   readonly tooltip: ChartTooltipConfig | undefined
+  readonly legend: ChartLegendConfig | undefined
+  readonly fields: ChartFieldContext
   readonly accessibleName: string | undefined
 }
 
@@ -266,16 +308,10 @@ interface AxisBoundChartArgs {
  * axes name the fields and the canvas reduces the records itself.
  */
 function renderAxisBoundChart(args: AxisBoundChartArgs): ReactElement {
-  const { records, chartType, xAxis, yAxis, tooltip, accessibleName } = args
   return renderCategoryChart({
-    records,
-    chartType,
-    xField: xAxis?.field ?? '',
-    yField: yAxis?.field ?? '',
-    xAxis,
-    yAxis,
-    tooltip,
-    accessibleName,
+    ...args,
+    xField: args.xAxis?.field ?? '',
+    yField: args.yAxis?.field ?? '',
   })
 }
 
@@ -289,7 +325,10 @@ export interface ChartCanvasProps {
   readonly tooltip?: ChartTooltipConfig
   readonly chartAggregate?: ChartAggregateConfig
   readonly accessibleName?: string
+  readonly fields?: ChartFieldContext
 }
+
+const NO_FIELD_CONTEXT: ChartFieldContext = {}
 
 /**
  * Draws the chart itself. Three bindings, checked in precedence order: an
@@ -307,14 +346,19 @@ export function ChartCanvas({
   tooltip,
   chartAggregate,
   accessibleName,
+  fields = NO_FIELD_CONTEXT,
 }: ChartCanvasProps): ReactElement {
   // A declared `series` array routes to the multi-series chart.
   if (hasSeries(series)) {
+    // One value axis over every series: it prints the currency the series'
+    // fields share, which the server resolved only when they all agree.
+    const seriesAxis =
+      fields.valueCurrency === undefined ? yAxis : { ...yAxis, currency: fields.valueCurrency }
     return renderSeriesChart({
       records,
       chartType,
       xAxis,
-      yAxis,
+      yAxis: seriesAxis,
       series,
       legend,
       tooltip,
@@ -331,9 +375,12 @@ export function ChartCanvas({
       xAxis,
       yAxis,
       tooltip,
+      legend,
+      fields,
       accessibleName,
     })
   }
 
-  return renderAxisBoundChart({ records, chartType, xAxis, yAxis, tooltip, accessibleName })
+  const axisArgs = { records, chartType, xAxis, yAxis, tooltip, legend, fields, accessibleName }
+  return renderAxisBoundChart(axisArgs)
 }

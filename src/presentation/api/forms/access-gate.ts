@@ -19,6 +19,7 @@
  * doorway ends up ungated.
  */
 
+import { findUserEmailById } from '@/application/use-cases/auth/find-user-email'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import {
@@ -48,6 +49,27 @@ export async function resolveFormSession(c: Context): Promise<FormRequestSession
   if (!session) return undefined
   const role = await runDomainPromise(c, getUserRole(session.userId))
   return { userId: session.userId, role }
+}
+
+/**
+ * The signed-in visitor a table-backed choice filter resolves
+ * `$currentUser.<id|email|role>` against, or `undefined` for anyone else.
+ *
+ * One builder for every doorway that serves a form's inputs — the full page
+ * and each multi-step fragment — so both offer the same choices. A reference
+ * the map does not carry still fails closed in `resolveFormOptionSources`.
+ */
+export async function resolveFormOptionVisitor(
+  c: Context,
+  session: FormRequestSession | undefined
+): Promise<Readonly<Record<string, unknown>> | undefined> {
+  if (session === undefined) return undefined
+  const email = await runDomainPromise(c, findUserEmailById(session.userId))
+  return {
+    id: session.userId,
+    role: session.role,
+    ...(email !== undefined ? { email } : {}),
+  }
 }
 
 /**

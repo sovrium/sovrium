@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveRequestBaseUrl } from '@/domain/kernel/url/request-base-url'
+import { withProviderEndpoints } from '@/domain/models/app/connections/oauth2-provider-validation'
 import { connectionError } from './error-envelopes'
 import type { Context } from 'hono'
 
@@ -34,6 +36,8 @@ import type { Context } from 'hono'
  *   test fixtures.
  */
 export interface OAuth2Props {
+  /** Known-provider shorthand: fills the endpoints the config leaves out. */
+  readonly provider?: string
   readonly clientId: string
   readonly clientSecret: string
   readonly authorizationUrl?: string
@@ -53,6 +57,10 @@ export interface OAuth2Props {
    */
   readonly scope?: 'app' | 'user'
   readonly authenticationMethod?: 'header' | 'body'
+  /** Token-response fields kept beside the token (e.g. `instance_url`). */
+  readonly tokenFields?: readonly string[]
+  /** Exchange the code's short-lived token for a long-lived one (Meta). */
+  readonly longLivedToken?: { readonly style: 'meta'; readonly renewWithinDays?: number }
 }
 
 /**
@@ -69,6 +77,25 @@ export interface OAuth2AuthCodeProps extends OAuth2Props {
 const isMissingString = (value: string | undefined): boolean => value === undefined || value === ''
 
 /**
+ * Fill what the config may leave out: the endpoints of a known `provider`, and
+ * `redirectUri`, which defaults to this app's own callback — `<base URL><callbackPath>`,
+ * the base URL being `BASE_URL` when set, otherwise the request's own origin.
+ * Applied identically at the authorize step and at the callback, because the
+ * provider refuses a code exchange whose `redirect_uri` differs from the one
+ * the user was sent with. Explicit values always win.
+ */
+const withAuthCodeDefaults = (
+  c: Context,
+  props: OAuth2Props,
+  callbackPath: string
+): OAuth2Props => {
+  const withEndpoints = withProviderEndpoints(props)
+  return isMissingString(withEndpoints.redirectUri)
+    ? { ...withEndpoints, redirectUri: `${resolveRequestBaseUrl(c)}${callbackPath}` }
+    : withEndpoints
+}
+
+/**
  * Validate that the props required for the authorization-code grant flow
  * are all present. The schema marks them optional (see OAuth2Props
  * docstring) because `clientCredentials` only needs `tokenUrl`; this
@@ -80,8 +107,10 @@ const isMissingString = (value: string | undefined): boolean => value === undefi
  */
 export const requireAuthCodeFields = (
   c: Context,
-  props: OAuth2Props
+  declared: OAuth2Props,
+  callbackPath: string
 ): { readonly response: Response } | { readonly props: OAuth2AuthCodeProps } => {
+  const props = withAuthCodeDefaults(c, declared, callbackPath)
   const missing: readonly string[] = (
     [
       ['authorizationUrl', props.authorizationUrl],

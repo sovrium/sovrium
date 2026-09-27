@@ -22,17 +22,20 @@
  * (which ROW does this slug name?) asked one layer down.
  */
 
-import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 import { resolvePageWindow } from '@/domain/models/app/pages/window-props'
 import {
-  evaluateRecordAgainstPredicate,
-  isPredicateGroup,
-  type CurrentUserContext,
-} from '@/domain/models/app/tables/row-level-evaluator-service'
+  stripRestrictedColumns,
+  type TableLike,
+} from '@/domain/models/app/tables/read-access-plan-service'
 import { resolveActiveMarkers } from '@/presentation/render/resolve/active-marker-resolver'
 import { resolvePageAppVars } from '@/presentation/render/resolve/app-vars-resolver'
+import { resolveRenderPlan } from '@/presentation/render/resolve/data-source-modes'
 import { resolveCollectionPage } from '@/presentation/render/resolve/page-collection-resolver'
 import { resolvePageQueryProps } from '@/presentation/render/resolve/query-props-resolver'
+import {
+  rowLevelCheckForVisitor,
+  type RowLevelReadCheck,
+} from '@/presentation/render/resolve/record-read-gate'
 import { resolveRouteBoundTables } from '@/presentation/render/resolve/route-bound-table-resolver'
 import { resolvePageRouteParams } from '@/presentation/render/resolve/route-param-props-resolver'
 import { resolveTabsLazyPanels } from '@/presentation/render/resolve/tabs-lazy-resolver'
@@ -42,29 +45,9 @@ import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
-import type { RowLevelWhen } from '@/domain/models/app/tables/permissions'
 import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
 import type { SystemRowsFetcher } from '@/presentation/render/resolve/first-object-redirect-resolver'
 import type { SystemRecordFetcher } from '@/presentation/render/resolve/page-system-record-binding'
-
-/**
- * The row-level-read predicate a collection page needs, as a spreadable option
- * bag so the absent case adds no key.
- *
- * Anonymous sessions skip the predicate: the page guard has already 404ed them,
- * and `buildCollectionRowLevelReadCheck` needs a principal to build one from.
- * Extracted so `resolveCollectionAndFilter` stays under the complexity cap.
- */
-function collectionReadCheckOf(
-  page: Page,
-  app: App,
-  session: SessionInfo | undefined,
-  db: DataSourceDb
-): { readonly rowLevelReadCheck?: ReturnType<typeof buildCollectionRowLevelReadCheck> } {
-  if (session === undefined) return {}
-  const rowLevelReadCheck = buildCollectionRowLevelReadCheck(page, app, session, db)
-  return rowLevelReadCheck === undefined ? {} : { rowLevelReadCheck }
-}
 
 /**
  * Turn the DECLARED page into the one this request is actually about.
@@ -226,11 +209,11 @@ export async function resolveCollectionAndFilter(
   // build a per-request predicate so a row the user can't see returns
   // `permission-blocked` (a distinct outcome from `not-found`) and the
   // caller renders a structured access-denied response instead of a
-  // silent 404. Anonymous sessions skip the predicate (the page guard
-  // already 404'd them earlier).
+  // silent 404. The table-read and field-read halves ride with it — see
+  // `collectionReadGateOf`.
   const collectionResolution = await resolveCollectionPage(matchedPage, routeParams, db, {
     bypassFilter: previewMode,
-    ...collectionReadCheckOf(matchedPage, app, session, db),
+    ...collectionReadGateOf(matchedPage, app, session, db),
   })
   if (collectionResolution.kind === 'not-found') return undefined
   if (collectionResolution.kind === 'permission-blocked') return { permissionBlocked: true }
@@ -266,108 +249,48 @@ export async function resolveCollectionAndFilter(
 }
 
 /**
- * Bug 2 / [internal ref]: build the row-level-read predicate
- * passed to `resolveCollectionPage`. Returns `undefined` when there is
- * nothing to check (no `collection`, no table found, no
- * `rowLevelPermissions.read.when`) so the resolver runs the existing
- * pass-through path.
+ * The records API's three read gates, as the option bag `resolveCollectionPage`
+ * applies to the collection record — the same three, in the same order, that
+ * `gateRecordForCaller` (`record-read-gate.ts`) applies to every other record a
+ * page resolves:
  *
- * Admins / unrestricted sessions short-circuit to `true` — the table-level
- * row-level guard already lets admins see every row, and pages mirror that
- * for consistency.
+ *  1. **table read** refused — the visitor may read no row of this table, so
+ *     every slug answers `refuseRecord` (404, S1). The page's own `access` does
+ *     not stand in for it: a public page over a table the visitor may not read
+ *     printed the whole row, where the records API gives them nothing.
+ *  2. **row-level read** — for a signed-in visitor, the predicate whose `false`
+ * is the 200 access-denied page. An anonymous
+ *     visitor on a row-scoped table has no user to evaluate it against, so the
+ *     table is refused outright rather than every row answering "access
+ *     denied" — which would confirm each slug exists.
+ *  3. **field read** — `projectRecord`, the record less its unreadable columns,
+ *     applied before any `$record.*` or `$collection.*` token is substituted.
+ *
+ * An empty bag — the record used whole — when the page is not a collection page
+ * or the app declares no `auth` (the full-access model).
  */
-function buildCollectionRowLevelReadCheck(
+function collectionReadGateOf(
   page: Page,
   app: App,
-  session: SessionInfo,
+  session: SessionInfo | undefined,
   db: DataSourceDb
-): ((record: Readonly<Record<string, unknown>>) => Promise<boolean>) | undefined {
-  if (page.collection === undefined) return undefined
+): {
+  readonly refuseRecord?: true
+  readonly rowLevelReadCheck?: RowLevelReadCheck
+  readonly projectRecord?: (
+    record: Readonly<Record<string, unknown>>
+  ) => Readonly<Record<string, unknown>>
+} {
+  if (page.collection === undefined) return {}
   const tableName = page.collection.table
-  const table = app.tables?.find((t) => t.name === tableName)
-  const predicate = table?.rowLevelPermissions?.read?.when
-  if (!predicate) return undefined
-  const isAdmin = session.isUnrestricted === true || isAdminRole(session.role)
-  if (isAdmin) return undefined
-  return async (record) => {
-    // Collect scope-tables referenced by the predicate (typically just
-    // the bound table, but the helper handles `$currentUser.assignments.X`
-    // referencing any scope).
-    const scopeTables = collectScopeTablesFromPredicate(predicate)
-    const assignments = await loadAssignmentsForScopes(session.userId, scopeTables, db)
-    const ctx: CurrentUserContext = {
-      userId: session.userId,
-      email: session.email,
-      role: session.role,
-      isUnrestricted: session.isUnrestricted === true,
-      assignments,
-    }
-    return evaluateRecordAgainstPredicate(record, predicate, ctx)
+  const table = app.tables?.find((t) => t.name === tableName) as TableLike | undefined
+  const plan = resolveRenderPlan({ matchedTable: table, app, session })
+  if (plan === undefined) return {}
+  if (table === undefined || !plan.allowed) return { refuseRecord: true }
+  const rowLevelReadCheck = rowLevelCheckForVisitor(table, session, db)
+  if (rowLevelReadCheck !== undefined && session === undefined) return { refuseRecord: true }
+  return {
+    projectRecord: (record) => stripRestrictedColumns(plan, record),
+    ...(rowLevelReadCheck !== undefined ? { rowLevelReadCheck } : {}),
   }
-}
-
-/**
- * Extract `$currentUser.assignments.<table>` slug references from a
- * row-level predicate value. Supports both the typed object form
- * (`{ kind: 'currentUser', path: { kind: 'assignment', tableSlug } }`)
- * and the string template form (`'$currentUser.assignments.X'`).
- *
- * Mirrors the application-layer `collectAssignmentScopeTables` helper but
- * stays in the presentation layer because the resolver runs there.
- */
-/** Extract `tableSlug` from the typed `{ kind: 'currentUser', path: ... }` form. */
-function scopeFromTypedPredicateValue(value: unknown): string | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
-  const obj = value as {
-    readonly kind?: string
-    readonly path?: { readonly kind?: string; readonly tableSlug?: string }
-  }
-  if (obj.kind !== 'currentUser') return undefined
-  if (obj.path?.kind !== 'assignment') return undefined
-  return typeof obj.path.tableSlug === 'string' ? obj.path.tableSlug : undefined
-}
-
-/** Extract `tableSlug` from the string-template form `$currentUser.assignments.<slug>`. */
-function scopeFromTemplatePredicateValue(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const prefix = '$currentUser.assignments.'
-  if (!value.startsWith(prefix)) return undefined
-  const slug = value.slice(prefix.length)
-  return slug.length > 0 ? slug : undefined
-}
-
-function collectScopeTablesFromPredicate(predicate: RowLevelWhen): readonly string[] {
-  // GAP-3: a composite group references scope tables across all conditions.
-  if (isPredicateGroup(predicate)) {
-    return predicate.conditions.flatMap(collectScopeTablesFromPredicate)
-  }
-  const fromTemplate = scopeFromTemplatePredicateValue(predicate.value)
-  if (fromTemplate !== undefined) return [fromTemplate]
-  const fromTyped = scopeFromTypedPredicateValue(predicate.value)
-  if (fromTyped !== undefined) return [fromTyped]
-  return []
-}
-
-/**
- * Fetch user_access record-id lists for every scope-table referenced by
- * the row-level predicate, in parallel. Silently degrades to "no
- * assignments" when a read fails — the evaluator then sees an empty list
- * and the predicate fails (safer than allowing).
- */
-async function loadAssignmentsForScopes(
-  userId: string,
-  scopeTables: readonly string[],
-  db: DataSourceDb
-): Promise<ReadonlyMap<string, readonly string[]>> {
-  if (scopeTables.length === 0) {
-    return new Map<string, readonly string[]>()
-  }
-  const { fetchUserAssignments: fetchAssignments } = db
-  const entries = await Promise.all(
-    scopeTables.map(async (slug): Promise<readonly [string, readonly string[]]> => [
-      slug,
-      await fetchAssignments(userId, slug).catch(() => [] as readonly string[]),
-    ])
-  )
-  return new Map(entries)
 }

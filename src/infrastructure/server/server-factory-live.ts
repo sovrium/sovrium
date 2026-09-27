@@ -64,6 +64,9 @@ export const ServerFactoryLive = Layer.effect(
         renderNotFoundPage: config.renderNotFoundPage,
         renderErrorPage: config.renderErrorPage,
         ...(config.renderRssFeed !== undefined ? { renderRssFeed: config.renderRssFeed } : {}),
+        ...(config.fetchSitemapRecords !== undefined
+          ? { fetchSitemapRecords: config.fetchSitemapRecords }
+          : {}),
         ...(config.bootstrapToken !== undefined ? { bootstrapToken: config.bootstrapToken } : {}),
       }),
   }))

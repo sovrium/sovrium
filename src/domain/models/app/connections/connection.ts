@@ -6,7 +6,15 @@
  */
 
 import { Schema } from 'effect'
-import { OAuth2PropsSchema, ApiKeyPropsSchema, BasicPropsSchema, BearerPropsSchema } from './props'
+import { providerIssue } from './oauth2-provider-validation'
+import { ConnectionOperationsSchema, operationsIssue } from './operations'
+import {
+  OAuth2PropsSchema,
+  ApiKeyPropsSchema,
+  BasicPropsSchema,
+  BearerPropsSchema,
+  TokenExchangePropsSchema,
+} from './props'
 
 // ─── Connection Base Fields ──────────────────────────────────────────────────
 
@@ -30,6 +38,25 @@ const ConnectionBaseFields = {
       Schema.annotate({ description: 'Description of this connection and its purpose' })
     )
   ),
+
+  /** Root URL of the service's API; every operation path is appended to it */
+  baseUrl: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'Root URL of the service API: an http(s) URL, $env.VAR, or $token.FIELD for a URL the provider returns with the token (declared in the OAuth2 tokenFields). Each operation path is appended to it, and every call passes the same outbound-address guard as the http actions. Required when the connection declares operations.',
+        examples: ['https://thirdparty.qonto.com/v2', '$env.SALESFORCE_INSTANCE_URL'],
+      }),
+      Schema.check(
+        Schema.isPattern(
+          /^(https?:\/\/\S+|\$env\.[A-Z][A-Z0-9_]*\S*|\$token\.[a-z_][a-z0-9_]*\S*)$/
+        )
+      )
+    )
+  ),
+
+  /** Endpoints of the service, callable by name from automation steps */
+  operations: Schema.optional(ConnectionOperationsSchema),
 }
 
 // ─── OAuth2 Connection ───────────────────────────────────────────────────────
@@ -104,6 +131,25 @@ export const BearerConnectionSchema = Schema.Struct({
   })
 )
 
+// ─── Token Exchange Connection ───────────────────────────────────────────────
+
+export const TokenExchangeConnectionSchema = Schema.Struct({
+  ...ConnectionBaseFields,
+  type: Schema.Literal('tokenExchange').pipe(
+    Schema.annotate({
+      description: "Constant value 'tokenExchange' for type discrimination in discriminated unions",
+    })
+  ),
+  props: TokenExchangePropsSchema,
+}).pipe(
+  Schema.annotate({
+    identifier: 'TokenExchangeConnection',
+    title: 'Token Exchange Connection',
+    description:
+      'A credential exchanged at a token endpoint for a short-lived token, cached until it expires',
+  })
+)
+
 // ─── Connection Union ────────────────────────────────────────────────────────
 
 export const ConnectionSchema = Schema.Union([
@@ -111,6 +157,7 @@ export const ConnectionSchema = Schema.Union([
   ApiKeyConnectionSchema,
   BasicConnectionSchema,
   BearerConnectionSchema,
+  TokenExchangeConnectionSchema,
 ]).pipe(
   Schema.annotate({
     identifier: 'Connection',
@@ -135,7 +182,12 @@ export const ConnectionsSchema = Schema.Array(ConnectionSchema).pipe(
     Schema.makeFilter((connections) => {
       const names = connections.map((c) => c.name)
       const uniqueNames = new Set(names)
-      return names.length === uniqueNames.size || 'Connection names must be unique'
+      if (names.length !== uniqueNames.size) return 'Connection names must be unique'
+      return (
+        connections
+          .flatMap((connection) => [providerIssue(connection), operationsIssue(connection)])
+          .find((issue) => issue !== undefined) ?? true
+      )
     })
   )
 )

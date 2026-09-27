@@ -37,6 +37,10 @@ Fixed-precision decimal numbers. `precision` is the number of decimal places kep
 
 Monetary values, carrying the ISO 4217 code alongside the amount so a figure is never ambiguous about what it is denominated in.
 
+An amount is grouped by thousands unless the field declares `thousandsSeparator` — including at `precision: 0`, so a whole-euro field reads `€48,500`. On a page, an undeclared separator follows the page language (`48 500 €` on a French page); the records API has no page and always groups with a comma. A declared `thousandsSeparator`, `none` included, always wins.
+
+An amount is written in the page language unless the field declares its `thousandsSeparator`, on every surface that prints it.
+
 <!-- sovrium:options CurrencyFieldSchema -->
 
 ```yaml

@@ -20,14 +20,16 @@
 
 import { renderToString } from 'react-dom/server'
 import { isOperatorConsoleApp } from '@/domain/models/app/admin/admin-data-nav'
-import { isBadgeEnabled } from '@/domain/models/app/badge'
+import { findRssPage, resolveRssChannelIdentity } from '@/domain/models/app/pages/rss-feed-builder'
 import { getVersionedCssPath } from '@/infrastructure/css/versioned-css-path'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   extractSessionTimeout,
   shouldInjectAnalytics,
 } from '@/presentation/render/page/analytics-helpers'
+import { resolveBadge } from '@/presentation/render/page/badge-placement'
 import { DynamicPage } from '@/presentation/render/page/dynamic-page'
+import { pageFoldsDocsNav } from '@/presentation/render/registry/docs-nav-drawer-mode'
 import {
   ISLAND_COMPONENT_TYPES,
   zeroJsDialogNeedsNoRuntime,
@@ -141,6 +143,7 @@ function selfNeedsIslands(s: Component): boolean {
  */
 function pageNeedsIslands(page: Page, components: App['components']): boolean {
   if (page.presence === true) return true
+  if (pageFoldsDocsNav(page)) return true
   return someComponentInTree(page.components, components, (s) => selfNeedsIslands(s as Component))
 }
 
@@ -248,6 +251,18 @@ interface RenderPageHtmlInput {
   readonly appComponents: App['components']
 }
 
+/**
+ * The feed title a page announces in its head, or `undefined` when the page
+ * is not the one `/feed.xml` is built from. Only that page links the feed, so
+ * the autodiscovery link never points a reader at a feed of another page.
+ */
+const resolveFeedTitle = (app: App, page: Page): string | undefined => {
+  const rssPage = findRssPage(app)
+  return rssPage !== undefined && rssPage.name === page.name
+    ? resolveRssChannelIdentity(app, rssPage).title
+    : undefined
+}
+
 export function renderPageHtml(input: RenderPageHtmlInput): string {
   const {
     app,
@@ -267,7 +282,7 @@ export function renderPageHtml(input: RenderPageHtmlInput): string {
   const html = renderToString(
     <DynamicPage
       page={page}
-      badgeEnabled={isBadgeEnabled(app.badge)}
+      badgePlacement={resolveBadge(app.badge)}
       demoNoticeEnabled={!isOperatorConsoleApp(app)}
       components={appComponents}
       // One position. This used to read `app.design?.theme ?? app.theme`, and
@@ -292,6 +307,7 @@ export function renderPageHtml(input: RenderPageHtmlInput): string {
       markdownPayload={markdownPayload}
       session={session}
       cssHref={getVersionedCssPath(app)}
+      feedTitle={resolveFeedTitle(app, page)}
     />
   )
   return `<!DOCTYPE html>\n${html}`

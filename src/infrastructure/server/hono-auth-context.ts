@@ -16,13 +16,69 @@
  */
 
 import { buildEffectiveRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
+import { resolveTrustedForwardedIp } from '@/domain/kernel/url/client-ip'
 import { isAdminEquivalent } from '@/domain/models/app'
+import { isSessionBindingValid } from '@/domain/models/app/auth/session-binding-validation'
+import {
+  parseTrustedProxyHops,
+  TRUSTED_PROXY_HOPS_DEFAULT,
+} from '@/domain/models/process-env/proxy'
+import { logWarning } from '@/infrastructure/logging/logger'
 import { runOnDomain } from '@/infrastructure/server/domain-runtime'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { AuthRuntime } from '@/infrastructure/auth/better-auth/server-runtime'
 import type { DomainContext } from '@/infrastructure/server/domain-runtime'
+
+/**
+ * The operator's declared proxy hop count, decoded once per server.
+ *
+ * An invalid `TRUSTED_PROXY_HOPS` degrades to the safe default rather than
+ * failing every page render — the same fallback, for the same reason, as the
+ * API's own reader (`presentation/api/middleware/client-ip.ts`), which logs
+ * the cause.
+ */
+const decodeTrustedProxyHops = (): number => {
+  try {
+    return parseTrustedProxyHops()
+  } catch {
+    return TRUSTED_PROXY_HOPS_DEFAULT
+  }
+}
+
+/**
+ * Whether the session this request carries was issued to this client.
+ *
+ * The page tier and the API must agree on who is signed in. `authMiddleware`
+ * refuses a session presented from another IP or User-Agent, so this reader
+ * does too — otherwise a page (the mounted console included) would render,
+ * server-side, for a replayed cookie its own API answers 401. The request side
+ * is derived exactly as the API derives it: the User-Agent header, and the
+ * address a TRUSTED proxy vouched for, never the transport peer.
+ */
+const isBoundToThisClient = (
+  session: {
+    readonly id: string
+    readonly ipAddress?: string | null
+    readonly userAgent?: string | null
+  },
+  headers: Headers,
+  trustedProxyHops: number
+): boolean => {
+  const current = {
+    ipAddress: resolveTrustedForwardedIp({
+      forwardedFor: headers.get('x-forwarded-for') ?? undefined,
+      realIp: headers.get('x-real-ip') ?? undefined,
+      cfConnectingIp: headers.get('cf-connecting-ip') ?? undefined,
+      trustedProxyHops,
+    }),
+    userAgent: headers.get('user-agent') ?? undefined,
+  }
+  if (isSessionBindingValid(session, current)) return true
+  logWarning(`[AUTH] Page session binding validation failed for session ${session.id}`)
+  return false
+}
 
 /**
  * Builds a getSession callback from an auth instance for page access control
@@ -32,10 +88,12 @@ function buildGetSession(
   app: Readonly<App>,
   domainContext: DomainContext
 ): (headers: Headers) => Promise<SessionInfo | undefined> {
+  const trustedProxyHops = decodeTrustedProxyHops()
   return async (headers) => {
     try {
       const session = await authInstance.api.getSession({ headers })
       if (!session) return undefined
+      if (!isBoundToThisClient(session.session, headers, trustedProxyHops)) return undefined
       // Admin plugin adds `role` to user at runtime (not in base type), and
       // `language` is an `additionalFields` column, absent from it for the same
       // reason. Both are widened here.
@@ -45,6 +103,8 @@ function buildGetSession(
         name?: string
         role?: string
         language?: string | null
+        notifyAutomationAlerts?: boolean
+        notifyWeeklyDigest?: boolean
       }
       const role = user.role ?? 'member'
       // Better Auth admin plugin grants global, unrestricted access to the
@@ -74,6 +134,15 @@ function buildGetSession(
         // empty string and a column never written all collapse to the same
         // absence: none of them is a language anyone chose.
         ...(user.language ? { language: user.language } : {}),
+        // The two operator-email preferences, `NOT NULL DEFAULT true`. An absent
+        // key (an envelope composed before the columns existed) is left absent
+        // rather than guessed.
+        ...(typeof user.notifyAutomationAlerts === 'boolean'
+          ? { notifyAutomationAlerts: user.notifyAutomationAlerts }
+          : {}),
+        ...(typeof user.notifyWeeklyDigest === 'boolean'
+          ? { notifyWeeklyDigest: user.notifyWeeklyDigest }
+          : {}),
         isUnrestricted,
         groups,
         effectiveRoles,

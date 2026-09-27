@@ -40,7 +40,7 @@ export const buckets = defineSection({
         'maxFileSize',
         'allowedMimeTypes',
         'public bucket',
-        'default bucket',
+        'system bucket',
       ],
       order: 8000,
       sidebarLabel: 'Buckets Overview',

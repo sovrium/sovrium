@@ -48,6 +48,18 @@ export interface AuditListFilter {
    * nothing (200 with an empty item set), not a client error.
    */
   readonly resourceType?: string | undefined
+  /**
+   * Resource-id filter — narrows the feed to entries about ONE resource (an
+   * automation's name, a user's id). Matched exactly. Used with `action` to
+   * find, say, the latest `automation.resumed` of one automation.
+   */
+  readonly resourceId?: string | undefined
+  /** Entries at or after this instant only. */
+  readonly since?: Readonly<Date> | undefined
+  /** Entries whose severity is one of these. An empty list matches nothing. */
+  readonly severities?: readonly string[] | undefined
+  /** Entries whose action is one of these. An empty list matches nothing. */
+  readonly actions?: readonly string[] | undefined
 }
 
 /**

@@ -27,7 +27,10 @@
 
 import { Cause, Effect, Exit, Result } from 'effect'
 import { ServerFactory } from '@/application/ports/services/server-factory'
-import { createAdminAccount } from '@/application/use-cases/auth/bootstrap-admin'
+import {
+  createAdminAccount,
+  describeBootstrapDatabaseError,
+} from '@/application/use-cases/auth/bootstrap-admin'
 import { decodeAppConfigObject } from '@/application/use-cases/config/decode-app-config'
 import {
   extractCodeActionRefusal,
@@ -48,7 +51,13 @@ import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { createAppLayer, createStaticBuildLayer } from '@/infrastructure/layers/app-layer'
 import { formatRuntimeError, logDebug } from '@/infrastructure/logging'
 import { installShutdownHandlers } from '@/infrastructure/server/lifecycle'
+import type { AuthDatabaseError } from '@/application/ports/repositories/auth/auth-repository'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
+import type {
+  BootstrapDatabaseError,
+  InvalidEmailError,
+  WeakPasswordError,
+} from '@/application/use-cases/auth/bootstrap-admin'
 import type { DecodeAppConfigResult } from '@/application/use-cases/config/decode-app-config'
 import type {
   GenerateStaticOptions,
@@ -379,7 +388,6 @@ export const createAdmin = async (
 ): Promise<CreateAdminResult> => {
   try {
     const { app: validatedApp } = decodeOrThrow(app)
-
     if (!validatedApp.auth) {
       return {
         ok: false,
@@ -387,41 +395,89 @@ export const createAdmin = async (
           'Auth is not configured for this app. Add an `auth:` block to your config before creating an admin.',
       }
     }
-
-    const program = Effect.gen(function* () {
-      yield* runMigrations(parseDatabaseDialectConfig())
-      return yield* createAdminAccount(validatedApp, {
-        email: credentials.email,
-        password: credentials.password,
-        name: credentials.name ?? 'Administrator',
-      })
-    }).pipe(Effect.provide(createAppLayer(validatedApp.auth)), Effect.result)
-
-    const result = await Effect.runPromise(program)
-
-    if (Result.isSuccess(result)) {
-      return { ok: true, created: !result.success.alreadyExists, email: credentials.email }
-    }
-
-    const error = result.failure
-    const message =
-      error._tag === 'InvalidEmailError'
-        ? `Invalid email address: ${error.email}`
-        : error._tag === 'WeakPasswordError'
-          ? error.message
-          : error._tag === 'BootstrapDatabaseError'
-            ? error.cause instanceof Error
-              ? error.cause.message
-              : String(error.cause)
-            : formatRuntimeError(error)
-    return { ok: false, message, databaseUnreachable: isDatabaseUnreachable(error) }
+    const [result] = await createAccounts(validatedApp, [
+      { ...credentials, name: credentials.name ?? 'Administrator', role: 'admin' },
+    ])
+    return result ?? { ok: false, message: 'No account was created.' }
   } catch (error) {
-    // Defects (e.g. migration connection failure) bypass the typed channel.
+    // Defects (e.g. a config that does not decode) bypass the typed channel.
     return {
       ok: false,
       message: formatRuntimeError(error),
       databaseUnreachable: isDatabaseUnreachable(error),
     }
+  }
+}
+
+/** One account for {@link createAccounts}: credentials plus the role it is created with. */
+export interface CreateAccountCredentials {
+  readonly email: string
+  readonly password: string
+  readonly name: string
+  readonly role: string
+}
+
+/** The operator-facing message for an expected account-creation failure. */
+const describeAccountFailure = (
+  error: Readonly<
+    InvalidEmailError | WeakPasswordError | BootstrapDatabaseError | AuthDatabaseError
+  >
+): string =>
+  error._tag === 'InvalidEmailError'
+    ? `Invalid email address: ${error.email}`
+    : error._tag === 'WeakPasswordError'
+      ? error.message
+      : error._tag === 'BootstrapDatabaseError'
+        ? describeBootstrapDatabaseError(error)
+        : formatRuntimeError(error)
+
+/**
+ * Create sign-in accounts, each with its own role, against an already-decoded
+ * app. The path `sovrium admin create` takes, run once for a list — so
+ * `sovrium seed` gives `seed/users.yaml` accounts the same credential, the same
+ * verified-email handling and the same idempotency: an email that already has
+ * an account reports `created: false` and is left unchanged.
+ *
+ * Results come back in input order. Expected failures are returned, not thrown.
+ */
+export const createAccounts = async (
+  app: Readonly<App>,
+  accounts: readonly CreateAccountCredentials[]
+): Promise<readonly CreateAdminResult[]> => {
+  if (!app.auth) {
+    return accounts.map(() => ({
+      ok: false as const,
+      message:
+        'Auth is not configured for this app. Add an `auth:` block to your config before creating an account.',
+    }))
+  }
+
+  try {
+    const program = Effect.gen(function* () {
+      yield* runMigrations(parseDatabaseDialectConfig())
+      return yield* Effect.forEach(accounts, (account) =>
+        createAdminAccount(app, account).pipe(Effect.result)
+      )
+    }).pipe(Effect.provide(createAppLayer(app.auth)))
+
+    const results = await Effect.runPromise(program)
+    return results.map((result, position): CreateAdminResult => {
+      const email = accounts[position]?.email ?? ''
+      if (Result.isSuccess(result))
+        return { ok: true, created: !result.success.alreadyExists, email }
+      return {
+        ok: false,
+        message: describeAccountFailure(result.failure),
+        databaseUnreachable: isDatabaseUnreachable(result.failure),
+      }
+    })
+  } catch (error) {
+    // Defects (e.g. migration connection failure) bypass the typed channel.
+    return accounts.map(() => ({
+      ok: false as const,
+      message: formatRuntimeError(error),
+      databaseUnreachable: isDatabaseUnreachable(error),
+    }))
   }
 }
 

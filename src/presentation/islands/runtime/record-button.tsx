@@ -21,6 +21,7 @@
 import { useCallback, useState } from 'react'
 import { satisfiesFieldCondition } from '@/domain/models/app/tables/condition-operators'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { followAddress } from './follow-address'
 import { BUTTON_REQUEST_FAILED, classifyButtonResponse } from './record-button-outcome'
 import { renderToast } from './toast'
 
@@ -88,7 +89,7 @@ export function RecordButton(props: RecordButtonProps): React.ReactNode {
 
   const onClick = useCallback(() => {
     if (config.action === 'url') {
-      if (config.url) window.location.assign(config.url)
+      if (config.url) followAddress(config.url)
       return
     }
     if (!table || !recordId) return

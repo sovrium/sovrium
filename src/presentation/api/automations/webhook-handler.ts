@@ -32,6 +32,7 @@ import {
   webhookValidationFailed,
 } from './webhook-refusals'
 import { coerceQueryForSchema, validateAgainstSchema } from './webhook-validation'
+import { answerVerificationHandshake } from './webhook-verification'
 import type { TriggerData } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { RunAutomationResult } from '@/application/use-cases/automations/run-automation'
 import type { App } from '@/domain/models/app'
@@ -190,6 +191,8 @@ const lookupAndMethodGate = (
   if (automation === undefined) return { status: 'reject', response: webhookNotFound(c) }
   const trigger = automation.trigger as WebhookTrigger
   const allowed = allowedMethodsFor(trigger)
+  const handshake = answerVerificationHandshake(c, app, trigger, allowed.includes('GET'))
+  if (handshake !== undefined) return { status: 'reject', response: handshake }
   const method = c.req.method.toUpperCase()
   if (!isMethod(method) || !allowed.includes(method)) {
     return { status: 'reject', response: webhookMethodNotAllowed(c, method, allowed) }

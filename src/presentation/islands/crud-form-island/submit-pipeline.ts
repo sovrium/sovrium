@@ -11,6 +11,7 @@ import { omitsEmptyValue } from '@/presentation/design/field-type-behavior'
 import { evaluateCondition, isFieldVisible } from '../parts/crud-form/conditions'
 import { type FieldDef } from '../parts/crud-form/fields'
 import { showSuccessToast } from '../parts/crud-form/toast'
+import { toWireFields } from '../parts/crud-form/wire-values'
 import { dispatch as dispatchIslandEvent } from '../runtime/event-bus'
 import { type SubmitContext } from './types'
 
@@ -97,7 +98,7 @@ type MutationResult = { readonly record?: Record<string, unknown> }
 async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
   // Exclude values for fields that are conditionally hidden (visibleWhen not met).
   // Always include hidden-input fields (field.hidden) — they are submitted unconditionally.
-  const visibleValues = Object.fromEntries(
+  const heldValues = Object.fromEntries(
     Object.entries(ctx.values).filter(([key, value]) => {
       const field = ctx.fields.find((f) => f.name === key)
       if (!field) return true
@@ -120,6 +121,9 @@ async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
       return true
     })
   )
+  // The form HOLDS strings; the API takes each column's own kind of value — a
+  // number, a list, an ISO instant. Converted once, on the way out.
+  const visibleValues = toWireFields(ctx.fields, heldValues)
   switch (ctx.operation) {
     case 'create': {
       const created = await ctx.createRecord.mutateAsync(visibleValues)
@@ -130,7 +134,9 @@ async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
         const updated = await ctx.updateRecord.mutateAsync({
           recordId: ctx.recordId,
           fields: visibleValues,
+          ...(ctx.updatedAt !== undefined && { updatedAt: ctx.updatedAt }),
         })
+        ctx.rememberUpdatedAt?.(updated)
         return { record: updated as Record<string, unknown> }
       }
       return {}

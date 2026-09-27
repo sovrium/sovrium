@@ -185,6 +185,31 @@ const LANGUAGE_SWITCHER_DROPDOWN_SURFACE = [
 export const computeLanguageSwitcherDropdownClasses = (): string =>
   [LANGUAGE_SWITCHER_DROPDOWN_LAYOUT, LANGUAGE_SWITCHER_DROPDOWN_SURFACE].join(' ')
 
+const LANGUAGE_SWITCHER_OPTION_LAYOUT =
+  'flex w-full min-h-8 items-center gap-2 px-2 py-1.5 text-left text-sm cursor-pointer select-none'
+
+const LANGUAGE_SWITCHER_OPTION_SURFACE = [
+  'border-0 bg-transparent',
+  `text-[${v('sv-fg', T.fg)}]`,
+  `hover:bg-[${v('sv-primary-subtle', T.primarySubtle)}]`,
+  `hover:text-[${v('sv-primary-subtle-fg', T.primarySubtleFg)}]`,
+  'focus-visible:outline-none',
+  `focus-visible:bg-[${v('sv-primary-subtle', T.primarySubtle)}]`,
+  `focus-visible:text-[${v('sv-primary-subtle-fg', T.primarySubtleFg)}]`,
+].join(' ')
+
+/**
+ * Compute the default className for one language option inside the
+ * switcher's popup. Modelled on the select item recipe: a full-width flex
+ * row with the same `min-h-8` / `px-2` rhythm, the `sv-fg` text colour, and
+ * a `primary-subtle` wash on hover and keyboard focus. The options are built
+ * by the vanilla client script, which cannot import this module, so the SSR
+ * markup stamps the string on the popup as `data-option-class` and the
+ * script applies it to every option it creates.
+ */
+export const computeLanguageSwitcherOptionClasses = (): string =>
+  [LANGUAGE_SWITCHER_OPTION_LAYOUT, LANGUAGE_SWITCHER_OPTION_SURFACE].join(' ')
+
 // ──────────────────────────────────────────────────────────────────────────────
 // REORDERABLE LIST — flex-column list of card-like rows with drag handles
 // ──────────────────────────────────────────────────────────────────────────────

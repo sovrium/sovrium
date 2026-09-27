@@ -7,7 +7,7 @@
 
 import { type ReactElement } from 'react'
 import { isOperatorConsoleApp } from '@/domain/models/app/admin/admin-data-nav'
-import { isBadgeEnabled } from '@/domain/models/app/badge'
+import { resolveBadge } from '@/presentation/render/page/badge-placement'
 import { createDefaultHomePageConfig } from '@/presentation/render/page/default-page-configs'
 import { DynamicPage } from '@/presentation/render/page/dynamic-page'
 import type { App } from '@/domain/models/app'
@@ -44,7 +44,7 @@ export function DefaultHomePage({
       page={pageConfig}
       builtInAnalyticsEnabled={builtInAnalyticsEnabled}
       builtInAnalyticsSessionTimeout={builtInAnalyticsSessionTimeout}
-      badgeEnabled={isBadgeEnabled(app.badge)}
+      badgePlacement={resolveBadge(app.badge)}
       demoNoticeEnabled={!isOperatorConsoleApp(app)}
     />
   )

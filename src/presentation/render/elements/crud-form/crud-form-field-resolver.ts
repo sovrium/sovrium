@@ -12,7 +12,7 @@ import {
   resolveDisplayDescription,
   resolveDisplayLabel,
 } from '@/presentation/design/field-display'
-import { showsDeclaredDefault } from '@/presentation/design/field-type-behavior'
+import { fieldWidgetOf, showsDeclaredDefault } from '@/presentation/design/field-type-behavior'
 import { humanizeFieldName } from '@/presentation/design/string-utils'
 import type { ResolvedFieldDef } from './crud-form-types'
 import type { Buckets } from '@/domain/models/app/buckets'
@@ -20,6 +20,7 @@ import type { Component } from '@/domain/models/app/pages/components'
 import type { FormFieldConfig } from '@/domain/models/app/pages/components/component-types/data/form'
 import type { Tables } from '@/domain/models/app/tables'
 import type { FieldType } from '@/domain/models/app/tables/fields'
+import type { TypedColumnConfig } from '@/presentation/design/field-control-attributes'
 
 /**
  * Normalize a choice field's declared options to their VALUE strings.
@@ -157,7 +158,7 @@ function resolveDisplayProps(
 
 /**
  * [internal ref]: the file field uploads to — and previews from — the bucket DECLARED
- * on the bound column, not the implicit 'default' and not the "single declared
+ * on the bound column, not the built-in `system` and not the "single declared
  * bucket" heuristic used for the rich-text image button (which is wrong the
  * moment an app declares two buckets).
  */
@@ -248,6 +249,37 @@ function resolveButtonConfig(
   }
 }
 
+/**
+ * Carry a typed column's own control configuration onto the resolved field def,
+ * so the form draws the control the data table edits that column with: a number
+ * input stepped by `precision`, with its currency or percent sign and its bounds;
+ * a date-and-time input read in the column's `timeZone`; a rating scale of `max`
+ * ranks in the column's glyph. Returns an empty overlay for every other type so
+ * the caller spreads it unconditionally. The hosted form reads the same overlay
+ * (`form-field-resolver.ts`), so a column is configured alike on both forms.
+ */
+export function resolveTypedColumnConfig(
+  fieldType: string,
+  tf: Readonly<Record<string, unknown>>
+): TypedColumnConfig {
+  const widget = fieldWidgetOf(fieldType)
+  const numberProp = (key: string) => (typeof tf[key] === 'number' ? { [key]: tf[key] } : {})
+  const stringProp = (key: string, as = key) =>
+    typeof tf[key] === 'string' ? { [as]: tf[key] } : {}
+  if (widget === 'number') {
+    return {
+      ...numberProp('precision'),
+      ...numberProp('min'),
+      ...numberProp('max'),
+      ...stringProp('currency'),
+      ...stringProp('symbolPosition'),
+    }
+  }
+  if (widget === 'rating') return { ...numberProp('max'), ...stringProp('style', 'ratingStyle') }
+  if (widget === 'datetime') return stringProp('timeZone')
+  return {}
+}
+
 function resolveFieldDef(
   tableField: { readonly name: string; readonly type: string; readonly required?: boolean },
   cfg: FormFieldConfig | undefined,
@@ -287,6 +319,7 @@ function resolveFieldDef(
     ...(attachmentBucket !== undefined && { bucket: attachmentBucket }),
     ...resolveButtonConfig(tableField.type, tf),
     ...resolveRelationshipConfig(tableField.type, tf),
+    ...resolveTypedColumnConfig(tableField.type, tf),
     ...(cfg ? resolveCfgOverrides(cfg) : undefined),
   }
 }

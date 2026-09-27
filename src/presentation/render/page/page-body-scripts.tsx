@@ -6,7 +6,6 @@
  */
 
 import { type ReactElement } from 'react'
-import { isLocalDevDefault } from '@/domain/models/process-env/dev-mode'
 import { isSchemaAuthoredComponent } from '@/presentation/render/registry/synthesized-component-types'
 import {
   renderInlineScriptTag,
@@ -245,7 +244,7 @@ const autoResizeScript = `!function(){function grow(el){el.style.height='auto';e
  * costs one statement. `command-palette-runtime.ts` already does exactly this,
  * for exactly this reason; see the comment above its `removeAttribute('hidden')`.
  */
-const clickScript = `!function(){function openModal(id){window.__sovriumOpenModals=window.__sovriumOpenModals||{};window.__sovriumOpenModals[id]=true;var c=document.getElementById(id);if(!c)return;c.style.display="";var d=c.querySelector('[role="dialog"]');if(d){d.removeAttribute("hidden");d.setAttribute("aria-hidden","false");d.focus()}}function closeModal(c){c.style.display="none"}document.addEventListener("click",function(t){var e=t.target.closest("[data-click-animation], [data-click-navigate], [data-click-open-url], [data-click-scroll-to], [data-click-toggle-element], [data-click-submit-form], [data-click-modal], [data-modal-close], [data-backdrop]");if(!e)return;if(e.hasAttribute("data-modal-close")){var mc=e.closest("[data-modal-container]");if(mc)closeModal(mc);return}if(e.hasAttribute("data-backdrop")&&t.target===e){var mc2=e.closest("[data-modal-container]");if(mc2)closeModal(mc2);return}var n=e.getAttribute("data-click-animation"),a=e.getAttribute("data-click-navigate"),c=e.getAttribute("data-click-open-url"),i=e.getAttribute("data-click-open-in-new-tab")==="true",o=e.getAttribute("data-click-scroll-to"),l=e.getAttribute("data-click-toggle-element"),r=e.getAttribute("data-click-submit-form"),m=e.getAttribute("data-click-modal"),s=c||a,d=!!c;if(m){openModal(m)}else if(r){var f=document.querySelector(r);f&&"FORM"===f.tagName&&f.requestSubmit()}else if(l){var g=document.querySelector(l);if(g){var h="none"===window.getComputedStyle(g).display;g.style.display=h?"":"none"}}else if(o){var j=document.querySelector(o);j&&j.scrollIntoView({behavior:"smooth",block:"start"})}else if(n&&"none"!==n){var k="animate-click-"+n;if(e.classList.add(k),s){var done=!1;var cb=function(){done||(done=!0,e.classList.remove(k),d&&i?window.open(s,"_blank"):window.location.href=s)};e.addEventListener("animationend",cb,{once:!0});setTimeout(cb,300)}else{var cb2=function(){e.classList.remove(k)};e.addEventListener("animationend",cb2,{once:!0});setTimeout(cb2,300)}}else s&&(d&&i?window.open(s,"_blank"):window.location.href=s)});document.addEventListener("keydown",function(e){if(e.key==="Escape"){var open=document.querySelector('[data-modal-container]:not([style*="display: none"])');if(!open){var all=document.querySelectorAll("[data-modal-container]");for(var i=0;i<all.length;i++){if(all[i].style.display!=="none"){open=all[i];break}}}if(open)closeModal(open)}})}();`
+const clickScript = `!function(){function openModal(id){window.__sovriumOpenModals=window.__sovriumOpenModals||{};window.__sovriumOpenModals[id]=true;var c=document.getElementById(id);if(!c)return;c.style.display="";var d=c.querySelector('[role="dialog"]');if(d){d.removeAttribute("hidden");d.setAttribute("aria-hidden","false");d.focus()}}function closeModal(c){c.style.display="none"}document.addEventListener("click",function(t){var e=t.target.closest("[data-click-animation], [data-click-navigate], [data-click-open-url], [data-click-scroll-to], [data-click-toggle-element], [data-click-submit-form], [data-click-modal], [data-modal-close], [data-backdrop]");if(!e)return;if(e.hasAttribute("data-modal-close")){var mc=e.closest("[data-modal-container]");if(mc)closeModal(mc);return}if(e.hasAttribute("data-backdrop")&&t.target===e){var mc2=e.closest("[data-modal-container]");if(mc2)closeModal(mc2);return}var n=e.getAttribute("data-click-animation"),a=e.getAttribute("data-click-navigate"),c=e.getAttribute("data-click-open-url"),i=e.getAttribute("data-click-open-in-new-tab")==="true",o=e.getAttribute("data-click-scroll-to"),l=e.getAttribute("data-click-toggle-element"),r=e.getAttribute("data-click-submit-form"),m=e.getAttribute("data-click-modal"),s=c||a,d=!!c;if(m){openModal(m)}else if(r){var f=document.querySelector(r);f&&"FORM"===f.tagName&&f.requestSubmit()}else if(l){var g=document.querySelector(l);if(g){var h="none"===window.getComputedStyle(g).display;g.style.display=h?"":"none"}}else if(o){var j=document.querySelector(o);j&&j.scrollIntoView({behavior:"smooth",block:"start"})}else if(n&&"none"!==n){var k="animate-click-"+n;if(e.classList.add(k),s){var done=!1;var cb=function(){done||(done=!0,e.classList.remove(k),d&&i?window.open(s,"_blank","noopener,noreferrer"):window.location.href=s)};e.addEventListener("animationend",cb,{once:!0});setTimeout(cb,300)}else{var cb2=function(){e.classList.remove(k)};e.addEventListener("animationend",cb2,{once:!0});setTimeout(cb2,300)}}else s&&(d&&i?window.open(s,"_blank","noopener,noreferrer"):window.location.href=s)});document.addEventListener("keydown",function(e){if(e.key==="Escape"){var open=document.querySelector('[data-modal-container]:not([style*="display: none"])');if(!open){var all=document.querySelectorAll("[data-modal-container]");for(var i=0;i<all.length;i++){if(all[i].style.display!=="none"){open=all[i];break}}}if(open)closeModal(open)}})}();`
 
 /**
  * Design-toggle runtime (SECURITY: Safe - static code, no user input).
@@ -320,37 +319,6 @@ const copyCodeScript = `!function(){document.addEventListener("click",function(t
 const marqueePauseScript = `!function(){document.addEventListener("click",function(t){var b=t.target.closest("[data-marquee-pause]");if(!b)return;var m=b.closest("[data-marquee]");if(!m)return;if(m.getAttribute("data-marquee-paused")==="true"){m.removeAttribute("data-marquee-paused");b.textContent=b.getAttribute("data-marquee-pause-label")||"Pause"}else{m.setAttribute("data-marquee-paused","true");b.textContent=b.getAttribute("data-marquee-resume-label")||"Resume"}})}();`
 
 /**
- * Dev-only live-reload script. Loads the external client served by
- * `dev-reload-routes`, so the browser auto-reloads after a
- * `sovrium start --watch` restart.
- *
- * Emitted ONLY when `NODE_ENV` is unset/empty — the genuine local-dev default
- * that the CLI dev-experience specs run under. It is
- * absent both in production (`NODE_ENV=production`) AND under the in-process
- * E2E test server, which sets `NODE_ENV=development` solely to skip the
- * production CSS check. The latter is what
- * lets an empty page emit zero `<script src>` tags.
- *
- * The genuine-local-dev predicate lives in `domain/utils/dev-mode.ts` so the
- * infrastructure `isLiveReloadEligible` and this SSR shell consume the same
- * canonical shape (no inline duplication of the unset-vs-empty distinction).
- *
- * Uses an external `src` (NOT inline) so it does not perturb the strict-CSP
- * inline-script-count contract. The `process.env` read
- * is server-side only — this page shell never ships to the client bundle
- * (mirrors the direct env read in `ai-chat-component.tsx`).
- */
-function DevLiveReloadScript(): ReactElement | undefined {
-  if (!isLocalDevDefault(process.env.NODE_ENV)) return undefined
-  return (
-    <script
-      src="/assets/dev-reload.js"
-      defer={true}
-    />
-  )
-}
-
-/**
  * Renders scripts for body end position
  */
 function renderBodyEndScripts(config: {
@@ -398,7 +366,6 @@ function renderBodyEndScripts(config: {
             marqueePauseScript,
         }}
       />
-      <DevLiveReloadScript />
     </>
   )
 }

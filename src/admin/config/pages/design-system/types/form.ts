@@ -543,7 +543,7 @@ const form: TypePageBody = {
             {
               type: 'code',
               props: { language: 'yaml' },
-              content: 'optionsSource:\n  table: stages\n  labelField: name\n  valueField: slug',
+              content: 'optionsSource:\n  table: stages\n  displayField: name\n  valueField: slug',
             } as PageComponent,
           ],
         },

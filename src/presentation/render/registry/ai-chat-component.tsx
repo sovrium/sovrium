@@ -50,7 +50,9 @@ import {
   computeAiChatSuggestionStripClasses,
 } from '@/presentation/design/ai-chat-default-classes'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { hostClassName } from '@/presentation/render/registry/island-host-attributes'
 import { resolveChildTranslation } from '../i18n/translation-handler'
+import { getAiChatLabels, type AiChatLabels } from './ai-chat-labels'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement } from 'react'
@@ -145,7 +147,11 @@ interface AiChatProps {
   readonly allowedTables: ReadonlyArray<string> | undefined
   /** Prompt chips drawn under the composer, or `undefined` when none apply. */
   readonly suggestions: ReadonlyArray<string> | undefined
+  /** Push-to-talk settings, when the author declared `voiceInput` on the component. */
+  readonly voiceInput: VoiceInputProps | undefined
   readonly testId: string
+  /** The engine-written notices, in the document's language. */
+  readonly labels: AiChatLabels
   /** JSON `data-island-props` payload for the client island. */
   readonly islandPropsJson: string
 }
@@ -182,22 +188,101 @@ const resolveSuggestions = (
   return prompts.length > 0 ? prompts : undefined
 }
 
-/** Read the author-declared `ai-chat` props off the raw component props. */
-const resolveAiChatProps = (
-  rawProps: Record<string, unknown> | undefined,
-  elementProps: Record<string, unknown>,
-  currentLang: string | undefined,
-  languages: Languages | undefined
-): AiChatProps => {
+/** The `voiceInput` settings forwarded to the island. */
+interface VoiceInputProps {
+  readonly mode?: 'draft' | 'send'
+  readonly language?: string
+  readonly quality?: 'fast' | 'accurate'
+  readonly maxDurationSeconds?: number
+}
+
+/**
+ * Read `voiceInput` off the COMPONENT, where AppSchema validates it — not off
+ * `props`, the open bag `suggestions` and `allowedTables` still live in. The pipeline
+ * hands every renderer the whole component (`ComponentDispatchConfig.component`),
+ * which is already decoded, so this only picks the four keys it knows.
+ */
+const readVoiceInput = (component: unknown): VoiceInputProps | undefined => {
+  const declared = (component as { readonly voiceInput?: unknown } | undefined)?.voiceInput
+  if (typeof declared !== 'object' || declared === null) return undefined
+  const { mode, language, quality, maxDurationSeconds } = declared as Record<string, unknown>
+  return {
+    ...((mode === 'draft' || mode === 'send') && { mode }),
+    ...(typeof language === 'string' && { language }),
+    ...((quality === 'fast' || quality === 'accurate') && { quality }),
+    ...(typeof maxDurationSeconds === 'number' && { maxDurationSeconds }),
+  }
+}
+
+/**
+ * The five options AppSchema declares BESIDE `type` on an `ai-chat`, and the
+ * position the component reference tells authors to write them in.
+ */
+type TopLevelChatKey = 'agent' | 'placeholder' | 'chatHeight' | 'showHistory' | 'allowAttachments'
+
+/**
+ * Read one option, top level first and `props` second.
+ *
+ * The top level is the documented form, so it wins whenever it is set; `props`
+ * is only consulted where the top level says nothing, which keeps a config
+ * written in the older form working unchanged. A key set in both places takes
+ * the top-level value — never a merge — so a migrated config that still carries
+ * a stale `props` bag cannot bind the chat to the agent it was migrated away
+ * from.
+ */
+const readChatOption = (
+  component: unknown,
+  props: Record<string, unknown>,
+  key: TopLevelChatKey
+): unknown => {
+  const topLevel = (component as Readonly<Record<string, unknown>> | undefined)?.[key]
+  return topLevel !== undefined ? topLevel : props[key]
+}
+
+/** The placeholder and height, each with its default. */
+const readSizing = (
+  component: unknown,
+  props: Record<string, unknown>
+): { readonly placeholder: string; readonly chatHeight: number } => ({
+  placeholder:
+    (readChatOption(component, props, 'placeholder') as string | undefined) ?? 'Ask a question…',
+  chatHeight:
+    (readChatOption(component, props, 'chatHeight') as number | undefined) ??
+    DEFAULT_CHAT_HEIGHT_PX,
+})
+
+/** What {@link resolveAiChatProps} reads from the dispatch config. */
+interface AiChatPropsSource {
+  readonly rawProps: Record<string, unknown> | undefined
+  readonly elementProps: Record<string, unknown>
+  readonly currentLang: string | undefined
+  readonly languages: Languages | undefined
+  readonly component: unknown
+}
+
+/**
+ * Read the author-declared `ai-chat` options: the five AppSchema declares beside
+ * `type` through {@link readChatOption}, `suggestions` and `allowedTables` off
+ * `props`, and `voiceInput` off the component alone.
+ */
+const resolveAiChatProps = ({
+  rawProps,
+  elementProps,
+  currentLang,
+  languages,
+  component,
+}: AiChatPropsSource): AiChatProps => {
   const props = rawProps ?? {}
-  const agent = props.agent as string | undefined
-  const placeholder = (props.placeholder as string | undefined) ?? 'Ask a question…'
-  const chatHeight = (props.chatHeight as number | undefined) ?? DEFAULT_CHAT_HEIGHT_PX
-  const showHistory = props.showHistory as boolean | undefined
-  const allowAttachments = props.allowAttachments === true
+  const agent = readChatOption(component, props, 'agent') as string | undefined
+  const { placeholder, chatHeight } = readSizing(component, props)
+  const showHistory = readChatOption(component, props, 'showHistory') as boolean | undefined
+  const declaredAttachments = readChatOption(component, props, 'allowAttachments')
+  const allowAttachments = declaredAttachments === true
   const allowedTables = props.allowedTables as ReadonlyArray<string> | undefined
   const suggestions = resolveSuggestions(props.suggestions, currentLang, languages)
+  const voiceInput = readVoiceInput(component)
   const testId = (elementProps['data-testid'] as string | undefined) ?? 'ai-chat'
+  const labels = getAiChatLabels(currentLang)
   return {
     agent,
     placeholder,
@@ -205,27 +290,31 @@ const resolveAiChatProps = (
     allowAttachments,
     allowedTables,
     suggestions,
+    voiceInput,
     testId,
+    labels,
     islandPropsJson: JSON.stringify({
       ...(agent !== undefined && { agent }),
       placeholder,
       chatHeight,
       ...(showHistory !== undefined && { showHistory }),
-      ...(props.allowAttachments !== undefined && { allowAttachments }),
+      ...(declaredAttachments !== undefined && { allowAttachments }),
       ...(allowedTables !== undefined && { allowedTables }),
       ...(suggestions !== undefined && { suggestions }),
+      ...(voiceInput !== undefined && { voiceInput }),
       'data-testid': testId,
+      labels: { failure: labels.failure, retry: labels.retry },
     }),
   }
 }
 
 /** Degraded-mode body shown when AI is configured-but-disabled. */
-const renderDisabledBody = (): ReactElement => (
+const renderDisabledBody = (labels: AiChatLabels): ReactElement => (
   <div
     role="status"
     className="text-foreground-muted flex flex-1 items-center justify-center p-6 text-sm"
   >
-    AI chat is not configured and is currently unavailable.
+    {labels.notConfigured}
   </div>
 )
 
@@ -237,13 +326,13 @@ const renderDisabledBody = (): ReactElement => (
  * point on. `error` is on this type's published states strip precisely because
  * it is the one appearance a reader cannot produce on demand.
  */
-const renderSpecimenErrorBanner = (): ReactElement => (
+const renderSpecimenErrorBanner = (labels: AiChatLabels): ReactElement => (
   <div
     data-testid="chat-error"
     role="alert"
     className={`${computeAiChatErrorClasses()} flex items-center gap-2`}
   >
-    <span>The assistant is unavailable. Please try again.</span>
+    <span>{labels.failure}</span>
   </div>
 )
 
@@ -283,9 +372,38 @@ const renderSuggestionStrip = (suggestions: ReadonlyArray<string>): ReactElement
   </div>
 )
 
+/** The attach control of an `allowAttachments` chat, as the island draws it. */
+const renderAttachSkeleton = (): ReactElement => (
+  <button
+    type="button"
+    data-testid="chat-attach"
+    aria-label="Attach file"
+    className={ATTACH_BUTTON}
+  >
+    Attach
+  </button>
+)
+
+/**
+ * The push-to-talk button of a `voiceInput` chat, inert until the island
+ * mounts and drawn now only so the composer does not shift when it does.
+ */
+const renderVoiceSkeleton = (): ReactElement => (
+  <button
+    type="button"
+    data-testid="chat-voice"
+    aria-label="Hold to talk"
+    aria-pressed="false"
+    disabled
+    className={ATTACH_BUTTON}
+  >
+    Talk
+  </button>
+)
+
 /** Static chat skeleton — the island client upgrades this on hydration. */
 const renderSkeletonBody = (
-  { placeholder, allowAttachments, suggestions }: AiChatProps,
+  { placeholder, allowAttachments, suggestions, voiceInput, labels }: AiChatProps,
   specimen: AiChatSpecimenStatus | undefined
 ): ReactElement => (
   <>
@@ -299,7 +417,7 @@ const renderSkeletonBody = (
       className={`chat-messages ${computeAiChatMessageListClasses()}`}
     />
 
-    {specimen === 'error' && renderSpecimenErrorBanner()}
+    {specimen === 'error' && renderSpecimenErrorBanner(labels)}
 
     {/* Message input row — the island upgrades this to a live form */}
     <form
@@ -312,16 +430,7 @@ const renderSkeletonBody = (
       >
         Message
       </label>
-      {allowAttachments && (
-        <button
-          type="button"
-          data-testid="chat-attach"
-          aria-label="Attach file"
-          className={ATTACH_BUTTON}
-        >
-          Attach
-        </button>
-      )}
+      {allowAttachments && renderAttachSkeleton()}
       <input
         id="ai-chat-input"
         data-ai-chat-input
@@ -331,6 +440,7 @@ const renderSkeletonBody = (
         placeholder={placeholder}
         className={computeAiChatInputClasses()}
       />
+      {voiceInput !== undefined && renderVoiceSkeleton()}
       {/*
         `type="button"` on a specimen, and it is the whole of what makes the
         drawing inert. The row already carries no `action` and no `method`, so a
@@ -359,8 +469,15 @@ export const aiChatComponent: ComponentRenderer = ({
   rawProps,
   currentLang,
   languages,
+  component,
 }) => {
-  const resolved = resolveAiChatProps(rawProps, elementProps, currentLang, languages)
+  const resolved = resolveAiChatProps({
+    rawProps,
+    elementProps,
+    currentLang,
+    languages,
+    component,
+  })
   const { agent, chatHeight, allowedTables, testId, islandPropsJson } = resolved
   const specimen = specimenStatusOf(rawProps)
   // A specimen draws the panel whether or not THIS deployment has an AI
@@ -379,11 +496,14 @@ export const aiChatComponent: ComponentRenderer = ({
       data-testid={testId}
       data-agent={agent}
       data-allowed-tables={allowedTables !== undefined ? JSON.stringify(allowedTables) : undefined}
-      className={`ai-chat-container ${computeAiChatContainerClasses()}`}
+      className={hostClassName(
+        elementProps,
+        `ai-chat-container ${computeAiChatContainerClasses()}`
+      )}
       // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-call height merge in a stateless SSR renderer; memoization happens in the outer ComponentRenderer
       style={{ height: `${chatHeight}px` }}
     >
-      {disabled ? renderDisabledBody() : renderSkeletonBody(resolved, specimen)}
+      {disabled ? renderDisabledBody(resolved.labels) : renderSkeletonBody(resolved, specimen)}
     </div>
   )
 }

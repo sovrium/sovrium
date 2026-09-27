@@ -35,15 +35,18 @@
  *
  * A boot that REMOVES a table or a field derives nothing here. Whether the
  * engine actually drops anything is not a function of the two configurations:
- * `dropObsoleteTables` and `validateDestructiveOps` decide it at runtime from
- * policy and from the live rows, and a removal they refuse would be recorded
- * here as work that never happened. The additions have no such gate — a table
+ * `dropObsoleteTables` refuses to drop a table that still holds rows unless
+ * `sovrium migrate --allow-destructive` consented, and `validateDestructiveOps`
+ * refuses a column drop without `allowDestructive: true` — both decided at
+ * runtime from the live rows and the policy, and a removal they refuse would be
+ * recorded here as work that never happened. The additions have no such gate — a table
  * the configuration declares and the database lacks IS created — so they are
  * the half that can be stated honestly from config alone.
  */
 
-import { shouldUseView } from '../lookup/lookup-view-generators'
+import { getPhysicalTableName, shouldUseView } from '../lookup/lookup-view-generators'
 import { buildColumnStatements } from '../schema-migration/column-detection'
+import { isPhysicalColumnField } from '../sql/sql-field-predicates'
 import { buildTablePrimaryKeyTypesMap, generateCreateTableSQL } from '../table-operations'
 import type { Table } from '@/domain/models/app/tables'
 
@@ -118,11 +121,15 @@ export const deriveConfigDdl = (params: {
     }
 
     const existing = fieldNamesOf(prior)
-    const columnsToAdd = table.fields.filter((field) => !existing.has(field.name))
+    // Only STORED fields become columns: a new lookup or rollup changes the
+    // view body, never the base table.
+    const columnsToAdd = table.fields.filter(
+      (field) => !existing.has(field.name) && isPhysicalColumnField(field, table.fields)
+    )
     if (columnsToAdd.length === 0) return []
 
     const { addStatements } = buildColumnStatements({
-      tableName: table.name,
+      tableName: getPhysicalTableName(table),
       columnsToDrop: [],
       columnsToAdd,
       primaryKeyFields: primaryKeyFieldsOf(table),

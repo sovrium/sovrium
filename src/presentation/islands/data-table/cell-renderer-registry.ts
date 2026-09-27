@@ -33,11 +33,13 @@ import {
   BarcodeCell,
   CheckboxCell,
   ColorSwatchCell,
+  DateCell,
   DateTimeCell,
   DurationCell,
   ProgressCell,
   RatingCell,
   RichTextPreviewCell,
+  UrlLinkCell,
 } from './scalar-cell-renderers'
 
 /**
@@ -85,5 +87,9 @@ export const FIELD_TYPE_TO_CELL_RENDERER: Readonly<Record<string, CellRenderer>>
   // showed the raw ISO instant the API sends, and a `rich-text` cell showed its
   // own markup spelled out, because React escapes the stored body.
   datetime: DateTimeCell,
+  date: DateCell,
   'rich-text': RichTextPreviewCell,
+  // A `url` value is a link that opens in a new tab — or, when it is not a web
+  // address, the text it is.
+  url: UrlLinkCell,
 }

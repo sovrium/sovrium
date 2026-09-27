@@ -6,6 +6,7 @@
  */
 
 import { type Effect } from 'effect'
+import { formatAppIdentity } from '@/domain/kernel/format/app-identity'
 import {
   type CliBlock,
   type CliLine,
@@ -234,9 +235,14 @@ const summaryBlocks = (params: {
   // string is a valid `DescriptionSchema` value, and emitting a row for it
   // would put a blank line immediately above the block's own closing blank —
   // a double blank, which the banner document format forbids.
-  const appVersion = params.app.version ?? BANNER_DEFAULT_APP_VERSION
   const header: CliBlock = [
-    { text: `${params.app.name} v${appVersion} (Sovrium v${params.version})` },
+    {
+      text: formatAppIdentity({
+        name: params.app.name,
+        version: params.app.version ?? BANNER_DEFAULT_APP_VERSION,
+        engineVersion: params.version,
+      }),
+    },
     ...(params.app.description ? [{ text: params.app.description }] : []),
   ]
 

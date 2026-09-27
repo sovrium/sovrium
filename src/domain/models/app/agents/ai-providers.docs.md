@@ -12,29 +12,31 @@ AI_MODEL=claude-sonnet-4-5
 
 ## The six providers
 
-| Provider          | Value                    | Key | Base URL | Notes                                |
-| ----------------- | ------------------------ | --- | -------- | ------------------------------------ |
-| Anthropic         | `anthropic`              | yes | no       | Claude models                        |
-| OpenAI            | `openai`                 | yes | no       | GPT and o-series models              |
-| Mistral           | `mistral`                | yes | no       | Mistral and Codestral                |
-| Google Gemini     | `google`, alias `gemini` | yes | no       | Gemini models                        |
-| Ollama            | `ollama`                 | no  | yes      | Local and self-hosted; no key needed |
-| OpenAI-compatible | `openai-compatible`      | yes | yes      | Any endpoint speaking the OpenAI API |
+| Provider          | Value                    | Key | Base URL                                     | Notes                                |
+| ----------------- | ------------------------ | --- | -------------------------------------------- | ------------------------------------ |
+| Anthropic         | `anthropic`              | yes | yes (no default yet)                         | Claude models                        |
+| OpenAI            | `openai`                 | yes | yes (no default yet)                         | GPT and o-series models              |
+| Mistral           | `mistral`                | yes | no (defaults to `https://api.mistral.ai/v1`) | Mistral and Codestral                |
+| Google Gemini     | `google`, alias `gemini` | yes | yes (no default yet)                         | Gemini models                        |
+| Ollama            | `ollama`                 | no  | yes                                          | Local and self-hosted; no key needed |
+| OpenAI-compatible | `openai-compatible`      | yes | yes                                          | Any endpoint speaking the OpenAI API |
+
+Mistral speaks the OpenAI wire format; a plain reply's `"tool_calls": null` is read as no tool call, and structured extraction sends the schema name Mistral requires.
 
 `gemini` is an accepted alias for the canonical `google`; prefer `google` in a new configuration.
 
 ## The variables
 
-| Variable                  | Holds                                                             |
-| ------------------------- | ----------------------------------------------------------------- |
-| `AI_PROVIDER`             | The provider identifier, and the master switch                    |
-| `AI_API_KEY`              | The key for a cloud provider; unused by Ollama                    |
-| `AI_BASE_URL`             | The endpoint; required for Ollama and compatible endpoints        |
-| `AI_MODEL`                | The default model, falling back to the provider's recommended one |
-| `AI_TEMPERATURE`          | The default sampling temperature, 0 to 1 inclusive                |
-| `AI_MAX_TOKENS`           | The default maximum output length                                 |
-| `AI_EMBEDDING_MODEL`      | The embedding model for retrieval, defaulting per provider        |
-| `AI_EMBEDDING_DIMENSIONS` | The vector width, which must match the embedding model's output   |
+| Variable                  | Holds                                                                                                                                                          |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_PROVIDER`             | The provider identifier, and the master switch                                                                                                                 |
+| `AI_API_KEY`              | The key for a cloud provider; unused by Ollama                                                                                                                 |
+| `AI_BASE_URL`             | The endpoint; required for Ollama and compatible endpoints, and today for OpenAI, Anthropic and Google; optional for Mistral, whose public API is the default. |
+| `AI_MODEL`                | The default model, falling back to the provider's recommended one                                                                                              |
+| `AI_TEMPERATURE`          | The default sampling temperature, 0 to 1 inclusive                                                                                                             |
+| `AI_MAX_TOKENS`           | The default maximum output length                                                                                                                              |
+| `AI_EMBEDDING_MODEL`      | The embedding model for retrieval, defaulting per provider                                                                                                     |
+| `AI_EMBEDDING_DIMENSIONS` | The vector width, which must match the embedding model's output                                                                                                |
 
 An empty or whitespace-only value is treated identically to unset: an operator who blanks out the provider intends to disable it, not to supply an invalid value, so the server boots cleanly with AI off rather than throwing a parse error.
 
@@ -95,14 +97,14 @@ Transcription uses its own endpoint, configured apart from the language model. S
 | -------------------- | --------------------------------------------------------------------------------------------- |
 | `STT_PROVIDER`       | `openai-compatible`, `whisper-cpp`, `openai` or `mistral`; the master switch                  |
 | `STT_BASE_URL`       | The speech endpoint; requests go to `/audio/transcriptions` (or `/inference` for whisper.cpp) |
-| `STT_API_KEY`        | The key for a cloud provider; local servers usually need none                                 |
+| `STT_API_KEY`        | Required for `openai` and `mistral` (startup refuses without it); local servers need none     |
 | `STT_MODEL`          | The default model, used by any tier not set on its own                                        |
 | `STT_MODEL_FAST`     | The model for the `fast` tier (live dictation)                                                |
 | `STT_MODEL_ACCURATE` | The model for the `accurate` tier (recordings you keep)                                       |
 | `STT_TIMEOUT_MS`     | The upper bound on one transcription request (default 600000)                                 |
 | `STT_MAX_FILE_BYTES` | The largest recording sent (default 104857600)                                                |
 
-Configuration names a tier or an exact model, never a server. `ECO_AI_PROVIDER_PRECEDENCE` applies unchanged: under `local-only`, a cloud speech provider is refused at startup. `/api/health` reports the speech provider and the model each tier resolves to.
+Configuration names a tier or an exact model, never a server. `ECO_AI_PROVIDER_PRECEDENCE` applies unchanged: under `local-only`, a cloud speech provider is refused at startup. `/api/health` reports the speech provider and the model each tier resolves to an admin session (to every caller in an app without authentication).
 
 ```bash
 STT_PROVIDER=whisper-cpp

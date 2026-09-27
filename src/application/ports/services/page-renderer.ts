@@ -8,6 +8,7 @@
 import { Context } from 'effect'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
+import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
 
 /**
@@ -52,6 +53,24 @@ export type PageRenderResult =
  * Use this service via Effect Context to render React components
  * to HTML strings with type-safe dependency injection.
  */
+/**
+ * Read one page of rows of one table for the sitemap's record fan-out: the
+ * named columns only, filtered by the collection page's own `filter`, live rows
+ * only (`liveOnly`), in a stable order, at most `pageSize` rows. The caller has
+ * already decided the table and its address field are anonymously readable.
+ */
+export type FetchSitemapRecords = (
+  tableName: string,
+  options: {
+    readonly fields: readonly string[]
+    readonly filter?: readonly DataFilter[]
+    readonly sort: readonly DataSort[]
+    readonly pageSize: number
+    readonly page: number
+    readonly liveOnly: true
+  }
+) => Promise<readonly Readonly<Record<string, unknown>>[]>
+
 export class PageRenderer extends Context.Service<
   PageRenderer,
   {
@@ -182,11 +201,11 @@ export class PageRenderer extends Context.Service<
     readonly renderError: (app?: App, detectedLanguage?: string) => string | Promise<string>
 
     /**
-     * Render the RSS 2.0 feed XML for the first collection page that opts
-     * in via `page.rss !== false && page.rss !== undefined`
+     * Render the RSS 2.0 feed XML for the first PUBLIC page that opts in via
+     * `page.rss !== false && page.rss !== undefined` — see `findRssPage`
      * ([internal ref]..018).
      *
-     * Returns `undefined` when no page in `app.pages` declares `rss`,
+     * Returns `undefined` when no public page in `app.pages` declares `rss`,
      * which the route handler maps to a 404 — the `/feed.xml` endpoint
      * only exists when at least one collection page opts in. The
      * `baseUrl` is the absolute origin of the request (eg.
@@ -194,5 +213,7 @@ export class PageRenderer extends Context.Service<
      * `<atom:link rel="self">` are built relative to it.
      */
     readonly renderRssFeed: (app: App, baseUrl: string) => Promise<string | undefined>
+    /** Row reader behind the sitemap's record fan-out. */
+    readonly fetchSitemapRecords: FetchSitemapRecords
   }
 >()('PageRenderer') {}

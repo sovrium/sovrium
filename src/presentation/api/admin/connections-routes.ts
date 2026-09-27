@@ -65,7 +65,7 @@ const INTERNAL_ERROR = {
  * Sentinel resource id carried by the list-queried audit emit (the list read
  * has no single connection id). The spec asserts `resource.type === 'connection'`
  * — the canonical type comes from the action catalog, not this id. Mirrors the
- * `DEFAULT_BUCKET_ID` convention used by the bucket list emit.
+ * `SYSTEM_BUCKET_ID` convention used by the bucket list emit.
  */
 const CONNECTION_LIST_RESOURCE_ID = 'connections'
 

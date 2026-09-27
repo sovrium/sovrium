@@ -49,7 +49,8 @@ export const ActionBaseFields = {
    * race) — this top-level field is enforced uniformly by the run loop
    * for ALL action types (delay, http, code, …).
    *
-   * Range matches `automation.timeout`: 1_000 – 900_000 ms.
+   * Range: 1_000 – 900_000 ms. A single step is capped at 15 minutes; the
+   * whole run (`automation.timeout`) may go to one hour.
    */
   timeout: Schema.optional(
     Schema.Finite.pipe(

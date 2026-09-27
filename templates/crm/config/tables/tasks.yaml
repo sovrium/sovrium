@@ -10,6 +10,8 @@ fields:
     type: relationship
     relatedTable: deals
     relationType: many-to-one
+    # Show the deal's name wherever the link is displayed, not its id.
+    displayField: name
   - id: 3
     name: due_date
     type: date
@@ -18,11 +20,8 @@ fields:
     type: status
     options:
       - value: Todo
-        color: '#94A3B8'
       - value: Doing
-        color: '#3B82F6'
       - value: Done
-        color: '#10B981'
     default: Todo
   - id: 5
     name: done
@@ -39,6 +38,18 @@ fields:
   - id: 7
     name: created_by
     type: created-by
+  # Whose task it is. The Tasks page lists the signed-in rep's open ones.
+  - id: 8
+    name: owner
+    type: user
+    allowMultiple: false
+  # The person the task is about, so a contact's drawer shows their next step.
+  - id: 9
+    name: contact
+    type: relationship
+    relatedTable: contacts
+    relationType: many-to-one
+    displayField: name
 
 aiAccess:
   description: >-
@@ -51,6 +62,7 @@ aiAccess:
     - update
   fieldExposure: permissioned
 
+# Every signed-in rep reads and edits tasks; only an admin deletes one.
 permissions:
   read: authenticated
   create:

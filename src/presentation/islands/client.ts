@@ -36,6 +36,7 @@ import {
   parseConfirmObjectConfig,
   resolveGateLabels,
 } from '@/presentation/islands/runtime/confirm-gate-runtime'
+import { setupEndpointFormHandlers } from '@/presentation/islands/runtime/endpoint-form-runtime'
 import { setupNativeSelectPublishers } from '@/presentation/islands/runtime/native-select-publisher'
 import { hydrateSessionBindings } from '@/presentation/islands/runtime/session-resolver'
 import {
@@ -509,6 +510,12 @@ function openFetchConfirmGate(
 }
 
 function setupFetchButtonHandlers(): void {
+  // A `type: 'toast'` button is the fetch button with nothing to fetch: it
+  // raises the toast its action carries, through the same toast path.
+  bindActionButtons('toast', (button) => {
+    const config = parseActionInput(button.getAttribute('data-action-config'))
+    if (typeof config['message'] === 'string') dispatchToastResponse(config as FetchToastResponse)
+  })
   bindActionButtons('fetch', (button) => {
     const config = parseFetchActionConfig(button.getAttribute('data-action-config'))
     if (!config) return
@@ -549,67 +556,6 @@ function setupFetchButtonHandlers(): void {
     }
 
     void dispatch()
-  })
-}
-
-// ─── Custom-endpoint form handling (form.endpoint) ───────────────────────────
-
-/** The `data-endpoint-config` blob serialized by `renderEndpointForm`. */
-type EndpointFormConfig = {
-  url: string
-  method?: string
-  responseEnvelope?: string
-  onSuccess?: FetchToastResponse
-  onError?: FetchToastResponse
-}
-
-/** Parse the `data-endpoint-config` JSON attribute into a config object. */
-function parseEndpointFormConfig(raw: string | null): EndpointFormConfig | undefined {
-  if (!raw) return undefined
-  try {
-    const parsed = JSON.parse(raw) as unknown
-    if (
-      parsed &&
-      typeof parsed === 'object' &&
-      typeof (parsed as EndpointFormConfig).url === 'string'
-    ) {
-      return parsed as EndpointFormConfig
-    }
-    return undefined
-  } catch {
-    return undefined
-  }
-}
-
-/**
- * Bind the submit of every endpoint-bound form (`form[data-action-type="endpoint"]`,
- * emitted by `renderEndpointForm`). On submit: collect the form's `FormData` into a
- * JSON body, build a `type: 'fetch'` action carrying those values, and dispatch it
- * through the SHARED `executeFetchAction` — so the response-envelope evaluation,
- * the `onSuccess`/`onError` toast, and the additive `onSuccess` `status`/`refetch`
- * client-state effects (a sibling directory grid refreshes) all behave identically
- * to the standalone fetch button. No `renderToast` is injected: the rich toast
- * (incl. `duration`/`actionLabel`/`actionUrl`) is rendered here from the returned
- * `{ ok }`, exactly as the fetch-button path does.
- */
-function setupEndpointFormHandlers(): void {
-  delegate<HTMLFormElement>('submit', 'form[data-action-type="endpoint"]', (form, event) => {
-    event.preventDefault()
-    const config = parseEndpointFormConfig(form.getAttribute('data-endpoint-config'))
-    if (!config) return
-    const body = Object.fromEntries(new FormData(form)) as Record<string, unknown>
-    const action = {
-      type: 'fetch',
-      url: config.url,
-      method: config.method ?? 'POST',
-      body,
-      ...(config.responseEnvelope && { responseEnvelope: config.responseEnvelope }),
-      ...(config.onSuccess && { onSuccess: config.onSuccess }),
-      ...(config.onError && { onError: config.onError }),
-    } as FetchAction
-    void executeFetchAction(action).then((result) => {
-      if (result) dispatchToastResponse(result.ok ? config.onSuccess : config.onError)
-    })
   })
 }
 
@@ -669,7 +615,7 @@ function initClientRuntime(): void {
   setupAutomationButtonHandlers()
   setupAuthButtonHandlers()
   setupFetchButtonHandlers()
-  setupEndpointFormHandlers()
+  setupEndpointFormHandlers(dispatchToastResponse)
   setupSessionBoundChrome()
   setupNativeSelectPublishers()
 }

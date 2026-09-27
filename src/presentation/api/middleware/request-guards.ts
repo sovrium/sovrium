@@ -17,6 +17,12 @@
 import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
 import { timeout } from 'hono/timeout'
+import {
+  DEFAULT_STT_TIMEOUT_MS,
+  MAX_TIMER_MS,
+  parseSpeechEnv,
+} from '@/domain/models/process-env/ai/speech'
+import { parsePositiveIntEnv } from '@/domain/models/process-env/positive-int-env'
 import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import {
   getActivityRateLimitRetryAfter,
@@ -127,30 +133,59 @@ export const applyActivityRateLimitMiddleware = (honoApp: Hono): Hono => {
 }
 
 /**
- * Resolve a positive-integer env override, falling back to a default.
+ * The deadline one route prefix runs under instead of `API_TIMEOUT_MS`.
+ *
+ * `undefined` exempts the route: `/api/ai/chat/stream` and the presence channel are
+ * long-lived Server-Sent-Events responses a `hono/timeout` would abort
+ * mid-flight. A number is the route's own ceiling, derived from the general one.
+ * The first prefix a path starts with wins; a path matching none gets
+ * `API_TIMEOUT_MS`. Any future streaming or long-running endpoint belongs here.
  */
-const envInt = (name: string, fallback: number): number => {
-  const raw = process.env[name]
-  if (!raw) return fallback
-  const parsed = parseInt(raw, 10)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+interface RouteTimeout {
+  readonly prefix: string
+  readonly ceilingMs: (apiTimeoutMs: number) => number | undefined
 }
 
 /**
- * Streaming route prefixes that MUST NOT be subject to the request timeout.
- *
- * `/api/ai/chat/stream` is a long-lived Server-Sent-Events response; a
- * `hono/timeout` middleware would abort the stream mid-flight. Any future
- * streaming endpoint must be added here.
+ * The speech engine's own deadline (`STT_TIMEOUT_MS`), read through the same
+ * parser the speech service uses so the two can never disagree. An unset or
+ * invalid speech configuration falls back to the default deadline; the route
+ * answers 503 or refuses the boot in those cases anyway.
  */
-const STREAMING_PREFIXES = ['/api/ai/chat/stream', '/api/realtime/presence'] as const
+const speechTimeoutMs = (): number => {
+  const parsed = parseSpeechEnv(process.env)
+  return parsed.ok && parsed.config !== undefined ? parsed.config.timeoutMs : DEFAULT_STT_TIMEOUT_MS
+}
+
+/**
+ * A `hono/timeout` that answers 504 with a fresh exception per request (see
+ * below). Capped at what a timer can hold: past it the runtime fires the timer
+ * after 1 ms, which would turn a generous deadline into none at all.
+ */
+const gatewayTimeout = (ms: number) =>
+  timeout(Math.min(ms, MAX_TIMER_MS), () => new HTTPException(504, { message: 'Gateway Timeout' }))
+
+const ROUTE_TIMEOUTS: readonly RouteTimeout[] = [
+  { prefix: '/api/ai/chat/stream', ceilingMs: () => undefined },
+  { prefix: '/api/realtime/presence', ceilingMs: () => undefined },
+  // A transcription is bounded by the speech engine, not by the ceiling every
+  // other call gets: an accurate pass over a long recording legitimately takes
+  // minutes. The engine's deadline plus the general one leaves room for the
+  // upload before the engine is even contacted, so it is always the speech
+  // service's own timeout — answered 504 by the route — that fires first.
+  {
+    prefix: '/api/ai/transcriptions',
+    ceilingMs: (apiTimeoutMs) => speechTimeoutMs() + apiTimeoutMs,
+  },
+]
 
 /**
  * Apply a global request timeout to `/api/*` and a body-size guard to the
  * record-mutation route group.
  *
  * - **Timeout** (`hono/timeout`): default 30 s, override via `API_TIMEOUT_MS`.
- *   Skipped for streaming routes (see `STREAMING_PREFIXES`).
+ *   A route listed in `ROUTE_TIMEOUTS` runs under its own ceiling instead, or
+ *   none at all for a streaming response.
  * - **Body limit** (`hono/body-limit`): default 25 MB, override via
  *   `API_BODY_LIMIT_BYTES`. Mounted on the record-mutation route group
  *   (`/api/tables/*`) only — these carry JSON record payloads.
@@ -167,10 +202,12 @@ const STREAMING_PREFIXES = ['/api/ai/chat/stream', '/api/realtime/presence'] as 
  */
 
 export const applyRequestGuards = (honoApp: Hono): Hono => {
-  const timeoutMs = envInt('API_TIMEOUT_MS', 30_000)
-  const bodyLimitBytes = envInt('API_BODY_LIMIT_BYTES', 25 * 1024 * 1024)
+  const timeoutMs = parsePositiveIntEnv(process.env['API_TIMEOUT_MS']) ?? 30_000
+  const bodyLimitBytes =
+    parsePositiveIntEnv(process.env['API_BODY_LIMIT_BYTES']) ?? 25 * 1024 * 1024
 
-  // A FACTORY, not `timeout(timeoutMs)`'s default exception. That default is a
+  // Every timeout is built by `gatewayTimeout`, a FACTORY rather than
+  // `timeout(timeoutMs)`'s default exception. That default is a
   // module-level singleton `hono/timeout` constructs once at import time, which
   // broke error reporting twice over: its `.stack` is frozen to the CLI's boot
   // import graph (so a timeout report named `cli/index.ts`, a frame with nothing
@@ -179,18 +216,17 @@ export const applyRequestGuards = (honoApp: Hono): Hono => {
   // process lifetime (so the reporter's identity guard muted all but the first).
   // Building a fresh exception per timeout gives each one a request-scoped stack
   // and a distinct identity.
-  const timeoutMiddleware = timeout(
-    timeoutMs,
-    () => new HTTPException(504, { message: 'Gateway Timeout' })
-  )
+  const defaultTimeout = gatewayTimeout(timeoutMs)
+  const routeTimeouts = ROUTE_TIMEOUTS.map(({ prefix, ceilingMs }) => {
+    const ceiling = ceilingMs(timeoutMs)
+    return { prefix, middleware: ceiling === undefined ? undefined : gatewayTimeout(ceiling) }
+  })
 
   return honoApp
     .use('/api/*', async (c, next) => {
-      // Skip the timeout for long-lived SSE / streaming responses.
-      if (STREAMING_PREFIXES.some((prefix) => c.req.path.startsWith(prefix))) {
-        return next()
-      }
-      return timeoutMiddleware(c, next)
+      const route = routeTimeouts.find(({ prefix }) => c.req.path.startsWith(prefix))
+      if (route === undefined) return defaultTimeout(c, next)
+      return route.middleware === undefined ? next() : route.middleware(c, next)
     })
     .use('/api/tables/*', bodyLimit({ maxSize: bodyLimitBytes }))
 }

@@ -29,7 +29,9 @@
  * `forms[]`. A future tier may surface a developer-time warning for them.
  */
 
+import { readEmbeddedFormRef } from '@/domain/models/app/pages/embedded-form-ref'
 import { isComponentHiddenForSession } from '@/presentation/render/resolve/visibility-filter'
+import { resolveText } from './form-field-resolver'
 import { resolveFormPrefill, type FormPrefillContext } from './form-prefill-resolver'
 import { renderEmbeddedFormBody } from './form-renderer'
 import {
@@ -38,9 +40,11 @@ import {
   type InlinePrefillShape,
   type PrefillValue,
 } from './record-prefill-resolver'
+import type { FormRefOptionSets } from './form-ref-option-sources'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Form } from '@/domain/models/app/forms'
+import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -153,6 +157,12 @@ export interface FormRefExpansionContext {
    * never leaking the literal token.
    */
   readonly query?: Readonly<Record<string, string>> | undefined
+  /**
+   * The table-backed choices of every embedded form, read before this
+   * synchronous pass (`resolveFormRefOptionSets`), keyed by form name. A form
+   * missing from it offers no table-backed choices.
+   */
+  readonly formOptions?: FormRefOptionSets | undefined
 }
 
 /**
@@ -220,14 +230,22 @@ function applySubmitLabelOverride(
   return { ...form, display: { ...form.display, submitLabel: raw } }
 }
 
+/** The render option carrying `form`'s pre-read choices, when any were read. */
+function optionSetsFor(
+  form: Readonly<Form>,
+  ctx: FormRefExpansionContext
+): { readonly optionSets?: FormOptionSets } {
+  const optionSets = ctx.formOptions?.[form.name]
+  return optionSets === undefined ? {} : { optionSets }
+}
+
 /**
- * True when a component is a `formRef` embedding (`{ type: 'form' | 'dialog',
- * formRef: <name> }`). Only these nodes are expanded — and only these are
- * candidates for the session-visibility skip below.
+ * True when a component is a `formRef` embedding on any kind whose schema
+ * declares `formRef` — the same predicate the page-access gate reads. Only these
+ * nodes are candidates for the session-visibility skip below.
  */
 function isFormRefEmbedding(component: Component): boolean {
-  if (component.type !== 'form' && component.type !== 'dialog') return false
-  return typeof (component as { readonly formRef?: unknown }).formRef === 'string'
+  return readEmbeddedFormRef(component) !== undefined
 }
 
 /**
@@ -269,7 +287,7 @@ function expandFormRefComponent(
     applySubmitLabelOverride(form, formRefInfo.originalProps),
     { prefill: resolvedPrefill, lockPrefill },
     ctx.activeLang,
-    { titleAs }
+    { titleAs, ...optionSetsFor(form, ctx) }
   )
   // The embedded-form markup is server-generated, fully-trusted HTML — it
   // is produced by `renderEmbeddedFormBody` from the validated `forms[]`
@@ -290,11 +308,11 @@ function expandFormRefComponent(
 }
 
 /**
- * Walk a component list, expanding any `{ type: 'form', formRef: <name> }`
- * nodes into their pre-rendered `customHTML` equivalents. Component
+ * Walk a component tree, expanding any `{ type: 'form', formRef: <name> }`
+ * nodes into their pre-rendered `customHTML` equivalents at any depth
+ * (`children` and `responsive.<breakpoint>.children`). Component
  * references (`{ component: ... }` / `{ $ref: ... }`) are passed through
- * unchanged — they are resolved later by the section renderer and
- * `formRef` shorthand only appears on direct components today.
+ * unchanged — they are resolved later by the section renderer.
  *
  * `ctx.parentRecord`, when supplied, is forwarded to the per-component
  * expander so `inlinePrefill` tokens can resolve against the host page's
@@ -307,6 +325,8 @@ export function expandFormRefs(
 ): Page['components'] {
   if (!components) return components
   return components.flatMap((item) => {
+    // A child may be plain text (a bare string) — nothing to expand there.
+    if (typeof item !== 'object' || item === null) return [item]
     if ('component' in item || '$ref' in item) return [item]
     const component = item as Component
     // A `formRef` embedding hidden from this session by a `when`/`roles`
@@ -314,14 +334,74 @@ export function expandFormRefs(
     // entirely rather than expanding its (role-gated) form markup into the
     // HTML. This mirrors `evaluateEmbeddedFormRefsAccess`, which already skips
     // session-hidden formRefs when deciding page access; the render path must
-    // stay consistent (otherwise `applyVisibilityToComponents`' `display:none`
-    // is silently dropped by `buildWrapperProps` and the form renders fully
-    // visible to a role that must not see it).
-    if (isFormRefEmbedding(component) && isComponentHiddenForSession(component, ctx.session)) {
+    // stay consistent with `applyVisibilityToComponents`, which excludes the
+    // same node by the same rule.
+    if (isFormRefEmbedding(component) && isComponentHiddenForSession(component, ctx.session, app)) {
       return []
     }
-    return [expandDialogFormRef(expandFormRefComponent(component, app, ctx), app, ctx)]
+    const expanded = expandDialogFormRef(expandFormRefComponent(component, app, ctx), app, ctx)
+    return [expandNestedFormRefs(expanded, app, ctx)]
   })
+}
+
+/**
+ * Descend into a component's `children` and every `responsive.<breakpoint>.children`
+ * so a `formRef` expands wherever it sits — a dialog in a page header, a form in a
+ * dialog's body. Each level applies the same session-visibility skip as the top
+ * level, and the tree walked is the one `evaluateEmbeddedFormRefsAccess` walks, so
+ * no form the access gate did not see is ever expanded.
+ */
+function expandNestedFormRefs(
+  component: Component,
+  app: App,
+  ctx: FormRefExpansionContext
+): Component {
+  const node = component as {
+    readonly children?: unknown
+    readonly responsive?: unknown
+  }
+  const children = Array.isArray(node.children)
+    ? { children: expandFormRefs(node.children as Page['components'], app, ctx) }
+    : {}
+  const responsive = expandResponsiveChildren(node.responsive, app, ctx)
+  if (Object.keys(children).length === 0 && responsive === undefined) return component
+  return {
+    ...(component as Record<string, unknown>),
+    ...children,
+    ...(responsive === undefined ? {} : { responsive }),
+  } as Component
+}
+
+/** `responsive` with each breakpoint's `children` expanded, or `undefined` when none carry any. */
+function expandResponsiveChildren(
+  responsive: unknown,
+  app: App,
+  ctx: FormRefExpansionContext
+): Record<string, unknown> | undefined {
+  if (typeof responsive !== 'object' || responsive === null) return undefined
+  const entries = Object.entries(responsive as Record<string, unknown>)
+  const hasChildren = entries.some(
+    ([, value]) =>
+      typeof value === 'object' &&
+      value !== null &&
+      Array.isArray((value as { readonly children?: unknown }).children)
+  )
+  if (!hasChildren) return undefined
+  return Object.fromEntries(
+    entries.map(([breakpoint, value]) => {
+      const override = value as { readonly children?: unknown } | null
+      if (typeof override !== 'object' || override === null || !Array.isArray(override.children)) {
+        return [breakpoint, value]
+      }
+      return [
+        breakpoint,
+        {
+          ...override,
+          children: expandFormRefs(override.children as Page['components'], app, ctx),
+        },
+      ]
+    })
+  )
 }
 
 /**
@@ -372,7 +452,30 @@ function expandDialogFormRef(
     form,
     { prefill: resolvedPrefill, lockPrefill },
     ctx.activeLang,
-    { titleAs }
+    { titleAs, omitTitle: true, ...optionSetsFor(form, ctx) }
   )
-  return { ...(component as Record<string, unknown>), _formRefHtml: formBodyHtml } as Component
+  return {
+    ...(component as Record<string, unknown>),
+    ...dialogTitleFromForm(component, form, app, ctx),
+    _formRefHtml: formBodyHtml,
+  } as Component
+}
+
+/**
+ * A dialog wrapping a form shows ONE title: its own, or — when it declares
+ * none — the form's, as the dialog's heading. The form body is then rendered
+ * without its title (`omitTitle`), so the two never stack. Returns the
+ * `props` override to spread, or nothing when the dialog has its own title or
+ * the form has none to lend.
+ */
+function dialogTitleFromForm(
+  component: Component,
+  form: Form,
+  app: App,
+  ctx: FormRefExpansionContext
+): { readonly props?: Record<string, unknown> } {
+  const props = (component.props ?? {}) as Record<string, unknown>
+  if (typeof props['title'] === 'string' && props['title'] !== '') return {}
+  if (form.title === undefined) return {}
+  return { props: { ...props, title: resolveText(form.title, app.languages, '', ctx.activeLang) } }
 }

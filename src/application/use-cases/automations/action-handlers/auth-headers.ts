@@ -21,8 +21,11 @@ import {
 import { isEncryptionKeyMismatch } from '@/infrastructure/errors/encryption-key-mismatch-error'
 import { logError } from '@/infrastructure/logging/logger'
 import { buildEnvLookup } from '../resolve-env-vars'
+import { buildRefreshProps, resolveClientCredentialsToken } from './client-credentials-token'
+import { isRenewalDue, renewLongLivedToken } from './long-lived-token-renewal'
 import { stringProp } from './shared'
 import { buildStaticAuthHeader, type ConnectionDef } from './static-auth-header'
+import { resolveTokenExchangeHeader } from './token-exchange-token'
 import type { AutomationContext } from './shared'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'effect'
@@ -72,6 +75,7 @@ interface StoredToken {
   readonly accessToken: string
   readonly refreshToken: string | undefined
   readonly expiresAt: Date | undefined
+  readonly tokenFields?: Readonly<Record<string, string>> | undefined
 }
 
 /**
@@ -100,10 +104,9 @@ const scopeUserId = (scope: TokenScope): string | undefined =>
  */
 const connectionScope = (conn: ConnectionDef, automation: AutomationContext): TokenScope => {
   const declared = (conn.props as { scope?: unknown }).scope
-  if (declared === 'user') {
-    return automation.userId === undefined
-      ? { kind: 'user', userId: '' }
-      : { kind: 'user', userId: automation.userId }
+  // A client-credentials token belongs to the client, never to a user.
+  if (declared === 'user' && stringProp(conn.props, 'grantType') !== 'clientCredentials') {
+    return { kind: 'user', userId: automation.userId ?? '' }
   }
   return { kind: 'app' }
 }
@@ -111,46 +114,6 @@ const connectionScope = (conn: ConnectionDef, automation: AutomationContext): To
 const isExpired = (token: StoredToken): boolean => {
   if (token.expiresAt === undefined) return false
   return token.expiresAt.getTime() - Date.now() < REFRESH_SKEW_MS
-}
-
-/**
- * Build the `OAuth2RefreshProps` shape consumed by
- * `refreshAccessToken`. Mirrors the OAuth2Props read by
- * `connections/index.ts` but trimmed to the fields the refresh request
- * actually forwards. Returns `undefined` when any of the three required
- * client-config fields is missing — the caller surfaces this as a
- * "missing client config for refresh" failure rather than POSTing with
- * empty credentials.
- *
- * Note: `stringProp` returns `''` (not `undefined`) when a key is
- * missing on `conn.props`, so the required-field guard compares against
- * the empty string. The previous `=== undefined` check was dead code
- * and would have let a misconfigured connection POST to an empty URL.
- */
-const buildRefreshProps = (conn: ConnectionDef): OAuth2RefreshProps | undefined => {
-  const clientId = stringProp(conn.props, 'clientId')
-  const clientSecret = stringProp(conn.props, 'clientSecret')
-  const tokenUrl = stringProp(conn.props, 'tokenUrl')
-  if (clientId === '' || clientSecret === '' || tokenUrl === '') {
-    return undefined
-  }
-  const { scopes } = conn.props as { scopes?: readonly string[] }
-  const audience = stringProp(conn.props, 'audience')
-  const { extraTokenParams } = conn.props as {
-    extraTokenParams?: Record<string, string>
-  }
-  const authMethod = stringProp(conn.props, 'authenticationMethod')
-  return {
-    clientId,
-    clientSecret,
-    tokenUrl,
-    ...(scopes !== undefined ? { scopes } : {}),
-    ...(audience !== '' ? { audience } : {}),
-    ...(extraTokenParams !== undefined ? { extraTokenParams } : {}),
-    ...(authMethod === 'header' || authMethod === 'body'
-      ? { authenticationMethod: authMethod }
-      : {}),
-  }
 }
 
 /**
@@ -170,6 +133,7 @@ const callRefreshEndpoint = (
       readonly accessToken: string
       readonly refreshToken: string | undefined
       readonly expiresAt: Date | undefined
+      readonly fields?: Readonly<Record<string, string>> | undefined
     }
   | { readonly ok: false; readonly error: string },
   never
@@ -206,6 +170,7 @@ const persistRefreshedTokens = (input: {
   readonly accessToken: string
   readonly refreshToken: string | undefined
   readonly expiresAt: Date | undefined
+  readonly tokenFields: Readonly<Record<string, string>> | undefined
 }): Effect.Effect<
   { readonly ok: true } | { readonly ok: false },
   never,
@@ -218,11 +183,12 @@ const persistRefreshedTokens = (input: {
       accessToken: input.accessToken,
       ...(input.refreshToken !== undefined ? { refreshToken: input.refreshToken } : {}),
       ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}),
+      ...(input.tokenFields !== undefined ? { tokenFields: input.tokenFields } : {}),
     }
     const write =
       input.scope.kind === 'user'
-        ? tokenRepo.upsertForUser({ ...common, userId: input.scope.userId })
-        : tokenRepo.upsertForApp(common)
+        ? Effect.asVoid(tokenRepo.upsertForUser({ ...common, userId: input.scope.userId }))
+        : Effect.asVoid(tokenRepo.upsertForApp(common))
     return yield* write.pipe(
       Effect.map(() => ({ ok: true }) as const),
       // effect-swallow: the failure is not lost, it is RETURNED — `{ ok: false }` is the caller's branch for "the token was not stored", and it is checked. This converts a channel, it does not discard one.
@@ -230,8 +196,17 @@ const persistRefreshedTokens = (input: {
     )
   })
 
+/**
+ * A resolved OAuth2 credential: the access token, plus the kept token-response
+ * fields (`tokenFields`) a `$token.FIELD` base URL reads — or the refusal.
+ */
 type RefreshOutcome =
-  { readonly ok: true; readonly token: string } | { readonly ok: false; readonly reason: string }
+  | {
+      readonly ok: true
+      readonly token: string
+      readonly fields?: Readonly<Record<string, string>> | undefined
+    }
+  | { readonly ok: false; readonly reason: string }
 
 const refreshFailure = (conn: ConnectionDef, suffix: string): RefreshOutcome =>
   ({ ok: false, reason: `connection ${conn.name}: ${suffix}` }) as const
@@ -332,7 +307,10 @@ const refreshAndPersistInner = (
 ): Effect.Effect<RefreshOutcome, never, ConnectionTokenRepository> =>
   Effect.gen(function* () {
     if (token.refreshToken === undefined || token.refreshToken === '') {
-      return refreshFailure(conn, 'token expired and no refresh_token stored')
+      return refreshFailure(
+        conn,
+        'reconnect needed — the token expired and the provider issued no refresh token, so authorize the connection again'
+      )
     }
     const refreshProps = buildRefreshProps(conn)
     if (refreshProps === undefined) {
@@ -355,11 +333,12 @@ const refreshAndPersistInner = (
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
       expiresAt: result.expiresAt,
+      tokenFields: result.fields,
     })
     if (!persisted.ok) {
       return refreshFailure(conn, 'refresh succeeded but token persistence failed')
     }
-    return { ok: true, token: result.accessToken } as const
+    return { ok: true, token: result.accessToken, fields: result.fields } as const
   })
 
 /**
@@ -527,12 +506,11 @@ const appNotConnectedReason = (conn: ConnectionDef): string =>
 const resolveAppScopedToken = (
   conn: ConnectionDef,
   connectionId: string
-): Effect.Effect<
-  { readonly ok: true; readonly token: string } | { readonly ok: false; readonly reason: string },
-  never,
-  ConnectionTokenRepository
-> =>
+): Effect.Effect<RefreshOutcome, never, ConnectionTokenRepository> =>
   Effect.gen(function* () {
+    if (stringProp(conn.props, 'grantType') === 'clientCredentials') {
+      return yield* resolveClientCredentialsToken(conn.name, buildRefreshProps(conn), connectionId)
+    }
     const tokenRepo = yield* ConnectionTokenRepository
     const lookup = yield* lookUpAppToken(tokenRepo, connectionId)
     if (lookup.kind === 'key-mismatch') {
@@ -553,18 +531,17 @@ const resolveAppScopedToken = (
     if (isExpired(token)) {
       return yield* performTokenRefresh(conn, token, connectionId, { kind: 'app' })
     }
-    return { ok: true, token: token.accessToken } as const
+    if (isRenewalDue(conn, token)) {
+      return yield* renewLongLivedToken(conn, token, connectionId, { kind: 'app' })
+    }
+    return { ok: true, token: token.accessToken, fields: token.tokenFields } as const
   })
 
 const resolveUserScopedToken = (
   conn: ConnectionDef,
   connectionId: string,
   userId: string
-): Effect.Effect<
-  { readonly ok: true; readonly token: string } | { readonly ok: false; readonly reason: string },
-  never,
-  ConnectionTokenRepository
-> =>
+): Effect.Effect<RefreshOutcome, never, ConnectionTokenRepository> =>
   Effect.gen(function* () {
     const tokenRepo = yield* ConnectionTokenRepository
     const lookup = yield* lookUpStoredToken(tokenRepo, connectionId, userId)
@@ -596,7 +573,10 @@ const resolveUserScopedToken = (
     if (isExpired(token)) {
       return yield* performTokenRefresh(conn, token, connectionId, { kind: 'user', userId })
     }
-    return { ok: true, token: token.accessToken } as const
+    if (isRenewalDue(conn, token)) {
+      return yield* renewLongLivedToken(conn, token, connectionId, { kind: 'user', userId })
+    }
+    return { ok: true, token: token.accessToken, fields: token.tokenFields } as const
   })
 
 /**
@@ -628,11 +608,7 @@ const lookupConnectionRow = (name: string) =>
 const resolveOAuth2AccessToken = (
   conn: ConnectionDef,
   automation: AutomationContext
-): Effect.Effect<
-  { readonly ok: true; readonly token: string } | { readonly ok: false; readonly reason: string },
-  never,
-  ConnectionRepository | ConnectionTokenRepository
-> =>
+): Effect.Effect<RefreshOutcome, never, ConnectionRepository | ConnectionTokenRepository> =>
   Effect.gen(function* () {
     const scope = connectionScope(conn, automation)
     // `user` scope keeps refusing, and keeps refusing in the same words. A
@@ -664,6 +640,12 @@ const resolveOAuth2AccessToken = (
 export interface InjectedHeaders {
   readonly headers: Record<string, string>
   readonly error?: string
+  /**
+   * OAuth2 only: the extra fields the provider returned with the stored token
+   * and the connection keeps (`props.tokenFields`), e.g. Salesforce's
+   * `instance_url`. Read by `connection/call` to resolve a `$token.FIELD` base URL.
+   */
+  readonly tokenFields?: Readonly<Record<string, string>>
 }
 
 /**
@@ -729,9 +711,13 @@ export const resolveConnectionHeaders = (
     if (conn.type === 'oauth2') {
       const result = yield* resolveOAuth2AccessToken(conn, automation)
       if (!result.ok) return { headers: baseHeaders, error: result.reason }
-      return {
-        headers: { ...baseHeaders, Authorization: `Bearer ${result.token}` },
-      }
+      const headers = { ...baseHeaders, Authorization: `Bearer ${result.token}` }
+      return result.fields === undefined ? { headers } : { headers, tokenFields: result.fields }
+    }
+    if (conn.type === 'tokenExchange') {
+      const result = yield* resolveTokenExchangeHeader(conn, buildEnvLookup(app.env, process.env))
+      if (!result.ok) return { headers: baseHeaders, error: result.reason }
+      return { headers: { ...baseHeaders, [result.header]: result.value } }
     }
     // Static auth types (apiKey/basic/bearer): the in-memory props are
     // sufficient to build the header, but we still require a DB row so

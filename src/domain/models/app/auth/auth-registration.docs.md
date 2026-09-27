@@ -20,6 +20,10 @@ The default is `true` because it is the right answer for a public product. It is
 
 `allowSignUp: false` closes the public door, not the admin one. Admin-driven user creation is always available once authentication is configured and is unaffected by this flag, as are invitations.
 
+## Open sign-up reaches your tables
+
+Every self-registered account receives `defaultRole` — `member` unless you set it. A table whose permissions admit `authenticated`, or that role by name, is therefore open to anyone willing to fill in the sign-up form. Sovrium does not refuse this, because an open community app is a legitimate design, but it says so at every boot: a `⚠ Open sign-up` line names the role, each reachable table and the operations it grants. Close it with `allowSignUp: false`, or reserve those permissions to roles a new account does not receive.
+
 ## Onboarding with self-registration off
 
 You still need a way to onboard real people that does not involve an admin inventing a password and transmitting it. An invitation is that path: an admin issues a single-use token, Sovrium emails a link, and the invitee sets their own password.

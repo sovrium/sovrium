@@ -47,17 +47,25 @@ description: 'Full-featured e-commerce platform with cart, checkout and payment 
 
 ## `badge`
 
-A boolean controlling the **"Built with Sovrium"** badge — a small link pill rendered bottom-right on every page of your app. Shown by default.
+A boolean, or an object, controlling the **"Built with Sovrium"** badge — a small link pill rendered on every page of your app. Shown by default.
 
-| Value     | Behaviour                      |
-| --------- | ------------------------------ |
-| (omitted) | Badge shown — the default.     |
-| `true`    | Badge shown, explicitly.       |
-| `false`   | Badge removed from every page. |
+| Value                   | Behaviour                                                 |
+| ----------------------- | --------------------------------------------------------- |
+| (omitted)               | Badge shown — the default.                                |
+| `true`                  | Badge shown, explicitly.                                  |
+| `false`                 | Badge removed from every page.                            |
+| `{ placement: footer }` | Badge shown as a line in a footer after the page content. |
 
 ```yaml
 name: my-app
 badge: false # removes the badge — one line, free, forever
+```
+
+**Placement.** By default the badge floats: it is pinned to the bottom-right corner of the window, over the page. On pages whose last row holds content — a submit button, a table's pager — use `badge: { placement: footer }` instead: the badge then renders as a static line inside a `<footer>` after the page's main content, so it never covers anything. `placement: floating` is the default and matches `badge: true`.
+
+```yaml
+badge:
+  placement: footer # a footer line instead of a floating pill
 ```
 
 The badge is server-rendered chrome with **zero telemetry**: a single static `<a>` linking to the project site — no beacon, no pixel, no client-side JavaScript. Its label follows the page's active locale, and the text itself is not customisable. It appears on app pages, the default homepage, error pages and standalone form pages, and is always absent from the operator console and from embedded form variants.

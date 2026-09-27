@@ -39,6 +39,28 @@ export interface AutomationApprovalRow {
   readonly runId: string | null
   readonly stepIndex: number
   readonly status: string
+  /**
+   * The persisted `approvers` JSON, raw: `all-admins`, an array of emails and
+   * role names, or null (agent rows and requests recorded before the column
+   * existed). Read it through `toApproverList`.
+   */
+  readonly approvers: unknown
+}
+
+/**
+ * An automation-step approval request as the approvals list reads it: every
+ * column the wire row needs, plus the paused run's automation name.
+ */
+export interface AutomationApprovalListRow {
+  readonly id: string
+  readonly runId: string
+  readonly automationName: string
+  readonly status: string
+  readonly message: string | null
+  readonly approvers: unknown
+  readonly createdAt: Date
+  readonly expiresAt: Date | null
+  readonly respondedAt: Date | null
 }
 
 /**
@@ -68,6 +90,11 @@ export class AutomationApprovalRepository extends Context.Service<
       readonly runId: string | undefined
       readonly timeoutSeconds: number | undefined
       readonly expiresAt: Date | undefined
+      /**
+       * Who may resolve the request, as rendered for this run. Omitted when
+       * the action declared none, which reads as `all-admins`.
+       */
+      readonly approvers: 'all-admins' | readonly string[] | undefined
     }) => Effect.Effect<void, AutomationApprovalDatabaseError>
 
     /** Load an approval row by id. Returns `undefined` when no row matches. */
@@ -76,11 +103,31 @@ export class AutomationApprovalRepository extends Context.Service<
     ) => Effect.Effect<AutomationApprovalRow | undefined, AutomationApprovalDatabaseError>
 
     /**
-     * Update the `status` of an approval row (e.g. `approved` / `rejected`),
-     * stamping `respondedAt`. Returns the new status when a row was updated,
-     * `undefined` when no row matched the id.
+     * The automation-step requests (rows linked to a run) carrying `status`,
+     * newest first. Agent approvals are not included. Filtering by who may
+     * resolve each one is the caller's job: the rule needs the app's roles.
      */
-    readonly updateStatus: (input: {
+    readonly listAutomationStepRequests: (input: {
+      readonly status: string
+      /** At most this many rows are read, the newest kept. */
+      readonly limit: number
+    }) => Effect.Effect<readonly AutomationApprovalListRow[], AutomationApprovalDatabaseError>
+
+    /**
+     * The id of the pending request a run is paused on, or `undefined` when
+     * the run waits on none.
+     */
+    readonly findPendingIdByRunId: (
+      runId: string
+    ) => Effect.Effect<string | undefined, AutomationApprovalDatabaseError>
+
+    /**
+     * Move a PENDING approval row to `status` (`approved` / `rejected`),
+     * stamping `respondedAt`. Returns the new status when the row was pending
+     * and is now updated; `undefined` when no pending row matched — an unknown
+     * id, or a request another caller resolved first.
+     */
+    readonly resolvePending: (input: {
       readonly id: string
       readonly status: string
     }) => Effect.Effect<string | undefined, AutomationApprovalDatabaseError>

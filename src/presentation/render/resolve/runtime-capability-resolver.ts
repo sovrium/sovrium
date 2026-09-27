@@ -10,22 +10,20 @@
  *
  * ─── WHY THIS LIVES IN `render/resolve/` AND NOT BESIDE `page-requires.ts` ──
  *
- * Every predicate here is a CONJUNCTION of an app half and an ENV half, and
- * that second half is what decides the home. `src/domain/models/app/<slug>/`
+ * Every predicate here reads the ENVIRONMENT, and that is what decides the
+ * home. `src/domain/models/app/<slug>/`
  * may not reach `src/domain/models/process-env/**` — the boundary keeps
  * `process.env` parsers out of the feature models, and out of the island tree
  * that reads them (standing rule S4). `presentation-render` is granted both,
  * because the SSR tree legitimately reads the environment at render time.
  *
- * So the two halves stay pure and separately testable where they are —
- * `appRequiresAi` over the decoded config, `isAiProviderConfigured` over an env
- * snapshot — and the composition sits beside the one pass that spends it, next
- * to `visibility-filter.ts`, which already composes `isCapabilityMet` the same
- * way.
+ * So the predicate stays pure and testable where it is — `isAiProviderConfigured`
+ * over an env snapshot — and the composition sits beside the one pass that
+ * spends it, next to `visibility-filter.ts`, which already composes
+ * `isCapabilityMet` the same way.
  */
 
 import { RUNTIME_CAPABILITIES } from '@/domain/models/app/pages/components/visibility'
-import { appRequiresAi } from '@/domain/models/app/requires-ai'
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
 import type { App } from '@/domain/models/app'
 import type { RuntimeCapability } from '@/domain/models/app/pages/components/visibility'
@@ -33,18 +31,14 @@ import type { RuntimeCapability } from '@/domain/models/app/pages/components/vis
 /**
  * Whether one runtime capability can actually RUN for this app on this host.
  *
- * Every predicate is a CONJUNCTION of an app half and an env half, and both are
- * pure reads of their argument. That is the whole distinction the key exists
- * for: the app half alone is `visibility.declares`, and the env half alone
- * would render a composer for an app that declares no agent.
+ * The `ai` row is the provider half alone. It used to be a conjunction with
+ * `appRequiresAi(app)`, which kept the Welcome composer dark on an app that
+ * declares no AI even with a provider configured. Every app now carries the
+ * built-in System Agent, so a configured provider is all a chat needs to run.
  *
- * The `ai` row is the conjunction `collectAiProviderPhases` already computes to
- * decide whether to print the `AI disabled` startup warning — the "inert vs
- * active" signal of [internal ref]. It is reused here rather than restated so a
- * component gated on `runtime: ai` and the warning an operator reads at boot
- * can never come to disagree.
- *
- * @see src/infrastructure/server/startup-degradation-phases.ts — the same conjunction
+ * `appRequiresAi` still gates the boot-time checks (`collectAiProviderPhases`,
+ * the eco-routing and speech validators): an app declaring no AI gets no new
+ * startup warning just because the System Agent exists.
  */
 const RUNTIME_PREDICATES: Readonly<
   Record<
@@ -52,7 +46,7 @@ const RUNTIME_PREDICATES: Readonly<
     (app: App, env: Readonly<Record<string, string | undefined>>) => boolean
   >
 > = {
-  ai: (app, env) => appRequiresAi(app) && isAiProviderConfigured(env),
+  ai: (_app, env) => isAiProviderConfigured(env),
 }
 
 /**
@@ -79,7 +73,7 @@ const RUNTIME_PREDICATES: Readonly<
  * process-wide and so identical either way.
  *
  * Called ONCE PER REQUEST, at the filter-pipeline entry — not per component and
- * not per node of the recursion. `appRequiresAi` walks the whole component tree.
+ * not per node of the recursion.
  */
 export const resolveRuntimeCapabilities = (
   app: App,

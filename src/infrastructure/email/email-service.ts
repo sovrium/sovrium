@@ -201,6 +201,10 @@ export const EmailLive = Layer.succeed(
  * When email is disabled (SMTP not configured) this logs the intended message
  * and resolves with a synthetic id instead of sending.
  *
+ * `fromName` is the sender display name to use when the operator set no
+ * `SMTP_FROM_NAME` — callers pass the app's `name`, so an app's email arrives
+ * from that app rather than from "Sovrium". It never reaches Nodemailer.
+ *
  * @example
  * ```typescript
  * import { sendEmail } from '@/infrastructure/email/email-service'
@@ -212,8 +216,11 @@ export const EmailLive = Layer.succeed(
  * })
  * ```
  */
-export async function sendEmail(options: Readonly<Omit<SendMailOptions, 'from'>>): Promise<string> {
-  return deliver({ from: getDefaultFrom(), ...options })
+export async function sendEmail(
+  options: Readonly<Omit<SendMailOptions, 'from'> & { readonly fromName?: string }>
+): Promise<string> {
+  const { fromName, ...message } = options
+  return deliver({ from: getDefaultFrom(fromName), ...message })
 }
 
 /**

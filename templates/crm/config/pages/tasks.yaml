@@ -1,127 +1,109 @@
+# What the team owes, by date. The calendar carries every task; the list beside
+# it answers "what do I do now" for whoever is signed in.
 name: tasks
 path: /tasks
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Tasks
-  description: Follow-ups on a calendar and a grid
+  title: Tasks · Kestrel CRM
+  description: Follow-ups by date, and the ones you owe next.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: Tasks
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Schedule follow-ups on the calendar, then work them down in the grid.
-
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: border rounded-lg p-5 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: Add a task
-          - type: form
-            dataSource:
-              table: tasks
-            fields:
-              - field: title
-              - field: deal
-              - field: due_date
-              - field: status
-              - field: priority
-            action:
-              type: crud
-              operation: create
-              table: tasks
-              onSuccess:
-                navigate: /tasks
-                toast:
-                  message: Task created
-                  variant: success
-
-      - type: calendar
-        dataSource:
-          table: tasks
-        dateField: due_date
-        defaultView: month
-
-      - type: text
-        element: h2
-        props:
-          className: text-xl font-semibold mt-10 mb-4
-        content: Open tasks
-      - type: table
-        dataSource:
-          table: tasks
-          filter:
-            - field: done
-              operator: eq
-              value: false
-          sort:
-            - field: due_date
-              direction: asc
-        columns:
-          - field: title
-            label: Task
-            sortable: true
-          - field: deal
-            label: Deal
-            filterable: true
-          - field: status
-            label: Status
-            filterable: true
-          - field: priority
-            label: Priority
-            filterable: true
-          - field: due_date
-            label: Due
-            format: short-date
-          - field: done
-            label: Done
-            align: center
-            format: check-cross
-        selection:
-          mode: multiple
-        groupBy:
-          field: status
-          direction: asc
-        # `toolbar.viewSwitcher` renders one button per entry of `views`. With
-        # `views` omitted it falls back to ['grid'] — a one-button switcher that
-        # does nothing. Declaring the set is what makes the tab real, and
-        # listing `kanban` requires `kanbanGroupBy` (independent of the row
-        # `groupBy` above: a grid grouped by status can still board by status).
-        views:
-          - grid
-          - kanban
-        kanbanGroupBy:
-          field: status
-        toolbar:
-          search: true
-          filters: true
-          sort: true
-          groupBy: true
-          views: true
-          viewSwitcher: true
-        pagination:
-          pageSize: 25
-        bulkActions:
-          - label: Delete
-            confirm: Delete the selected tasks?
-            action:
-              type: crud
-              operation: delete
-              table: tasks
-        emptyMessage: No open tasks. Nice work.
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Tasks
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Add task
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-task-dialog
+          - type: dialog
+            props:
+              id: add-task-dialog
+              title: Add task
+              description: Link it to a deal so it shows on the deal too.
+            children:
+              - type: form
+                dataSource:
+                  table: tasks
+                fields:
+                  - field: title
+                  - field: deal
+                  - field: contact
+                  - field: due_date
+                  - field: priority
+                  - field: owner
+                action:
+                  type: crud
+                  operation: create
+                  table: tasks
+                  submitLabel: Add task
+                  onSuccess:
+                    navigate: /tasks
+                    toast:
+                      message: Task added
+                      variant: success
+          - type: container
+            props:
+              className: flex items-start gap-4 px-5 pb-5 pt-4 max-lg:flex-col
+            children:
+              - type: container
+                props:
+                  className: min-w-0 grow
+                children:
+                  - type: calendar
+                    dataSource:
+                      table: tasks
+                    dateField: due_date
+                    labelField: title
+                    defaultView: month
+              # The rep's own open tasks, oldest due date first, so an overdue one
+              # is always on top. `$currentUser.id` is resolved on the server for
+              # whoever is signed in, so each rep sees their own list.
+              - type: container
+                element: section
+                props:
+                  className: flex w-[300px] flex-none flex-col gap-2 max-lg:w-full
+                  aria-label: My tasks
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+                    content: My tasks
+                  - type: list
+                    dataSource:
+                      table: tasks
+                      filter:
+                        - { field: owner, operator: eq, value: $currentUser.id }
+                        - { field: done, operator: eq, value: false }
+                      sort:
+                        - { field: due_date, direction: asc }
+                      # The four nearest due dates; the calendar holds the rest.
+                      limit: 4
+                    listDisplay:
+                      itemTemplate:
+                        title: $record.title
+                        metadata:
+                          - { field: due_date, format: short-date }

@@ -82,6 +82,8 @@ Update Sovrium to the latest release. What happens depends on how it was install
 - **docker** — prints the `docker pull` instruction.
 - **desktop** — declines, and points at the app that owns it.
 
+A self-replace downloads the release archive and checks it against the published checksum when one is available. It gives up on a download that makes no progress for 30 seconds, and a failed or stalled download leaves the installed binary as it was.
+
 Delegating to Homebrew and Scoop rather than self-replacing is deliberate: it keeps the package manager's own version ledger correct. Docker containers cannot self-update, so that path prints the pull command instead.
 
 Detection is overridable with `SOVRIUM_INSTALL_METHOD`, which honours those five names and ignores anything else. A raw Windows binary that Scoop does not manage is pointed at Scoop or Docker rather than attempting to overwrite a running `.exe`.

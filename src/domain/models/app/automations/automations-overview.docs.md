@@ -31,7 +31,7 @@ Exactly one `trigger`, at least one entry in `actions`. Everything else is optio
 
 <!-- sovrium:options AutomationSchema depth=1 -->
 
-`name` is the automation's identity everywhere it is referenced: in its webhook URL, and as the target of a call from another automation. `timeout` bounds the whole run, accepts 1000 to 900000 milliseconds, and defaults to 300000 — five minutes.
+`name` is the automation's identity everywhere it is referenced: in its webhook URL, and as the target of a call from another automation. `timeout` bounds the whole run, accepts 1000 to 3600000 milliseconds, and defaults to 900000 — fifteen minutes of active execution, since time spent waiting in the queue or for an approval does not count. The `SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS` environment variable changes that default for the whole instance.
 
 `aiAccess` declares a **manual-trigger** automation invokable through the MCP server. Setting it on an automation triggered any other way is a decode error rather than a no-op, because an assistant cannot meaningfully fire a cron.
 
@@ -64,7 +64,7 @@ Every string property of an action can interpolate runtime values.
 
 The name tokens are format-only: `parseDate` cannot read them back, because a localised month name is ambiguous across languages. The twelve-hour `h` and the AM/PM `A` of other template languages are **not** tokens. To emit a literal letter, quote it — `{{formatDate value "dd MMMM 'at' HH:mm"}}`.
 
-`timezone` is an IANA zone name and defaults to `UTC`; `locale` is a BCP-47 tag that drives the name tokens.
+`timezone` is an IANA zone name and defaults to the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset); `locale` is a BCP-47 tag that drives the name tokens.
 
 ```yaml
 subject: '{{formatDate trigger.data.created_at "dd MMMM yyyy" "Europe/Paris" "fr-FR"}}'

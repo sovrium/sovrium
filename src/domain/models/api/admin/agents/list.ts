@@ -18,8 +18,8 @@
  * The items are projected through `declaredAgentNames()` — the SAME function the
  * Conversations surface builds its rail from — so the sidebar can never
  * advertise an agent whose page does not open, nor omit one that does. That set
- * always leads with the reserved general-purpose `default` agent, whose view is
- * the `agent_name IS NULL` conversations (see `domain/models/app/agents/agent-identity`).
+ * always leads with the built-in `system` agent, whose view is the
+ * `agent_name IS NULL` conversations (see `domain/models/app/agents/agent-identity`).
  */
 
 import { Schema } from 'effect'
@@ -35,17 +35,17 @@ import { cursorPaginationResponseSchema } from '@/domain/models/api/combinators/
 export const agentAdminItemSchema = Schema.Struct({
   name: Schema.String.annotate({
     description:
-      'Agent name — kebab-case for a declared agent, or the reserved `default` for the general-purpose agent.',
+      'Agent name — kebab-case for a declared agent, or the reserved `system` for the built-in System Agent.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
-  isDefault: Schema.Boolean.annotate({
+  isSystem: Schema.Boolean.annotate({
     description:
-      'True for the reserved general-purpose `default` agent, whose conversations are those no declared agent claimed (`agent_name IS NULL`). Exactly one item per response carries `true`.',
+      'True for the built-in `system` agent, whose conversations are those no declared agent claimed (`agent_name IS NULL`). Exactly one item per response carries `true`.',
   }),
 }).annotate({ identifier: 'AgentAdminItem' })
 
 /**
  * Response schema for `GET /api/admin/agents`. Cursor-paginated list of
- * {@link agentAdminItemSchema}, newest-declaration-order with the default first.
+ * {@link agentAdminItemSchema}, declaration order with the System Agent first.
  */
 export const agentsListResponseSchema = cursorPaginationResponseSchema(
   agentAdminItemSchema

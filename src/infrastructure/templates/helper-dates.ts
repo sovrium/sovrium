@@ -50,6 +50,7 @@ import {
   type DateTokenResult,
 } from '@/domain/kernel/format/date-tokens'
 import { logError } from '@/infrastructure/logging/logger'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 
 // ─── failure surfacing ───────────────────────────────────────────────────
 
@@ -73,7 +74,12 @@ const orElse = <A>(result: DateTokenResult<A>, fallback: A, context: string): A 
 
 // ─── instant handling ────────────────────────────────────────────────────
 
-const DEFAULT_TIMEZONE = 'UTC'
+/**
+ * The zone a helper uses when the template names none: the operator timezone
+ * (`SOVRIUM_TIMEZONE`, UTC when unset), read at each call so it follows the
+ * server's environment rather than whatever it was when this module loaded.
+ */
+const defaultTimezone = (): string => resolveOperatorTimezone()
 
 /**
  * Read a helper argument as an instant. Accepts an ISO string, an epoch
@@ -112,7 +118,7 @@ export const formatDate = (
   if (instant === undefined) return ''
   return orElse(
     formatWithTokens(instant, pattern, {
-      timezone: timezone ?? DEFAULT_TIMEZONE,
+      timezone: timezone ?? defaultTimezone(),
       ...(locale === undefined ? {} : { locale }),
     }),
     '',
@@ -130,7 +136,7 @@ export const formatDate = (
 export const parseDate = (input: unknown, pattern: string, timezone?: string): string => {
   const text = typeof input === 'string' ? input : ''
   if (text === '') return ''
-  const parsed = parseWithTokens(text, pattern, { timezone: timezone ?? DEFAULT_TIMEZONE })
+  const parsed = parseWithTokens(text, pattern, { timezone: timezone ?? defaultTimezone() })
   const instant = orElse<Date | undefined>(parsed, undefined, `parseDate("${pattern}")`)
   return instant === undefined ? '' : instant.toISOString()
 }
@@ -186,7 +192,7 @@ export const boundaryOf = (
   if (instant === undefined || truncation === undefined) return ''
   const utc = DateTime.make(instant)
   if (Option.isNone(utc)) return ''
-  const zoned = DateTime.setZoneNamed(utc.value, timezone ?? DEFAULT_TIMEZONE)
+  const zoned = DateTime.setZoneNamed(utc.value, timezone ?? defaultTimezone())
   if (Option.isNone(zoned)) return ''
   const moved =
     edge === 'start'
@@ -221,14 +227,14 @@ const WEEKEND_DAYS: ReadonlySet<string> = new Set(['Sat', 'Sun'])
 export const isWeekend = (value: unknown, timezone?: string): boolean => {
   const instant = toInstant(value)
   if (instant === undefined) return false
-  const day = shortWeekdayEn(instant, timezone ?? DEFAULT_TIMEZONE)
+  const day = shortWeekdayEn(instant, timezone ?? defaultTimezone())
   return day !== undefined && WEEKEND_DAYS.has(day)
 }
 
 export const isWeekday = (value: unknown, timezone?: string): boolean => {
   const instant = toInstant(value)
   if (instant === undefined) return false
-  const day = shortWeekdayEn(instant, timezone ?? DEFAULT_TIMEZONE)
+  const day = shortWeekdayEn(instant, timezone ?? defaultTimezone())
   return day !== undefined && !WEEKEND_DAYS.has(day)
 }
 

@@ -27,6 +27,10 @@ pages:
           - { field: notes, control: textarea }
 ```
 
+## A bound column renders its own control
+
+On a table-bound form, every field takes its control from the column it is bound to, the same control the data table uses to edit that column. A `decimal`, `integer` or `currency` column is a number input stepped by its `precision`, and `currency` shows its symbol beside the input; a `percentage` column is a number input with a `%` sign; a `date` column is a date input and a `datetime` column a date-and-time input, read in the column's `timeZone`; a `rating` column is a row of choices from 1 to its `max`; a `multi-select` column is one checkbox per option; a `user` column is a people picker that searches accounts by name. What the form sends is the column's own kind of value — a number, an ISO date or timestamp, a list, an account id — never the text typed into a box, so a form never posts an empty string into a column that cannot hold one.
+
 ## Submitting to your own endpoint
 
 `endpoint` is the third submit target, beside a table and a `forms[]` entry: the form collects its declared fields and POSTs them as a JSON body — `{ [field]: value }` — to any URL you name. Nothing goes through the records API, so the destination can be a platform route, an admin endpoint, or something of your own. Each field must then name its own `control`.
@@ -49,6 +53,31 @@ pages:
 ```
 
 The member list is resolved through the same recipe the button component uses, so a submit and a standalone button asking for `secondary` cannot drift apart.
+
+## An on/off switch
+
+`control: switch` draws a labelled switch instead of a text box, for a setting that is simply on or off. It posts a JSON boolean under its field name — `true` when on, `false` when off — and the key is always present, so an unchecked switch says "off" rather than saying nothing. `defaultValue` may be a boolean, or a `$session.<field>` reference so the switch opens in the caller's saved state. A switch takes no `options`.
+
+```yaml
+- type: form
+  endpoint: { url: /api/preferences, method: POST, submitLabel: Save }
+  fields:
+    - { field: newsletter, control: switch, label: Monthly newsletter, defaultValue: true }
+```
+
+## Help text under a field
+
+A field's `description` is drawn as help text under its control, on every control type the endpoint form draws — a text box, a select, a text area, a switch. The control is linked to it with `aria-describedby`, so a screen reader announces the sentence with the field rather than leaving it as loose text beside it. On an endpoint form it is the only way to say anything next to a control: there is no table column whose own description could stand in.
+
+```yaml
+- type: form
+  endpoint: { url: /api/preferences, method: POST, submitLabel: Save }
+  fields:
+    - field: paperInvoices
+      control: switch
+      label: Paper invoices
+      description: We post a printed copy of every invoice to your billing address.
+```
 
 ## Prefilling an endpoint form
 

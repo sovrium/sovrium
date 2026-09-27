@@ -8,6 +8,7 @@
 import { Cron, DateTime, Effect, Fiber, Ref, Result, Schedule, Layer } from 'effect'
 import { CronScheduler, CronSchedulerError } from '@/application/ports/services/cron-scheduler'
 import { logError } from '@/infrastructure/logging/logger'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { Scope } from 'effect'
 
 /**
@@ -196,7 +197,7 @@ const scheduleImpl =
     // failure — a shared helper that returned `Result<Cron, string>` would
     // collapse the cause chain to a flat message.
     Effect.gen(function* () {
-      const timezone = options?.timezone ?? 'UTC'
+      const timezone = options?.timezone ?? resolveOperatorTimezone()
       const jobId = options?.jobId ?? generateJobId()
 
       const zone = yield* Effect.try({

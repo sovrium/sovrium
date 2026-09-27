@@ -26,13 +26,17 @@ import type { ContentDirSeoMeta } from '@/domain/models/app/pages/content-dir-se
  * never grafts the canonical's path):
  *  1. the ORIGIN of an absolute `page.meta.canonical` (e.g.
  *     `https://example.com/products` → `https://example.com`);
- *  2. else `BASE_URL` (trailing slash trimmed);
- *  3. else `''` — relative, preserving the prior single-origin-unknown behaviour.
+ *  2. else `BASE_URL`, or `SOVRIUM_BASE_URL` during `sovrium build` (trailing
+ *     slash trimmed);
+ *  3. else `undefined` — no absolute origin is known, and the caller emits no
+ *     alternates at all: search engines reject relative ones, so a relative
+ *     cluster is worse than none. The server warns at boot when a
+ *     multi-language app runs without `BASE_URL`.
  *
  * The `new URL(...)` parse is guarded so a relative/malformed/absent canonical
- * falls through to the env/relative fallback instead of throwing during SSR.
+ * falls through to the env fallback instead of throwing during SSR.
  */
-const resolveHreflangOrigin = (canonical: string | undefined): string => {
+const resolveHreflangOrigin = (canonical: string | undefined): string | undefined => {
   if (canonical && /^https?:\/\//i.test(canonical)) {
     try {
       return new URL(canonical).origin
@@ -40,8 +44,8 @@ const resolveHreflangOrigin = (canonical: string | undefined): string => {
       // Malformed absolute URL — fall through to env/relative.
     }
   }
-  const baseUrl = Bun.env.BASE_URL
-  return baseUrl ? baseUrl.replace(/\/$/, '') : ''
+  const baseUrl = Bun.env.BASE_URL || Bun.env.SOVRIUM_BASE_URL
+  return baseUrl ? baseUrl.replace(/\/$/, '') : undefined
 }
 
 /**
@@ -78,6 +82,7 @@ function HreflangLinks({
   // form the trailing-slash normalizer redirects to.
   const basePath = page.path === '/' ? '/' : page.path
   const origin = resolveHreflangOrigin(page.meta?.canonical)
+  if (origin === undefined) return undefined
 
   return (
     <>
@@ -160,5 +165,73 @@ export function HreflangSection({
       page={page}
       languages={languages}
     />
+  )
+}
+
+/**
+ * The page's other representations, announced for discovery:
+ *  - `application/rss+xml` → `/feed.xml`, on the page the feed is built from,
+ *    titled like the feed's channel (RSS autodiscovery);
+ *  - `text/markdown` → the article's `.md` twin, on a content-directory
+ *    article (the llmstxt.org convention). The twin is derived from the
+ *    article's canonical URL, so it always names this article.
+ */
+function AlternateRepresentationLinks({
+  feedTitle,
+  markdownCanonical,
+}: {
+  readonly feedTitle: string | undefined
+  readonly markdownCanonical: string | undefined
+}): ReactElement | undefined {
+  if (feedTitle === undefined && markdownCanonical === undefined) return undefined
+  return (
+    <>
+      {feedTitle !== undefined && (
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title={feedTitle}
+          href="/feed.xml"
+        />
+      )}
+      {markdownCanonical !== undefined && (
+        <link
+          rel="alternate"
+          type="text/markdown"
+          href={`${markdownCanonical.replace(/\/+$/, '')}.md`}
+        />
+      )}
+    </>
+  )
+}
+
+/**
+ * Every `<link rel="alternate">` in the head: the language cluster, then the
+ * feed and Markdown representations. `feedTitle` is the title of the feed this
+ * page publishes at `/feed.xml`, or `undefined` when it publishes none.
+ */
+export function HeadAlternateLinks({
+  page,
+  languages,
+  contentDirSeo,
+  feedTitle,
+}: {
+  readonly page: Page
+  readonly languages?: Languages
+  readonly contentDirSeo?: ContentDirSeoMeta
+  readonly feedTitle?: string
+}): ReactElement {
+  return (
+    <>
+      <HreflangSection
+        page={page}
+        languages={languages}
+        contentDirSeo={contentDirSeo}
+      />
+      <AlternateRepresentationLinks
+        feedTitle={feedTitle}
+        markdownCanonical={contentDirSeo?.canonical}
+      />
+    </>
   )
 }

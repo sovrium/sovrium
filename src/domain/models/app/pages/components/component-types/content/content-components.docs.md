@@ -34,6 +34,8 @@ Two of the `element` values look like they overlap with a type of their own, and
 
 A standalone, syntax-highlighted block with chrome, a copy button and optional line numbers.
 
+When the **whole** `content` is exactly one token and its value is an object or an array — `$record.fare` on a page bound to one record, or `$leg.stops` inside a named `repeat` — the block prints that value as JSON indented by two spaces, keys in alphabetical order. The value is always text, never markup. A token mixed with any other text keeps the usual rule: an object-valued token is left as its literal `$record.<key>`.
+
 <!-- sovrium:options type:code -->
 
 ### Frames, output and the copy button

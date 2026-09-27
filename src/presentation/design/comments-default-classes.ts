@@ -89,11 +89,14 @@ export const computeCommentSortBarClasses = (): string =>
  *
  * `variants.mjs:174` shrinks it because it labels the list rather than
  * collecting input: at full field height it would out-weigh the first comment
- * underneath it.
+ * underneath it. `select-compact` shrinks its chevron and end inset to match.
+ *
+ * `py-0.5` replaces the base select's 8px block padding, which leaves a 24px
+ * box a 6px content row: the 14px line was clipped through its middle.
  */
 export const computeCommentSortSelectClasses = (): string =>
   [
-    'inline-flex h-6 w-auto items-center px-2 text-xs',
+    'select-compact inline-flex h-6 w-auto items-center px-2 py-0.5 text-xs',
     'border',
     `border-[${v('sv-border-strong', T.borderStrong)}]`,
     `bg-[${v('sv-bg-raised', T.bgRaised)}]`,

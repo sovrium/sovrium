@@ -11,6 +11,7 @@ import {
   AuthRepository,
   AuthDatabaseError,
 } from '@/application/ports/repositories/auth/auth-repository'
+import { redactEmail } from '@/domain/kernel/sanitize/email-redaction'
 import { db } from '@/infrastructure/database'
 import {
   authUsersTable,
@@ -20,6 +21,34 @@ import {
   authTeamMembersTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+
+/**
+ * The most accounts one `getUserDisplayLabels` call names. A page of records is
+ * at most 100 rows, so this is only reached by multi-user values; it keeps the
+ * `IN (...)` far below both dialects' bound-parameter ceilings.
+ */
+const MAX_LABELLED_ACCOUNTS = 1000
+
+/**
+ * The label a read surface prints for an account: its name, or its email when
+ * the name is blank — never empty for an account that exists.
+ */
+const accountLabel = (row: { readonly name: string | null; readonly email: string }): string => {
+  const name = typeof row.name === 'string' ? row.name.trim() : ''
+  return name.length > 0 ? name : row.email
+}
+
+/**
+ * The label the account DIRECTORY prints: the name, or — for an account with
+ * none — its email with the mailbox masked. The picker lists every account to
+ * every signed-in visitor, unlike a read surface, which labels only the
+ * accounts a record the reader may see already references; an app open to
+ * sign-up would otherwise publish its users' addresses to each of them.
+ */
+const directoryLabel = (row: { readonly name: string | null; readonly email: string }): string => {
+  const name = typeof row.name === 'string' ? row.name.trim() : ''
+  return name.length > 0 ? name : redactEmail(row.email)
+}
 
 /** Wrap a DB promise, adapting failures to AuthDatabaseError. */
 const wrap = makeDbWrap((error) => new AuthDatabaseError({ cause: error }))
@@ -52,6 +81,20 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       })
 
       return result[0]?.email ?? undefined
+    }),
+
+  findUserContactById: (userId: string) =>
+    Effect.gen(function* () {
+      const result = yield* wrap(async () => {
+        const users = authUsersTable()
+        return await db
+          .select({ name: users.name, email: users.email })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1)
+      })
+      const row = result[0]
+      return row === undefined ? undefined : { name: row.name ?? '', email: row.email }
     }),
 
   getUserRole: (userId: string) =>
@@ -93,6 +136,42 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
           .filter((row): row is { id: string; role: string } => typeof row.role === 'string')
           .map((row) => [row.id, row.role] as const)
       )
+    }),
+
+  getUserDisplayLabels: (userIds: readonly string[]) =>
+    Effect.gen(function* () {
+      // Deduplicated and capped: one bound parameter per id, so an unbounded
+      // list (a page of multi-user values) could exceed the driver's parameter
+      // ceiling. An id past the cap simply keeps printing its stored key.
+      const ids = [...new Set(userIds)].slice(0, MAX_LABELLED_ACCOUNTS)
+      if (ids.length === 0) return new Map<string, string>()
+      const rows = yield* wrap(async () => {
+        const users = authUsersTable()
+        return await db
+          .select({ id: users.id, name: users.name, email: users.email })
+          .from(users)
+          .where(inArray(users.id, ids))
+      })
+      // A blank name falls back to the email, so the label is never empty for
+      // an account that exists.
+      return new Map(rows.map((row) => [row.id, accountLabel(row)] as const))
+    }),
+
+  listAccountChoices: (limit: number) =>
+    Effect.gen(function* () {
+      const bound = Math.max(0, Math.min(limit, MAX_LABELLED_ACCOUNTS))
+      if (bound === 0) return []
+      const rows = yield* wrap(async () => {
+        const users = authUsersTable()
+        return await db
+          .select({ id: users.id, name: users.name, email: users.email })
+          .from(users)
+          .orderBy(asc(users.name), asc(users.email))
+          .limit(bound)
+      })
+      return rows
+        .map((row) => ({ id: row.id, label: directoryLabel(row) }))
+        .toSorted((a, b) => a.label.localeCompare(b.label))
     }),
 
   updateUserRole: (userId: string, role: string) =>
@@ -157,17 +236,6 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
           .where(eq(teamMembers.userId, userId))
       })
       return rows.map((row) => row.name)
-    }),
-
-  findAdminEmails: (adminRole: string) =>
-    Effect.gen(function* () {
-      const rows = yield* wrap(async () => {
-        const users = authUsersTable()
-        return await db.select({ email: users.email }).from(users).where(eq(users.role, adminRole))
-      })
-      return rows
-        .map((row) => row.email)
-        .filter((email): email is string => typeof email === 'string' && email !== '')
     }),
 
   getUserSessionToken: (userId: string) =>
@@ -246,5 +314,34 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
           )
       })
       return Number(rows[0]?.value ?? 0)
+    }),
+
+  // Operator-email recipients: admin-tier, not banned (same NULL rule as
+  // `countActiveAdmins`), and the named preference still on. Both preference
+  // columns are NOT NULL DEFAULT true, so no NULL arm is needed there.
+  findNotificationRecipients: ({ roles, preference }) =>
+    Effect.gen(function* () {
+      if (roles.length === 0) return [] as readonly string[]
+      const rows = yield* wrap(async () => {
+        const users = authUsersTable()
+        const column =
+          preference === 'automationAlerts'
+            ? users.notifyAutomationAlerts
+            : users.notifyWeeklyDigest
+        return await db
+          .select({ email: users.email })
+          .from(users)
+          .where(
+            and(
+              inArray(users.role, [...roles]),
+              or(isNull(users.banned), eq(users.banned, false)),
+              eq(column, true)
+            )
+          )
+          .orderBy(asc(users.email))
+      })
+      return rows
+        .map((row) => row.email)
+        .filter((email): email is string => typeof email === 'string' && email !== '')
     }),
 })

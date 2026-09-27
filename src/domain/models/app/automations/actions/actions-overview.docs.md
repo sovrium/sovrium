@@ -49,7 +49,7 @@ Keeping this in actions rather than as a field on every action is what makes a r
 | Family       | Operators                                                                                                                                                            |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `data`       | set, aggregate, sort, limit, deduplicate, merge, split, compare, lookup                                                                                              |
-| `state`      | get, set, increment, delete, list                                                                                                                                    |
+| `state`      | get, set, increment, delete, list, filterNew                                                                                                                         |
 | `filter`     | continue                                                                                                                                                             |
 | `crypto`     | hash, hmac                                                                                                                                                           |
 | `digest`     | collect, release                                                                                                                                                     |

@@ -19,6 +19,7 @@ import {
 } from './auth'
 import { handleAutomationCall, handleAutomationReturn } from './automation'
 import { handleCodeRun } from './code'
+import { handleConnectionCall } from './connection'
 import { handleCryptoHash, handleCryptoHmac } from './crypto'
 import {
   handleDataAggregate,
@@ -101,6 +102,7 @@ import {
   handleStateList,
   handleStateSet,
 } from './state'
+import { handleStateFilterNew } from './state-filter-new'
 import { handleWebhookResponse, handleWebhookSend } from './webhook'
 import type { ActionHandler, ActionKey } from './shared'
 
@@ -123,6 +125,7 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ActionHandler
 >([
   ['code/runTypescript', handleCodeRun],
+  ['connection/call', handleConnectionCall],
   ['crypto/hash', handleCryptoHash],
   ['crypto/hmac', handleCryptoHmac],
   ['data/set', handleDataSet],
@@ -199,6 +202,7 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['state/list', handleStateList],
   ['state/delete', handleStateDelete],
   ['state/increment', handleStateIncrement],
+  ['state/filterNew', handleStateFilterNew],
   ['digest/collect', handleDigestCollect],
   ['digest/release', handleDigestRelease],
   ['delay/wait', handleDelayWait],

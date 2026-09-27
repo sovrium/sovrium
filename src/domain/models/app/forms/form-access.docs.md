@@ -56,4 +56,4 @@ The alternative — rendering the page with a hole where the form should be — 
 
 ## Attribution follows the session
 
-When a session is present, the ledger records the submitter's user id and a bound table's created-by column is populated with the same id. A public submission leaves both null, so access control is also what makes a submission attributable.
+When a session is present, the ledger records the submitter's user id and a bound table's created-by column is populated with the same id. A public submission leaves the ledger's user id empty and stamps the created-by column with `system`, the actor an automation-authored record carries, so access control is also what makes a submission attributable to a person.

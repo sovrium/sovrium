@@ -123,7 +123,7 @@ function wrapCreateRecordFailure(
     return new ForeignKeyViolationError(message, fieldName, error)
   }
   if (isUniqueConstraintViolation(error)) {
-    return new UniqueConstraintViolationError('Unique constraint violation', error)
+    return new UniqueConstraintViolationError('Unique constraint violation', error, fieldName)
   }
   // Everything else — including the CHECK and NOT NULL rejections this path
   // used to drop on the floor. The message is server-side log context only;

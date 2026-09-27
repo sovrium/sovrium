@@ -1,9 +1,14 @@
-# Recipe 2 — RECORD trigger with two actions. Every new lead (webhook or
-# manual) emails the team AND appends to the activity log. Change `to` to
-# your inbox.
+# Recipe 2 — every new lead emails the team, then adds a line to the log.
+#
+# One trigger, two steps. The email step retries: a mail server that times out
+# once is tried again 30 seconds later, then a minute after that, and only a
+# third failure stops the run. A run that needed a second try is logged as
+# Retried; a run that ran out of tries is logged by recipe 4.
+#
+# The address is your team's inbox; change it here.
 name: log-new-lead
-label: Record — notify and log each new lead
-description: On every new lead, email the team and append an activity-log entry.
+label: Record → email + log
+description: On every new lead, email the team and add a line to the activity log.
 enabled: true
 trigger:
   type: record
@@ -14,18 +19,28 @@ actions:
   - name: emailTeam
     type: email
     operator: send
+    retry:
+      maxAttempts: 3
+      delayMs: 30000
+      strategy: exponential
     props:
-      to: team@example.com
+      to: team@kerlo.example
       subject: 'New lead: {{trigger.data.record.name}}'
       body: |
         <p><strong>{{trigger.data.record.name}}</strong>
-        ({{trigger.data.record.email}}) just came in via
+        ({{trigger.data.record.email}}) came in by
         {{trigger.data.record.source}}.</p>
-  - name: appendLog
+  - name: logRun
     type: record
     operator: create
     props:
       table: activity_log
       data:
-        event: 'Lead created: {{trigger.data.record.name}}'
-        details: 'Source: {{trigger.data.record.source}} — email {{trigger.data.record.email}}'
+        logged_at: '{{now}}'
+        recipe: log-new-lead
+        # The email step keeps a record of its attempts: more than one means it
+        # failed at least once and then got through.
+        outcome: '{{ifValue (gt (count emailTeam.result.attempts) 1) "Retried" "Succeeded"}}'
+        attempts: '{{ifValue (gt (count emailTeam.result.attempts) 0) (count emailTeam.result.attempts) 1}}'
+        detail: 'Lead created: {{trigger.data.record.name}} · 2 steps'
+        lead: '{{trigger.data.record.id}}'

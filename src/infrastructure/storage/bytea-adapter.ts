@@ -8,7 +8,10 @@
 /* eslint-disable functional/no-expression-statements, functional/no-throw-statements */
 
 import { and, eq, isNull, sql } from 'drizzle-orm'
-import { UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import {
+  UNATTRIBUTED_BUCKET,
+  storageObjectNotFound,
+} from '@/application/ports/services/storage-service'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
@@ -147,7 +150,7 @@ export const byteaUpload = async (
   if (!row) {
     // Shaped as not-found so the route answers 404 and never distinguishes
     // "owned by another bucket" from "absent" (S1 anti-enumeration).
-    throw new Error(`File not found: ${key}`)
+    throw storageObjectNotFound(key)
   }
 
   await db.execute(sql`
@@ -171,7 +174,7 @@ export const byteaDownload = async (key: string, bucket: BucketBinding): Promise
 
   const row = result[0] as { content: Uint8Array | Buffer } | undefined
   if (!row) {
-    throw new Error(`File not found: ${key}`)
+    throw storageObjectNotFound(key)
   }
   return row.content instanceof Uint8Array
     ? row.content
@@ -192,7 +195,7 @@ export const byteaDelete = async (key: string, bucket: BucketBinding): Promise<v
     RETURNING key
   `)) as readonly Record<string, unknown>[]
   if (result.length === 0) {
-    throw new Error(`File not found: ${key}`)
+    throw storageObjectNotFound(key)
   }
 }
 
@@ -269,7 +272,7 @@ export const writeFileMetadata = async (file: {
     // The conflicting row belongs to a different bucket, so the guarded update
     // matched nothing. Not-found shaped for the same anti-enumeration reason as
     // {@link byteaUpload}.
-    throw new Error(`File not found: ${key}`)
+    throw storageObjectNotFound(key)
   }
 }
 

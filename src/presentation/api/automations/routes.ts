@@ -12,6 +12,7 @@ import {
   type PersistedStep,
 } from '@/application/ports/repositories/automations/automation-run-repository'
 import { dispatchAutomationOnce } from '@/application/use-cases/automations/dispatch-automation-trigger'
+import { findPendingApprovalId } from '@/application/use-cases/automations/list-automation-approvals'
 import {
   replayAutomationRun,
   type ReplayAutomationRunError,
@@ -22,15 +23,19 @@ import {
 } from '@/application/use-cases/automations/run-automation'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { redactTriggerDataHeaders } from '@/domain/kernel/sanitize/http-header-redaction'
+import { runDetailSchema } from '@/domain/models/api/automations/automations'
+import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
 import {
   provideDomain,
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { requireSession } from '@/presentation/api/runtime/auth-helpers'
 import { isAutomationStoreFailure } from '@/presentation/api/runtime/automation-error-responses'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import { handleListApprovals } from './approvals-handlers'
 import { chainRunControlRoutes } from './runs-handlers'
 import { selectTriggerProgram } from './trigger-program-selector'
 import { handleWebhookRequest } from './webhook-handler'
@@ -119,7 +124,9 @@ const computeCronNextRunOverlay = (
 ): Record<string, string> => {
   if (trigger['type'] !== 'cron') return {}
   const expr = String(trigger['expression'])
-  const tz = String(trigger['timezone'] ?? 'UTC')
+  // The listing reports the EFFECTIVE zone: the schema carries no default, so
+  // an omitted `timezone` is shown as the operator timezone it runs in.
+  const tz = String(trigger['timezone'] ?? resolveOperatorTimezone())
   const zone = Result.try({
     try: () => DateTime.zoneMakeNamedUnsafe(tz),
     catch: () => undefined,
@@ -127,7 +134,7 @@ const computeCronNextRunOverlay = (
   if (Result.isFailure(zone)) return {}
   const parsed = Cron.parse(expr, zone.success)
   if (Result.isFailure(parsed)) return {}
-  return { nextRunAt: Cron.next(parsed.success, new Date()).toISOString() }
+  return { timezone: tz, nextRunAt: Cron.next(parsed.success, new Date()).toISOString() }
 }
 
 function handleListAutomations(c: Context, app: App) {
@@ -440,6 +447,7 @@ const buildDbRunDetailBody = (app: App, run: PersistedRun, steps: readonly Persi
     durationMs: step.durationMs,
     output: step.output ?? null,
     error: step.error,
+    ...(Array.isArray(step.logs) ? { logs: step.logs } : {}),
   })),
 })
 
@@ -456,7 +464,9 @@ const loadDbRunDetail = (id: string) =>
     const run = yield* repo.findById(id)
     if (run === undefined) return undefined
     const steps = yield* repo.findStepsByRunId(id)
-    return { run, steps }
+    // The pending request the run waits on, so a client can resolve it.
+    const approvalId = yield* findPendingApprovalId(id)
+    return { run, steps, approvalId }
   })
 
 /**
@@ -476,7 +486,12 @@ async function handleGetRunDetail(c: Context, app: App) {
 
   const dbResult = await runRequestEffect(c, Effect.result(provideDomain(c, loadDbRunDetail(id))))
   if (dbResult._tag === 'Success' && dbResult.success !== undefined) {
-    return c.json(buildDbRunDetailBody(app, dbResult.success.run, dbResult.success.steps), 200)
+    // S4: the body leaves through its published contract, so a field the
+    // OpenAPI document does not declare cannot reach a client.
+    const { run, steps, approvalId } = dbResult.success
+    // eslint-disable-next-line unicorn/no-null -- runDetailSchema declares approvalId nullable
+    const body = { ...buildDbRunDetailBody(app, run, steps), approvalId: approvalId ?? null }
+    return c.json(decodeOrThrow(runDetailSchema)(body), 200)
   }
   return c.json({ success: false, message: 'Run not found' }, 404)
 }
@@ -634,6 +649,8 @@ export function chainAutomationRoutes<T extends Hono>(honoApp: T, app: App): T {
     )
     .post('/api/automations/:name/trigger', (c) => handleManualTrigger(c, app))
     .post('/api/automations/:name/form-action', (c) => handleFormAction(c, app))
+    // Before every `/:name` route: `approvals` is not an automation name.
+    .get('/api/automations/approvals', (c) => handleListApprovals(c, app))
     .get('/api/automations/runs', withSession(handleListRuns, app))
     .get('/api/automations/runs/:id', withSession(handleGetRunDetail, app))
     .get('/api/automations/:name/runs', withSession(handleListRunsByName, app))

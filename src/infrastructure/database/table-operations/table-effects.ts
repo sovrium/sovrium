@@ -11,7 +11,7 @@ import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   shouldUseView,
-  getBaseTableName,
+  getPhysicalTableName,
   generateLookupViewSQL,
   generateLookupViewTriggers,
 } from '../lookup/lookup-view-generators'
@@ -30,6 +30,7 @@ import {
   executeSQLStatements,
   getExistingColumns,
   SQLExecutionError,
+  tableExists,
   type TransactionLike,
 } from '../sql/sql-execution'
 import {
@@ -94,11 +95,10 @@ const guardSqliteTypeChanges = (params: {
     const probes = planTypeChangeProbes({ table, existingColumns, previousSchema })
     if (probes.length === 0) return
 
-    const sanitized = sanitizeTableName(table.name)
     const refusals = yield* detectUnconvertibleRows({
       query: (sql) => executeSQL(tx, sql),
       tableName: table.name,
-      physicalTableName: shouldUseView(table) ? getBaseTableName(sanitized) : sanitized,
+      physicalTableName: getPhysicalTableName(table),
       idColumn: resolveProbeIdColumn(existingColumns),
       probes,
     })
@@ -148,6 +148,7 @@ const reconcileTableStructure = (params: {
       previousSchema,
       tablePrimaryKeyTypes,
       hasAuthConfig,
+      physicalTableName: getPhysicalTableName(table),
     })
     if (alterStatements.length > 0) {
       // Incremental, column-level migration.
@@ -185,6 +186,10 @@ const reconcileTableStructure = (params: {
 
 /**
  * Migrate existing table (ALTER statements + constraints + indexes)
+ *
+ * Every statement addresses the PHYSICAL relation ({@link getPhysicalTableName}):
+ * for a view-backed table that is `<name>_base`, and `existingColumns` must have
+ * been read from it too — the view's column list includes its computed fields.
  */
 export const migrateExistingTableEffect = (
   params: TableDdlInputs & {
@@ -203,19 +208,21 @@ export const migrateExistingTableEffect = (
       hasAuthConfig: params.hasAuthConfig ?? true,
     }
 
+    const physicalTableName = getPhysicalTableName(table)
+
     yield* reconcileTableStructure({ tx, table, existingColumns, previousSchema, inputs })
 
     // Always add/update unique constraints for existing tables
-    yield* syncUniqueConstraints(tx, table, previousSchema)
+    yield* syncUniqueConstraints(tx, table, previousSchema, physicalTableName)
 
     // Always sync foreign key constraints to ensure referential actions are up-to-date
-    yield* syncForeignKeyConstraints(tx, table, tableUsesView)
+    yield* syncForeignKeyConstraints(tx, table, tableUsesView, physicalTableName)
 
     // Always sync CHECK constraints for fields with validation requirements
-    yield* syncCheckConstraints(tx, table)
+    yield* syncCheckConstraints(tx, table, physicalTableName)
 
     // Always sync indexes when field indexed property changes or custom indexes are modified
-    yield* syncIndexes(tx, table, previousSchema)
+    yield* syncIndexes(tx, table, previousSchema, physicalTableName)
 
     // Apply table features (triggers, RLS) - indexes handled by syncIndexes above
     yield* applyTableFeaturesWithoutIndexes(tx, table)
@@ -265,8 +272,30 @@ export const createNewTableEffect = (
   })
 
 /**
+ * Whether `name` exists as a TABLE — not a view. `tableExists` alone cannot say:
+ * on Postgres it reads `information_schema.tables`, which lists views too.
+ */
+const tableExistsAsTable = (
+  tx: TransactionLike,
+  name: string
+): Effect.Effect<boolean, SQLExecutionError> =>
+  isSqliteRuntime()
+    ? tableExists(tx, name)
+    : executeSQL(
+        tx,
+        `SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = '${name}') AS "exists"`
+      ).pipe(Effect.map((rows) => Boolean((rows as readonly { exists?: unknown }[])[0]?.exists)))
+
+/**
  * Create lookup VIEWs for tables with lookup fields
  * Called after all base tables have been created to avoid dependency issues
+ *
+ * The view takes the config name, so that name must not hold a TABLE by now.
+ * The plain → view-backed transition moves a populated `<name>` to
+ * `<name>_base` by rename in Step 5.5 (`reconcileViewTopology`); if a table is
+ * still standing here, something upstream did not run, and dropping it — which
+ * is what this step used to do, with `DROP TABLE IF EXISTS <name>` — would
+ * delete the rows. It refuses instead.
  */
 export const createLookupViewsEffect = (
   tx: TransactionLike,
@@ -277,13 +306,25 @@ export const createLookupViewsEffect = (
     if (shouldUseView(table)) {
       const createViewSQL = generateLookupViewSQL(table, allTables)
       if (createViewSQL) {
-        // Drop existing table if it exists (to allow VIEW creation)
-        // This handles the transition from TABLE to VIEW when rollup/lookup fields are added.
-        // Dialect-aware: SQLite has no `CASCADE` keyword on DROP TABLE; dependent
-        // FK constraints are governed by `PRAGMA foreign_keys = ON` at runtime
-        // (already set by `openSqliteDdlDatabase`).
+        // The view's own name: `generateLookupViewSQL` creates it under the
+        // SANITIZED name, which differs from `table.name` for a config name with
+        // capitals, spaces or hyphens — probing the config name would miss the
+        // standing table and the tripwire would never fire.
+        const viewName = sanitizeTableName(table.name)
+        const standingTable = yield* tableExistsAsTable(tx, viewName)
+        if (standingTable) {
+          return yield* new SQLExecutionError({
+            message:
+              `Refusing to replace table '${table.name}' with a view: it still holds the ` +
+              `table's rows, and the view that computes its lookup, rollup or count fields ` +
+              `needs its name. Nothing was dropped.`,
+          })
+        }
+
+        // Safety net for a view Step 5.5 did not clear. Dialect-aware: SQLite has
+        // no `CASCADE` on DROP VIEW.
         const cascadeSuffix = isSqliteRuntime() ? '' : ' CASCADE'
-        yield* executeSQL(tx, `DROP TABLE IF EXISTS ${table.name}${cascadeSuffix}`)
+        yield* executeSQL(tx, `DROP VIEW IF EXISTS ${viewName}${cascadeSuffix}`)
 
         yield* executeSQL(tx, createViewSQL)
 
@@ -466,7 +507,9 @@ export const createOrMigrateTableEffect = (
       tablePrimaryKeyTypes,
     } = params
     if (exists) {
-      const existingColumns = yield* getExistingColumns(tx, table.name)
+      // The BASE table's columns for a view-backed table: the view also lists
+      // its computed fields, which would read as stored columns to the planner.
+      const existingColumns = yield* getExistingColumns(tx, getPhysicalTableName(table))
       yield* migrateExistingTableEffect({
         tx,
         table,

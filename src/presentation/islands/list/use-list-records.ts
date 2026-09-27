@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
 import {
+  buildFilterParam,
   useRecordsPagesQuery,
   type RecordsDataSource,
   type RecordsPages,
@@ -32,5 +34,12 @@ export type ListRecordsDataSource = RecordsDataSource
  * mapping stays in the list/search renderers — this hook only owns the fetch.
  */
 export function useListRecords(dataSource: ListRecordsDataSource | undefined): RecordsPages {
-  return useRecordsPagesQuery('list', dataSource)
+  return useRecordsPagesQuery(
+    'list',
+    dataSource,
+    useLazySharedFilter(
+      { bindTo: dataSource?.bindTo, sharedFilter: dataSource?.sharedFilter },
+      buildFilterParam(dataSource?.filter)
+    )
+  )
 }

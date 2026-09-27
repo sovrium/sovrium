@@ -15,7 +15,7 @@ import {
   type AdminAgentConversationsListFilters,
 } from '@/application/ports/repositories/agents/admin-agent-conversations-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
-import { isDefaultAgentName } from '@/domain/models/app/agents/agent-identity'
+import { isSystemAgentName } from '@/domain/models/app/agents/agent-identity'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
@@ -44,11 +44,11 @@ const aiMessages = resolveDialectSchema(aiMessagesPg, aiMessagesSqlite)
 /**
  * Build the agent-scope predicate for a conversation-source name.
  *
- * The reserved {@link DEFAULT_AGENT_NAME} is the general-purpose agent, whose
+ * The reserved {@link SYSTEM_AGENT_NAME} is the built-in System Agent, whose
  * view is the `agent_name IS NULL` set — the conversations no declared agent
- * claimed (every `/api/ai/chat` write path stores NULL; see
+ * claimed (an agent-less `/api/ai/chat` turn and a System Agent turn both store NULL; see
  * `src/domain/models/app/agents/agent-identity.ts`). Equality can never reach those rows:
- * `agent_name = 'default'` is NULL-vs-value, which SQL evaluates to NULL and
+ * `agent_name = 'system'` is NULL-vs-value, which SQL evaluates to NULL and
  * therefore never true, so before this the whole set was unreachable from the
  * console rather than merely mis-scoped.
  *
@@ -58,7 +58,7 @@ const aiMessages = resolveDialectSchema(aiMessagesPg, aiMessagesSqlite)
  */
 // eslint-disable-next-line functional/prefer-immutable-types -- Drizzle's `SQL` condition type is intrinsically mutable; the sibling `build*Conditions` helpers hand back the same shape inside a ReadonlyArray
 const agentScopeCondition = (agentName: string): SQL =>
-  isDefaultAgentName(agentName)
+  isSystemAgentName(agentName)
     ? isNull(aiConversations.agentName)
     : eq(aiConversations.agentName, agentName)
 

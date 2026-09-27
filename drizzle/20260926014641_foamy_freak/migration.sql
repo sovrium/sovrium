@@ -1,0 +1,1 @@
+ALTER TABLE "system"."automation_approval_requests" ADD COLUMN "approvers" jsonb;

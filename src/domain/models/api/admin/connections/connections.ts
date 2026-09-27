@@ -94,6 +94,11 @@ export const CONNECTION_EXPIRING_SOON_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
  *     but within `CONNECTION_EXPIRING_SOON_WINDOW_MS` (7 days).
  *   - `expired`       — has token(s); the soonest `expiresAt` is already in the
  *     past.
+ *   - `reconnect-needed` — has a token the provider gave NO refresh token for
+ *     (LinkedIn, Meta) whose expiry is past or within the same 7-day window:
+ *     nothing will renew it, so someone has to authorize again. Takes
+ *     precedence over `expiring-soon` / `expired`, which describe tokens the
+ *     runtime can still refresh on its own.
  *
  * Mirrors + extends `deriveAdminStatus` in
  * `src/presentation/api/routes/connections/users-handler.ts` (which derives
@@ -104,9 +109,10 @@ export const connectionStatusSchema = Schema.Literals([
   'active',
   'expiring-soon',
   'expired',
+  'reconnect-needed',
 ]).annotate({
   description:
-    'Derived connection health. `active` = tokens all in the future OR no tokens (apiKey/no-expiry case); `expiring-soon` = soonest token expiry within 7 days; `expired` = soonest token expiry in the past.',
+    'Derived connection health. `active` = tokens all in the future OR no tokens (apiKey/no-expiry case); `expiring-soon` = soonest token expiry within 7 days; `expired` = soonest token expiry in the past; `reconnect-needed` = a token with no refresh token expires within 7 days or has expired, so only a new authorization will restore it.',
 })
 
 /** @public */
@@ -126,7 +132,7 @@ export type ConnectionStatus = typeof connectionStatusSchema.Type
  *   - `connect`    — an `oauth2` connection nobody has authorized yet
  *     (`tokenCount === 0`): the primary action is to start the OAuth flow.
  *   - `reconnect`  — an `oauth2` connection with token(s) whose health is
- *     `expiring-soon` / `expired`: re-run the OAuth flow before it lapses (a
+ *     `expiring-soon` / `expired` / `reconnect-needed`: re-run the OAuth flow before it lapses (a
  *     `reconnect` row ALSO offers disconnect).
  *   - `disconnect` — an `oauth2` connection with healthy (`active`) token(s):
  *     the only action is to revoke + clear them.
@@ -143,7 +149,7 @@ export const connectionRowActionSchema = Schema.Literals([
   'none',
 ]).annotate({
   description:
-    'Derived per-row connect affordance: `connect` (oauth2, no tokens) / `reconnect` (oauth2, expiring/expired tokens) / `disconnect` (oauth2, healthy tokens) / `none` (non-oauth2). Server-computed display hint for config-driven action gating.',
+    'Derived per-row connect affordance: `connect` (oauth2, no tokens) / `reconnect` (oauth2, expiring, expired or reconnect-needed tokens) / `disconnect` (oauth2, healthy tokens) / `none` (non-oauth2). Server-computed display hint for config-driven action gating.',
 })
 
 /** @public */

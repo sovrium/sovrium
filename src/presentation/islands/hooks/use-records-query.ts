@@ -7,9 +7,13 @@
 
 import { useInfiniteQuery, useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { useCallback } from 'react'
+import { MAX_PAGE_SIZE } from '@/domain/kernel/sql/page-window'
 import { createRecordsClient } from '@/presentation/api/client'
 import { fetchSystemEndpoint, fetchSystemDetailEndpoint } from './use-system-source-fetch'
+import type { LazySharedRequest } from './use-lazy-shared-filter'
+import type { SharedFilterBindingConfig } from './use-shared-filter'
 import type { FetchResult } from './use-system-source-fetch'
+import type { SharedRecordsParams } from '../runtime/shared-filter-param'
 import type { TableRecord } from '../runtime/types'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
@@ -103,7 +107,7 @@ export function buildSortParam(sort: readonly DataSort[] | undefined): string | 
  * `view` is carried for parity with richer components but is not used by the
  * single-page fetch.
  */
-export interface RecordsDataSource {
+export interface RecordsDataSource extends SharedFilterBindingConfig {
   /** DB-table binding — ABSENT for a system-source binding. */
   readonly table?: string
   /**
@@ -138,17 +142,14 @@ export interface RecordsDataSource {
 }
 
 /**
- * Request size when a binding declares no `limit` of its own — and, because the
- * two happen to be the same number, the largest page the records API will serve.
+ * Request size when a binding declares no `limit` of its own — and the largest
+ * page the records API will serve.
  *
- * That ceiling is `MAX_PAGE_SIZE` in `domain/models/api/combinators/common.ts`. It is
- * repeated here rather than imported because that module pulls in Effect Schema,
- * which no island imports as a value and none should: it would land in every
- * client chunk reaching this hook. If the server ceiling ever rises, this
- * constant stays behind and pages more conservatively — asking for a page the
- * server can always serve, so the drift fails safe.
+ * It IS the server's ceiling, read from the dependency-free kernel constant
+ * rather than repeated: the copy that used to stand here could drift from the
+ * server, and the kernel module pulls in nothing a client chunk would pay for.
  */
-export const RECORDS_PAGE_SIZE = 100
+export const RECORDS_PAGE_SIZE = MAX_PAGE_SIZE
 
 /**
  * The page size a binding actually asks for, bounded by what the server accepts.
@@ -183,20 +184,58 @@ interface TablePageRequest {
   readonly table: string
   readonly sortParam: string | undefined
   readonly filterParam: string | undefined
+  /** Params a shared-filter publisher contributes beside the filter. */
+  readonly extraParams: Readonly<Record<string, string>>
   /** Zero-based; the records API counts pages from one. */
   readonly pageIndex: number
   readonly pageSize: number
 }
+
+/**
+ * The statuses with which the records API REFUSES a read: not signed in (401),
+ * not allowed (403), or — the anti-enumeration answer for a table the reader
+ * may not know about — not found (404).
+ */
+const REFUSED_READ_STATUSES: ReadonlySet<number> = new Set([401, 403, 404])
+
+/**
+ * Whether a records query failed because the reader may not read the table,
+ * as opposed to a fault. A refusal is an ANSWER: asking again returns it
+ * again, and a surface shown to a visitor who may not read a table has nothing
+ * of that table to show — which is what an empty read already says, without
+ * telling the visitor the table exists.
+ */
+export function isRefusedRead(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  const { cause } = error
+  return (
+    typeof cause === 'object' &&
+    cause !== null &&
+    'status' in cause &&
+    typeof cause.status === 'number' &&
+    REFUSED_READ_STATUSES.has(cause.status)
+  )
+}
+
+/**
+ * The island QueryClient's two retries, spent only on a fault: a refused read
+ * is answered, not failed, and retrying it only holds the loading state for
+ * the length of the backoff.
+ */
+const retryUnlessRefused = (failureCount: number, error: Error): boolean =>
+  !isRefusedRead(error) && failureCount < 2
 
 /** Fetch one page of DB-table records and flatten `record.fields` to the top level. */
 async function fetchTableRecords({
   table,
   sortParam,
   filterParam,
+  extraParams,
   pageIndex,
   pageSize,
 }: TablePageRequest): Promise<FetchResult> {
   const query = {
+    ...extraParams,
     page: String(pageIndex + 1),
     limit: String(pageSize),
     ...(sortParam && { sort: sortParam }),
@@ -211,7 +250,9 @@ async function fetchTableRecords({
   if (!res.ok) {
     const body = await res.text()
     // eslint-disable-next-line functional/no-throw-statements -- TanStack Query expects thrown errors
-    throw new Error(`Failed to fetch records: ${String(res.status)} ${body}`)
+    throw new Error(`Failed to fetch records: ${String(res.status)} ${body}`, {
+      cause: { status: res.status },
+    })
   }
 
   const json = (await res.json()) as {
@@ -243,6 +284,8 @@ interface PageRequest {
   readonly table: string | undefined
   readonly sortParam: string | undefined
   readonly filterParam: string | undefined
+  /** Params a shared-filter publisher contributes beside the filter. */
+  readonly extraParams: Readonly<Record<string, string>>
   readonly pageSize: number
 }
 
@@ -254,13 +297,27 @@ interface PageRequest {
  */
 const buildPageRequest = (
   dataSource: RecordsDataSource | undefined,
-  pageSize: number
+  pageSize: number,
+  shared: SharedRecordsParams
 ): PageRequest => ({
   system: dataSource?.system,
   table: dataSource?.table,
   sortParam: buildSortParam(dataSource?.sort),
-  filterParam: buildFilterParam(dataSource?.filter),
+  filterParam: shared.filterParam,
+  extraParams: shared.extraParams,
   pageSize,
+})
+
+/**
+ * The request of a view bound to no shared-filter channel: its own filter and
+ * nothing else. A view bound to one passes the request its channel builds
+ * (`useLazySharedFilter`) — that hook lives apart so the views that never
+ * bind (a record drawer, a picker, a single record) do not load it.
+ */
+const unboundRequest = (dataSource: RecordsDataSource | undefined): LazySharedRequest => ({
+  filterParam: buildFilterParam(dataSource?.filter),
+  extraParams: {},
+  ready: true,
 })
 
 /** A binding is present, so the query has somewhere to fetch from. */
@@ -278,20 +335,28 @@ const buildPageQueryKey = (prefix: string, request: PageRequest): readonly unkno
   request.system
     ? [
         `${prefix}-system`,
-        request.system.endpoint,
-        request.system.query,
+        // The whole binding: `rowsKey` / `idKey` / `totalKey` shape the
+        // normalised answer, and the page's islands share one cache.
+        request.system,
         request.sortParam,
         request.pageSize,
       ]
-    : [prefix, request.table, request.filterParam, request.sortParam, request.pageSize]
+    : [
+        prefix,
+        request.table,
+        request.filterParam,
+        request.sortParam,
+        request.pageSize,
+        request.extraParams,
+      ]
 
 /** Fetch page `pageIndex` from whichever binding the request names. */
 const fetchRecordsPage = (request: PageRequest, pageIndex: number): Promise<FetchResult> => {
-  const { system, table, sortParam, filterParam, pageSize } = request
+  const { system, table, sortParam, filterParam, extraParams, pageSize } = request
   // System source: fetch the read endpoint and normalize its rows envelope.
   if (system) return fetchSystemEndpoint({ system, pagination: { pageIndex, pageSize }, sortParam })
   if (!table) return Promise.resolve({ records: [], total: 0 })
-  return fetchTableRecords({ table, sortParam, filterParam, pageIndex, pageSize })
+  return fetchTableRecords({ table, sortParam, filterParam, extraParams, pageIndex, pageSize })
 }
 
 // ---------------------------------------------------------------------------
@@ -309,15 +374,19 @@ const fetchRecordsPage = (request: PageRequest, pageIndex: number): Promise<Fetc
  */
 export function useRecordsQuery(
   keyPrefix: string,
-  dataSource: RecordsDataSource | undefined
+  dataSource: RecordsDataSource | undefined,
+  shared: LazySharedRequest = unboundRequest(dataSource)
 ): UseQueryResult<FetchResult> {
   // One page big enough to hold the whole set, always — these callers render
   // every row they receive and offer no control that could fetch a second page.
-  const request = buildPageRequest(dataSource, RECORDS_PAGE_SIZE)
+  const request = buildPageRequest(dataSource, RECORDS_PAGE_SIZE, shared)
 
   return useQuery({
     queryKey: buildPageQueryKey(`${keyPrefix}-records`, request),
-    enabled: isBound(request),
+    // Held until a bound channel has been read, so the first request is the
+    // filtered one rather than everything followed by a re-fetch.
+    enabled: isBound(request) && shared.ready,
+    retry: retryUnlessRefused,
     queryFn: (): Promise<FetchResult> => fetchRecordsPage(request, 0),
   })
 }
@@ -381,13 +450,14 @@ export interface RecordsPages {
  */
 export function useRecordsPagesQuery(
   keyPrefix: string,
-  dataSource: RecordsDataSource | undefined
+  dataSource: RecordsDataSource | undefined,
+  shared: LazySharedRequest = unboundRequest(dataSource)
 ): RecordsPages {
-  const request = buildPageRequest(dataSource, resolvePageSize(dataSource))
+  const request = buildPageRequest(dataSource, resolvePageSize(dataSource), shared)
 
   const query = useInfiniteQuery({
     queryKey: buildPageQueryKey(`${keyPrefix}-record-pages`, request),
-    enabled: isBound(request),
+    enabled: isBound(request) && shared.ready,
     initialPageParam: 0,
     queryFn: ({ pageParam }): Promise<FetchResult> => fetchRecordsPage(request, pageParam),
     getNextPageParam: nextPageIndex,
@@ -453,7 +523,8 @@ export function useRecordQuery(
 ): UseQueryResult<TableRecord | undefined> {
   const system = dataSource?.system
   return useQuery({
-    queryKey: [`${keyPrefix}-system-detail`, system?.endpoint, id, system?.query],
+    // The whole binding: `recordKey` and the `:param` slot shape the answer.
+    queryKey: [`${keyPrefix}-system-detail`, system, id],
     enabled: Boolean(system) && Boolean(id),
     queryFn: (): Promise<TableRecord | undefined> =>
       system && id ? fetchSystemDetailEndpoint(system, id) : Promise.resolve(undefined),

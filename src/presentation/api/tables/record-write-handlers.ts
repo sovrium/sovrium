@@ -37,6 +37,7 @@ import {
 import { handleRouteError } from './error-handlers'
 import {
   sanitizeUpdateRichTextFields,
+  validateUpdateAttachmentReferences,
   validateUpdateFieldValues,
   validateUpdateForbiddenFields,
   validateUpdateReadonlyFields,
@@ -234,6 +235,17 @@ export async function handleFormUpdateRecord(c: Context, app: App) {
     return handleNoAllowedFields({ recordId, forbiddenFields, app, c })
   }
 
+  // The form verb writes the same columns the JSON verbs do, so an attachment
+  // reference is confined here too — otherwise it is the one door left open.
+  const referenceError = await validateUpdateAttachmentReferences({
+    c,
+    app,
+    tableName,
+    userRole,
+    fields: allowedData,
+  })
+  if (referenceError) return formatValidationError(referenceError, c)
+
   return executeFormUpdate({
     session,
     tableName,
@@ -315,7 +327,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
   if (gateError) return gateError
 
   // Extract fields from nested format
-  const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
+  const { allowedData: fields, forbiddenFields } = filterAllowedFieldsWithRole(
     app,
     tableName,
     userRole,
@@ -326,15 +338,16 @@ export async function handleUpdateRecord(c: Context, app: App) {
   const forbiddenValidation = validateUpdateForbiddenFields(forbiddenFields, c)
   if (forbiddenValidation) return forbiddenValidation
 
-  if (Object.keys(allowedData).length === 0) {
+  if (Object.keys(fields).length === 0) {
     return handleNoAllowedFields({ recordId, forbiddenFields, app, c })
   }
 
-  // Per-value rules — column formats (`email`, `url`) plus `multi-select`
-  // option membership and `maxSelections` — run on the update path with the
+  // Per-value rules — column formats (`email`, `url`), `multi-select`
+  // option membership and `maxSelections`, and attachment-reference
+  // confinement — run on the update path with the
   // same shared rules the create path runs, so both verbs on this resource
   // enforce one contract. Inspects only the columns the payload supplies.
-  const valueError = await validateUpdateFieldValues(app, tableName, userRole, allowedData)
+  const valueError = await validateUpdateFieldValues({ c, app, tableName, userRole, fields })
   if (valueError) return formatValidationError(valueError, c)
 
   return executeUpdate({
@@ -345,7 +358,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
     // create path runs, so both verbs leave the column in one state. Unlike
     // the guards above this TRANSFORMS the write, so it sits at the hand-off
     // itself — the sanitized map is what reaches the row.
-    allowedData: await sanitizeUpdateRichTextFields(app, tableName, userRole, allowedData),
+    allowedData: await sanitizeUpdateRichTextFields(app, tableName, userRole, fields),
     app,
     userRole,
     clientUpdatedAt: result.data.updatedAt,

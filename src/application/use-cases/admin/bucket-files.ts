@@ -31,6 +31,8 @@ import {
   type AdminBucketFileRow,
   type AdminBucketFilesDatabaseError,
   type AdminBucketFilesListFilters,
+  type AdminBucketFilesScope,
+  type AdminRecordAttachmentLink,
 } from '@/application/ports/repositories/buckets/admin-bucket-files-repository'
 import { stripStorageKeyUuidPrefix } from '@/domain/kernel/identity/storage-key'
 import {
@@ -40,6 +42,8 @@ import {
   type BucketFilesSort,
 } from '@/domain/models/api/admin/buckets/files'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { isSystemBucketName } from '@/domain/models/app/buckets/bucket-identity'
+import type { App } from '@/domain/models/app'
 
 /* eslint-disable unicorn/no-null -- API envelope canonically uses `null` for an absent `nextCursor` across all cursor-paginated admin endpoints (matches the shared cursor-pagination response contract) */
 
@@ -51,11 +55,33 @@ function createdAtIso(raw: Readonly<Date> | string): string {
 }
 
 /**
+ * Where a row came from, on the built-in `system` bucket's listing only: the
+ * bucket that holds it, and — for a file linked to a record — the table, record
+ * and field that reference it. Other listings carry none of these.
+ */
+function systemListingProvenance(
+  row: AdminBucketFileRow,
+  link: AdminRecordAttachmentLink | undefined
+): Partial<Pick<BucketFileItem, 'bucket' | 'table' | 'recordId' | 'field'>> {
+  const bucket = row.bucket ?? link?.bucket
+  return {
+    ...(bucket !== undefined ? { bucket } : {}),
+    ...(link !== undefined
+      ? { table: link.table, recordId: link.recordId, field: link.field }
+      : {}),
+  }
+}
+
+/**
  * Build the canonical file-browser item from a metadata row. Pure — the row is
  * supplied by the caller (sourced via the repository).
  */
-function buildFileItem(row: AdminBucketFileRow): BucketFileItem {
+function buildFileItem(
+  row: AdminBucketFileRow,
+  system: ReadonlyMap<string, AdminRecordAttachmentLink> | undefined
+): BucketFileItem {
   return {
+    ...(system !== undefined ? systemListingProvenance(row, system.get(row.key)) : {}),
     key: row.key,
     // The storage adapters set `file_storage_metadata.filename` to the key's
     // basename (the uuid-prefixed value). Strip the `<uuid>-` prefix so the
@@ -152,10 +178,12 @@ function cursorValueForItem(item: Readonly<BucketFileItem>, sort: BucketFilesSor
  */
 function buildListFilters(
   input: Readonly<BucketFilesInput>,
+  scope: AdminBucketFilesScope,
   typeFilter: { readonly typePrefix?: string; readonly typeExact?: string },
   decoded: { readonly value: string; readonly id: string } | null
 ): AdminBucketFilesListFilters {
   return {
+    scope,
     sort: input.sort,
     order: input.order,
     ...(typeFilter.typePrefix !== undefined ? { typePrefix: typeFilter.typePrefix } : {}),
@@ -166,6 +194,16 @@ function buildListFilters(
   }
 }
 
+/**
+ * Index record links by storage key. A file referenced by several records is
+ * listed once, attributed to the first reference found.
+ */
+function linksByKey(
+  links: readonly AdminRecordAttachmentLink[]
+): ReadonlyMap<string, AdminRecordAttachmentLink> {
+  return new Map(links.toReversed().map((link) => [link.key, link] as const))
+}
+
 // ─── Use case ────────────────────────────────────────────────────────────────
 
 /**
@@ -174,6 +212,10 @@ function buildListFilters(
  * encode/decode pair stays co-located with the rest of the pure logic).
  */
 export interface BucketFilesInput {
+  /** The bucket being listed — a declared one, or the built-in `system`. */
+  readonly bucket: string
+  /** The app whose attachment columns the `system` listing reads links from. */
+  readonly app: App
   readonly sort: BucketFilesSort
   readonly order: BucketFilesOrder
   readonly type?: string | undefined
@@ -234,13 +276,23 @@ export const BuildBucketFiles = (
     const decoded = input.cursor ? decodeFilesCursor(input.cursor) : null
     const typeFilter = resolveTypeFilter(input.type)
 
+    // The built-in `system` bucket also lists every file linked to a record,
+    // whichever bucket holds it; any other bucket lists only its own objects.
+    const system = isSystemBucketName(input.bucket)
+      ? linksByKey(yield* repo.listRecordAttachmentLinks(input.app))
+      : undefined
+    const scope: AdminBucketFilesScope = {
+      bucket: input.bucket,
+      ...(system !== undefined ? { alsoKeys: [...system.keys()] } : {}),
+    }
+
     const [rows, totalBytes] = yield* Effect.all([
-      repo.listFiles(buildListFilters(input, typeFilter, decoded)),
-      repo.sumTotalBytes,
+      repo.listFiles(buildListFilters(input, scope, typeFilter, decoded)),
+      repo.sumTotalBytes(scope),
     ])
 
     const pageRows = rows.slice(0, input.limit)
-    const items = pageRows.map((row) => buildFileItem(row))
+    const items = pageRows.map((row) => buildFileItem(row, system))
     const lastRow = pageRows[pageRows.length - 1]
     const lastItem = items[items.length - 1]
     const nextCursor =
@@ -268,3 +320,24 @@ export const BuildBucketFiles = (
   }).pipe(Effect.withSpan('admin.build-bucket-files'))
 
 /* eslint-enable unicorn/no-null */
+
+/**
+ * Object count and byte total for each bucket, keyed by bucket name — the
+ * per-item usage of the admin bucket list. A bucket with no row is absent (the
+ * caller reports zero); unattributed objects (`bucket IS NULL`) belong to none.
+ */
+export const ReadBucketUsage: Effect.Effect<
+  ReadonlyMap<string, { readonly fileCount: number; readonly totalBytes: number }>,
+  AdminBucketFilesDatabaseError,
+  AdminBucketFilesRepository
+> = Effect.gen(function* () {
+  const repo = yield* AdminBucketFilesRepository
+  const rows = yield* repo.usageByBucket
+  return new Map(
+    rows.flatMap((row) =>
+      row.bucket === null
+        ? []
+        : [[row.bucket, { fileCount: row.fileCount, totalBytes: row.totalBytes }] as const]
+    )
+  )
+}).pipe(Effect.withSpan('admin.read-bucket-usage'))

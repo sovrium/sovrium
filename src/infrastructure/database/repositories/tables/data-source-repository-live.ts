@@ -13,6 +13,7 @@ import {
 } from '@/application/ports/repositories/tables/data-source-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import { INTRINSIC_DELETED_AT_COLUMN } from '@/domain/models/app/tables/system-fields'
 import { db } from '@/infrastructure/database/drizzle/db-bun'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
@@ -162,7 +163,7 @@ export function buildSelectQuery(
   sanitized: string,
   options: DataSourceQueryOptions
 ): Readonly<SQL> {
-  const { fields, filter, sort, pageSize, page } = options
+  const { fields, filter, sort, pageSize, page, liveOnly } = options
   const columns =
     fields && fields.length > 0
       ? sql.join(
@@ -172,15 +173,22 @@ export function buildSelectQuery(
       : sql.raw('*')
   return joinClauses([
     sql`SELECT ${columns} FROM ${sql.identifier(sanitized)}`,
-    filter && filter.length > 0 ? buildWhereClause(filter) : undefined,
+    buildWhereClause(filter ?? [], liveOnly === true),
     sort && sort.length > 0 ? buildOrderByClause(sort) : undefined,
     buildLimitClause(pageSize, page),
   ])
 }
 
-export function buildWhereClause(filter: readonly DataFilter[]): Readonly<SQL> | undefined {
-  if (filter.length === 0) return undefined
-  return sql`WHERE ${sql.join(filter.map(buildFilterCondition), sql.raw(' AND '))}`
+export function buildWhereClause(
+  filter: readonly DataFilter[],
+  liveOnly = false
+): Readonly<SQL> | undefined {
+  const conditions = [
+    ...filter.map(buildFilterCondition),
+    ...(liveOnly ? [sql`${sql.identifier(INTRINSIC_DELETED_AT_COLUMN)} IS NULL`] : []),
+  ]
+  if (conditions.length === 0) return undefined
+  return sql`WHERE ${sql.join(conditions, sql.raw(' AND '))}`
 }
 
 // ============================================================================
@@ -347,7 +355,8 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
       return toFiniteCount(rows[0]?.count)
     }),
 
-  fetchSingleRecord: (tableName, paramField, paramValue, fields) =>
+  // eslint-disable-next-line max-params -- implements the port's positional signature; `options` is its optional fifth argument
+  fetchSingleRecord: (tableName, paramField, paramValue, fields, options) =>
     wrap(async () => {
       const columns =
         fields && fields.length > 0
@@ -361,8 +370,12 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
       // collection pages), so it is the least-trusted input this repository
       // handles. Binding also survives `standard_conforming_strings=off`, under
       // which quote-doubling alone stops containing a backslash-escaped quote.
+      const live =
+        options?.liveOnly === true
+          ? sql` AND ${sql.identifier(INTRINSIC_DELETED_AT_COLUMN)} IS NULL`
+          : sql``
       const rows = await executeSqlQuery<Record<string, unknown>[]>(
-        sql`SELECT ${columns} FROM ${sql.identifier(sanitizeTableName(tableName))} WHERE ${sql.identifier(sanitizeTableName(paramField))} = ${paramValue} LIMIT 1`
+        sql`SELECT ${columns} FROM ${sql.identifier(sanitizeTableName(tableName))} WHERE ${sql.identifier(sanitizeTableName(paramField))} = ${paramValue}${live} LIMIT 1`
       )
       return rows[0]
     }),

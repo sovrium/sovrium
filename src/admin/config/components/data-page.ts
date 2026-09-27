@@ -60,9 +60,11 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
  * The heading every data surface names itself by: `h1` + orienting sentence,
  * both `sr-only`.
  *
- * Both arguments are `content`-bound, so both may be `$t:` tokens — that is the
- * one place on the dynamic render path where a token actually resolves. Props,
- * and any field an island hosts, must stay literal.
+ * Both arguments are `content`-bound, so both may be `$t:` tokens. They are not
+ * the only place one resolves: since 2026-09-18 `props` and every schema-level
+ * field — an island's too, column labels and `valueLabels` included — pass
+ * through the component translation pass (`resolveComponentTranslationTokens`)
+ * before the island props are built.
  *
  * It stays a PAGE component rather than a shell option because two surfaces
  * gate it: `/pages` declares two of these under opposite `visibility` records
@@ -70,7 +72,46 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
  * one on an app with analytics off. A shell option is one value per page and
  * could not express that.
  */
-export function pageHeading(heading: string, blurb: string): PageComponent {
+export function pageHeading(
+  heading: string,
+  blurb: string,
+  options: { readonly showBlurb?: boolean } = {}
+): PageComponent {
+  // ─── A VISIBLE BLURB, WHERE THE SENTENCE IS NEWS ──────────────────────────
+  //
+  // Founder call, 2026-09-26, and a deliberate PARTIAL reversal of the canvas
+  // decision recorded in the header: on the Files pages the orienting sentence
+  // is painted. It is the only place a sighted operator learns what the
+  // built-in `system` bucket is — a bucket they never declared, whose grid
+  // carries four columns no other bucket has — and keeping that for screen
+  // readers alone left the one surface that most needed explaining unexplained.
+  //
+  // What is NOT reversed: the `h1` stays `sr-only` (the chrome bar's trail
+  // already names the page, so painting it would say the name twice), and
+  // every other data page keeps both hidden. It is an opt-in per call rather
+  // than a new default because the ~90px the retired title block returned was
+  // measured and wanted; a surface opts in only when its sentence tells the
+  // operator something the trail cannot.
+  //
+  // The `h1` and the `p` stay SIBLINGS in one wrapper either way, so a reader
+  // addressing "the sentence under the heading" finds the same element whether
+  // it is painted or not.
+  if (options.showBlurb === true) {
+    return {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex flex-col' },
+      children: [
+        { type: 'text', element: 'h1', content: heading, props: { className: 'sr-only' } },
+        {
+          type: 'text',
+          element: 'p',
+          content: blurb,
+          props: { className: 'text-muted-foreground max-w-3xl text-sm' },
+        },
+      ],
+    } as PageComponent
+  }
   return {
     type: 'container',
     element: 'div',

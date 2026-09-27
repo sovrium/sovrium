@@ -1,70 +1,117 @@
+# The pipeline, board first: every open deal by stage, each card with its
+# client by name, value, close date and owner. Won and Lost are columns too,
+# folded until someone opens them, so the quarter's outcomes are one click away
+# without crowding the work in progress. Dragging a deal to Won opens its
+# project in Delivery.
 name: sales
 path: /sales
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Sales
-  description: The pipeline kanban — winning a deal opens its delivery project
+  title: Pipeline · Orrin OS
+  description: Open deals by stage, each with its client, value, close date and owner.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: Sales
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Drag a deal to Won and watch Delivery — the automation opens its project for the same client.
-
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: border rounded-lg p-5 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: Add a deal
-          - type: form
-            dataSource:
-              table: deals
-            fields:
-              - field: name
-              - field: company
-              - field: stage
-              - field: value
-              - field: close_date
-            action:
-              type: crud
-              operation: create
-              table: deals
-              onSuccess:
-                navigate: /sales
-                toast:
-                  message: Deal created
-                  variant: success
-
-      - type: kanban
-        dataSource:
-          table: deals
-        kanbanGroupBy:
-          field: stage
-        emptyColumnMessage: No deals at this stage.
-        card:
-          children:
-            - type: text
-              element: h3
-              props:
-                className: text-md font-medium
-              content: $record.name
-          footer:
-            - field: close_date
-              format: relative-date
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Pipeline
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Add deal
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-deal-dialog
+          - $ref: ./_add-deal.yaml
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: filter-bar
+                publishes:
+                  bindTo: pipeline-filter
+                fields:
+                  - { name: name, label: Deal, kind: text }
+                  - { name: value, label: Value, kind: number }
+                  - { name: close_date, label: Close date, kind: date }
+              # The three open stages share the width; the two folded outcome
+              # columns take only what their heading needs. On a phone every
+              # column keeps a readable width and the board scrolls sideways.
+              - type: kanban
+                props:
+                  className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Won]]:flex-[0_0_7.5rem]! md:[&_[data-column=Lost]]:flex-[0_0_7.5rem]!'
+                dataSource:
+                  table: deals
+                  bindTo: pipeline-filter
+                  sharedFilter: {}
+                  sort:
+                    - { field: close_date, direction: asc }
+                kanbanGroupBy:
+                  field: stage
+                  # The outcome columns start folded: they hold results, not
+                  # work in progress.
+                  collapsed: [Won, Lost]
+                drag:
+                  enabled: true
+                  persistAction:
+                    type: crud
+                    operation: update
+                    table: deals
+                emptyColumnMessage: No deals in this stage.
+                card:
+                  children:
+                    - type: text
+                      element: h3
+                      props:
+                        className: text-[13px] font-medium leading-snug text-foreground
+                      content: $record.name
+                    - type: text
+                      element: p
+                      props:
+                        className: text-xs text-foreground-muted
+                      content: $record.company
+                  footer:
+                    - { field: value, format: currency }
+                    - { field: health, format: badge }
+                    - { field: close_date, format: short-date }
+                    - { field: owner, format: avatar }
+                  onClick:
+                    action: openDrawer
+                    component: deal-detail
+              # One deal, opened over the board. `/sales?record=<id>` opens it
+              # too, so a deal can be linked to directly.
+              - type: drawer
+                id: deal-detail
+                drawerSide: right
+                drawerSize: md
+                canEdit: false
+                dataSource:
+                  table: deals
+                props:
+                  title: Deal
+                recordFields:
+                  - { name: name, type: single-line-text, label: Deal }
+                  - { name: company_name, type: single-line-text, label: Client }
+                  - { name: stage, type: status, label: Stage }
+                  - { name: value, type: currency, label: Value }
+                  - { name: close_date, type: date, label: Expected close }
+                  - { name: owner, type: user, label: Owner }

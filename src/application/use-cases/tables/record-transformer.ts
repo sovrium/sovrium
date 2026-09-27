@@ -484,8 +484,18 @@ export const transformRecord = (
     created_by: createdBy,
     updated_by: updatedBy,
     deleted_by: deletedBy,
-    ...userFields
+    deleted_at: deletedAt,
+    ...liveFields
   } = record
+
+  // A live record carries no deletion timestamp: the key rides in `fields` only
+  // when it holds a value, i.e. on a record read from the trash or through
+  // `includeDeleted=true`. The rule is uniform, including for a table that
+  // declares its own `deleted-at` field.
+  const userFields =
+    deletedAt === null || deletedAt === undefined
+      ? liveFields
+      : { ...liveFields, deleted_at: deletedAt }
 
   // Build user fields, potentially including created_at/updated_at if they're table fields
   const fieldsToTransform = buildFieldsObject(userFields, createdAt, updatedAt, options)

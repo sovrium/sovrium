@@ -26,7 +26,7 @@
 // right-hand column at its natural width — where the recipe's `w-full` column
 // had stretched it to 692px.
 //
-// ─── THREE BETTER-AUTH FORMS PLUS THE LANGUAGE, NO ISLAND ──────────────────
+// ─── BETTER-AUTH FORMS ONLY, NO ISLAND ──────────────────────────────────────
 //
 // | Row       | Endpoint                         | Note                        |
 // |-----------|----------------------------------|-----------------------------|
@@ -34,8 +34,9 @@
 // | Email     | `POST /api/auth/change-email`    | `changeEmail.enabled: true` |
 // | Password  | `POST /api/auth/change-password` | in the OpenAPI catalogue    |
 // | Language  | `POST /api/auth/update-user`     | clamped to `languages`      |
+// | Notify ×2 | `POST /api/auth/update-user`     | one `switch` per form       |
 //
-// `responseEnvelope: 'better-auth'` on all four: these are Better-Auth routes,
+// `responseEnvelope: 'better-auth'` on every one: these are Better-Auth routes,
 // which answer with their own envelope rather than Sovrium's `{ success }`.
 //
 // Each control arrives carrying what it is about to change — `defaultValue:
@@ -75,6 +76,7 @@
 
 import {
   COLUMN,
+  ROW_FORM,
   ROW_FORM_ONE,
   ROW_FORM_PAIR,
   ROW_HINT,
@@ -83,6 +85,63 @@ import {
 } from '../components/settings-row'
 import { withShell } from '../components/shell'
 import type { Page as PageConfig } from '@/domain/models/app'
+
+/**
+ * One notification preference: a single `switch` posting a JSON boolean to
+ * `update-user`, reporting under its own status line. `key` picks the
+ * `admin.profile.notifications.<key>.*` strings.
+ */
+const notificationForm = ({
+  field,
+  testId,
+  key,
+}: {
+  readonly field: string
+  readonly testId: string
+  readonly key: string
+}) => {
+  const t = `$t:admin.profile.notifications.${key}`
+  return {
+    type: 'form',
+    props: {
+      className: ROW_FORM,
+      'aria-label': `${t}.formRegion`,
+      // On the FORM, for the reason the language row gives: a form field
+      // carries no `props` bag, so the testid cannot reach the switch itself.
+      'data-testid': testId,
+    },
+    endpoint: {
+      url: '/api/auth/update-user',
+      method: 'POST',
+      responseEnvelope: 'better-auth',
+      submitLabel: '$t:admin.profile.notifications.submit',
+      submitVariant: 'secondary',
+      onSuccess: {
+        type: 'toast',
+        variant: 'success',
+        message: '$t:admin.profile.notifications.saved',
+        status: {
+          target: `${testId}-status`,
+          message: '$t:admin.profile.notifications.saved',
+        },
+      },
+      onError: {
+        type: 'toast',
+        variant: 'destructive',
+        message: '$t:admin.profile.notifications.failed',
+      },
+    },
+    fields: [
+      {
+        field,
+        control: 'switch',
+        label: `${t}.label`,
+        defaultValue: `$session.${field}`,
+        description: `${t}.hint`,
+      },
+    ],
+  } as const
+}
 
 export default withShell(
   {
@@ -438,6 +497,10 @@ export default withShell(
               // which was `md:max-xl:hidden` besides, so between 768 and 1279 the
               // setting was reachable nowhere at all).
               //
+              // Where to try it: mounted, this page is `/_admin/profile`. In the
+              // standalone preview (`bun run app:admin`, `admin: false`) the
+              // console IS the root app, so the same page answers at `/profile`.
+              //
               // The option VALUES are locales, not codes: `/api/auth/update-user`
               // accepts either, and a locale is what `$session.language` reads
               // back, so the select re-opens on the value it last saved.
@@ -506,6 +569,45 @@ export default withShell(
                   ],
                 },
                 status('profile-language-status'),
+              ]),
+              // ── Notifications ────────────────────────────────────────────
+              //
+              // Two per-account email preferences, each its own one-field form on
+              // `POST /api/auth/update-user`, so each saves and reports on its own
+              // and neither can carry the other's value along. Both columns are
+              // `NOT NULL DEFAULT true` on `auth.user`, and `$session.<field>`
+              // pre-sets the switch from what is actually saved.
+              //
+              // ONE row, two forms, and the field labels STAY VISIBLE (`ROW_FORM`,
+              // not `ROW_FORM_ONE`): the row label names the group, so "Automation
+              // alerts" and "Weekly summary" are the one distinction it cannot
+              // make — the password row's reasoning, not the name row's.
+              //
+              // No `reload`, unlike the language: nothing the server renders reads
+              // these, so the confirmation can stay on the page, under its control.
+              //
+              // The closing hint is load-bearing. Every alert email links back to
+              // this page, and until a one-click unsubscribe exists this row is the
+              // only place to opt out — so the page says so.
+              row('$t:admin.profile.notifications.label', [
+                notificationForm({
+                  field: 'notifyAutomationAlerts',
+                  testId: 'profile-automation-alerts',
+                  key: 'automationAlerts',
+                }),
+                status('profile-automation-alerts-status'),
+                notificationForm({
+                  field: 'notifyWeeklyDigest',
+                  testId: 'profile-weekly-digest',
+                  key: 'weeklyDigest',
+                }),
+                status('profile-weekly-digest-status'),
+                {
+                  type: 'text',
+                  element: 'p',
+                  props: { className: ROW_HINT },
+                  content: '$t:admin.profile.notifications.hint',
+                },
               ]),
               // ── Your data ────────────────────────────────────────────────
               //

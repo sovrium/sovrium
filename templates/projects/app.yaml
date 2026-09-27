@@ -1,9 +1,10 @@
-name: projects
-version: 1.0.0
+name: fernhill-projects
+version: 2.0.0
 description: >-
-  Project management workspace — plan projects on a Gantt timeline, run the
-  work on a task kanban, and track deadlines on a calendar. One config, four
-  views over the same two tables.
+  A project workspace for a small team: a dashboard of what needs attention
+  this week, a board of open tasks by status, a timeline of every task grouped
+  by project with what it waits on, and a calendar of deadlines beside your own
+  tasks.
 
 auth:
   $ref: ./config/auth.yaml
@@ -15,13 +16,19 @@ tables:
   - $ref: ./config/tables/projects.yaml
   - $ref: ./config/tables/tasks.yaml
 
-pages:
-  - $ref: ./config/pages/sign-in.yaml
-  - $ref: ./config/pages/dashboard.yaml
-  - $ref: ./config/pages/board.yaml
-  - $ref: ./config/pages/calendar.yaml
-  - $ref: ./config/pages/timeline.yaml
-
-# Automations run server-side with full history in your own database.
+# Automations run on the server, with their history kept in your own database.
 automations:
   - $ref: ./config/automations/notify-assignee-on-blocked.yaml
+
+# Listed in the order of the sidebar: the dashboard is the home page.
+pages:
+  - $ref: ./config/pages/dashboard.yaml
+  - $ref: ./config/pages/board.yaml
+  - $ref: ./config/pages/timeline.yaml
+  - $ref: ./config/pages/calendar.yaml
+  - $ref: ./config/pages/sign-in.yaml
+
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over the last card of a board.
+badge:
+  placement: footer

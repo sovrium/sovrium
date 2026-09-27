@@ -12,6 +12,7 @@ import {
   computeTableGroupCellClasses,
   computeTableGroupRowClasses,
 } from '@/presentation/design/table-default-classes'
+import { resolvePageLocale } from '../runtime/page-locale'
 import { AddRow, type AddRowConfig } from './add-row'
 import { DataRow, type DataRowContext } from './data-row'
 import { buildGroupTree, groupPathKey, type GroupLevel, type GroupNode } from './group-order'
@@ -190,7 +191,7 @@ function GroupHeaderRow({
         >
           {isCollapsed ? '▶' : '▼'}
         </span>
-        {node.value} ({shared.groupCounts?.[pathKey] ?? node.pageRowCount})
+        {node.label} ({shared.groupCounts?.[pathKey] ?? node.pageRowCount})
         {summary && (
           <GroupSummaryLeadingCells
             layout={summary.layout}
@@ -340,7 +341,7 @@ export function GroupedTableBodyRows({
   }
   return (
     <GroupNodes
-      nodes={buildGroupTree(rows, levels)}
+      nodes={buildGroupTree(rows, levels, resolvePageLocale())}
       shared={shared}
     />
   )

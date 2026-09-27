@@ -23,6 +23,19 @@ auth:
 
 The message body is rendered from the `magicLink` email template when you supply one, with the link substituted into it.
 
+A page sign-in form enables it with `action: { type: auth, method: login, strategy: magicLink }`. Such a form asks for an email address only and sends the link on submit; on an app that also offers passwords, each form follows the strategy it declares.
+
+```yaml
+pages:
+  - name: sign-in
+    path: /sign-in
+    components:
+      - type: form
+        action: { type: auth, method: login, strategy: magicLink }
+```
+
+A form that declares its own `fields` keeps them.
+
 ## Email one-time codes
 
 A numeric code instead of a link — better on a device where following a link would break the flow, and easier to read aloud over a phone.

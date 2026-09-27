@@ -88,6 +88,13 @@ export interface Transcript {
 export class SpeechService extends Context.Service<
   SpeechService,
   {
+    /**
+     * The largest recording the endpoint accepts (`STT_MAX_FILE_BYTES`), or
+     * `undefined` when speech is not configured. Exposed so a caller holding
+     * only a stored file's catalogued size can refuse it without downloading
+     * it; `transcribe` still enforces the limit on the bytes it is handed.
+     */
+    readonly maxFileBytes: number | undefined
     readonly transcribe: (input: TranscribeInput) => Effect.Effect<Transcript, SpeechError>
   }
 >()('SpeechService') {}

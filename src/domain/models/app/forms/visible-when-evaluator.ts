@@ -15,13 +15,16 @@
  *   - `application/use-cases/forms/submit-form.ts` to skip required-field
  * enforcement on conditionally-hidden fields.
  *
- * Mirrors the client-side `evaluateCondition` in
- * `presentation/islands/components/crud-form/conditions.ts` so the runtime
- * and the server agree on visibility for every operator. The client variant
- * still handles the smaller `eq | neq | contains | empty | notEmpty` set
- * because the inline crud-form was authored before the operator catalog
- * grew; once that gap is felt by a spec we promote the same evaluator into
- * a shared module.
+ * Two browser-side mirrors exist, and a change here must reach both:
+ *
+ *   - `presentation/render/forms/form-runtime-conditions.ts` — a hand-written
+ *     ES5 port inside the hosted form's inline runtime, covering the full
+ *     catalog below. Its parity with this module is pinned operator by
+ *     operator in `form-runtime-conditions.test.ts`.
+ *   - `presentation/islands/parts/crud-form/conditions.ts` — the crud-form
+ *     island's `evaluateCondition`, which still handles only the smaller
+ *     `eq | neq | contains | empty | notEmpty` set because it was authored
+ *     before the operator catalog grew.
  *
  * Operator catalog:
  *   - `eq` / `neq`           — strict equality

@@ -89,8 +89,12 @@ function adoptTitle(encoded: string | undefined): void {
  * surface revisited later resolves from memory and the await costs a microtask.
  */
 async function replaceContent(content: HTMLElement, html: string): Promise<void> {
-  const { mountIslandsWithin, preloadIslandsWithin, unmountIslandsWithin } = await islandClient()
+  const { clearPageQueryCache, mountIslandsWithin, preloadIslandsWithin, unmountIslandsWithin } =
+    await islandClient()
   unmountIslandsWithin(content)
+  // The islands share one query cache per page; a swap is a new page as far as
+  // the reader is concerned, so its surface starts from fresh reads.
+  clearPageQueryCache()
   // SECURITY: the partial is server-rendered through the same trusted page
   // pipeline as the full document — not user input.
   // eslint-disable-next-line functional/immutable-data, no-param-reassign -- the SPA swap IS a DOM mutation

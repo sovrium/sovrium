@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
+import { provideDomain } from '@/infrastructure/logging/request-effect'
 import {
   createValidationLayer,
   formatValidationError,
@@ -15,6 +16,7 @@ import { payloadTooLarge } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/runtime/field-permission-validator'
 import {
+  validateAttachmentReferences,
   validateMultiSelectOptions,
   validateMultiSelectSelectionLimits,
   validateRelationshipLinkLimits,
@@ -170,8 +172,10 @@ export function validateStrippedRecordsNotEmpty(config: {
 /**
  * Every per-VALUE rule the bulk write paths enforce, across every row — the
  * batch counterpart of {@link validateUpdateFieldValues}, and named to match
- * it. `multi-select` declared options, `multi-select` `maxSelections`, and a
- * `relationship` column's `maxLinked` cap.
+ * it. `multi-select` declared options, `multi-select` `maxSelections`, a
+ * `relationship` column's `maxLinked` cap, and the attachment-reference
+ * confinement (a bulk write naming a foreign or unreachable file is refused
+ * exactly as a single-record write is).
  *
  * These rules live in the application layer for a reason the SQL generator
  * cannot work around: Postgres carries a member CHECK on a `multi-select`
@@ -195,8 +199,8 @@ export function validateStrippedRecordsNotEmpty(config: {
  *
  * Every row is evaluated rather than short-circuiting at the first, so the
  * response names the first offending FIELD in table declaration order exactly
- * as the single-record path does. Validation is pure and in-memory, so the full
- * pass costs nothing worth optimizing.
+ * as the single-record path does. Every rule but the attachment one is pure and
+ * in-memory; that one reads the storage catalog once per referenced key.
  *
  * Rule ORDER matches the create path (`record-rules.ts` steps 8b-8d) so the
  * three routes agree on which violation a row carrying two of them reports.
@@ -219,11 +223,12 @@ export async function validateBulkFieldValues(
         yield* validateMultiSelectOptions(record.fields)
         yield* validateMultiSelectSelectionLimits(record.fields)
         yield* validateRelationshipLinkLimits(record.fields)
+        yield* validateAttachmentReferences(record.fields)
       }).pipe(Effect.result),
     { concurrency: 1 }
   ).pipe(Effect.provide(layer))
 
-  const results = await Effect.runPromise(program)
+  const results = await Effect.runPromise(provideDomain(c, program))
   const firstFailure = results.find((result) => result._tag === 'Failure')
   return firstFailure === undefined ? undefined : formatValidationError(firstFailure.failure, c)
 }

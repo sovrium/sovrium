@@ -1,0 +1,51 @@
+# Check-outs — who took an asset, when, and when it comes back.
+#
+# One row per hand-over. It stays open until `checked_in_at` is filled, so the
+# rows of an asset are its lending history, and the open one is where it is
+# now. The register reads the open row's `due_back` to flag an asset due back
+# today or overdue.
+id: 3
+name: check_outs
+fields:
+  - id: 1
+    name: asset
+    type: relationship
+    relatedTable: assets
+    relationType: many-to-one
+    displayField: name
+  - id: 2
+    name: holder
+    type: user
+    allowMultiple: false
+  - id: 3
+    name: checked_out_at
+    type: date
+    required: true
+  - id: 4
+    name: due_back
+    type: date
+  - id: 5
+    name: checked_in_at
+    type: date
+  - id: 6
+    name: note
+    type: single-line-text
+  - id: 7
+    name: created_by
+    type: created-by
+  - id: 8
+    name: created_at
+    type: created-at
+
+# A member hands kit over and takes it back; only an admin corrects or removes
+# a line of the history.
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+    - member
+  delete:
+    - admin

@@ -6,8 +6,9 @@
  */
 
 /**
- * Walks a page's components looking for `{ type: 'form', formRef: <name> }`
- * embeddings and evaluates each referenced form's `access.require` against
+ * Walks a page's components looking for `formRef` embeddings — on every
+ * component kind whose schema declares `formRef` (`form`, `dialog`), at any
+ * depth — and evaluates each referenced form's `access.require` against
  * the request session. Returns `'denied'` if ANY embedded `formRef` fails
  * its access gate, `'allow'` otherwise.
  *
@@ -23,6 +24,7 @@
  */
 
 import { evaluateFormAccess } from '@/domain/models/app/forms/form-access-flow'
+import { readEmbeddedFormRef } from '@/domain/models/app/pages/embedded-form-ref'
 import { collectFromComponentTree } from '@/presentation/render/resolve/component-walker'
 import { isComponentHiddenForSession } from '@/presentation/render/resolve/visibility-filter'
 import type { App } from '@/domain/models/app'
@@ -30,27 +32,21 @@ import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 
-function readFormRef(node: unknown): string | undefined {
-  if (typeof node !== 'object' || node === null) return undefined
-  const obj = node as { readonly type?: unknown; readonly formRef?: unknown }
-  if (obj.type !== 'form') return undefined
-  return typeof obj.formRef === 'string' ? obj.formRef : undefined
-}
-
 function collectFormRefs(
   components: Page['components'],
-  session: SessionInfo | undefined
+  session: SessionInfo | undefined,
+  app: Readonly<App>
 ): readonly string[] {
   if (!components) return []
   return collectFromComponentTree(components as ReadonlyArray<Component | unknown>, {
     visit: (node) => {
-      const ref = readFormRef(node)
+      const ref = readEmbeddedFormRef(node)
       return ref === undefined ? [] : [ref]
     },
     // A subtree hidden from this session by a when/roles visibility config is
     // not part of the page for that session: its formRefs must not 404 the page
     // (the submit endpoint still enforces each form's access independently).
-    shouldSkip: (node) => isComponentHiddenForSession(node, session),
+    shouldSkip: (node) => isComponentHiddenForSession(node, session, app),
   })
 }
 
@@ -87,7 +83,7 @@ export function evaluateEmbeddedFormRefsAccess(
   page: Readonly<Page>,
   session: SessionInfo | undefined
 ): 'allow' | 'denied' {
-  const refs = collectFormRefs(page.components, session)
+  const refs = collectFormRefs(page.components, session, app)
   if (refs.length === 0) return 'allow'
   const formSession = toFormAccessSession(session)
   const anyDenied = refs.some((ref) => {

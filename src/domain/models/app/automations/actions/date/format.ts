@@ -55,7 +55,7 @@ export const DateFormatActionSchema = Schema.Struct({
     /** Format pattern over the closed token set. */
     pattern: PatternProp,
 
-    /** IANA timezone the instant is rendered in. Default UTC. */
+    /** IANA timezone the instant is rendered in. Default: the operator timezone. */
     timezone: Schema.optional(TimezoneProp),
 
     /** BCP 47 locale for month/weekday names. Default en-US. */

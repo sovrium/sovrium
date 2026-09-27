@@ -1,0 +1,49 @@
+# Who has had what, and until when.
+#
+# One row per hand-over. A row stays open until `checked_in_at` is filled; the
+# open row of an asset is where it is now, and its `due_back` is what flags the
+# asset on the register. Long-term kit (a person's own laptop) is checked out
+# with no return date. Dates are relative to the day the seed runs, so the
+# MacBook lent to Tomás for the Lyon client week is always due back today.
+records:
+  # AR-0262 — lent to Sarah over the summer, then to Tomás for two weeks.
+  - key: co-0262-sarah
+    fields:
+      asset: '@assets.ar-0262'
+      holder: '@user:sarah.lemoine@arden.example'
+      checked_out_at: '{{today-205d}}'
+      due_back: '{{today-27d}}'
+      checked_in_at: '{{today-27d}}'
+      note: Condition good
+  - key: co-0262-tomas
+    fields:
+      asset: '@assets.ar-0262'
+      holder: '@user:tomas.ferreira@arden.example'
+      checked_out_at: '{{today-14d}}'
+      due_back: '{{today}}'
+      note: For the Lyon client week
+  # Everyday kit, held with no return date.
+  - key: co-0194
+    fields:
+      asset: '@assets.ar-0194'
+      holder: '@user:nadia.benali@arden.example'
+      checked_out_at: '{{today-405d}}'
+      note: Her laptop
+  - key: co-0330
+    fields:
+      asset: '@assets.ar-0330'
+      holder: '@user:marc.dubois@arden.example'
+      checked_out_at: '{{today-90d}}'
+      note: His laptop
+  - key: co-0408
+    fields:
+      asset: '@assets.ar-0408'
+      holder: '@user:sarah.lemoine@arden.example'
+      checked_out_at: '{{today-325d}}'
+      note: Desk 4
+  - key: co-0712
+    fields:
+      asset: '@assets.ar-0712'
+      holder: '@user:marc.dubois@arden.example'
+      checked_out_at: '{{today-400d}}'
+      note: Lyon deliveries and site visits

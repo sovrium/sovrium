@@ -27,6 +27,12 @@ import type { SpeechService } from '@/application/ports/services/speech-service'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { App } from '@/domain/models/app'
 
+/** One log entry a step wrote — see {@link ActionOutcome.logs}. */
+export interface StepLogEntry {
+  readonly level: 'debug' | 'info' | 'warn' | 'error'
+  readonly message: string
+}
+
 /**
  * Outcome of executing a single automation action.
  *
@@ -48,6 +54,12 @@ export interface ActionOutcome {
   readonly status: 'success' | 'failure' | 'filtered'
   readonly error?: string
   readonly output?: Record<string, unknown>
+  /**
+   * `context.log` entries a code action wrote, in call order. Kept OFF
+   * `output` so a log never reaches step chaining or the trigger response;
+   * persisted on the step (redacted) and read back by the runs API.
+   */
+  readonly logs?: readonly StepLogEntry[]
   readonly responseOverride?: Readonly<Record<string, unknown>>
   /**
    * Set by the `automation:return` handler — the key-value payload the

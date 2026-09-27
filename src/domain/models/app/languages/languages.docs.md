@@ -109,6 +109,17 @@ The inputs speak different dialects of one fact: a `/{lang}/` prefix carries the
 
 A value the app does **not** declare passes through as authored. A monolingual app has no `languages` block at all, and its pages' `meta.lang` is the only spelling anyone wrote down.
 
+### Dates and numbers follow the locale
+
+Every date and number a page formats — grid cells, column formats, kanban footers, timeline axes — is written in the page's language, the `locale` of the active supported language. To have months in English with the day first, declare `locale: en-GB`; there is no separate setting. Which day an instant falls on is the timezone, set by the operator, not the language.
+
+```yaml
+languages:
+  default: en
+  supported:
+    - { code: en, locale: en-GB, label: English }
+```
+
 ### Turning it off
 
 Set `persistSelection: false` and nothing is remembered: the switcher writes no cookie, the server ignores one it is sent, and a language saved on an account is not consulted either.

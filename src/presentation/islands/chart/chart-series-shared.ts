@@ -15,6 +15,7 @@
 import { scaleLinear } from '@visx/scale'
 import type { ChartAxisFormat } from './chart-format'
 import type { TableRecord } from '../runtime/types'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 
 /**
  * One category of a chart: an x-key and the numeric value plotted against it.
@@ -25,6 +26,10 @@ import type { TableRecord } from '../runtime/types'
 export interface CategoryDatum {
   readonly key: string
   readonly value: number
+  /** Display name — the grouping option's label, when the field declares one. */
+  readonly label?: string
+  /** Paint — the grouping option's declared colour, which wins over the palette. */
+  readonly color?: string
 }
 
 /**
@@ -230,6 +235,8 @@ export interface ChartAxisDisplay {
   readonly format?: ChartAxisFormat
   readonly scale?: ChartAxisScale
   readonly gridLines?: boolean
+  /** The plotted field's currency display, read by a `format: 'currency'` axis. */
+  readonly currency?: CurrencyDisplayOptions
 }
 
 /**

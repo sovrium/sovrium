@@ -374,6 +374,9 @@ export const V1_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
     --sv-border: oklch(0.321 0 0);
     --sv-border-strong: var(--sv-neutral-700);
     --sv-border-inverse: var(--sv-neutral-50);
+    /* border-control (see the light bridge): 0.58 reads 3.5:1 on bg-subtle
+       and 4.6:1 on bg, where border-strong reaches 2.0:1. */
+    --sv-border-control: oklch(0.58 0 0);
 
     --sv-fg: var(--sv-neutral-50);
     --sv-fg-muted: var(--sv-neutral-400);
@@ -520,6 +523,14 @@ export const ROLE_TOKEN_BRIDGE = `:root {
     --sv-border: var(--color-input, var(--sv-neutral-200));
     --sv-border-strong: var(--sv-neutral-300);
     --sv-border-inverse: var(--sv-neutral-900);
+    /* border-control: the outline of an unchecked control — a switch track,
+       a checkbox box, a radio ring. It is the only border token that must
+       meet 3:1 (WCAG 1.4.11): an unchecked control has no other edge, and
+       border (1.2:1) and border-strong (1.4:1) left it a smudge on the page.
+       0.62 clears 3:1 against bg (3.5:1), bg-subtle (3.3:1) and bg-raised.
+       It is a literal, not a ramp step, and it is deliberately NOT derived
+       from border-strong: a tenant border is copied onto that one. */
+    --sv-border-control: oklch(0.62 0 0);
 
     /* Foreground roles.
        --sv-fg uses the neutral default directly (no var(--color-foreground, ...)
@@ -694,6 +705,7 @@ export const NEUTRAL_FLOOR_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
     --sv-border: #333333;
     --sv-border-strong: var(--sv-neutral-700);
     --sv-border-inverse: var(--sv-neutral-50);
+    --sv-border-control: #7a7a7a;
 
     --sv-fg: var(--sv-neutral-50);
     --sv-fg-muted: var(--sv-neutral-400);

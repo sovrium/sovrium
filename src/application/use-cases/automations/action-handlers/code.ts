@@ -9,6 +9,7 @@ import vm from 'node:vm'
 import { Effect } from 'effect'
 import ts from 'typescript'
 import { resolveCodeInputData } from './code-input-resolution'
+import { createCodeLogCollector } from './code-log-collector'
 import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
@@ -486,11 +487,12 @@ const runCodeActionAsync = async (input: RunCodeActionInput): Promise<ActionOutc
   // The user-facing context: `inputData`, `actions`, `env`, `log`, `run`.
   // Every value the user code reaches flows through `inputData` (resolved
   // above) or via `context.actions.<template>(...)` invocation.
+  const collector = createCodeLogCollector()
   const sandboxContext = buildSandboxContext({
     env: input.runContext.envLookup,
     inputData: resolvedInputData,
     actions: actionsProxy,
-    log: NOOP_LOG,
+    log: collector.log,
     // Threaded through by `dispatchWithRetry` (run-automation.ts); defaults
     // to 1 when invoked outside the retry loop. Surfaced as
     // `context.run.attempt` — [internal ref].
@@ -499,7 +501,11 @@ const runCodeActionAsync = async (input: RunCodeActionInput): Promise<ActionOutc
 
   const compiled = compileExecuteFnSafe(input.code)
   if (compiled._tag === 'error') return { status: 'failure', error: compiled.message }
-  return await runUserCode(compiled.fn, sandboxContext, input.timeoutMs)
+  const outcome = await runUserCode(compiled.fn, sandboxContext, input.timeoutMs)
+  // The log leaves on the outcome whether the code succeeded or threw — a
+  // failing step's log is the one an operator most needs to read.
+  const logs = collector.entries()
+  return logs.length > 0 ? { ...outcome, logs } : outcome
 }
 
 /**

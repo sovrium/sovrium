@@ -101,3 +101,46 @@ export function ChartLegend({
     </ul>
   )
 }
+
+/** One slice of a pie or donut, as its legend entry names and paints it. */
+export interface SliceLegendEntry {
+  readonly key: string
+  readonly label: string
+  readonly color: string
+}
+
+/**
+ * The legend of a pie or donut: one entry per slice, in the order the slices
+ * are drawn, each with the slice's own colour. A slice chart has no series to
+ * toggle, so its entries are plain labels rather than buttons.
+ */
+export function SliceLegend({
+  entries,
+  column = false,
+}: {
+  readonly entries: readonly SliceLegendEntry[]
+  readonly column?: boolean
+}): ReactElement {
+  return (
+    <ul
+      className={`chart-legend ${column ? LEGEND_COLUMN_CLASSES : LEGEND_CLASSES}`}
+      data-chart-legend="true"
+    >
+      {entries.map((entry) => (
+        <li
+          key={`legend-${entry.key}`}
+          className={`chart-series-item ${CHIP_CLASSES}`}
+        >
+          <span
+            className={SWATCH_CLASSES}
+            data-legend-swatch={entry.key}
+            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-slice swatch colour is dynamic; React Compiler not yet enabled in Bun
+            style={{ backgroundColor: entry.color }}
+            aria-hidden="true"
+          />
+          {entry.label}
+        </li>
+      ))}
+    </ul>
+  )
+}

@@ -1,9 +1,9 @@
-name: crm-workspace
-version: 2.0.0
+name: kestrel-crm
+version: 3.0.0
 description: >-
-  An Airtable/Baserow-style database workspace — manage Companies, Contacts,
-  Deals, and Tasks through interactive grids, a kanban pipeline, a task calendar,
-  and a contact gallery. Built on Sovrium's default theming.
+  A sales CRM for a small team: a pipeline board with the figures a sales lead
+  asks for, contacts and companies that open in place, tasks by date, and an
+  assistant that reads and edits the records.
 
 auth:
   $ref: ./config/auth.yaml
@@ -17,20 +17,26 @@ tables:
   - $ref: ./config/tables/deals.yaml
   - $ref: ./config/tables/tasks.yaml
 
-# AI agent that can create, edit, and review records (surfaced on /assistant).
-# Requires an AI provider at runtime (AI_PROVIDER, e.g. ollama for the eco
-# default); config validation does not need it.
+# The records assistant on /assistant. It needs an AI provider at runtime
+# (AI_PROVIDER, for example ollama for a local model); validating the config
+# does not.
 agents:
   - $ref: ./config/agents/records-assistant.yaml
 
-# Automations run server-side with full history in your own database.
+# Automations run on the server, with their history kept in your own database.
 automations:
   - $ref: ./config/automations/deal-won-notification.yaml
 
+# Listed in the order of the sidebar: the pipeline is the home page.
 pages:
-  - $ref: ./config/pages/sign-in.yaml
-  - $ref: ./config/pages/companies.yaml
+  - $ref: ./config/pages/pipeline.yaml
   - $ref: ./config/pages/contacts.yaml
-  - $ref: ./config/pages/deals.yaml
+  - $ref: ./config/pages/companies.yaml
   - $ref: ./config/pages/tasks.yaml
   - $ref: ./config/pages/assistant.yaml
+  - $ref: ./config/pages/sign-in.yaml
+
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over the last row of a grid.
+badge:
+  placement: footer

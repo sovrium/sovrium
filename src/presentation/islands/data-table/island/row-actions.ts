@@ -15,6 +15,11 @@ import type { QueryClient } from '@tanstack/react-query'
 interface CreateRowActionHandlerParams {
   readonly queryClient: QueryClient
   readonly queryKey: readonly unknown[]
+  /**
+   * The grid's table, `''` for a system-backed source. An `openDrawer` action
+   * names it so the drawer binds the row only to that table's update forms.
+   */
+  readonly tableName?: string
 }
 
 type CrudAction = {
@@ -116,6 +121,7 @@ async function runCrudRowAction(
 export function createRowActionHandler({
   queryClient,
   queryKey,
+  tableName,
 }: CreateRowActionHandlerParams): RowActionHandler {
   return async (action, record) => {
     // OpenDrawer action (discriminated by `action: 'openDrawer'`, not `type`):
@@ -127,6 +133,7 @@ export function createRowActionHandler({
       dispatchIslandEvent('sovrium:open-drawer', {
         id: rawAction.component,
         record: record as Record<string, unknown>,
+        ...(tableName ? { table: tableName } : {}),
       })
       return
     }

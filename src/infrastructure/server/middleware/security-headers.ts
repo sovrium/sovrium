@@ -117,6 +117,8 @@ const ROUTE_OVERRIDABLE_HEADERS = ['Content-Security-Policy', 'X-Frame-Options']
 export const securityHeaders: MiddlewareHandler = async (c, next) => {
   // eslint-disable-next-line functional/no-let
   let routeHeaders: ReadonlyArray<readonly [string, string]> = []
+  // eslint-disable-next-line functional/no-let
+  let routeGrants: string | undefined = undefined
   // eslint-disable-next-line functional/no-expression-statements
   await structuralSecureHeaders(c, async () => {
     await next()
@@ -125,7 +127,43 @@ export const securityHeaders: MiddlewareHandler = async (c, next) => {
       const value = c.res.headers.get(name)
       return value === null ? [] : [[name, value] as const]
     })
+    // eslint-disable-next-line functional/no-expression-statements
+    routeGrants = c.res.headers.get('Permissions-Policy') ?? undefined
   })
 
   routeHeaders.forEach(([name, value]) => c.res.headers.set(name, value))
+  const structuralPolicy = c.res.headers.get('Permissions-Policy')
+  if (routeGrants !== undefined && structuralPolicy !== null) {
+    c.res.headers.set('Permissions-Policy', grantPermissions(structuralPolicy, routeGrants))
+  }
+}
+
+/** The feature a Permissions-Policy directive names (`microphone=(self)` → `microphone`). */
+const featureOf = (directive: string): string => directive.split('=')[0]?.trim() ?? ''
+
+/**
+ * Merge a route's Permissions-Policy GRANTS into the structural policy.
+ *
+ * A page that genuinely uses a powerful feature — a form field with
+ * `recordAudio`, a chat with `voiceInput` — answers with only the directive it
+ * needs (`microphone=(self)`). Each such directive REPLACES the structural
+ * directive of the same feature; every other feature keeps its structural
+ * denial, and a route cannot introduce a feature the structural policy does
+ * not name. So the grant is per page, per feature, and nothing else widens:
+ * `/api/health`, a 404, and any page without a recorder still say
+ * `microphone=()`.
+ */
+const grantPermissions = (structural: string, grants: string): string => {
+  const granted = new Map(
+    grants
+      .split(',')
+      .map((directive) => directive.trim())
+      .filter((directive) => directive.includes('='))
+      .map((directive) => [featureOf(directive), directive] as const)
+  )
+  return structural
+    .split(',')
+    .map((directive) => directive.trim())
+    .map((directive) => granted.get(featureOf(directive)) ?? directive)
+    .join(', ')
 }

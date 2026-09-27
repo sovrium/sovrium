@@ -7,8 +7,7 @@
 
 import { Menu } from '@base-ui/react/menu'
 import { useCallback, type ReactElement, type ReactNode } from 'react'
-import { MENU_TRIGGER_LAYOUT_CLASSES } from '@/presentation/design/nav-menu-parts'
-import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { computeMenuTriggerClasses } from '@/presentation/design/navigation-default-classes'
 import { authClient } from '@/presentation/islands/runtime/auth-client'
 import { MenuItemBody } from './menu-popup-body'
 import { ToggleMenuItem } from './menu-toggle-item'
@@ -295,10 +294,13 @@ export default function MenuIsland({
     <div data-component-type="dropdown-menu">
       <Menu.Root>
         <Menu.Trigger
-          className={resolveClasses(
-            `group ${MENU_TRIGGER_LAYOUT_CLASSES}`,
-            triggerClassName ?? className
-          )}
+          className={computeMenuTriggerClasses({
+            triggerLabel,
+            triggerContent,
+            triggerHtml,
+            triggerChildrenHtml,
+            authored: triggerClassName ?? className,
+          })}
           aria-label={triggerAriaLabel}
           id={id}
           data-testid={testId}

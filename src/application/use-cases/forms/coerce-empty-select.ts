@@ -6,41 +6,48 @@
  */
 
 /**
- * Map the empty string to `null` for option-constrained columns.
+ * Map the empty string to `null` for every column that is not free text.
  *
- * A `<select>` expresses "no answer" with a leading `<option value="">`, so an
- * untouched optional select form-encodes as `role=` and arrives here as the
- * empty string. `''` is not one of the column's declared options: a
- * `single-select` / `multi-select` column carries a CHECK constraint over its
- * option values, so an un-coerced `''` is REJECTED by the database and the
- * whole submission fails — the visitor is blocked on a field they were never
- * obliged to answer.
+ * A form expresses "no answer" as the empty string: an untouched `<select>`
+ * posts its leading `<option value="">`, an untouched number or date input
+ * posts `""`. The empty string is not a value a typed column can hold — a
+ * `single-select` / `status` column's CHECK refuses it, a relationship or a
+ * `user` column's foreign key refuses it, PostgreSQL refuses to read it as a
+ * number or a date, and SQLite silently STORES it in a number or date column,
+ * where every later read sees a string where a value or nothing was expected.
  *
- * "No answer" has exactly one representation, and it is `null`. Not `''`, and
- * not the column's first option (which is what the browser stored before the
- * leading empty option existed, silently recording an answer nobody gave).
+ * "No answer" has exactly one representation, and it is `null` — not `''`,
+ * and not the column's first option.
  *
- * Deliberately scoped to option-constrained columns ONLY. Coercing `''` to
- * `null` everywhere would change what an empty text input stores — today a
- * genuine empty string, which several shipped behaviours rely on — and that
- * is a different decision with a different blast radius. Free-text columns
- * have no constraint to violate, so they need no coercion.
+ * Free-text columns keep what the visitor typed, empty included: an empty
+ * text input stores a genuine empty string, which several shipped behaviours
+ * rely on, and there is no constraint for it to violate — except a `unique`
+ * one. On a unique column the empty string is itself a value the rule reserves
+ * for the first visitor who leaves it blank, so the second would be refused
+ * for an answer neither gave; there, too, "no answer" is `null`. The same holds
+ * for a `barcode` that declares a `format`: its CHECK refuses the blank.
  *
  * Runs BEFORE `coerceScalarsForArrayColumns` in the pre-INSERT chain: this
  * turns a `multi-select`'s `''` into `null`, and the array coercion then
  * passes `null` through untouched rather than wrapping it into `['']`, which
- * the same CHECK constraint would reject.
+ * the column's CHECK constraint would reject.
  */
 
 import type { App } from '@/domain/models/app'
 
 /**
- * Column types whose values are constrained to a declared `options[]` set,
- * and which therefore cannot store the empty string.
+ * Column types that store free text, where an empty answer is a genuine empty
+ * string. Every other column type stores `null` for "no answer".
  */
-const OPTION_CONSTRAINED_COLUMN_TYPES: ReadonlySet<string> = new Set([
-  'single-select',
-  'multi-select',
+const FREE_TEXT_COLUMN_TYPES: ReadonlySet<string> = new Set([
+  'single-line-text',
+  'long-text',
+  'rich-text',
+  'email',
+  'url',
+  'phone-number',
+  'code',
+  'barcode',
 ])
 
 /**
@@ -51,28 +58,36 @@ const OPTION_CONSTRAINED_COLUMN_TYPES: ReadonlySet<string> = new Set([
 interface TableFieldShape {
   readonly name: string
   readonly type: string
+  readonly unique?: boolean
+  readonly format?: unknown
 }
 
 /**
- * Names of the option-constrained columns on `tableName`. Empty set when the
- * table is unknown or declares none — the caller then short-circuits.
+ * A free-text column that nonetheless refuses the empty string: a `unique`
+ * one (the blank would be reserved for the first visitor who left it), and a
+ * `barcode` declaring a `format`, whose CHECK constraint no empty value passes.
  */
-const collectOptionConstrainedColumnNames = (
-  app: Readonly<App>,
-  tableName: string
-): ReadonlySet<string> => {
+const refusesEmptyText = (field: TableFieldShape): boolean =>
+  field.unique === true || (field.type === 'barcode' && typeof field.format === 'string')
+
+/**
+ * Names of the columns on `tableName` that cannot hold the empty string. Empty
+ * set when the table is unknown or declares none — the caller then
+ * short-circuits.
+ */
+const collectTypedColumnNames = (app: Readonly<App>, tableName: string): ReadonlySet<string> => {
   const table = app.tables?.find((t) => t.name === tableName)
   if (table === undefined) return new Set()
   const fields = (table.fields ?? []) as ReadonlyArray<TableFieldShape>
   return new Set(
     fields
-      .filter((field) => OPTION_CONSTRAINED_COLUMN_TYPES.has(field.type))
+      .filter((field) => !FREE_TEXT_COLUMN_TYPES.has(field.type) || refusesEmptyText(field))
       .map((field) => field.name)
   )
 }
 
 /**
- * Replace `''` with `null` for option-constrained columns. Pass-through for
+ * Replace `''` with `null` for every column that is not free text. Pass-through for
  * every other column, for non-empty values, and for values that are already
  * `null` / `undefined` / an array.
  *
@@ -84,11 +99,11 @@ export const coerceEmptySelectToNull = (
   app: Readonly<App>,
   tableName: string
 ): Readonly<Record<string, unknown>> => {
-  const optionColumns = collectOptionConstrainedColumnNames(app, tableName)
-  if (optionColumns.size === 0) return { ...fields }
+  const typedColumns = collectTypedColumnNames(app, tableName)
+  if (typedColumns.size === 0) return { ...fields }
   return Object.fromEntries(
     Object.entries(fields).map(([key, value]): readonly [string, unknown] => {
-      if (!optionColumns.has(key)) return [key, value]
+      if (!typedColumns.has(key)) return [key, value]
       // eslint-disable-next-line unicorn/no-null -- SQL NULL is the target value, not "absent": `undefined` is dropped from the INSERT, which would fall back to the column default rather than storing "no answer"
       if (value === '') return [key, null]
       return [key, value]

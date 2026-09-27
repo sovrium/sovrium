@@ -26,6 +26,7 @@
 
 import { formatAccountCollisionMessage } from '@/infrastructure/database/drizzle/account-issuer-preflight'
 import { formatOauthClientIdCollisionMessage } from '@/infrastructure/database/drizzle/oauth-client-id-preflight'
+import { formatRowCount } from '@/infrastructure/database/schema-migration/table-classification'
 import type { MigrationFolderState } from '@/infrastructure/database/drizzle/migrate'
 import type { MigrationPreflightReport } from '@/infrastructure/database/drizzle/migrate-preflight'
 import type { TableChange } from '@/infrastructure/database/schema/schema-dry-run'
@@ -108,30 +109,92 @@ export const configTablesBlock = (tableNames: readonly string[]): CliBlock =>
     ? [{ glyph: 'ok', text: 'No config tables declared.' }]
     : [{ glyph: 'ok', text: `Config tables reconciled: ${tableNames.join(', ')}.` }]
 
-/** One planned table change, as the line a `--dry-run` prints for it. */
-const changeLine = (change: TableChange): CliBlock =>
-  change.kind === 'unchanged'
-    ? []
-    : change.unsimulated
-      ? [
-          {
-            text: `would recreate table ${change.table} and copy its rows (not simulated)`,
-            detail: [
-              'The statement list depends on the live column set at the moment it runs,',
-              'so it cannot be rendered ahead of time. Expect a table rebuild and a full',
-              'row copy — plan a maintenance window for it.',
-            ],
-          },
-        ]
-      : [
-          {
-            text:
-              change.kind === 'create'
-                ? `would create table ${change.table}`
-                : `would alter table ${change.table} (${change.statements.length} statement(s))`,
-            detail: change.statements,
-          },
-        ]
+/**
+ * The line for a view rebuild. The view body is NOT printed: it is DDL on the
+ * view alone, and printing it would put the base table's name on a line of a
+ * plan that changes nothing about that table.
+ */
+const viewLine = (change: TableChange): CliBlock => [
+  {
+    text: `would rebuild view ${change.table}`,
+    detail: [
+      `DROP VIEW IF EXISTS ${change.table}`,
+      `CREATE VIEW ${change.table} (its lookup, rollup and count fields)`,
+    ],
+  },
+]
+
+/** The line for a table the config no longer declares, with the rows a drop would delete. */
+const dropLine = (change: TableChange): CliBlock => [
+  {
+    text:
+      change.rows === undefined
+        ? `would drop tables no longer in the config (not simulated)`
+        : `would drop table ${change.table} (${formatRowCount(change.rows)})`,
+    detail: change.statements,
+  },
+]
+
+/**
+ * The line for a table whose rows change relation — it gains its first, or loses
+ * its last, lookup/rollup/count field. The migration moves them by RENAME, so the
+ * rows, the id sequence and every foreign key pointing at the table go with them;
+ * the line says so, because "would create table <name>_base" beside a populated
+ * `<name>` is what an operator would otherwise read as rows left behind.
+ */
+const renameLine = (change: TableChange): CliBlock =>
+  change.unsimulated
+    ? [
+        {
+          text: 'would move rows between tables and their lookup views (not simulated)',
+          detail: change.statements,
+        },
+      ]
+    : [
+        {
+          text: `would rename table ${change.from ?? change.table} to ${
+            change.relation ?? change.table
+          } (rows kept)`,
+          detail: change.statements,
+        },
+      ]
+
+/**
+ * One planned table change, as the line a `--dry-run` prints for it.
+ *
+ * A create, alter or rebuild names the RELATION it acts on, which for a table
+ * with lookup, rollup or count fields is `<name>_base` — the name the statements
+ * beneath it use.
+ *
+ * @public
+ */
+export const changeLine = (change: TableChange): CliBlock => {
+  if (change.kind === 'unchanged') return []
+  if (change.kind === 'view') return viewLine(change)
+  if (change.kind === 'drop') return dropLine(change)
+  if (change.kind === 'rename') return renameLine(change)
+  const relation = change.relation ?? change.table
+  return change.unsimulated
+    ? [
+        {
+          text: `would recreate table ${relation} and copy its rows (not simulated)`,
+          detail: [
+            'The statement list depends on the live column set at the moment it runs,',
+            'so it cannot be rendered ahead of time. Expect a table rebuild and a full',
+            'row copy — plan a maintenance window for it.',
+          ],
+        },
+      ]
+    : [
+        {
+          text:
+            change.kind === 'create'
+              ? `would create table ${relation}`
+              : `would alter table ${relation} (${change.statements.length} statement(s))`,
+          detail: change.statements,
+        },
+      ]
+}
 
 /**
  * Every refusal the planned config-table changes would raise, as report rows.
@@ -216,13 +279,20 @@ export const checkBlocks = (
   // would be the kind of over-claim this command exists to replace. Conditional
   // on the config declaring tables — silence there would leave the operator
   // unable to tell "nothing to check" from "not checked".
+  // Only the tables the config DECLARES were inspected; a drop, a view rebuild
+  // or a topology rename is part of the plan, and its refusal (if any) counts
+  // below. A rename sits beside its table's own change, so counting it would
+  // inspect that table twice.
+  const inspected = configTableChanges.filter(
+    (change) => change.kind !== 'drop' && change.kind !== 'view' && change.kind !== 'rename'
+  )
   const configTables: CliBlock =
-    configTableChanges.length === 0
+    inspected.length === 0
       ? [{ text: 'Config tables: none declared.' }]
       : [
           {
-            text: `Config tables inspected: ${configTableChanges.length}`,
-            detail: configTableChanges.map((change) => change.table),
+            text: `Config tables inspected: ${inspected.length}`,
+            detail: inspected.map((change) => change.table),
           },
         ]
 

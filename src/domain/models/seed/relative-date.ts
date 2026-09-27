@@ -155,3 +155,29 @@ export const expandSeedStringValue = (raw: string, runAt: Readonly<Date>): Expan
 
   return { ok: true, value: raw }
 }
+
+/** A calendar day as `sovrium seed --today` and `SOVRIUM_SEED_TODAY` spell it. */
+const DAY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
+
+/**
+ * Move a run's anchor instant onto a pinned calendar day.
+ *
+ * `--today 2026-09-24` exists so a data set drawn against a fixed day — a
+ * screenshot, a test fixture, a design canvas — reproduces the same dates on
+ * any day it is replayed. Only the DATE is pinned; the time of day stays the
+ * clock's, so `{{now}}` still reads as a moment on that day rather than as
+ * midnight. The day is read in UTC, like every other token here.
+ *
+ * Returns `undefined` for anything that is not a real calendar day —
+ * `2026-02-30` included, which `Date` would otherwise roll into March and seed
+ * a month nobody asked for.
+ */
+export const pinRunAtToDay = (raw: string, clock: Readonly<Date>): Readonly<Date> | undefined => {
+  const match = DAY_PATTERN.exec(raw.trim())
+  if (!match) return undefined
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])]
+  const midnight = new Date(Date.UTC(year, month - 1, day))
+  if (midnight.toISOString().slice(0, 10) !== raw.trim()) return undefined
+  const timeOfDay = clock.getTime() % MS_PER_UNIT.d
+  return new Date(midnight.getTime() + timeOfDay)
+}

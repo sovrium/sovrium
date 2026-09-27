@@ -81,13 +81,13 @@ The record half reads a narrower set of field types than `?q=` does: only `singl
 
 A query shorter than two characters answers `200` with an empty list rather than an error: a palette types into this endpoint one character at a time, and an error state mid-typing would be rendered for someone who has done nothing wrong. A single letter also selects a large fraction of every text column of every table, and the second character is roughly twenty-six times more selective.
 
-Who sees what depends on the session. With no `auth` block the scan is unrestricted, as every other read surface is. With `auth` configured and no session the palette returns **pages only** — not a `401`, because a public documentation search is one of the things it is for, and page results are content the server already renders publicly. A signed-in caller additionally gets rows scoped by their read permissions. Every answer carries `Cache-Control: private, max-age=10`, because the favourite ordering is specific to one session and must never reach a shared cache.
+Who sees what depends on the session. With no `auth` block the scan is unrestricted, as every other read surface is. With `auth` configured and no session the palette returns **pages only**, and only the pages anyone may open — not a `401`, because a public documentation search is one of the things it is for. A page or `contentDir` article behind `access` answers only to a signed-in reader whose role may open it, filtered by the same check the router applies when they visit it; a signed-in caller additionally gets rows scoped by their read permissions. Every answer carries `Cache-Control: private, max-age=10`, because the favourite ordering is specific to one session and must never reach a shared cache.
 
 **Search Components** covers placing a palette yourself and pointing it at your own endpoint.
 
 ## Public pages — a static index
 
-A `search-input` with `scope: page` searches the TEXT OF YOUR PAGES rather than any table. `sovrium build` and `sovrium start` emit a small index and a client runtime, and the box queries them in the browser. Only public pages are indexed. **Search Components** has the mechanics.
+A `search-input` with `scope: page` searches the TEXT OF YOUR PAGES rather than any table. `sovrium build` and `sovrium start` emit a small index and a client runtime, and the box queries them in the browser. The static index holds public pages only; `index: session` makes the box ask the server instead, which answers with the pages the current reader may open. **Search Components** has the mechanics.
 
 ## Choosing an approach
 

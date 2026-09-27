@@ -116,6 +116,11 @@ const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<string, st
     en: 'Close',
     fr: 'Fermer',
   },
+  /** A related section's inline create, refused by the records endpoint. */
+  'recordDrawer.relatedCreateFailed': {
+    en: 'The record could not be created.',
+    fr: "L'enregistrement n'a pas pu être créé.",
+  },
 }
 
 /** Platform default language for interpreter strings when none is resolved. */

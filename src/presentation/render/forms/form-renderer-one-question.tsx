@@ -40,10 +40,13 @@
  */
 
 import { FormFieldElement, type PrefillValue, type ResolvedFormField } from './form-field-elements'
+import { attachSectionsToNextField, type FieldWithSections } from './form-field-resolver'
+import { DescriptionText } from './form-help-text'
 
 interface OneQuestionBodyProps {
   readonly title: string
-  readonly description: string
+  /** The description as sanitized inline HTML (`renderInlineMarkdown`); `''` for none. */
+  readonly descriptionHtml: string
   readonly formAttributes: Readonly<Record<string, string>>
   readonly resolvedFields: ReadonlyArray<ResolvedFormField>
   readonly prefillMap: Readonly<Record<string, PrefillValue>>
@@ -54,11 +57,14 @@ interface OneQuestionBodyProps {
 
 function FormQuestionWrapper({
   field,
+  sections,
   index,
   prefillMap,
   lockPrefill,
 }: {
   readonly field: ResolvedFormField
+  /** The sections declared just before this question, drawn on its screen. */
+  readonly sections: ReadonlyArray<ResolvedFormField>
   readonly index: number
   readonly prefillMap: Readonly<Record<string, PrefillValue>>
   readonly lockPrefill: boolean
@@ -70,6 +76,14 @@ function FormQuestionWrapper({
       data-question-index={String(index)}
       {...(isFirst ? { 'data-question-active': 'true' } : { hidden: true })}
     >
+      {sections.map((section) => (
+        <FormFieldElement
+          key={section.name}
+          field={section}
+          prefillValue={undefined}
+          lockPrefill={false}
+        />
+      ))}
       <FormFieldElement
         field={field}
         prefillValue={prefillMap[field.name]}
@@ -155,7 +169,7 @@ function OneQuestionForm({
   lockPrefill,
 }: {
   readonly formAttributes: Readonly<Record<string, string>>
-  readonly transformedVisible: ReadonlyArray<ResolvedFormField>
+  readonly transformedVisible: ReadonlyArray<FieldWithSections>
   readonly hiddenFields: ReadonlyArray<ResolvedFormField>
   readonly prefillMap: Readonly<Record<string, PrefillValue>>
   readonly lockPrefill: boolean
@@ -165,10 +179,11 @@ function OneQuestionForm({
       {...formAttributes}
       data-layout="one-question"
     >
-      {transformedVisible.map((field, index) => (
+      {transformedVisible.map(({ field, sections }, index) => (
         <FormQuestionWrapper
           key={field.name}
           field={field}
+          sections={sections}
           index={index}
           prefillMap={prefillMap}
           lockPrefill={lockPrefill}
@@ -187,14 +202,14 @@ function OneQuestionForm({
       {/* Summary screen is rendered INSIDE the form so the Submit
           button natively triggers the form's submit event (which the
           one-question runtime intercepts via a synchronous XHR). */}
-      <FormSummaryScreen resolvedFields={transformedVisible} />
+      <FormSummaryScreen resolvedFields={transformedVisible.map((group) => group.field)} />
     </form>
   )
 }
 
 export function FormBodyOneQuestion({
   title,
-  description,
+  descriptionHtml,
   formAttributes,
   resolvedFields,
   prefillMap,
@@ -206,13 +221,18 @@ export function FormBodyOneQuestion({
   // server-side defaults at submission time and never count as a
   // "screen" in the Typeform flow.
   const visibleFields = resolvedFields.filter((f) => !f.hidden)
-  const transformedVisible = rewriteSelectAsRadio(visibleFields)
+  // A section is not a question: it is drawn on the screen of the question
+  // declared after it, and counts neither as a screen nor in the summary.
+  const transformedVisible = attachSectionsToNextField(rewriteSelectAsRadio(visibleFields))
   const totalQuestions = transformedVisible.length
   const hiddenFields = resolvedFields.filter((f) => f.hidden)
   return (
     <>
-      <TitleTag className="form-title">{title}</TitleTag>
-      {description && <p className="form-description">{description}</p>}
+      {title !== '' && <TitleTag className="form-title">{title}</TitleTag>}
+      <DescriptionText
+        html={descriptionHtml}
+        className="form-description"
+      />
       <FormProgressBar totalQuestions={totalQuestions} />
       <OneQuestionForm
         formAttributes={formAttributes}

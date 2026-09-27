@@ -29,6 +29,10 @@ import {
 } from '@/infrastructure/logging/request-effect'
 import { chainAccountAvatarRoutes } from '@/presentation/api/auth/account-avatar-routes'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import {
+  internalSchedulerNotFound,
+  isInternalSchedulerRequest,
+} from '@/presentation/api/runtime/internal-scheduler-gate'
 import type { AvatarProfileStore } from '@/application/ports/contracts/avatar-profile-store'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -75,17 +79,6 @@ import type { Context, Hono } from 'hono'
  * production, where the sweep runs on the daily cron armed by
  * `register-activity-log-retention.ts`.
  */
-
-/**
- * Env var holding the internal shared secret for the `purge-due` trigger.
- * Set ONLY by the E2E harness. Unset in production — which makes the
- * `purge-due` route reject every request (the production erasure path is the
- * recurring cron in `register-account-purge.ts`, not this HTTP route).
- */
-const SCHEDULER_TOKEN_ENV = 'INTERNAL_SCHEDULER_TOKEN'
-
-/** Header carrying the internal scheduler token on a `purge-due` request. */
-const SCHEDULER_TOKEN_HEADER = 'X-Internal-Scheduler-Token'
 
 /** Canonical 401 envelope (no personal data leaks). */
 const unauthorized = (c: Context) =>
@@ -212,22 +205,6 @@ async function handleDelete(c: Context): Promise<Response> {
 // ============================================================================
 
 /**
- * Constant-time string comparison — avoids leaking the token length or a
- * matching prefix through response-timing differences.
- */
-function tokensMatch(provided: string, expected: string): boolean {
-  if (provided.length !== expected.length) return false
-  // eslint-disable-next-line functional/no-let -- accumulator for constant-time XOR scan
-  let mismatch = 0
-  // eslint-disable-next-line functional/no-loop-statements -- fixed-length constant-time scan
-  for (let i = 0; i < expected.length; i += 1) {
-    // eslint-disable-next-line functional/no-expression-statements -- bitwise accumulate
-    mismatch |= provided.charCodeAt(i) ^ expected.charCodeAt(i)
-  }
-  return mismatch === 0
-}
-
-/**
  * Handle POST /api/account/purge-due.
  *
  * Runs the D3 erasure scheduler: hard-deletes every account whose
@@ -248,16 +225,9 @@ function tokensMatch(provided: string, expected: string): boolean {
  * consistent with the anti-enumeration posture of the rest of this file.
  */
 async function handlePurgeDue(c: Context, app: App): Promise<Response> {
-  const expectedToken = process.env[SCHEDULER_TOKEN_ENV]
-  // No token configured (production) → the route is effectively disabled.
-  if (expectedToken === undefined || expectedToken.length === 0) {
-    return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
-  }
-
-  const providedToken = c.req.header(SCHEDULER_TOKEN_HEADER)
-  if (providedToken === undefined || !tokensMatch(providedToken, expectedToken)) {
-    return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
-  }
+  // No token configured (production), or a missing/wrong one → 404, as if the
+  // route did not exist (`internal-scheduler-gate.ts`).
+  if (!isInternalSchedulerRequest(c)) return internalSchedulerNotFound(c)
 
   // Authorship columns are resolved from the table's DECLARED FIELD TYPES, not
   // assumed to be the literal `created_by`. A `{ name: 'author',
@@ -285,16 +255,9 @@ async function handlePurgeDue(c: Context, app: App): Promise<Response> {
  * ambiguous and whose name describes half of what it does.
  */
 async function handleRetentionDue(c: Context): Promise<Response> {
-  const expectedToken = process.env[SCHEDULER_TOKEN_ENV]
-  // No token configured (production) → the route is effectively disabled.
-  if (expectedToken === undefined || expectedToken.length === 0) {
-    return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
-  }
-
-  const providedToken = c.req.header(SCHEDULER_TOKEN_HEADER)
-  if (providedToken === undefined || !tokensMatch(providedToken, expectedToken)) {
-    return c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
-  }
+  // No token configured (production), or a missing/wrong one → 404, as if the
+  // route did not exist (`internal-scheduler-gate.ts`).
+  if (!isInternalSchedulerRequest(c)) return internalSchedulerNotFound(c)
 
   const deletedCount = await purgeExpiredActivityLogs()
   return c.json({ status: 'ok', deletedCount }, 200)

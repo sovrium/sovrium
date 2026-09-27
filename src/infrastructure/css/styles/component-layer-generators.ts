@@ -63,6 +63,11 @@ import { generateClickAnimationCSS } from '@/infrastructure/css/styles/click-ani
  * legible disabled state. Color goes through canonical role tokens only —
  * never raw colors — so design overrides win.
  *
+ * A `<select>` needs more than this shared surface to look like the input
+ * beside it — native drawing off, a chevron, a wider right inset and a muted
+ * placeholder — and gets it from `buildSelectRules`, which lives in the
+ * utilities layer for the reason documented there.
+ *
  * @returns CSS class string for input/select/textarea base styles
  */
 export function buildInputClasses(): string {
@@ -165,6 +170,87 @@ function buildFormShellRules(): string {
 }
 
 /**
+ * The chevron a single-value `<select>` is painted with once the browser's own
+ * arrow is switched off. A 16px lucide `chevron-down`, inlined as a data URI.
+ *
+ * The stroke is a fixed MID-TONE grey rather than a theme token, because a
+ * data URI is a separate document: it cannot read `currentColor` or a CSS
+ * custom property. `#808080` clears the 3:1 non-text contrast floor against
+ * both a white ground (~3.9:1) and a near-black one (~5:1), so one image
+ * serves the light and the dark scheme — and every scoped design-system
+ * specimen, which a second image keyed off `html.dark` would miss.
+ */
+export const SELECT_CHEVRON_DATA_URI =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23808080' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")"
+
+/**
+ * The select-only rules: native `<select>` chrome that matches the inputs.
+ *
+ * `input, select, textarea` paints the shared surface but cannot switch off
+ * the browser's own drawing: with `appearance` left at `auto` a select keeps
+ * its native arrow, its own inner metrics and — on WebKit — the whole popup
+ * button, which ignores the radius and ground the shared rule sets. So a
+ * single-value select (a `multiple` or `size`d one is a list box, not a
+ * dropdown, and keeps no chevron) turns native drawing off, takes the Sovrium
+ * chevron, and widens its right inset so the value never runs under it.
+ * The inset is LOGICAL (`padding-inline-end`) but `background-position` has
+ * no logical keyword, so a right-to-left page (`languages.direction: rtl`)
+ * moves the chevron to the left explicitly — otherwise the inset would open
+ * on the left while the chevron stayed on the right, over the value.
+ *
+ * The second rule mutes the empty leading option — the field's placeholder —
+ * to the same token an input's `::placeholder` uses, so "Choose a platform"
+ * does not read as an answer. It stops applying the moment a real option is
+ * chosen. Options inherit the select's colour, so while the placeholder is
+ * chosen the real options are put back to the foreground — otherwise every
+ * choice in an opened list (Firefox, Chromium on Windows and Linux) would read
+ * as greyed out.
+ *
+ * These live in `@layer utilities`, NOT beside the element rule in
+ * `@layer components`, and that is load-bearing. Most selects the engine
+ * paints carry a class string of their own — the crud-form controls, the
+ * platform `select.native`, the data-table panels and pager, the comment sort
+ * — and every one of them sets a horizontal padding (`px-2`, `px-3`) from the
+ * utilities layer, which beats ANY component-layer padding. Native drawing
+ * reserved the arrow's room inside the control itself; once it is switched
+ * off nothing does, so a component-layer inset would leave every classed
+ * select with its value running under the chevron. Inside the utilities layer
+ * the selectors' specificity (two pseudo-classes plus a type) outranks a
+ * single-class utility, so the inset and the muted placeholder hold on every
+ * select, classed or bare, from one rule rather than from a `pr-9` each call
+ * site would have to remember.
+ *
+ * A COMPACT select — the 24px pager page-size control, the comment sort, the
+ * select inside an editable grid cell — opts into a smaller chevron and a
+ * proportionate inset with the plain marker class `select-compact`. That is
+ * opted into rather than inferred because CSS cannot read a control's height:
+ * no selector can tell a `h-6` select from a full-height one. The marker is
+ * carried by each compact control's class recipe, not by its call sites, and
+ * its selector adds a class to the base one, so it outranks the standard inset
+ * (right-to-left twin included) without an `!important`.
+ */
+function buildSelectRules(): string {
+  return `
+      select:not([multiple]):not([size]) {
+        appearance: none;
+        background-image: ${SELECT_CHEVRON_DATA_URI};
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 1rem;
+        padding-inline-end: 2.25rem;
+      }
+      select:not([multiple]):not([size]):dir(rtl) { background-position: left 0.75rem center; }
+      select.select-compact:not([multiple]):not([size]) {
+        background-position: right 0.375rem center;
+        background-size: 0.75rem;
+        padding-inline-end: 1.5rem;
+      }
+      select.select-compact:not([multiple]):not([size]):dir(rtl) { background-position: left 0.375rem center; }
+      select:has(option[value=""]:checked) { @apply text-foreground-subtle; }
+      select:has(option[value=""]:checked) option:not([value=""]) { @apply text-foreground; }`
+}
+
+/**
  * The bare-ELEMENT rule. Unlike every class rule that used to sit beside it,
  * this one has no recipe to be overpainted by: it is what a plain `<input>`
  * looks like when nobody styled it, which is exactly the case a component
@@ -219,6 +305,7 @@ export function generateUtilitiesLayer(): string {
       .shadow-none {
         box-shadow: none !important;
       }
+${buildSelectRules()}
 
       ${clickAnimations}
     }`

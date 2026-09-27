@@ -22,7 +22,6 @@ export interface SSGOptions {
   readonly generateSitemap?: boolean
   readonly generateRobotsTxt?: boolean
   readonly hydration?: boolean
-  readonly generateManifest?: boolean
   readonly bundleOptimization?: 'split' | 'none'
   readonly pagePaths?: readonly string[]
   readonly publicDir?: string

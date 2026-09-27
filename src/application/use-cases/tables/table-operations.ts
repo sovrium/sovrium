@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { ForbiddenError } from '@/domain/errors'
 import {
   DENY_WHEN_UNDECLARED,
@@ -20,9 +19,7 @@ import {
   evaluateFieldPermissions,
 } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isAdminRole, hasPermission } from '@/domain/models/app/auth/permissions'
-import { processRecords } from './list-helpers'
-import type { UserSession } from '@/application/ports/contracts/user-session'
-import type { DatabaseError } from '@/domain/errors'
+import { findViewByKey } from '@/domain/models/app/tables/views/view-read-service'
 import type { GetTableResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
 
@@ -213,7 +210,10 @@ export function createGetPermissionsProgram(
  *    here exactly as they do on the table, bucket and agent gates, so the
  *    operator is not locked out of a view on a table they can read in full.
  */
-function isViewAccessible(view: { readonly permissions?: unknown }, userRole: string): boolean {
+export function isViewAccessible(
+  view: { readonly permissions?: unknown },
+  userRole: string
+): boolean {
   // No permissions configured - view is public
   if (!view.permissions) {
     return true
@@ -322,8 +322,8 @@ export function getViewProgram(
       return yield* Effect.fail(new TableNotFoundError('Table not found'))
     }
 
-    // Find view in table
-    const view = table.views?.find((v) => v.id === viewId)
+    // By id OR name — the same lookup the records route and a page binding use.
+    const view = findViewByKey(table.views, viewId)
 
     if (!view) {
       return yield* Effect.fail(new TableNotFoundError('View not found'))
@@ -345,106 +345,4 @@ export function getViewProgram(
     // optional-key spreads is how they would stop agreeing.
     return mapViewToResponse(view)
   }).pipe(Effect.withSpan('tables.get-view-program'))
-}
-
-/**
- * Build query parameters from view configuration
- */
-function buildViewQueryParams(view: {
-  readonly filters?: unknown
-  readonly sorts?: readonly { readonly field: string; readonly direction: string }[]
-  readonly fields?: readonly string[] | unknown
-}): {
-  readonly filter:
-    | {
-        readonly and?: readonly {
-          readonly field: string
-          readonly operator: string
-          readonly value: unknown
-        }[]
-      }
-    | undefined
-  readonly sort: string
-  readonly fields: string | undefined
-} {
-  // Build filter from view filters
-  // View filters may be of type ViewFilterNode, need to extract the 'and' array if present
-  const filter = view.filters as
-    | {
-        readonly and?: readonly {
-          readonly field: string
-          readonly operator: string
-          readonly value: unknown
-        }[]
-      }
-    | undefined
-
-  // Build sort from view sorts
-  const sortArray = view.sorts || []
-  const sort = sortArray.map((s) => `${s.field}:${s.direction}`).join(',')
-
-  // Build fields list from view fields
-  const fieldsStr = Array.isArray(view.fields) ? view.fields.join(',') : undefined
-
-  return { filter, sort, fields: fieldsStr }
-}
-
-export function getViewRecordsProgram(config: {
-  readonly tableId: string
-  readonly viewId: string
-  readonly app: App
-  readonly userRole: string
-  readonly session: Readonly<UserSession>
-}): Effect.Effect<unknown, TableNotFoundError | ForbiddenError | DatabaseError, TableRepository> {
-  return Effect.gen(function* () {
-    const repo = yield* TableRepository
-    const { tableId, viewId, app, userRole, session } = config
-
-    // Find table by ID or name
-    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
-
-    if (!table) {
-      return yield* Effect.fail(new TableNotFoundError('Table not found'))
-    }
-
-    // Find view in table
-    const view = table.views?.find((v) => v.id === viewId)
-
-    if (!view) {
-      return yield* Effect.fail(new TableNotFoundError('View not found'))
-    }
-
-    // Check view-level read permissions
-    if (!isViewAccessible(view, userRole)) {
-      return yield* Effect.fail(
-        new ForbiddenError('You do not have permission to access this view')
-      )
-    }
-
-    // Build query parameters from view configuration
-    const { filter, sort, fields } = buildViewQueryParams(view)
-
-    // Query records with view filters and sorts
-    const records = yield* repo.listRecords({
-      session,
-      tableName: table.name,
-      filter,
-      includeDeleted: false,
-      sort: sort || undefined,
-      app,
-    })
-
-    // Process records with field filtering
-    const processedRecords = processRecords({
-      records,
-      app,
-      tableName: table.name,
-      userRole,
-      fields,
-    })
-
-    return {
-      records: [...processedRecords],
-    }
-  }).pipe(Effect.withSpan('tables.get-view-records-program'))
 }

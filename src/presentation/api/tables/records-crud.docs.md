@@ -36,6 +36,12 @@ Fields the caller may not read are omitted, so the same row answers with a diffe
 
 On this endpoint `format` accepts **only `display`**. `?format=raw` answers `400`, and omitting the parameter is how raw values are requested — a difference from the list endpoint, which accepts `raw` as a no-op.
 
+### Revalidating a read
+
+A record read, like a records list, carries an `ETag` and `Cache-Control: private, no-cache`. Send the tag back in `If-None-Match` and an unchanged answer is `304 Not Modified` with no body; any change to what you would receive — the record, or the fields you may read — produces a new tag and a full `200`. Browsers do this on their own, so a page that re-reads the same records on every visit pays for the body only when it has changed.
+
+The tag describes the answer **you** receive, and it is checked after every permission check: a tag taken from another caller never turns a `404` into a `304`. Responses are never marked `public`, so no proxy or CDN stores them, and there is no `max-age`: a read that follows a write always sees the write.
+
 ## Update
 
 `PATCH` is partial: only the fields present in the body are written, and an omitted field is left as it was.

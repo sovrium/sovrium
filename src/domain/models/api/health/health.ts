@@ -114,8 +114,20 @@ export const aiHealthStatusSchema = Schema.Struct({
 
 export type AiHealthStatus = typeof aiHealthStatusSchema.Type
 
+/** The app's declared version, as `/api/health` reports it. */
+const healthVersionField = optionalField(
+  Schema.String.annotate({
+    description: 'Version the app declares in its configuration; absent when it declares none',
+  })
+)
+
+/**
+ * The detailed health body: an admin-tier session receives it in an app that
+ * declares authentication, and every caller receives it in an app without.
+ */
 export const healthResponseSchema = Schema.Struct({
   status: Schema.Literal('ok').annotate({ description: 'Server health status indicator' }),
+  version: healthVersionField,
   timestamp: isoDateTime({ description: 'ISO 8601 timestamp of the health check' }),
   app: Schema.Struct({
     name: Schema.String.annotate({ description: 'Application name from configuration' }),
@@ -125,6 +137,31 @@ export const healthResponseSchema = Schema.Struct({
     speechHealthStatusSchema.annotate({ description: 'Speech-to-text subsystem status' })
   ),
 })
+
+/**
+ * The minimal health body: what an anonymous caller or a non-admin session
+ * receives in an app that declares authentication. It says the server is up
+ * and names the app's version, and discloses nothing about its configuration.
+ */
+export const healthMinimalResponseSchema = Schema.Struct({
+  status: Schema.Literal('ok').annotate({ description: 'Server health status indicator' }),
+  version: healthVersionField,
+})
+
+export type HealthMinimalResponse = typeof healthMinimalResponseSchema.Type
+
+/** Either health body, as the published document describes `/api/health`. */
+export const healthCheckResponseSchema = Schema.Union([
+  healthResponseSchema.annotate({
+    title: 'Detailed health',
+    description:
+      'Admin-tier session in an app with authentication, or any caller in an app without',
+  }),
+  healthMinimalResponseSchema.annotate({
+    title: 'Minimal health',
+    description: 'Anonymous or non-admin caller in an app with authentication',
+  }),
+])
 
 /**
  * TypeScript type inferred from Zod schema

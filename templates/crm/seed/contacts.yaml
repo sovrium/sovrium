@@ -1,41 +1,97 @@
-# Sample contacts, linked to companies by their file-local key.
-#
-# `last_contacted` uses relative-date tokens so the demo never looks abandoned:
-# every night the reset replays this file and the dates roll forward with it.
+# The people behind the deals, each linked to their company and to the rep
+# who looks after them. Dates are relative to the day the seed runs, so the
+# grid always shows who was contacted recently.
 records:
-  - key: priya
-    fields:
-      name: Priya Raman
-      email: priya.raman@northwind.example
-      phone: '+1-415-555-0142'
-      company: '@companies.northwind'
-      title: VP Operations
-      status: Active
-      tags: [Decision Maker, Champion]
-      last_contacted: '{{today-3d}}'
-
-  - key: marcus
-    fields:
-      name: Marcus Bell
-      email: marcus.bell@northwind.example
-      phone: '+1-415-555-0177'
-      company: '@companies.northwind'
-      title: Warehouse Systems Lead
-      status: Active
-      tags: [Technical]
-      last_contacted: '{{today-11d}}'
-
   - key: aisha
     fields:
       name: Aisha Nwosu
       email: aisha.nwosu@helios-health.example
-      phone: '+1-617-555-0198'
       company: '@companies.helios'
       title: Director of Clinical Systems
       status: Active
       tags: [Champion, Technical]
       last_contacted: '{{today-1d}}'
-
+      owner: '@user:ines.moreau@kestrel.example'
+  - key: dana
+    fields:
+      name: Dana Whitfield
+      email: dana.whitfield@lumen-analytics.example
+      company: '@companies.lumen'
+      title: Head of Data
+      status: Active
+      tags: [Decision Maker]
+      last_contacted: '{{today-6d}}'
+      owner: '@user:tom.achebe@kestrel.example'
+  - key: gwen
+    fields:
+      name: Gwen Alvarez
+      email: gwen.alvarez@pinewood-academy.example
+      company: '@companies.pinewood'
+      title: Bursar
+      status: Inactive
+      tags: [Billing]
+      last_contacted: '{{today-135d}}'
+      owner: '@user:ines.moreau@kestrel.example'
+  - key: hana
+    fields:
+      name: Hana Sato
+      email: hana.sato@osprey-dental.example
+      company: '@companies.osprey'
+      title: Practice Manager
+      status: Lead
+      tags: [Decision Maker]
+      last_contacted: '{{today-2d}}'
+      owner: '@user:ines.moreau@kestrel.example'
+  - key: lea
+    fields:
+      name: Léa Martin
+      email: lea.martin@marlow-finch.example
+      company: '@companies.marlow'
+      title: Partner
+      status: Lead
+      tags: [Decision Maker]
+      last_contacted: '{{today-7d}}'
+      owner: '@user:ines.moreau@kestrel.example'
+  - key: marcus
+    fields:
+      name: Marcus Bell
+      email: marcus.bell@northwind.example
+      company: '@companies.northwind'
+      title: Warehouse Systems Lead
+      status: Active
+      tags: [Technical]
+      last_contacted: '{{today-11d}}'
+      owner: '@user:tom.achebe@kestrel.example'
+  - key: oliver
+    fields:
+      name: Oliver Brandt
+      email: oliver.brandt@tidewater-labs.example
+      company: '@companies.tidewater'
+      title: Lab Director
+      status: Active
+      tags: [Champion]
+      last_contacted: '{{today-5d}}'
+      owner: '@user:tom.achebe@kestrel.example'
+  - key: priya
+    fields:
+      name: Priya Raman
+      email: priya.raman@northwind.example
+      company: '@companies.northwind'
+      title: VP Operations
+      status: Active
+      tags: [Decision Maker, Champion]
+      last_contacted: '{{today-3d}}'
+      owner: '@user:tom.achebe@kestrel.example'
+  - key: sebastien
+    fields:
+      name: Sébastien Roy
+      email: sebastien.roy@cardinal-freight.example
+      company: '@companies.cardinal'
+      title: CISO
+      status: Lead
+      tags: [Technical]
+      last_contacted: '{{today-18d}}'
+      owner: '@user:ines.moreau@kestrel.example'
   - key: tomas
     fields:
       name: Tomás Ferreira
@@ -45,34 +101,4 @@ records:
       status: Lead
       tags: [Billing]
       last_contacted: '{{today-24d}}'
-
-  - key: dana
-    fields:
-      name: Dana Whitfield
-      email: dana.whitfield@lumen-analytics.example
-      phone: '+1-206-555-0110'
-      company: '@companies.lumen'
-      title: Head of Data
-      status: Active
-      tags: [Decision Maker, Technical, Newsletter]
-      last_contacted: '{{today-6d}}'
-
-  - key: seb
-    fields:
-      name: Sébastien Roy
-      email: sebastien.roy@cardinalfreight.example
-      company: '@companies.cardinal'
-      title: CISO
-      status: Lead
-      tags: [Decision Maker]
-      last_contacted: '{{today-18d}}'
-
-  - key: gwen
-    fields:
-      name: Gwen Alvarez
-      email: gwen.alvarez@pinewood.example
-      company: '@companies.pinewood'
-      title: Bursar
-      status: Inactive
-      tags: [Billing, Newsletter]
-      last_contacted: '{{today-142d}}'
+      owner: '@user:ines.moreau@kestrel.example'

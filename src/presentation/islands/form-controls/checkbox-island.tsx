@@ -116,7 +116,7 @@ export default function CheckboxIsland({
         disabled={disabled}
         name={name}
         value={value}
-        className="border-border bg-background-raised data-[checked]:border-primary data-[checked]:bg-primary data-[indeterminate]:border-primary data-[indeterminate]:bg-primary flex h-4 w-4 items-center justify-center rounded border transition-colors"
+        className="bg-background-raised data-[checked]:border-primary data-[checked]:bg-primary data-[indeterminate]:border-primary data-[indeterminate]:bg-primary flex h-4 w-4 items-center justify-center rounded border border-[var(--sv-border-control,oklch(0.62_0_0))] transition-colors"
       >
         <Checkbox.Indicator
           keepMounted

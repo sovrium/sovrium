@@ -1,0 +1,33 @@
+# Three purchase orders, one in each state: the Nordpack void-fill delivery
+# received last week, a pallet-wrap order sent to Valmont, and a second
+# Nordpack order still in Draft, the one the assistant drafts in the demo.
+records:
+  - key: po-0116
+    fields:
+      reference: PO-0116
+      supplier: '@suppliers.nordpack'
+      status: Received
+      summary: 90 × Void-fill kraft paper, 380mm
+      units: 90
+      total: 3915
+      ordered_at: '{{today-13d}}'
+      expected_at: '{{today-8d}}'
+  - key: po-0117
+    fields:
+      reference: PO-0117
+      supplier: '@suppliers.valmont'
+      status: Sent
+      summary: 120 × Pallet wrap 500mm, 23µm
+      units: 120
+      total: 2568
+      ordered_at: '{{today-1d}}'
+      expected_at: '{{today+2d}}'
+  - key: po-0118
+    fields:
+      reference: PO-0118
+      supplier: '@suppliers.nordpack'
+      status: Draft
+      summary: 206 × Void-fill kraft paper, 380mm
+      units: 206
+      total: 8961
+      ordered_at: '{{today}}'

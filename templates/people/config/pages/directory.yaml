@@ -1,55 +1,155 @@
+# The directory: everyone at the company, by name, role and team. Opening a
+# person shows who they report to, their time off, and — to an admin only —
+# their salary. A member opening the same card receives the same record with
+# the salary left out by the server.
 name: directory
 path: /
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Directory
-  description: Everyone at the company, with photos and teams
+  title: Directory · Meridian People
+  description: Everyone at the company, by name, role and team.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
         props:
-          className: text-3xl font-bold mb-1
-        content: Directory
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Everyone at the company. Salaries are field-permissioned — only admins can read them, enforced server-side.
-
-      - type: gallery
-        dataSource:
-          table: employees
-          sort:
-            - field: name
-              direction: asc
-        gridColumns:
-          mobile: 1
-          sm: 2
-          md: 3
-          lg: 4
-        galleryCard:
-          coverImage: $record.photo
-          children:
-            - type: text
-              element: h3
-              props:
-                className: text-md font-semibold
-              content: $record.name
-            - type: text
-              element: p
-              props:
-                className: text-sm
-              content: $record.job_title
-            - type: text
-              element: p
-              props:
-                className: text-sm
-              content: $record.department
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Directory
+              - type: container
+                props:
+                  className: grow
+              # Only HR adds people, so only HR is offered the button.
+              - type: button
+                visibility:
+                  roles: [admin]
+                content: Add person
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-person-dialog
+          # Gated like its button: a dialog whose trigger is not on the page
+          # would otherwise render open.
+          - type: dialog
+            visibility:
+              roles: [admin]
+            props:
+              id: add-person-dialog
+              title: Add person
+              description: They appear in the directory at once. Give them an account with sovrium admin create to let them sign in.
+            children:
+              - type: form
+                dataSource:
+                  table: employees
+                fields:
+                  - { field: name, label: Name }
+                  - { field: email, label: Email }
+                  - { field: title, label: Role }
+                  - { field: team, label: Team }
+                  - { field: start_date, label: Since }
+                  - { field: salary, label: Salary }
+                  - { field: allowance_days, label: Time off per year (days) }
+                action:
+                  type: crud
+                  operation: create
+                  table: employees
+                  submitLabel: Add person
+                  onSuccess:
+                    navigate: /
+                    toast:
+                      message: Person added
+                      variant: success
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: filter-bar
+                publishes:
+                  bindTo: people-filter
+                fields:
+                  - { name: name, label: Name, kind: text }
+                  - name: team
+                    label: Team
+                    kind: select
+                    options:
+                      - { value: Engineering, label: Engineering }
+                      - { value: Sales, label: Sales }
+                      - { value: Marketing, label: Marketing }
+                      - { value: Operations, label: Operations }
+                      - { value: Finance, label: Finance }
+                      - { value: People, label: People }
+              - type: gallery
+                dataSource:
+                  table: employees
+                  bindTo: people-filter
+                  sharedFilter: {}
+                  sort:
+                    - { field: name, direction: asc }
+                gridColumns: { mobile: 1, sm: 2, md: 3, lg: 4 }
+                galleryCard:
+                  onClick:
+                    action: openDrawer
+                    component: person-detail
+                  children:
+                    - type: text
+                      element: h3
+                      props:
+                        className: text-[14px] font-semibold text-foreground
+                      content: $record.name
+                    - type: text
+                      element: p
+                      props:
+                        className: text-xs text-foreground-muted
+                      content: $record.title
+                    - type: text
+                      element: p
+                      props:
+                        className: font-mono text-[11px] text-foreground-subtle
+                      content: $record.team
+          # One person, from `/?record=<id>` or a click on a card. The salary
+          # row is empty for a member: the server never sends the field.
+          - type: drawer
+            id: person-detail
+            drawerSide: right
+            drawerSize: md
+            canEdit: false
+            dataSource:
+              table: employees
+            props:
+              title: Person
+            recordFields:
+              - { name: name, type: single-line-text, label: Name }
+              - { name: title, type: single-line-text, label: Role }
+              - { name: team, type: single-select, label: Team }
+              - { name: email, type: email, label: Email }
+              - { name: manager, type: relationship, label: Reports to }
+              - { name: start_date, type: date, label: Since }
+              - { name: salary_label, type: single-line-text, label: Salary · visible to admins }
+              - { name: time_off_this_year, type: single-line-text, label: Time off this year }
+            related:
+              - label: Requests
+                table: time_off_requests
+                field: employee
+                columns:
+                  - { field: type, label: Type }
+                  - { field: start_date, label: From }
+                  - { field: end_date, label: To }
+                  - { field: status, label: Decision }
+                sort:
+                  - { field: start_date, direction: desc }
+                emptyMessage: No time off requested yet.

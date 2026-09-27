@@ -34,6 +34,11 @@
  * resolved page URL, and the configured grouping field.
  */
 
+import {
+  isStructuredDataToggleShape,
+  type StructuredDataSynthesis,
+} from '@/domain/models/app/pages/meta/structured-data-synthesis'
+
 /** Synthesis configuration distilled from `meta.structuredData`. */
 export interface ContentDirStructuredDataConfig {
   /** Whether synthesis is enabled (frugal default: absent ⇒ off). */
@@ -50,21 +55,27 @@ const SCHEMA_CONTEXT = 'https://schema.org' as const
 const DEFAULT_ARTICLE_TYPE = 'TechArticle' as const
 
 /**
- * Narrow an unknown `meta.structuredData` slot into a typed config. Returns
- * `undefined` when the slot is absent or not an enabling object so callers can
- * cheaply short-circuit the "off by default" case.
+ * Read the synthesis config from a DECODED `meta.structuredData` value.
+ * Returns `undefined` when the slot is absent, is authored JSON-LD rather than
+ * the toggle, or does not enable synthesis, so callers can cheaply
+ * short-circuit the "off by default" case.
+ *
+ * The toggle is decoded against `StructuredDataSynthesisSchema` before it gets
+ * here, so a toggle-shaped value already has a valid `type`, a boolean
+ * `breadcrumbs` and a string `organization` — a mistyped one never reached the
+ * render path, it failed validation. Only the defaults are applied here.
  */
 export const parseStructuredDataConfig = (
-  raw: unknown
+  decoded: unknown
 ): ContentDirStructuredDataConfig | undefined => {
-  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined
-  const candidate = raw as Record<string, unknown>
-  if (candidate.enabled !== true) return undefined
+  if (!isStructuredDataToggleShape(decoded)) return undefined
+  const toggle = decoded as StructuredDataSynthesis
+  if (toggle.enabled !== true) return undefined
   return {
     enabled: true,
-    type: candidate.type === 'Article' ? 'Article' : DEFAULT_ARTICLE_TYPE,
-    breadcrumbs: candidate.breadcrumbs !== false,
-    ...(typeof candidate.organization === 'string' ? { organization: candidate.organization } : {}),
+    type: toggle.type ?? DEFAULT_ARTICLE_TYPE,
+    breadcrumbs: toggle.breadcrumbs ?? true,
+    ...(toggle.organization !== undefined ? { organization: toggle.organization } : {}),
   }
 }
 

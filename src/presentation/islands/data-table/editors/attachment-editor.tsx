@@ -50,8 +50,8 @@ import type { ReactElement } from 'react'
  * ecoconception R1 governs: AVIF, `loading="lazy"`, never inline base64.
  */
 
-/** The bucket an attachment field uploads to when it declares none. */
-const DEFAULT_BUCKET = 'default'
+/** The built-in `system` bucket, where an attachment field that declares none uploads. */
+const SYSTEM_BUCKET = 'system'
 
 /** What one upload becomes in the column, given the column's shape. */
 function toColumnValue(upload: BucketUpload, storeMetadata: boolean): FieldWriteValue {
@@ -81,7 +81,7 @@ export function AttachmentEditor(
     setStatus('uploading')
     try {
       const uploads = await Promise.all(
-        Array.from(files).map((file) => uploadToBucket(file, bucket ?? DEFAULT_BUCKET))
+        Array.from(files).map((file) => uploadToBucket(file, bucket ?? SYSTEM_BUCKET))
       )
       const written = uploads.map((upload) => toColumnValue(upload, storeMetadata === true))
       const next: FieldWriteValue = multiple ? written : (written[0] ?? null)

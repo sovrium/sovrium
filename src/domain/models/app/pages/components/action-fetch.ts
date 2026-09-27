@@ -463,6 +463,21 @@ export const FetchActionSchema = Schema.Struct({
     })
   ),
   /**
+   * Open the navigated address in a new tab — only meaningful, and only
+   * accepted, when `mode` is `navigate` (see the check below). The tab is
+   * opened with `noopener,noreferrer`, so the destination gets no handle on the
+   * page that opened it. Spelled `openInNewTab`, not `target`: `target` already
+   * names the sibling region an `onSuccess.status` fills, and `openInNewTab` is
+   * the spelling a page `click` interaction already uses.
+   */
+  openInNewTab: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Opens the address in a new tab instead of leaving the page. Only for `mode: navigate`. The new tab gets no handle on this one.',
+      examples: [true],
+    })
+  ),
+  /**
    * How to interpret the response body when deciding success/error (default
    * `sovrium`). See `FetchResponseEnvelopeSchema` — set `better-auth` for the
    * `/api/auth/admin/*` always-200 enumeration-safe envelope.
@@ -476,11 +491,23 @@ export const FetchActionSchema = Schema.Struct({
   onSuccess: Schema.optional(FetchSuccessResponseSchema),
   /** Toast displayed when the fetch resolves with a non-2xx response or rejects */
   onError: Schema.optional(FetchToastResponseSchema),
-}).annotate({
-  title: 'Fetch Action',
-  description:
-    'Client-side operate action: fetch (default) / navigate / download / oauth, with optional confirm gating, arbitrary target path, and non-Sovrium response-envelope tolerance',
-})
+}).pipe(
+  Schema.annotate({
+    title: 'Fetch Action',
+    description:
+      'Client-side operate action: fetch (default) / navigate / download / oauth, with optional confirm gating, arbitrary target path, and non-Sovrium response-envelope tolerance',
+  }),
+  // Piped AFTER the annotation: a trailing annotate on a checked node lands on
+  // the check, and the struct's title/description would vanish from app.json.
+  Schema.check(
+    Schema.makeFilter((action) => {
+      if (action.openInNewTab === undefined) return true
+      const mode = action.mode ?? 'fetch'
+      if (mode === 'navigate') return true
+      return `'openInNewTab' only applies to a fetch action in mode 'navigate' — this action's mode is '${mode}', which opens no page. Set mode: navigate, or remove openInNewTab.`
+    })
+  )
+)
 
 /** @public */
 export type FetchAction = Schema.Schema.Type<typeof FetchActionSchema>

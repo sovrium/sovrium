@@ -40,7 +40,9 @@
  *      `not-prose`-style reset on `pre.shiki` hands the block back to Shiki on
  *      Sovrium's dark surface.
  *   3. Callouts: `:::callout` renders as `.md-callout`/`[data-component=alert]`,
- *      which prose does not recognise — restore the warmth-bordered panel.
+ *      which prose does not recognise — restore the warmth-bordered panel, and
+ *      re-assert each declared kind's left accent (`data-type`) over it, since
+ *      this unlayered sheet outranks the per-kind utilities the callout carries.
  *   4. Body text: the design-system base layer sets `p { color: var(--color-
  *      foreground) }` directly on `<p>` (dark, light-mode foreground), which
  *      beats prose's *inherited* `--tw-prose-body` color → invisible paragraphs
@@ -68,6 +70,10 @@ const DOCS_PROSE_PATCH = `
 .prose pre.shiki code{background:none;border:0;padding:0;color:inherit;font-weight:400;}
 .prose .md-callout,.prose [data-component="alert"]{border:1px solid #e5ded5;border-left:3px solid var(--color-warmth-border, var(--color-border-strong));background:#f5f0eb;border-radius:0 .5rem .5rem 0;padding:.85rem 1rem;margin:0 0 1.5rem;color:#3f3a34;}
 .dark .prose .md-callout,.dark .prose [data-component="alert"]{border-color:#262626;background:#171717;color:#d4d4d4;}
+.prose [data-component="alert"][data-type="note"]{border-left-color:var(--color-foreground-subtle);}
+.prose [data-component="alert"][data-type="tip"]{border-left-color:var(--color-success-solid);}
+.prose [data-component="alert"][data-type="warning"]{border-left-color:var(--color-warning-solid);}
+.prose [data-component="alert"][data-type="danger"]{border-left-color:var(--color-error-solid);}
 .prose .md-callout p,.prose [data-component="alert"] p{color:inherit;}
 .prose .md-callout :first-child,.prose [data-component="alert"] :first-child{margin-top:0;}
 .prose .md-callout :last-child,.prose [data-component="alert"] :last-child{margin-bottom:0;}

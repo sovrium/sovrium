@@ -37,6 +37,7 @@
  * header in whole seconds.
  */
 
+import { parsePositiveIntEnv } from '@/domain/models/process-env/positive-int-env'
 import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
@@ -57,24 +58,12 @@ interface SharedViewsRateLimitConfig {
 }
 
 /**
- * Parse a positive integer from an env value. Returns `undefined` for an
- * absent, empty, or non-positive-integer value so the caller can fall through
- * to the default.
- */
-const parsePositiveInt = (raw: string | undefined): number | undefined => {
-  if (raw === undefined || raw.trim() === '') return undefined
-  const value = Number(raw)
-  if (!Number.isInteger(value) || value <= 0) return undefined
-  return value
-}
-
-/**
  * Resolve the shared-views rate-limit config from the environment. Read fresh
  * on every call so a test that sets the env vars per server boot is honoured.
  */
 export const resolveSharedViewsRateLimitConfig = (): SharedViewsRateLimitConfig => ({
-  windowMs: parsePositiveInt(process.env.SHARED_VIEWS_RATE_LIMIT_WINDOW_MS) ?? DEFAULT_WINDOW_MS,
-  maxRequests: parsePositiveInt(process.env.SHARED_VIEWS_RATE_LIMIT_MAX) ?? DEFAULT_MAX_REQUESTS,
+  windowMs: parsePositiveIntEnv(process.env.SHARED_VIEWS_RATE_LIMIT_WINDOW_MS) ?? DEFAULT_WINDOW_MS,
+  maxRequests: parsePositiveIntEnv(process.env.SHARED_VIEWS_RATE_LIMIT_MAX) ?? DEFAULT_MAX_REQUESTS,
 })
 
 export interface SharedViewsRateLimitDecision {
@@ -94,20 +83,8 @@ export interface SharedViewsRateLimitDecision {
  */
 export const checkSharedViewsRateLimit = (userId: string): SharedViewsRateLimitDecision => {
   const { windowMs, maxRequests } = resolveSharedViewsRateLimitConfig()
-  const now = Date.now()
-  const recent = limiter.getRecent(userId, windowMs)
-
-  if (recent.length >= maxRequests) {
-    // Limited attempts are NOT recorded; `Math.max(1, …)` floors retry-after
-    // at 1s (the shared primitive's getRetryAfter floors at 0s).
-    const oldest = Math.min(...recent)
-    const retryAfter = Math.max(1, Math.ceil((oldest + windowMs - now) / 1000))
-    return { limited: true, retryAfter }
-  }
-
-  // eslint-disable-next-line functional/no-expression-statements -- record the attempt in the shared limiter's mutable store
-  limiter.record(userId, { windowMs, maxRequests })
-  return { limited: false, retryAfter: 0 }
+  const { limited, retryAfter } = limiter.consume(userId, { windowMs, maxRequests })
+  return { limited, retryAfter }
 }
 
 /**

@@ -42,11 +42,13 @@ The `404` is deliberate. A `403` would confirm a file exists at a guessed key, s
 
 An operator can also mark path prefixes public across every bucket, independently of what any bucket declares.
 
-## The implicit `default` bucket follows your auth setup
+## The built-in `system` bucket
 
-With no `buckets` array at all, `/api/buckets/default/...` is still served. That implicit bucket is **private when authentication is configured** and **public when it is not**: an app with no session system has nothing to gate on, so an anonymous form upload keeps working.
+Every app has a `system` bucket without declaring it, and `/api/buckets/system/...` is always served. It is **private when authentication is configured** and **public when it is not**: an app with no session system has nothing to gate on, so an anonymous form upload keeps working.
 
-Declare the bucket explicitly the moment you want a different answer — the implicit one is a convenience, not a policy.
+It does two jobs. It stores the files of every attachment field that names no `bucket`, and the operator console lists it first, as the view of **every file linked to a record** — whichever bucket actually holds the file — with the table, record and field each one belongs to. When a record is deleted, its files stop appearing there.
+
+The name `system` is reserved: a `buckets[]` entry called `system` fails validation. Declare a bucket of your own the moment you want different rules — the built-in one is a convenience, not a policy.
 
 ## Two buckets, one backend
 

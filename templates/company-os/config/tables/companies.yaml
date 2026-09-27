@@ -1,3 +1,6 @@
+# The clients. Every module links to this one table, so a client has one name
+# and it reads the same on a deal, a project and a ticket — there is no copy of
+# the client list per module to fall out of step.
 id: 1
 name: companies
 fields:
@@ -9,9 +12,10 @@ fields:
     name: industry
     type: single-select
     options:
+      - Logistics
+      - Healthcare
       - Technology
       - Finance
-      - Healthcare
       - Education
       - Retail
       - Other
@@ -21,11 +25,38 @@ fields:
   - id: 4
     name: created_at
     type: created-at
+  # The person on the team who owns the relationship. It is a sign-in account,
+  # so the grid and the drawer show the person's name.
+  - id: 5
+    name: account_manager
+    type: user
+    allowMultiple: false
+  # Where the relationship stands. Not an outcome, so every option is grey.
+  - id: 6
+    name: status
+    type: single-select
+    options:
+      - value: Client
+        color: '#6F737A'
+      - value: Prospect
+        color: '#6F737A'
+      - value: Dormant
+        color: '#6F737A'
+    default: Client
+
+# The list the Companies page reads. A grid bound to a view is read-only:
+# nobody edits a cell by accident while scanning, and a client is changed in
+# its drawer instead, where every field is labelled.
+views:
+  - id: client_directory
+    name: Clients
+    sorts:
+      - { field: name, direction: asc }
 
 aiAccess:
   description: >-
-    Customer accounts. Use this when the user asks about organizations,
-    clients, or accounts.
+    The company's clients. Use this when the user asks about a client, who owns
+    the relationship, or anything that starts from a client's name.
   operations:
     - read
     - list
@@ -33,6 +64,10 @@ aiAccess:
     - update
   fieldExposure: permissioned
 
+# Everyone signed in reads and edits the clients; only an admin deletes one,
+# because a client carries its deals, projects and tickets with it. A member
+# who tries is answered 404, the same answer as for a client that does not
+# exist.
 permissions:
   read: authenticated
   create:

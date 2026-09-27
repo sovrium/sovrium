@@ -173,6 +173,28 @@ export function isReadonlyFieldType(fieldType: string): boolean {
 }
 
 /**
+ * The intrinsic creation date is engine-owned over HTTP. A seed file may set it
+ * (it is how an import keeps a row's real creation date), but a request body
+ * never may: the insert would otherwise honour it. The intrinsic author needs no
+ * refusal — the create half overwrites it with the session's user and the
+ * update half never writes it, so a supplied value is ignored.
+ */
+const refuseIntrinsicCreatedAt = (
+  records: readonly { fields: Record<string, unknown> }[],
+  c: Context
+) =>
+  records.some((record) => 'created_at' in record.fields)
+    ? c.json(
+        {
+          success: false,
+          message: "Cannot write to readonly field 'created_at'",
+          code: 'VALIDATION_ERROR',
+        },
+        400
+      )
+    : undefined
+
+/**
  * Validate that no readonly fields are being set
  * Returns error response if readonly fields detected, undefined otherwise
  */
@@ -200,6 +222,9 @@ export function validateReadonlyFields(
       400
     )
   }
+
+  const intrinsicGuard = refuseIntrinsicCreatedAt(records, c)
+  if (intrinsicGuard) return intrinsicGuard
 
   // Check for readonly field types (created-at, updated-at, auto-number)
   if (table) {

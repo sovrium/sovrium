@@ -13,8 +13,9 @@
  *
  *   GET  /api/agents/:name/schedule          — schedule readback. Returns the
  *                                              agent's cron expression, the
- *                                              resolved timezone (default
- *                                              UTC), the taskPrompt, and the
+ *                                              resolved timezone (default:
+ *                                              the operator timezone), the
+ *                                              taskPrompt, and the
  *                                              computed `nextRunAt`.
  *   POST /api/agents/:name/schedule/trigger   — manually run the scheduled
  *                                              task once. The agent's
@@ -52,6 +53,7 @@ import { Cron, DateTime, Result } from 'effect'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
 import { requireDomainContext } from '@/infrastructure/logging/request-effect'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { checkTriggerPermission } from '@/presentation/api/agents/agent-trigger-guard'
 import { agentNotFound, findAgent } from '@/presentation/api/runtime/agent-lookup'
 import { errorBody } from '@/presentation/api/runtime/auth-helpers'
@@ -113,8 +115,8 @@ const handleGetSchedule =
     if ('refusal' in target) return target.refusal
     const { agent, schedule } = target
 
-    // [internal ref]: timezone defaults to UTC when not specified.
-    const timezone = schedule.timezone ?? 'UTC'
+    // An omitted zone is the operator timezone (SOVRIUM_TIMEZONE, UTC when unset).
+    const timezone = schedule.timezone ?? resolveOperatorTimezone()
     return c.json(
       {
         agent: agent.name,

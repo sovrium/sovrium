@@ -370,7 +370,7 @@ async function canAct(
  * `public: true` governs READS only — it grants nothing on `POST`/`DELETE`
  *. The one exception is an app with no `auth` block at all: there
  * is no session system to gate against, so a public bucket (including the
- * implicit `default`, which resolves to `public: !app.auth`) stays anonymously
+ * built-in `system` bucket, which resolves to `public: !app.auth`) stays anonymously
  * writable. That carve-out is what keeps page-component file-upload forms
  * working on a no-auth app; it is bounded on purpose, and a DECLARED bucket
  * without `public: true` stays unwritable there ([internal ref],

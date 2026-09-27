@@ -14,11 +14,11 @@
  * `storeMetadata` object (`{ filename, mimeType, size, url }`, no key), or an
  * array of those for `multiple-attachments` — of which the first is taken.
  * The bucket comes from the step's `bucket` prop, else from the download URL
- * the attachment carries, else the implicit `default` bucket.
+ * the attachment carries, else the built-in `system` bucket.
  */
 
-/** The implicit bucket of an attachment column that declares none. */
-const DEFAULT_BUCKET = 'default'
+import { parseBucketFileUrl } from '@/domain/kernel/url/bucket-file-url'
+import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 
 /** A resolved recording: where it is stored and what it is called. */
 export interface TranscribeSource {
@@ -29,41 +29,18 @@ export interface TranscribeSource {
   readonly mimeType?: string
 }
 
-const FILES_URL = /\/api\/buckets\/([^/?#]+)\/files\/([^?#]+)/
-const SIGNED_URL = /\/api\/buckets\/([^/?#]+)\/signed\?(.*)$/
-
 interface Located {
   readonly key: string
   readonly bucket?: string
 }
 
 /**
- * `decodeURIComponent` THROWS on a malformed escape (`%E0%A4%A`), and an
- * attachment value is record data anyone with write access can shape — so a
- * segment that does not decode is kept as written. The storage service then
- * answers "not found" for it instead of the run dying on a defect.
+ * Pull `{ bucket, key }` out of a bucket download URL, when the string is one.
+ * The shared parser, so this reader resolves exactly the shapes the
+ * attachment-reference confinement inspects on write — a URL form only this
+ * step understood would be a way around it.
  */
-const decodeSegment = (segment: string): string => {
-  try {
-    return decodeURIComponent(segment)
-  } catch {
-    return segment
-  }
-}
-
-/** Pull `{ bucket, key }` out of a bucket download URL, when the string is one. */
-const fromUrl = (url: string): Located | undefined => {
-  const files = FILES_URL.exec(url)
-  if (files !== null) {
-    return { bucket: decodeSegment(files[1]!), key: decodeSegment(files[2]!) }
-  }
-  const signed = SIGNED_URL.exec(url)
-  const path =
-    signed !== null ? (new URLSearchParams(signed[2]).get('path') ?? undefined) : undefined
-  return signed !== null && path !== undefined
-    ? { bucket: decodeSegment(signed[1]!), key: path }
-    : undefined
-}
+const fromUrl = (url: string): Located | undefined => parseBucketFileUrl(url)
 
 const stringField = (
   record: Readonly<Record<string, unknown>>,
@@ -122,7 +99,7 @@ export const resolveTranscribeSource = (
   const mimeType = declaredMime(value)
   return {
     key: located.key,
-    bucket: bucketProp ?? located.bucket ?? DEFAULT_BUCKET,
+    bucket: bucketProp ?? located.bucket ?? SYSTEM_BUCKET_NAME,
     fileName: fileNameOf(located.key),
     ...(mimeType !== undefined ? { mimeType } : {}),
   }

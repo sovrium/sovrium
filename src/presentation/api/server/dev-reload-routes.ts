@@ -6,8 +6,8 @@
  */
 
 /**
- * Dev-only live-reload routes for `sovrium start --watch`, and the env gate
- * that decides whether they are mounted at all.
+ * Dev-only live-reload routes for `sovrium start --watch`, and the tag that
+ * loads their client into every HTML page — mounted together or not at all.
  *
  * Two routes:
  *  - `GET /__sovrium_dev/reload` — an SSE stream carrying TWO delivery
@@ -27,9 +27,17 @@
  *        call -> a new `generation`), and the client sees a changed token. A
  *        reconnect after mere lifetime-expiry sees the SAME token and does
  *        nothing, so there is no reload loop.
- *  - `GET /assets/dev-reload.js` — the tiny client script injected into dev HTML
- *    (see PageBodyScripts). External `src`, NOT inline, so it does not perturb the
+ *  - `GET /assets/dev-reload.js` — the tiny client script, loaded by the
+ *    `<script src>` tag {@link injectDevReloadTag} appends to every HTML
+ *    response. External `src`, NOT inline, so it does not perturb the
  *    strict-CSP inline-script-count contract.
+ *
+ * The tag is added HERE, by the same mount that serves the script, rather than
+ * by the page renderer. It used to be rendered by `PageBodyScripts` behind its
+ * own read of `NODE_ENV`, so a surface that never mounts these routes — the
+ * app a static build renders through — still printed a tag naming a script it
+ * would not ship. One mount now decides both, so a page can only load the
+ * client from a server that answers it.
  *
  * ## Why this is ONE file again
  *
@@ -49,15 +57,14 @@
  * `infrastructure/realtime/dev-reload-channel.ts` (W5b), because the hot-swap
  * path in `server-reload.ts` calls the push and infrastructure must not import
  * presentation to do it. This file owns the SUBSCRIBE half — the SSE endpoint,
- * the injected client, the env gate.
+ * the injected client and the tag that loads it.
  */
 
 import { Effect, Queue, Stream } from 'effect'
-import { isLiveReloadEligible } from '@/infrastructure/process/env'
 import { addChannelListener } from '@/infrastructure/realtime/channel-manager'
 import { DEV_RELOAD_CHANNEL } from '@/infrastructure/realtime/dev-reload-channel'
 import { runEffectSse } from '@/presentation/api/runtime/effect-sse'
-import type { Hono } from 'hono'
+import type { Hono, MiddlewareHandler } from 'hono'
 
 /** SSE endpoint path. Namespaced under `/__sovrium_dev/` to avoid app routes. */
 export const DEV_RELOAD_SSE_PATH = '/__sovrium_dev/reload'
@@ -238,18 +245,51 @@ export function chainDevReloadRoutes<T extends Hono>(honoApp: T) {
     )
 }
 
+/** The tag that loads the client, deferred like every other page script. */
+const DEV_RELOAD_TAG = `<script src="${DEV_RELOAD_SCRIPT_PATH}" defer></script>`
+
 /**
- * Mount the dev live-reload routes. No-op unless {@link isLiveReloadEligible}
- * (routes 404 otherwise), so the caller can mount unconditionally.
+ * Append the live-reload tag to an HTML response, just before `</body>`.
  *
- * The gate is `NODE_ENV` unset/empty — the genuine local-dev default — so the
- * routes are absent in production AND in the in-process E2E test server, which
- * sets `NODE_ENV=development` only to skip the production CSS check.
+ * Every HTML surface of the dev server gets it — pages, the not-found page, a
+ * mounted console — because each is a tab a developer may be looking at when
+ * they save. A response that is not HTML, or has no `</body>`, passes through
+ * untouched. The body is re-read and re-sent, so `Content-Length` is dropped
+ * rather than left describing the shorter original.
+ */
+const injectDevReloadTag: MiddlewareHandler = async (c, next) => {
+  await next()
+  const contentType = c.res.headers.get('Content-Type') ?? ''
+  if (!contentType.startsWith('text/html') || c.res.body === null) return
+  const html = await c.res.text()
+  const at = html.lastIndexOf('</body>')
+  const headers = new Headers(c.res.headers)
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- Headers.delete is the Fetch API Headers method, not a Drizzle query builder
+  headers.delete('Content-Length')
+  const body = at === -1 ? html : `${html.slice(0, at)}${DEV_RELOAD_TAG}${html.slice(at)}`
+  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, no-param-reassign -- Hono's middleware contract replaces the response by assignment
+  c.res = new Response(body, { status: c.res.status, statusText: c.res.statusText, headers })
+}
+
+/**
+ * Mount the dev live-reload surface — both routes and the tag that loads the
+ * client — when `enabled`, and nothing otherwise.
+ *
+ * The caller decides: the composition root passes the running server's
+ * eligibility (`NODE_ENV` unset/empty, the genuine local-dev default) and
+ * `false` for the app a static build renders through, which is never a
+ * `--watch` session whatever the environment says. Absent, the routes 404 and
+ * no page names the script — in production, under the in-process E2E server
+ * (`NODE_ENV=development`), and in every static build.
+ *
+ * Registered ahead of the page routes (see `compose-hono-app.ts`), which is
+ * what puts the tag middleware around every page response.
  *
  * @param honoApp - Hono application instance.
- * @returns The Hono app with dev-reload routes chained (or unchanged).
+ * @param enabled - Whether this app serves the dev live-reload surface.
+ * @returns The Hono app with the dev-reload surface chained (or unchanged).
  */
-export function setupDevReloadRoute(honoApp: Readonly<Hono>): Readonly<Hono> {
-  if (!isLiveReloadEligible()) return honoApp
-  return chainDevReloadRoutes(honoApp as Hono)
+export function setupDevReloadRoute(honoApp: Readonly<Hono>, enabled: boolean): Readonly<Hono> {
+  if (!enabled) return honoApp
+  return chainDevReloadRoutes((honoApp as Hono).use('*', injectDevReloadTag))
 }

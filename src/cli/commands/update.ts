@@ -30,7 +30,7 @@ import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { Effect, Console } from 'effect'
 import { UPDATE_HELP_TEXT } from '@/cli/runtime/command-help'
-import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
+import { withFetchStallTimeout, withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import {
   formatBytes,
   printDocument,
@@ -42,6 +42,15 @@ const GITHUB_REPO = 'sovrium/sovrium'
 const GITHUB_API_HOST_DEFAULT = 'api.github.com'
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000 // 24 hours
 const UPDATE_CHECK_FILE = join(homedir(), '.sovrium', 'last-update-check')
+
+/**
+ * How long a release download may go without progress before it is abandoned.
+ *
+ * An INACTIVITY deadline, not a total one: the archive is ~70 MB, which an
+ * honest slow link takes minutes to deliver, while a peer that accepted the
+ * connection and stopped sending would otherwise hold `sovrium update` forever.
+ */
+const DOWNLOAD_STALL_TIMEOUT_MS = 30_000
 
 /**
  * How Sovrium was installed. Determines what `sovrium update` actually does.
@@ -304,9 +313,13 @@ const verifyChecksum = async (
   const checksumFile = `sovrium-${version}-${target}.sha256`
   const checksumUrl = `https://github.com/${GITHUB_REPO}/releases/download/v${version}/${checksumFile}`
   try {
-    const checksumResponse = await fetch(checksumUrl)
-    if (checksumResponse.ok) {
-      const checksumText = await checksumResponse.text()
+    const checksumText = await withFetchStallTimeout(
+      checksumUrl,
+      {},
+      DOWNLOAD_STALL_TIMEOUT_MS,
+      async (response) => (response.ok ? response.text() : undefined)
+    )
+    if (checksumText !== undefined) {
       const expectedHash = checksumText.trim().split(/\s+/)[0]
       const hasher = new Bun.CryptoHasher('sha256')
       // eslint-disable-next-line functional/no-expression-statements
@@ -331,6 +344,65 @@ const verifyChecksum = async (
   }
 }
 
+/** A finished download, or why it failed and what the operator can do about it. */
+type DownloadOutcome =
+  | { readonly kind: 'downloaded'; readonly buffer: Buffer }
+  | { readonly kind: 'failed'; readonly failed: string; readonly guidance: string }
+
+/**
+ * Download the release archive, or stop with a failure that names why.
+ *
+ * Every failure here happens before anything is replaced, and says so. The
+ * download aborts when it makes no progress for {@link DOWNLOAD_STALL_TIMEOUT_MS}.
+ */
+const downloadArchive = async (
+  url: string,
+  archive: string,
+  version: string,
+  target: string
+): Promise<Buffer> => {
+  const outcome: DownloadOutcome = await withFetchStallTimeout<DownloadOutcome>(
+    url,
+    {},
+    DOWNLOAD_STALL_TIMEOUT_MS,
+    async (response) => {
+      if (!response.ok) {
+        return {
+          kind: 'failed',
+          failed: `Download failed with HTTP ${response.status}.`,
+          guidance:
+            `Release v${version} may have no ${target} build. See\n` +
+            '  https://github.com/sovrium/sovrium/releases',
+        }
+      }
+      // The size is announced only once `content-length` has made it knowable (T20).
+      // A faked estimate is worse than none, so an absent header simply omits it.
+      const declaredSize = Number(response.headers.get('content-length'))
+      printProgress(
+        `Downloading ${archive}`,
+        Number.isFinite(declaredSize) && declaredSize > 0 ? formatBytes(declaredSize) : undefined
+      )
+      return { kind: 'downloaded', buffer: Buffer.from(await response.arrayBuffer()) }
+    }
+  ).catch((error: unknown): DownloadOutcome => ({
+    kind: 'failed',
+    failed:
+      error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')
+        ? `Download stalled: no data for ${DOWNLOAD_STALL_TIMEOUT_MS / 1000} s.`
+        : `Download failed: ${error instanceof Error ? error.message : String(error)}.`,
+    guidance: "Check the network connection, then re-run 'sovrium update'.",
+  }))
+  if (outcome.kind === 'downloaded') return outcome.buffer
+
+  printFailure({
+    headline: `${outcome.failed} Nothing was replaced.`,
+    detail: [url],
+    guidance: outcome.guidance,
+  })
+  // eslint-disable-next-line functional/no-expression-statements
+  process.exit(1)
+}
+
 /**
  * Download a new binary version and replace the current one.
  */
@@ -341,33 +413,11 @@ const downloadAndReplace = async (version: string, currentVersion: string): Prom
   const archive = `sovrium-${version}-${target}.tar.gz`
   const url = `https://github.com/${GITHUB_REPO}/releases/download/v${version}/${archive}`
 
+  const archiveBuffer = await downloadArchive(url, archive, version, target)
+
   const tempDir = join(tmpdir(), `sovrium-update-${Date.now()}`)
   // eslint-disable-next-line functional/no-expression-statements
   await mkdir(tempDir, { recursive: true })
-
-  const response = await fetch(url)
-  if (!response.ok) {
-    printFailure({
-      headline: `Download failed with HTTP ${response.status}. Nothing was replaced.`,
-      detail: [url],
-      guidance:
-        `Release v${version} may have no ${target} build. See\n` +
-        '  https://github.com/sovrium/sovrium/releases',
-    })
-    // eslint-disable-next-line functional/no-expression-statements
-    process.exit(1)
-  }
-
-  // The size is announced only once `content-length` has made it knowable (T20).
-  // A faked estimate is worse than none, so an absent header simply omits it.
-  const declaredSize = Number(response.headers.get('content-length'))
-
-  printProgress(
-    `Downloading ${archive}`,
-    Number.isFinite(declaredSize) && declaredSize > 0 ? formatBytes(declaredSize) : undefined
-  )
-
-  const archiveBuffer = Buffer.from(await response.arrayBuffer())
 
   printProgress('Verifying the checksum')
   const checksumVerified = await verifyChecksum(archiveBuffer, version, target)

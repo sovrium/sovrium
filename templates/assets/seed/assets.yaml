@@ -1,164 +1,184 @@
-# Sample asset register.
+# The fourteen assets of Arden & Co, a design studio in Paris and Lyon.
 #
-# Fourteen rows, weighted the way a real register is: mostly laptops and
-# monitors, a long tail of everything else, and a handful of things that are
-# broken, lost to the storeroom, or already written off. Spreading `status`
-# across all four options is what makes `/board` worth opening — a kanban whose
-# cards all sit in one column demonstrates nothing.
+# Mostly laptops and monitors, a long tail of everything else, and the states a
+# real register holds: two assets away for repair, three in storage, one
+# written off. Each holder is a sign-in account from `users.yaml`, named as
+# `@user:<email>` — never written into the asset's name. The support phone
+# passes around a rota, so it names the team in `holder_note` instead.
 #
-# `barcode` is a `format: EAN-13` field, so these are real thirteen-digit codes
-# with correct check digits rather than plausible-looking digits. A scanner app
-# pointed at the demo will accept them, and a barcode that fails validation in a
-# demo is worse than no barcode at all.
-#
-# `purchase_date` is relative, so the register ages with the clock — the oldest
-# kit is always genuinely old, and `value` reads as a plausible book value for
-# something bought that long ago rather than as a list price.
-#
-# `photo` (an attachment) and `assigned_to` (a `user` field) are left unseeded
-# on purpose: the first needs binary files this repository does not ship, and
-# the second needs a real account id that does not exist until someone signs up.
+# `barcode` is `format: EAN-13`, so each code is thirteen digits and
+# ends with the tag's number. Dates are relative to the day the seed runs:
+# purchases age with the clock, the van's warranty always ends in eighteen
+# days, and the desk-9 monitor was not found at the last count.
 records:
-  # ── In use ──────────────────────────────────────────────────────────
-  - key: mbp-nadia
+  - key: ar-0194
     fields:
-      name: MacBook Pro 14" — Nadia B.
+      asset_tag: AR-0194
+      name: 'MacBook Pro 14"'
+      category: Laptop
+      status: In use
+      serial: C02F81LQMD6R
       barcode: '3601240000194'
-      category: Laptop
-      status: In use
-      purchase_date: '{{today-410d}}'
+      location: '@locations.paris-hq'
+      assigned_to: '@user:nadia.benali@arden.example'
+      purchased_on: '{{today-410d}}'
       value: 1650
-      location: '@locations.paris-hq'
-
-  - key: mbp-tomas
+      warranty_end: '{{today+685d}}'
+      warranty_reminder_on: '{{today+655d}}'
+  - key: ar-0262
     fields:
-      name: MacBook Pro 14" — Tomás F.
+      asset_tag: AR-0262
+      name: 'MacBook Pro 14"'
+      category: Laptop
+      status: In use
+      serial: C02G41XQMD6T
       barcode: '3601240000262'
-      category: Laptop
-      status: In use
-      purchase_date: '{{today-208d}}'
-      value: 1890
-      location: '@locations.paris-hq'
-
-  - key: thinkpad-marc
-    fields:
-      name: ThinkPad T14 — Marc D.
-      barcode: '3601240000330'
-      category: Laptop
-      status: In use
-      purchase_date: '{{today-95d}}'
-      value: 1240
       location: '@locations.remote'
-
-  - key: dell-u2723-a
+      assigned_to: '@user:tomas.ferreira@arden.example'
+      purchased_on: '{{today-208d}}'
+      value: 1890
+      warranty_end: '{{today+887d}}'
+      warranty_reminder_on: '{{today+857d}}'
+  - key: ar-0330
     fields:
-      name: Dell U2723QE 27" (desk 4)
-      barcode: '3601240000408'
-      category: Monitor
+      asset_tag: AR-0330
+      name: ThinkPad T14
+      category: Laptop
       status: In use
-      purchase_date: '{{today-330d}}'
-      value: 520
-      location: '@locations.paris-hq'
-
-  - key: dell-u2723-b
-    fields:
-      name: Dell U2723QE 27" (desk 9)
-      barcode: '3601240000576'
-      category: Monitor
-      status: In use
-      purchase_date: '{{today-330d}}'
-      value: 520
+      serial: PF4K2Z9B
+      barcode: '3601240000330'
       location: '@locations.lyon-office'
-
-  - key: iphone-support
+      assigned_to: '@user:marc.dubois@arden.example'
+      purchased_on: '{{today-95d}}'
+      value: 1240
+      warranty_end: '{{today+1000d}}'
+      warranty_reminder_on: '{{today+970d}}'
+  - key: ar-0958
     fields:
-      name: iPhone 15 — support rota handset
-      barcode: '3601240000644'
+      asset_tag: AR-0958
+      name: MacBook Air M2
+      category: Laptop
+      status: In storage
+      serial: C02H77RJQ6LR
+      barcode: '3601240000958'
+      location: '@locations.storeroom'
+      purchased_on: '{{today-72d}}'
+      value: 1140
+      warranty_end: '{{today+1023d}}'
+      warranty_reminder_on: '{{today+993d}}'
+  - key: ar-1252
+    fields:
+      asset_tag: AR-1252
+      name: ThinkPad X1 — cracked hinge
+      category: Laptop
+      status: In repair
+      serial: PF2W8M1C
+      barcode: '3601240001252'
+      location: '@locations.ateliers-remi'
+      purchased_on: '{{today-620d}}'
+      value: 890
+  - key: ar-0408
+    fields:
+      asset_tag: AR-0408
+      name: 'Dell U2723QE 27" · desk 4'
+      category: Monitor
+      status: In use
+      serial: CN0F2V7H
+      barcode: '3601240000408'
+      location: '@locations.paris-hq'
+      assigned_to: '@user:sarah.lemoine@arden.example'
+      purchased_on: '{{today-330d}}'
+      value: 520
+  - key: ar-0576
+    fields:
+      asset_tag: AR-0576
+      name: 'Dell U2723QE 27" · desk 9'
+      category: Monitor
+      status: In use
+      serial: CN0F2V9K
+      barcode: '3601240000576'
+      location: '@locations.paris-hq'
+      purchased_on: '{{today-330d}}'
+      value: 520
+      missing_at_last_count: true
+  - key: ar-1016
+    fields:
+      asset_tag: AR-1016
+      name: 'Dell P2419H 24" ×3 (boxed)'
+      category: Monitor
+      status: In storage
+      serial: CN0K4T2D
+      barcode: '3601240001016'
+      location: '@locations.storeroom'
+      purchased_on: '{{today-880d}}'
+      value: 330
+  - key: ar-0644
+    fields:
+      asset_tag: AR-0644
+      name: iPhone 15 — support handset
       category: Phone
       status: In use
-      purchase_date: '{{today-160d}}'
-      value: 780
+      serial: F4GQ1XJ2P7
+      barcode: '3601240000644'
       location: '@locations.paris-hq'
-
-  - key: kangoo-van
+      purchased_on: '{{today-160d}}'
+      value: 780
+      holder_note: Support rota
+      warranty_end: '{{today+205d}}'
+      warranty_reminder_on: '{{today+175d}}'
+  - key: ar-1320
     fields:
-      name: Renault Kangoo — delivery van
-      barcode: '3601240000712'
+      asset_tag: AR-1320
+      name: iPhone 13 — battery swap
+      category: Phone
+      status: In repair
+      serial: G6TP9L0Q2M
+      barcode: '3601240001320'
+      location: '@locations.ateliers-remi'
+      purchased_on: '{{today-970d}}'
+      value: 240
+  - key: ar-0712
+    fields:
+      asset_tag: AR-0712
+      name: Renault Kangoo van
       category: Vehicle
       status: In use
-      purchase_date: '{{today-1290d}}'
+      serial: VF1FW0ZBC51234567
+      barcode: '3601240000712'
+      location: '@locations.lyon-office'
+      assigned_to: '@user:marc.dubois@arden.example'
+      purchased_on: '{{today-1290d}}'
       value: 9400
-      location: '@locations.paris-hq'
-
-  - key: standing-desks-lyon
+      warranty_end: '{{today+18d}}'
+      warranty_reminder_on: '{{today-12d}}'
+  - key: ar-0880
     fields:
-      name: Standing desks ×6 (Lyon, bay 2)
-      barcode: '3601240000880'
+      asset_tag: AR-0880
+      name: Standing desks ×6
       category: Furniture
       status: In use
-      purchase_date: '{{today-540d}}'
-      value: 2760
+      barcode: '3601240000880'
       location: '@locations.lyon-office'
-
-  # ── In storage ──────────────────────────────────────────────────────
-  - key: mba-spare
+      purchased_on: '{{today-540d}}'
+      value: 2760
+  - key: ar-1184
     fields:
-      name: MacBook Air M2 — spare / new starters
-      barcode: '3601240000958'
-      category: Laptop
-      status: In storage
-      purchase_date: '{{today-72d}}'
-      value: 1140
-      location: '@locations.storeroom'
-
-  - key: monitors-boxed
-    fields:
-      name: Dell P2419H 24" ×3 (boxed)
-      barcode: '3601240001016'
-      category: Monitor
-      status: In storage
-      purchase_date: '{{today-880d}}'
-      value: 330
-      location: '@locations.storeroom'
-
-  - key: projector
-    fields:
+      asset_tag: AR-1184
       name: Epson EB-2250U projector
-      barcode: '3601240001184'
       category: Other
       status: In storage
-      purchase_date: '{{today-1120d}}'
-      value: 410
+      serial: X5LF8820
+      barcode: '3601240001184'
       location: '@locations.storeroom'
-
-  # ── In repair ───────────────────────────────────────────────────────
-  - key: thinkpad-cracked
+      purchased_on: '{{today-1120d}}'
+      value: 410
+  - key: ar-1498
     fields:
-      name: ThinkPad X1 — cracked hinge
-      barcode: '3601240001252'
-      category: Laptop
-      status: In repair
-      purchase_date: '{{today-620d}}'
-      value: 890
-      location: '@locations.repair-vendor'
-
-  - key: iphone-battery
-    fields:
-      name: iPhone 13 — battery swap booked
-      barcode: '3601240001320'
-      category: Phone
-      status: In repair
-      purchase_date: '{{today-970d}}'
-      value: 240
-      location: '@locations.repair-vendor'
-
-  # ── Retired ─────────────────────────────────────────────────────────
-  - key: mbp-2018-retired
-    fields:
-      name: MacBook Pro 15" (2018) — written off
-      barcode: '3601240001498'
+      asset_tag: AR-1498
+      name: 'MacBook Pro 15" (2018)'
       category: Laptop
       status: Retired
-      purchase_date: '{{today-2190d}}'
+      serial: C02X1ZJ2JG5H
+      barcode: '3601240001498'
+      purchased_on: '{{today-2190d}}'
       value: 0
-      location: '@locations.storeroom'

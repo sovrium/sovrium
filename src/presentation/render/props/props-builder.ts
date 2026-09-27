@@ -106,10 +106,13 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
   const { style: _scrollStyle, ...scrollPropsWithoutStyle } = scrollProps
   const { style: _emptyStyle, ...emptyStylePropsWithoutStyle } = emptyStyleProps
 
-  // Remove animation and style props from substitutedProps (already applied to style object)
+  // Remove animation and style props from substitutedProps (already applied to style object),
+  // and the visibility gate config: it is spent by the resolve pipeline, and serialising it
+  // into the markup would publish who a block is for.
   const {
     animation: _animation,
     style: _style,
+    visibility: _visibility,
     ...substitutedPropsWithoutAnimation
   } = config.substitutedProps || {}
 

@@ -32,10 +32,6 @@ export interface EmailConfig {
     readonly user: string
     readonly pass: string
   }
-  readonly from: {
-    readonly email: string
-    readonly name: string
-  }
 }
 
 /**
@@ -52,7 +48,7 @@ export interface EmailConfig {
  * - SMTP_USER: SMTP authentication username
  * - SMTP_PASS: SMTP authentication password
  * - SMTP_FROM: Default "from" email address (default: noreply@sovrium.com)
- * - SMTP_FROM_NAME: Default "from" display name (default: 'Sovrium')
+ * - SMTP_FROM_NAME: Default "from" display name (default: the app's name, else 'Sovrium')
  *
  * @see ./email-config.ts for the underlying configuration resolution
  */
@@ -159,12 +155,19 @@ export function getTransporter():
  * Get the default "from" address formatted for email headers.
  *
  * Reads `SMTP_FROM` / `SMTP_FROM_NAME` directly so it remains usable even when
- * no transport exists (email disabled). Falls back to the platform defaults.
+ * no transport exists (email disabled). The display name is, in order: the
+ * operator's `SMTP_FROM_NAME`, then `fallbackName` (the sending app's `name`),
+ * then "Sovrium" for a bare engine with neither.
  */
-export function getDefaultFrom(): string {
+export function getDefaultFrom(fallbackName?: string): string {
   const email = process.env.SMTP_FROM ?? 'noreply@sovrium.com'
-  const name = process.env.SMTP_FROM_NAME ?? 'Sovrium'
-  return `"${name}" <${email}>`
+  const name =
+    process.env.SMTP_FROM_NAME ??
+    (fallbackName !== undefined && fallbackName.trim() !== '' ? fallbackName : 'Sovrium')
+  // A quote, backslash or line break in a name would end the quoted display
+  // name early or start a new header line; the app's name is config, not
+  // guaranteed to be header-safe.
+  return `"${name.replace(/["\\\r\n]/g, '')}" <${email}>`
 }
 
 /**

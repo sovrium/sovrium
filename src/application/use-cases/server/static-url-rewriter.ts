@@ -112,13 +112,9 @@ export const rewriteBasePathInHtml = (
 ): Effect.Effect<void, StaticGenerationError, never> =>
   Effect.gen(function* () {
     yield* Console.log(`🔗 Rewriting URLs with base path: ${basePath}...`)
-    // Only rewrite actual page HTML files, not assets with .html extension
+    // Only rewrite page HTML files, never anything under assets/
     const htmlFiles = generatedFiles.filter(
-      (f) =>
-        f.endsWith('.html') &&
-        !f.startsWith('assets/') &&
-        !f.includes('/assets/') &&
-        !f.endsWith('.js.html')
+      (f) => f.endsWith('.html') && !f.startsWith('assets/') && !f.includes('/assets/')
     )
 
     // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- build-time static generation: filesystem/SSG work on a dedicated process, no shared database pool connection is held.
@@ -197,11 +193,7 @@ export const injectHydrationScript = (
   Effect.gen(function* () {
     yield* Console.log('💧 Injecting hydration script into HTML files...')
     const htmlFiles = generatedFiles.filter(
-      (f) =>
-        f.endsWith('.html') &&
-        !f.endsWith('.js.html') &&
-        !f.startsWith('assets/') &&
-        !f.includes('/assets/')
+      (f) => f.endsWith('.html') && !f.startsWith('assets/') && !f.includes('/assets/')
     )
 
     // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- build-time static generation: filesystem/SSG work on a dedicated process, no shared database pool connection is held.

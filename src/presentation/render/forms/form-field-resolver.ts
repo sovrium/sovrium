@@ -14,13 +14,28 @@
  * project's max-lines cap.
  */
 
+import { resolveDensityStep } from '@/domain/models/app/design/density-service'
+import {
+  buildConditionValueMap,
+  isFieldRequired,
+  isFieldVisible,
+} from '@/domain/models/app/forms/form-field-helpers'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { optionLabel, optionValue } from '@/domain/models/app/tables/select-option'
+import {
+  nativeInputTypeOf,
+  type ControlAttributeField,
+} from '@/presentation/design/field-control-attributes'
+import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
+import { resolveTypedColumnConfig } from '@/presentation/render/elements/crud-form/crud-form-field-resolver'
+import { renderInlineMarkdown } from '@/presentation/render/markdown/inline-markdown'
 import type { ResolvedFormField } from './form-field-elements'
 import type { App } from '@/domain/models/app'
-import type { Form, FormField, SignatureField } from '@/domain/models/app/forms'
+import type { DensityStepName } from '@/domain/models/app/design'
+import type { Form, FormField, SectionField, SignatureField } from '@/domain/models/app/forms'
 import type { StandaloneField } from '@/domain/models/app/forms/fields/standalone'
 import type { TableBoundField } from '@/domain/models/app/forms/fields/table-bound'
+import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Table } from '@/domain/models/app/tables'
 import type { SelectOption } from '@/domain/models/app/tables/fields/field-types/validation-utils'
@@ -58,6 +73,23 @@ export function resolveDocumentLang(languages: Languages | undefined, activeLang
 }
 
 /**
+ * The density step a standalone form document runs at, resolved exactly as a
+ * page's is — by the zone its path falls in, then the app default, then
+ * `compact`. A form with no public `path` is served at `/forms/{name}`, so that
+ * is the path its zone is looked up with.
+ */
+export function resolveFormDensityStep(
+  app: Pick<App, 'design' | 'languages'>,
+  form: Pick<Form, 'name' | 'path'>
+): DensityStepName {
+  return resolveDensityStep(
+    app.design,
+    form.path ?? `/forms/${form.name}`,
+    app.languages?.supported.map((language) => language.code)
+  )
+}
+
+/**
  * Resolve a `$t:key` literal (or pass-through plain string) using the
  * app's `languages` configuration. When `languages` is undefined, returns
  * the input unchanged.
@@ -76,6 +108,18 @@ function resolveText(
   if (languages === undefined) return value
   const lang = resolveActiveLang(languages, activeLang)
   return resolveTranslationPattern(value, lang, languages)
+}
+
+/** What one render knows beyond the config: the values it is served with and the choices read for it. */
+export interface FormServedState {
+  readonly conditionValues?: Readonly<Record<string, unknown>>
+  readonly optionSets?: FormOptionSets
+}
+
+/** The per-render inputs every field resolver reads. */
+interface FieldResolutionContext {
+  readonly activeLang: string | undefined
+  readonly optionSets: FormOptionSets
 }
 
 /**
@@ -104,22 +148,52 @@ const TABLE_FIELD_INPUT_TYPE_MAP: Readonly<Record<string, string>> = {
   // path which already handles `single-select`/`multi-select` natively.
   'single-select': 'select',
   'multi-select': 'select',
+  // A status column is a closed set of `{ value }` options too: drawn like a
+  // single-select, led by the empty option, never as a free text box its
+  // option CHECK would refuse.
+  status: 'select',
   // Bug 4 / [internal ref]: user-typed columns FK to
-  // `auth_user.id`. They render as a picker (combobox over the user
-  // directory) carrying the `data-field-type="user"` / `data-allow-multiple`
-  // markers the spec asserts. The UserInput SSR component (in
-  // form-field-elements.tsx) emits the picker; the inline runtime
-  // upgrades it with a fetch-backed combobox.
+  // `auth_user.id`. They render as a picker carrying the
+  // `data-field-type="user"` / `data-allow-multiple` markers the spec
+  // asserts, whose options are the app's accounts read on the server for a
+  // signed-in visitor (`resolveFormOptionSources`).
   user: 'user',
+  // A relationship column only accepts the id of a row that exists, so a free
+  // text box could only ever be answered wrongly. It renders a select of the
+  // related rows, read on the server when the form is served
+  // (`resolveFormOptionSources`). One choice per relationship, even a
+  // many-to-many one: a multi-choice picker is not part of this.
+  relationship: 'select',
 }
 
+/**
+ * The control a table-bound field is drawn with. The map above names the
+ * columns a hosted form draws its own way; every other column takes the native
+ * input type the page `form` component gives it (`nativeInputTypeOf`), so a
+ * `currency` or `percentage` column is a number input on both — and a `rating`
+ * column, which no plain input can hold, is its radio scale.
+ */
 function inputTypeForTableField(tableField: { readonly type: string }): string {
-  return TABLE_FIELD_INPUT_TYPE_MAP[tableField.type] ?? 'text'
+  const own = TABLE_FIELD_INPUT_TYPE_MAP[tableField.type]
+  if (own !== undefined) return own
+  if (fieldWidgetOf(tableField.type) === 'rating') return 'rating'
+  return nativeInputTypeOf(tableField.type)
+}
+
+/**
+ * A column's own control configuration (`precision`, `currency`, `min`, `max`,
+ * the rating glyph…), read by the helper the page `form` component reads it with.
+ */
+function columnControlConfig(column: Readonly<Table['fields'][number]>): ControlAttributeField {
+  return {
+    type: column.type,
+    ...resolveTypedColumnConfig(column.type, column as Readonly<Record<string, unknown>>),
+  }
 }
 
 /**
  * Pull `options[]` off a selection-type column (`single-select` /
- * `multi-select`) so the form renderer can emit `<option>` children.
+ * `multi-select` / `status`) so the form renderer can emit `<option>` children.
  * Tables accept either the bare-`string[]` or `{ value, label? }[]` form —
  * normalize both via the shared `optionValue` / `optionLabel` helpers to the
  * renderer shape, and resolve each label's `$t:` token against the active
@@ -132,7 +206,13 @@ function readColumnOptions(
   activeLang: string | undefined
 ): ReadonlyArray<{ readonly value: string; readonly label: string }> | undefined {
   if (!column) return undefined
-  if (column.type !== 'single-select' && column.type !== 'multi-select') return undefined
+  if (
+    column.type !== 'single-select' &&
+    column.type !== 'multi-select' &&
+    column.type !== 'status'
+  ) {
+    return undefined
+  }
   const raw = column.options
   if (!Array.isArray(raw)) return undefined
   return (raw as ReadonlyArray<SelectOption>).map((entry) => {
@@ -140,6 +220,20 @@ function readColumnOptions(
     return { value, label: resolveText(optionLabel(entry), languages, value, activeLang) }
   })
 }
+
+/** `recordAudio.maxDurationSeconds` when the author sets none. */
+const DEFAULT_RECORD_AUDIO_SECONDS = 7200
+
+/**
+ * `recordAudio` on an attachment field: the recorder's cap in seconds, the
+ * schema default (two hours) applied here so the runtime reads one number.
+ */
+const recordAudioOverlay = (
+  recordAudio: { readonly maxDurationSeconds?: number } | undefined
+): Partial<Pick<ResolvedFormField, 'recordAudioMaxSeconds'>> =>
+  recordAudio === undefined
+    ? {}
+    : { recordAudioMaxSeconds: recordAudio.maxDurationSeconds ?? DEFAULT_RECORD_AUDIO_SECONDS }
 
 /**
  * Map a standalone field's `inputType` onto an HTML input element type.
@@ -179,12 +273,35 @@ const resolveSignatureField = (
   hidden: field.hidden ?? false,
 })
 
+/**
+ * A standalone field's choices: read from a table when it names an
+ * `optionsSource` (row values are data, never `$t:` keys), else its authored
+ * `options` with each label localized.
+ */
+function standaloneOptions(
+  field: Readonly<StandaloneField>,
+  optionSets: FormOptionSets,
+  languages: Languages | undefined,
+  activeLang: string | undefined
+): ResolvedFormField['options'] {
+  if (field.optionsSource !== undefined) return optionSets[field.name] ?? []
+  // Resolve the option label's `$t:` token against the active locale
+  // ([internal ref] parity for standalone select fields); the stored `value` is
+  // never localized.
+  return field.options?.map((option) => ({
+    value: option.value,
+    label: resolveText(option.label ?? option.value, languages, option.value, activeLang),
+  }))
+}
+
 const resolveStandaloneField = (
   field: Readonly<StandaloneField>,
   languages: Languages | undefined,
-  activeLang?: string
+  activeLang: string | undefined,
+  optionSets: FormOptionSets
 ): ResolvedFormField => {
   const inputType = inputTypeForStandalone(field.inputType)
+  const options = standaloneOptions(field, optionSets, languages, activeLang)
   return {
     name: field.name,
     inputElement: inputType,
@@ -194,21 +311,12 @@ const resolveStandaloneField = (
     helpText: resolveText(field.helpText, languages, '', activeLang),
     required: field.required ?? false,
     hidden: field.hidden ?? false,
-    ...(field.options
-      ? {
-          options: field.options.map((option) => ({
-            value: option.value,
-            // Resolve the option label's `$t:` token against the active locale
-            // ([internal ref] parity for standalone select fields); the stored
-            // `value` is never localized.
-            label: resolveText(option.label ?? option.value, languages, option.value, activeLang),
-          })),
-        }
-      : {}),
+    ...(options !== undefined ? { options } : {}),
     ...(field.accept !== undefined ? { accept: field.accept } : {}),
     ...(field.maxFileSize !== undefined ? { maxFileSize: field.maxFileSize } : {}),
     ...(field.maxFiles !== undefined ? { maxFiles: field.maxFiles } : {}),
     ...(field.dropZone !== undefined ? { dropZone: field.dropZone } : {}),
+    ...recordAudioOverlay(field.recordAudio),
   }
 }
 
@@ -247,7 +355,12 @@ function readColumnAttachmentProps(
 function fileUploadOverlay(
   field: Readonly<TableBoundField>,
   column: Readonly<{ readonly type?: string }> | undefined
-): Partial<Pick<ResolvedFormField, 'accept' | 'maxFileSize' | 'maxFiles' | 'dropZone'>> {
+): Partial<
+  Pick<
+    ResolvedFormField,
+    'accept' | 'maxFileSize' | 'maxFiles' | 'dropZone' | 'recordAudioMaxSeconds'
+  >
+> {
   const columnProps = readColumnAttachmentProps(column)
   const accept = field.accept ?? columnProps.accept
   const maxFileSize = field.maxFileSize ?? columnProps.maxFileSize
@@ -257,6 +370,7 @@ function fileUploadOverlay(
     ...(maxFileSize !== undefined ? { maxFileSize } : {}),
     ...(maxFiles !== undefined ? { maxFiles } : {}),
     ...(field.dropZone !== undefined ? { dropZone: field.dropZone } : {}),
+    ...recordAudioOverlay(field.recordAudio),
   }
 }
 
@@ -273,15 +387,31 @@ const readUserAllowMultiple = (
   return (column as { readonly allowMultiple?: boolean }).allowMultiple === true
 }
 
+/**
+ * A table-bound field's choices: a relationship or user column's are the rows
+ * or accounts read for this render (none when nothing was read), a selection
+ * column's are its own.
+ */
+const tableFieldOptions = (
+  field: Readonly<TableBoundField>,
+  column: Readonly<Table['fields'][number]> | undefined,
+  optionSets: FormOptionSets,
+  locale: { readonly languages: Languages | undefined; readonly activeLang: string | undefined }
+): ResolvedFormField['options'] =>
+  column?.type === 'relationship' || column?.type === 'user'
+    ? (optionSets[field.column] ?? [])
+    : readColumnOptions(column, locale.languages, locale.activeLang)
+
 const resolveTableField = (
   field: Readonly<TableBoundField>,
   table: Readonly<Table> | undefined,
   languages: Languages | undefined,
-  activeLang?: string
+  context: FieldResolutionContext
 ): ResolvedFormField => {
+  const { activeLang, optionSets } = context
   const column = table?.fields.find((tableField) => tableField.name === field.column)
   const elementType = column ? inputTypeForTableField(column) : 'text'
-  const columnOptions = readColumnOptions(column, languages, activeLang)
+  const columnOptions = tableFieldOptions(field, column, optionSets, { languages, activeLang })
   const allowMultiple = readUserAllowMultiple(column)
   return {
     name: field.column,
@@ -294,26 +424,79 @@ const resolveTableField = (
     hidden: field.hidden ?? false,
     ...(columnOptions ? { options: columnOptions } : {}),
     ...(allowMultiple !== undefined ? { allowMultiple } : {}),
+    ...(column ? { column: columnControlConfig(column) } : {}),
     ...fileUploadOverlay(field, column),
   }
 }
 
 /**
+ * A `kind: section` entry, resolved to an item that renders its heading and
+ * description where it is declared. It carries no control, so it is never
+ * submitted; its `name` is a render key only, and cannot collide with a column
+ * because a column name may not begin with a dot.
+ */
+const resolveSectionItem = (
+  field: Readonly<SectionField>,
+  index: number,
+  languages: Languages | undefined,
+  activeLang: string | undefined
+): ResolvedFormField => ({
+  name: `.section-${index}`,
+  inputElement: 'section',
+  htmlInputType: 'section',
+  label: resolveText(field.heading, languages, '', activeLang),
+  placeholder: '',
+  helpText: resolveText(field.description, languages, '', activeLang),
+  required: false,
+  hidden: false,
+})
+
+/**
  * Resolve a single FormField definition into the shape the renderer
- * needs. Sections and calculations are skipped (return `undefined`) —
- * they are not user-input fields and the foundation tier does not render
- * them.
+ * needs. A section resolves to a heading item that submits nothing; a
+ * calculation is skipped (returns `undefined`) — it is not a user-input field
+ * and the foundation tier does not render it.
  */
 function resolveField(
   field: Readonly<FormField>,
   table: Readonly<Table> | undefined,
   languages: Languages | undefined,
-  activeLang?: string
+  context: FieldResolutionContext & { readonly index: number }
 ): ResolvedFormField | undefined {
-  if (field.kind === 'section' || field.kind === 'calculation') return undefined
+  const { activeLang, optionSets } = context
+  if (field.kind === 'calculation') return undefined
+  if (field.kind === 'section') {
+    return resolveSectionItem(field, context.index, languages, activeLang)
+  }
   if (field.kind === 'signature') return resolveSignatureField(field, languages, activeLang)
-  if (field.kind === 'standalone') return resolveStandaloneField(field, languages, activeLang)
-  return resolveTableField(field, table, languages, activeLang)
+  if (field.kind === 'standalone') {
+    return resolveStandaloneField(field, languages, activeLang, optionSets)
+  }
+  return resolveTableField(field, table, languages, context)
+}
+
+/**
+ * Apply a field's `visibleWhen` / `requiredWhen` to its resolved shape,
+ * evaluated against the values the page is served with (the prefill, or a
+ * multi-step draft) — the same helpers the submit pipeline uses, so the
+ * served page and the server's judgement agree. `requiredWhen` wins over
+ * `required`, as on submit. A config-`hidden` field is left alone: it has no
+ * on-screen wrapper, and its rules stay with the server.
+ */
+function withConditionState(
+  field: Readonly<FormField>,
+  resolved: ResolvedFormField,
+  values: Parameters<typeof isFieldVisible>[1]
+): ResolvedFormField {
+  if (resolved.hidden) return resolved
+  const conditional = field as Parameters<typeof isFieldVisible>[0]
+  const conditionHidden = !isFieldVisible(conditional, values)
+  const required =
+    conditional.requiredWhen !== undefined
+      ? isFieldRequired(conditional, values)
+      : resolved.required
+  if (!conditionHidden && required === resolved.required) return resolved
+  return { ...resolved, required, ...(conditionHidden ? { conditionHidden } : {}) }
 }
 
 /**
@@ -322,19 +505,96 @@ function resolveField(
  *
  * `activeLang`, when supplied, threads the `?lang=` query parameter into
  * `$t:` resolution for each field's label/placeholder/helpText.
+ *
+ * `served.conditionValues` are the values the page is served with (the
+ * resolved prefill, or a multi-step draft), keyed by field name. Each field's
+ * `visibleWhen` / `requiredWhen` is evaluated against them so the served
+ * page already carries the state the inline runtime would apply; an empty
+ * map means nothing has been answered yet. `served.optionSets` are the choices
+ * read from tables for this render (`resolveFormOptionSources`), keyed the same
+ * way; a table-backed field with no entry offers no choices.
  */
 export function resolveAllFields(
   app: Readonly<App>,
   form: Readonly<Form>,
-  activeLang?: string
+  activeLang?: string,
+  served: FormServedState = {}
 ): ReadonlyArray<ResolvedFormField> {
+  const { conditionValues = {}, optionSets = {} } = served
   const table =
     form.submitTo.table !== undefined
       ? app.tables?.find((candidate) => candidate.name === form.submitTo.table)
       : undefined
-  return form.fields
-    .map((field) => resolveField(field, table, app.languages, activeLang))
-    .filter((field): field is ResolvedFormField => field !== undefined)
+  const values = buildConditionValueMap(form, conditionValues)
+  return form.fields.flatMap((field, index) => {
+    const resolved = resolveField(field, table, app.languages, { activeLang, optionSets, index })
+    if (resolved === undefined) return []
+    // Help text is translated first, then rendered: a `$t:` value may itself
+    // carry the markdown.
+    const withHelp = { ...resolved, helpTextHtml: renderInlineMarkdown(resolved.helpText) }
+    return [withConditionState(field, withHelp, values)]
+  })
+}
+
+/** A field together with the section items declared immediately before it. */
+export interface FieldWithSections {
+  readonly field: ResolvedFormField
+  readonly sections: ReadonlyArray<ResolvedFormField>
+}
+
+/**
+ * Attach each section item to the field declared after it. A layout that does
+ * not draw every field on one page — one question per screen, one step at a
+ * time — shows a section with the field it introduces; a section with no field
+ * after it introduces nothing and is dropped.
+ */
+export function attachSectionsToNextField(
+  fields: ReadonlyArray<ResolvedFormField>
+): ReadonlyArray<FieldWithSections> {
+  return fields.reduce<{
+    readonly groups: ReadonlyArray<FieldWithSections>
+    readonly pending: ReadonlyArray<ResolvedFormField>
+  }>(
+    (acc, field) =>
+      field.inputElement === 'section'
+        ? { groups: acc.groups, pending: [...acc.pending, field] }
+        : { groups: [...acc.groups, { field, sections: acc.pending }], pending: [] },
+    { groups: [], pending: [] }
+  ).groups
+}
+
+/**
+ * The items one step of a multi-step form draws: its fields, each preceded by
+ * the sections that introduce it, with a section heading one level below the
+ * step's own title.
+ */
+export function stepItems(
+  fields: ReadonlyArray<ResolvedFormField>,
+  stepFieldNames: ReadonlyArray<string>
+): ReadonlyArray<ResolvedFormField> {
+  return attachSectionsToNextField(fields)
+    .filter((group) => stepFieldNames.includes(group.field.name))
+    .flatMap((group) => [
+      ...group.sections.map((section) => ({ ...section, sectionLevel: 3 as const })),
+      group.field,
+    ])
+}
+
+/**
+ * Each step's description, translated FIRST and then rendered as inline
+ * markdown — a `$t:` key may hold the markdown — keyed by step id.
+ */
+export function stepDescriptionsHtml(
+  steps: NonNullable<Form['steps']>,
+  languages: Languages | undefined,
+  activeLang: string | undefined
+): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    steps.map((step) => [
+      step.id,
+      renderInlineMarkdown(resolveText(step.description, languages, '', activeLang)),
+    ])
+  )
 }
 
 export { resolveText }

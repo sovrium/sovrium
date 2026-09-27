@@ -16,6 +16,7 @@ import { AutomationApprovalRepositoryLive } from '@/infrastructure/database/repo
 import { AutomationDigestRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-digest-repository-live'
 import { AutomationPauseRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-pause-repository-live'
 import { AutomationRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-repository-live'
+import { AutomationRunOutcomeRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-outcome-repository-live'
 import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-repository-live'
 import { AutomationStateRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-state-repository-live'
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
@@ -95,6 +96,10 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // gate to a new trigger path cannot compile-fail for want of wiring.
   AutomationPauseRepositoryLive,
   AutomationRunRepositoryLive,
+  // `AutomationRunOutcomeRepository` — the failure history a finished run's
+  // alert and automatic pause decide from (`notifyPlatformFailure`,
+  // `autoPauseOnFailures`), both on the run loop's own failure path.
+  AutomationRunOutcomeRepositoryLive,
   AutomationApprovalRepositoryLive,
   AuthRepositoryLive,
   AutomationStateRepositoryLive,

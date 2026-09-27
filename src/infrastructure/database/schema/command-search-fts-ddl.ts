@@ -53,7 +53,7 @@
 import { escapeLikeMetacharacters } from '@/domain/kernel/sql/sql-formatting'
 
 /** Prefix of every per-table FTS5 virtual table (SQLite). Reserved namespace. */
-const SQLITE_FTS_PREFIX = 'fts__'
+export const SQLITE_FTS_PREFIX = 'fts__'
 
 /**
  * {@link SQLITE_FTS_PREFIX} escaped for use in a `LIKE … ESCAPE '\'` pattern.
@@ -284,12 +284,21 @@ export const sqliteFtsBackfillStatement = (input: {
           SELECT CAST("id" AS TEXT), ${quoted} FROM "${physicalTable}"`
 }
 
-/** `CREATE INDEX IF NOT EXISTS` for the PostgreSQL GIN expression index. */
+/**
+ * `CREATE INDEX IF NOT EXISTS` for the PostgreSQL GIN expression index.
+ *
+ * The index is NAMED after the relation the palette queries but BUILT on the
+ * physical table: a view-backed table is served as a view over `<t>_base`, and
+ * Postgres refuses an index on a view. Every searchable column is a stored text
+ * column of the base table, and the planner inlines a simple view, so the
+ * palette's predicate against the view still reaches this index.
+ */
 export const pgFtsIndexStatement = (input: {
-  readonly relation: string
+  readonly queriedRelation: string
+  readonly physicalTable: string
   readonly columns: readonly string[]
 }): string => {
-  const { relation, columns } = input
-  return `CREATE INDEX IF NOT EXISTS "${pgFtsIndexName(relation, columns)}"
-          ON "${relation}" USING GIN (${pgSearchVectorExpression(columns)})`
+  const { queriedRelation, physicalTable, columns } = input
+  return `CREATE INDEX IF NOT EXISTS "${pgFtsIndexName(queriedRelation, columns)}"
+          ON "${physicalTable}" USING GIN (${pgSearchVectorExpression(columns)})`
 }

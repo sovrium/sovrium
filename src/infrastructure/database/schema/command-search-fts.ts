@@ -66,10 +66,13 @@ import type { Table } from '@/domain/models/app/tables'
 import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 
 /** One table's resolved index target: what to index, on what, over which columns. */
-interface FtsTarget {
+export interface FtsTarget {
   /** The relation the palette SELECTs from (a view name for view-backed tables). */
   readonly queriedRelation: string
-  /** The real table the SQLite triggers attach to — a view cannot carry one. */
+  /**
+   * The real table the SQLite triggers and the Postgres index attach to — a
+   * view can carry neither.
+   */
   readonly physicalTable: string
   readonly columns: readonly string[]
 }
@@ -82,7 +85,7 @@ interface FtsTarget {
  * even legal. Identifiers are re-checked here so an unexpected name fails closed
  * rather than reaching a DDL string.
  */
-const resolveTargets = (tables: readonly Table[]): readonly FtsTarget[] =>
+export const resolveTargets = (tables: readonly Table[]): readonly FtsTarget[] =>
   tables.flatMap((table): readonly FtsTarget[] => {
     const columns = searchableTextColumns(table.fields)
     if (columns.length === 0) return []
@@ -227,7 +230,8 @@ const reconcileSqliteTarget = async (tx: TransactionLike, target: FtsTarget): Pr
 // ─── PostgreSQL ──────────────────────────────────────────────────────────────
 
 /**
- * Index names on `relation` that belong to this feature's reserved namespace.
+ * Index names on the target's PHYSICAL table that belong to this feature's
+ * reserved namespace — the table the index is built on (a view carries none).
  *
  * The `_` in the prefix is escaped because it is a LIKE wildcard: unescaped,
  * `cs_fts_notes_%` would also match names this module did not create, and this
@@ -246,7 +250,7 @@ const pgObsoleteIndexNames = async (
   const keep = pgFtsIndexName(target.queriedRelation, target.columns)
   const rows = (await tx.unsafe(
     `SELECT indexname FROM pg_indexes
-     WHERE tablename = '${escapeSqlString(target.queriedRelation)}'
+     WHERE tablename = '${escapeSqlString(target.physicalTable)}'
        AND indexname LIKE '${escapeSqlString(prefix)}%' ESCAPE '\\'`
   )) as readonly { readonly indexname?: unknown }[]
   return rows.map((row) => String(row.indexname)).filter((name) => name !== keep)
@@ -265,10 +269,57 @@ const reconcilePostgresTarget = async (tx: TransactionLike, target: FtsTarget): 
   for (const name of await pgObsoleteIndexNames(tx, target)) {
     await exec(tx, `DROP INDEX IF EXISTS "${name}"`)
   }
-  await exec(tx, pgFtsIndexStatement({ relation: target.queriedRelation, columns: target.columns }))
+  await exec(tx, pgFtsIndexStatement(target))
 }
 
 // ─── Entry point ─────────────────────────────────────────────────────────────
+
+/** The savepoint each Postgres target runs under; reused, since targets run one at a time. */
+const PG_TARGET_SAVEPOINT = 'cs_fts_target'
+
+/**
+ * Degrade, never fail boot — the palette falls back to the plain escaped LIKE
+ * for this table. See the module header.
+ */
+const warnUnreconciled = (target: FtsTarget, error: unknown): void =>
+  logWarning(
+    `[command-search] could not reconcile the search index for "${target.queriedRelation}" — the palette will fall back to an unindexed scan for it: ${String(error)}`
+  )
+
+/**
+ * Reconcile one Postgres target, leaving the transaction usable whatever happens.
+ *
+ * On Postgres a failed statement aborts the whole transaction: every later
+ * statement is refused until it ends, so a JS `catch` alone isolates nothing and
+ * one bad target would cost every target after it its index (and roll back the
+ * ones before it at commit). Each target therefore runs under a savepoint, and a
+ * failure rolls back to it before being reported. SQLite keeps the transaction
+ * usable after a failed statement, so its branch needs no savepoint.
+ */
+const reconcilePostgresTargetIsolated = async (
+  tx: TransactionLike,
+  target: FtsTarget
+): Promise<void> => {
+  await exec(tx, `SAVEPOINT ${PG_TARGET_SAVEPOINT}`)
+  try {
+    await reconcilePostgresTarget(tx, target)
+    await exec(tx, `RELEASE SAVEPOINT ${PG_TARGET_SAVEPOINT}`)
+  } catch (error) {
+    // The rollback can fail too — a connection lost mid-target is the realistic
+    // case. The target's own failure is the cause worth reporting, so it is kept
+    // and the rollback failure is appended rather than thrown in its place.
+    const rollbackFailure = await exec(tx, `ROLLBACK TO SAVEPOINT ${PG_TARGET_SAVEPOINT}`).then(
+      () => undefined,
+      (cause: unknown) => ({ cause })
+    )
+    warnUnreconciled(
+      target,
+      rollbackFailure === undefined
+        ? error
+        : `${String(error)} (rolling back to the savepoint also failed, so the remaining targets cannot be reconciled on this transaction: ${String(rollbackFailure.cause)})`
+    )
+  }
+}
 
 /** Reconcile every target on one open transaction, isolating per-table failures. */
 const reconcileAll = async (
@@ -281,13 +332,9 @@ const reconcileAll = async (
     try {
       await (dialect === 'sqlite'
         ? reconcileSqliteTarget(tx, target)
-        : reconcilePostgresTarget(tx, target))
+        : reconcilePostgresTargetIsolated(tx, target))
     } catch (error) {
-      // Degrade, never fail boot — the palette falls back to the plain escaped
-      // LIKE for this table. See the module header.
-      logWarning(
-        `[command-search] could not reconcile the search index for "${target.queriedRelation}" — the palette will fall back to an unindexed scan for it: ${String(error)}`
-      )
+      warnUnreconciled(target, error)
     }
   }
 }

@@ -6,12 +6,14 @@
  */
 
 import { useState } from 'react'
+import { computeGalleryPagerClasses } from '@/presentation/design/gallery-default-classes'
+import { isRefusedRead } from '../hooks/use-records-query'
+import { LoadMoreButton } from '../parts/load-more-button'
 import { hasDataBinding, resolveIslandRecords } from '../runtime/data-binding'
 import { GalleryCarousel } from './gallery-carousel'
 import { GalleryGrid } from './gallery-grid'
 import { GalleryPager } from './gallery-pager'
 import { GalleryEmpty, GalleryError, GalleryLoading, GalleryMissingTable } from './gallery-states'
-import { LoadMoreButton } from './load-more-button'
 import { useGalleryRecords } from './use-gallery-records'
 import type { TableRecord } from '../runtime/types'
 import type {
@@ -21,6 +23,19 @@ import type {
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
 import type { ReactElement } from 'react'
+
+/** The gallery's pager chrome, which its load-more footer wears. Pure: resolved once. */
+const GALLERY_PAGER_CLASSES = computeGalleryPagerClasses()
+
+/** The shared load-more control, in the gallery's pager chrome. */
+function GalleryLoadMore({ onClick }: { readonly onClick: () => void }): ReactElement {
+  return (
+    <LoadMoreButton
+      onClick={onClick}
+      footerClassName={GALLERY_PAGER_CLASSES}
+    />
+  )
+}
 
 interface PaginationConfig {
   /**
@@ -203,7 +218,7 @@ function GalleryContent({
           layout={layout}
         />
       )}
-      {showLoadMore && <LoadMoreButton onClick={onLoadMore} />}
+      {showLoadMore && <GalleryLoadMore onClick={onLoadMore} />}
       {showPager && (
         <GalleryPager
           pageCount={pageCount}
@@ -212,6 +227,25 @@ function GalleryContent({
         />
       )}
     </>
+  )
+}
+
+/**
+ * A failed read. A read the visitor may not make settles exactly as an empty
+ * one: the gallery has nothing of that table to show, and a loading skeleton or
+ * an error would each tell the visitor something about a table they may not see.
+ */
+function GalleryFailure({
+  error,
+  emptyMessage,
+}: {
+  readonly error: unknown
+  readonly emptyMessage: string | undefined
+}): ReactElement {
+  return isRefusedRead(error) ? (
+    <GalleryEmpty message={emptyMessage} />
+  ) : (
+    <GalleryError error={error} />
   )
 }
 
@@ -229,7 +263,14 @@ export default function GalleryIsland({
   // handed in by an embedder that already resolved one of the two.
   if (!embeddedRecords && !hasDataBinding(dataSource)) return <GalleryMissingTable />
   if (isLoading) return <GalleryLoading />
-  if (isError) return <GalleryError error={error} />
+  if (isError) {
+    return (
+      <GalleryFailure
+        error={error}
+        emptyMessage={emptyMessage}
+      />
+    )
+  }
 
   const records = resolveIslandRecords(embeddedRecords, data?.records)
   if (records.length === 0) return <GalleryEmpty message={emptyMessage} />

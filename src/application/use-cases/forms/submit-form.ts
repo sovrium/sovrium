@@ -8,8 +8,8 @@
 import { Data, Effect } from 'effect'
 import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
 import {
-  buildGuestSession,
   buildSyntheticSession,
+  buildSystemSession,
 } from '@/application/use-cases/automations/build-guest-session'
 import { triggerFormSubmissionAutomations } from '@/application/use-cases/automations/trigger-form-submission'
 import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
@@ -17,12 +17,17 @@ import { coerceScalarsForArrayColumns } from '@/application/use-cases/forms/coer
 import { coerceEmptySelectToNull } from '@/application/use-cases/forms/coerce-empty-select'
 import { emitFormSubmissionAnalyticsEvent } from '@/application/use-cases/forms/emit-form-analytics-event'
 import {
+  constraintRefusalForField,
+  uniqueRefusalForField,
+} from '@/application/use-cases/forms/submit-form-constraint-errors'
+import {
   FormFieldFormatError,
   validateFieldFormats,
 } from '@/application/use-cases/forms/submit-form-format-validation'
 import { checkHoneypot } from '@/application/use-cases/forms/submit-form-honeypot'
 import { checkRateLimit } from '@/application/use-cases/forms/submit-form-rate-limit'
 import { createRecordProgram } from '@/application/use-cases/tables/write-record-programs'
+import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { evaluateAvailabilityWindow } from '@/domain/models/app/forms/form-availability-flow'
 import {
   buildConditionValueMap,
@@ -82,6 +87,7 @@ export class FormFieldRequiredError extends Data.TaggedError('FormFieldRequiredE
 // (Bug 5 / [internal ref]). Re-exported so existing callers
 // (presentation/api/routes/forms.ts) keep their import surface stable.
 export { FormFieldFormatError }
+export { FormFieldConstraintError } from '@/application/use-cases/forms/submit-form-constraint-errors'
 
 /**
  * Form field write violated a foreign-key constraint (typically a `user`-typed
@@ -451,8 +457,15 @@ interface PersistOutcome {
  * Authorship: an authenticated submission is authored by the REAL submitter —
  * it writes with the submitter's session AND stamps every `created-by`-typed
  * column (the literal `created_by` AND any custom-named one, e.g. `author`) by
- * name (the infra injection only fills the literal columns). An anonymous
- * submission falls back to the guest session (authorship normalized to NULL).
+ * name (the infra injection only fills the literal columns).
+ *
+ * An anonymous submission has no submitter to name, so it is authored by the
+ * system actor: it writes with the system session and stamps every
+ * `created-by` column (literal or custom-named) with `SYSTEM_USER_ID` — the
+ * same value an automation-authored create writes. Authorship columns carry no
+ * foreign key to the user table, so the sentinel is valid there; the
+ * activity-log row's user foreign key still resolves it to NULL
+ * (`resolveActorUserId`).
  */
 const writeBoundTableRecord = (input: {
   readonly app: Readonly<App>
@@ -475,7 +488,7 @@ const writeBoundTableRecord = (input: {
       session:
         submitterUserId !== undefined
           ? buildSyntheticSession(submitterUserId)
-          : buildGuestSession(),
+          : buildSystemSession(),
       tableName,
       fields: {
         // Order matters: `''` becomes `null` FIRST, so the array coercion
@@ -487,9 +500,7 @@ const writeBoundTableRecord = (input: {
           app,
           tableName
         ),
-        ...(submitterUserId !== undefined
-          ? buildCreateAuthorshipOverrides(app.tables, tableName, submitterUserId)
-          : {}),
+        ...buildCreateAuthorshipOverrides(app.tables, tableName, submitterUserId ?? SYSTEM_USER_ID),
       },
     })
   })
@@ -628,12 +639,19 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       userAgent,
       submitterUserId,
     }).pipe(
-      Effect.catchTag('ForeignKeyViolationError', (fk) => {
-        const fieldName = fk.fieldName ?? ''
-        const message = fk.fieldName
-          ? `${fk.fieldName} references a record that does not exist`
-          : 'references a record that does not exist'
-        return Effect.fail(new FormFieldForeignKeyError({ fieldName, message }))
+      Effect.catchTags({
+        ForeignKeyViolationError: (fk) => {
+          const fieldName = fk.fieldName ?? ''
+          const message = fk.fieldName
+            ? `${fk.fieldName} references a record that does not exist`
+            : 'references a record that does not exist'
+          return Effect.fail(new FormFieldForeignKeyError({ fieldName, message }))
+        },
+        // A value refused by a unique, CHECK or NOT NULL rule is reported
+        // against the field it came from, so the page can draw it there.
+        UniqueConstraintViolationError: (unique) =>
+          Effect.fail(uniqueRefusalForField(unique) ?? unique),
+        DatabaseError: (failure) => Effect.fail(constraintRefusalForField(failure) ?? failure),
       })
     )
 

@@ -1,9 +1,15 @@
-name: people
-version: 1.0.0
+# Meridian People — a small company's HR workspace in one config.
+#
+# Who works here, who is away, and who decides. The directory withholds each
+# salary from everyone but an admin, on the server; a time-off request is
+# filed by the person it concerns and waits on an admin's decision, taken in
+# the app. This is the file you diff, fork and redeploy.
+name: meridian-people
+version: 2.0.0
 description: >-
-  HR workspace — an employee directory with field-level salary protection, a
-  time-off calendar, and a request flow where an approval automation pauses
-  until an admin signs off.
+  A small company's HR workspace: a directory of the team with each salary
+  withheld from everyone but an admin, a calendar of who is away by name, time
+  off requested for oneself, and a queue where an admin decides.
 
 auth:
   $ref: ./config/auth.yaml
@@ -15,12 +21,20 @@ tables:
   - $ref: ./config/tables/employees.yaml
   - $ref: ./config/tables/time_off_requests.yaml
 
+# Automations run on the server, with their history kept in your own database.
+automations:
+  - $ref: ./config/automations/approve-time-off.yaml
+
+# Listed in the order of the sidebar: the directory first, then time off, then
+# the two pages only an admin opens.
 pages:
-  - $ref: ./config/pages/sign-in.yaml
   - $ref: ./config/pages/directory.yaml
   - $ref: ./config/pages/time-off.yaml
   - $ref: ./config/pages/requests.yaml
+  - $ref: ./config/pages/overview.yaml
+  - $ref: ./config/pages/sign-in.yaml
 
-# Automations run server-side with full history in your own database.
-automations:
-  - $ref: ./config/automations/approve-time-off.yaml
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over the calendar or the last row of a grid.
+badge:
+  placement: footer

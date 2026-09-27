@@ -27,9 +27,12 @@
  *     filled here, so the served bytes name nobody and a cached copy of the
  *     page cannot carry one reader's identity to the next.
  *
- * The resolvable fields are deliberately limited to the non-sensitive identity
- * fields the session envelope returns (`email` / `name` / `role` / `id`) — every
- * value is the CALLER's own, mirroring `SessionFieldSchema`.
+ * Any field of the `{ user }` envelope resolves — the identity fields (`email` /
+ * `name` / `role` / `id`), and the engine-owned preferences beside them
+ * (`language`, `notifyAutomationAlerts`, `notifyWeeklyDigest`). Every value is
+ * the CALLER's own, and the envelope carries no secret, so nothing a token can
+ * name is anybody else's. A boolean resolves to `'true'`/`'false'`, which is
+ * what a `switch` control reads (`fillSessionChecked`).
  *
  * The GRAMMAR itself — the `$session.<field>` token and the `[ … ]` optional
  * segment around it — lives in `@/presentation/design/session-template`, because
@@ -190,10 +193,27 @@ function fillSessionValue(element: HTMLElement, user: SessionUser | undefined): 
   const template = element.getAttribute(VALUE_BINDING_ATTRIBUTE)
   if (template === null) return
   const resolved = resolveSessionTemplate(template, user)
+  if (element.getAttribute('type') === 'checkbox') {
+    fillSessionChecked(element, resolved)
+    return
+  }
   if (resolved === '' && element.tagName === 'SELECT') return
   const control = element as ValueControl
   // eslint-disable-next-line functional/immutable-data -- prefilling the control IS the mutation
   control.value = resolved
+}
+
+/**
+ * Set a `switch` from the caller's own session. Only a stored `true` turns it
+ * on: an anonymous caller, an absent field and anything else leave it off,
+ * which is how the server drew it.
+ */
+function fillSessionChecked(element: HTMLElement, resolved: string): void {
+  const on = resolved === 'true'
+  const control = element as HTMLInputElement
+  // eslint-disable-next-line functional/immutable-data -- setting the switch IS the mutation
+  control.checked = on
+  control.setAttribute('aria-checked', on ? 'true' : 'false')
 }
 
 /** Fill one `data-session-template` element with the caller's own value. */

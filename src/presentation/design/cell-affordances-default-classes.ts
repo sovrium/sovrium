@@ -382,6 +382,39 @@ export const computeRatingGlyphClasses = ({ filled = false }: { filled?: boolean
   filled ? `text-[${v('sv-fg', T.fg)}]` : `text-[${v('sv-border-strong', T.borderStrong)}]`
 
 /**
+ * Compute the className for one rank of a rating scale drawn as a native radio
+ * laid over its glyph (the server-rendered hosted form). The radio is
+ * transparent, so its own focus ring is invisible; the rank draws the ring
+ * instead whenever the radio inside it holds keyboard focus.
+ */
+export const computeRatingRankClasses = (): string =>
+  [
+    'relative inline-block cursor-pointer rounded-sm',
+    'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-offset-2',
+    `has-[:focus-visible]:ring-[${v('sv-focus-ring', T.focusRing)}]`,
+  ].join(' ')
+
+/** Glyph pairs `[filled, hollow]` that a rating's declared `style` selects between. */
+const RATING_GLYPHS: Readonly<Record<string, readonly [string, string]>> = {
+  stars: ['★', '☆'],
+  hearts: ['♥', '♡'],
+  circles: ['●', '○'],
+}
+
+/** The scale length used when a rating declares no `max`. */
+export const DEFAULT_RATING_MAX = 5
+
+/**
+ * The `[filled, hollow]` glyph pair for a declared `style`, falling back to
+ * stars for an unknown one. Beside {@link computeRatingGlyphClasses} because
+ * the glyph and its tone are one decision, read by the grid, the page form and
+ * the server-rendered hosted form alike.
+ */
+export function ratingGlyphsFor(style: string | undefined): readonly [string, string] {
+  return RATING_GLYPHS[style ?? 'stars'] ?? RATING_GLYPHS['stars']!
+}
+
+/**
  * Compute the className for the progress TRACK — the `role="progressbar"` box
  * the fill is measured against. Fixed width so a column of bars is comparable
  * at a glance, `overflow-hidden` so the fill's corners follow the track's.

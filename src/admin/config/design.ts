@@ -1001,6 +1001,11 @@ const TOKEN_CATALOGUE = [
   { kind: 'token', key: 'border', trailing: '// neutral-200' },
   { kind: 'token', key: 'borderStrong', trailing: '// neutral-300' },
   { kind: 'token', key: 'borderInverse', trailing: '// neutral-900' },
+  {
+    kind: 'token',
+    key: 'borderControl',
+    trailing: '// off-ramp: the only border that must reach 3:1 (unchecked control)',
+  },
   { kind: 'blank' },
   { kind: 'comment', text: '// ---------- Foreground roles ----------' },
   { kind: 'token', key: 'fg', trailing: '// neutral-950' },
@@ -1676,6 +1681,11 @@ export const DEFAULT_DESIGN_SOURCE = {
         { kind: 'decl', property: '--sv-border', value: 'oklch(0.321 0 0)' },
         { kind: 'decl', property: '--sv-border-strong', value: { ref: 'neutral-700' } },
         { kind: 'decl', property: '--sv-border-inverse', value: { ref: 'neutral-50' } },
+        {
+          kind: 'comment',
+          text: '/* border-control (see the light bridge): 0.58 reads 3.5:1 on bg-subtle\n       and 4.6:1 on bg, where border-strong reaches 2.0:1. */',
+        },
+        { kind: 'decl', property: '--sv-border-control', value: 'oklch(0.58 0 0)' },
         { kind: 'blank' },
         { kind: 'decl', property: '--sv-fg', value: { ref: 'neutral-50' } },
         { kind: 'decl', property: '--sv-fg-muted', value: { ref: 'neutral-400' } },
@@ -1807,6 +1817,11 @@ export const DEFAULT_DESIGN_SOURCE = {
       },
       { kind: 'decl', property: '--sv-border-strong', value: { ref: 'neutral-300' } },
       { kind: 'decl', property: '--sv-border-inverse', value: { ref: 'neutral-900' } },
+      {
+        kind: 'comment',
+        text: '/* border-control: the outline of an unchecked control — a switch track,\n       a checkbox box, a radio ring. It is the only border token that must\n       meet 3:1 (WCAG 1.4.11): an unchecked control has no other edge, and\n       border (1.2:1) and border-strong (1.4:1) left it a smudge on the page.\n       0.62 clears 3:1 against bg (3.5:1), bg-subtle (3.3:1) and bg-raised.\n       It is a literal, not a ramp step, and it is deliberately NOT derived\n       from border-strong: a tenant border is copied onto that one. */',
+      },
+      { kind: 'decl', property: '--sv-border-control', value: 'oklch(0.62 0 0)' },
       { kind: 'blank' },
       {
         kind: 'comment',
@@ -2077,6 +2092,7 @@ export const DEFAULT_DESIGN_SOURCE = {
         { kind: 'decl', property: '--sv-border', value: '#333333' },
         { kind: 'decl', property: '--sv-border-strong', value: { ref: 'neutral-700' } },
         { kind: 'decl', property: '--sv-border-inverse', value: { ref: 'neutral-50' } },
+        { kind: 'decl', property: '--sv-border-control', value: '#7a7a7a' },
         { kind: 'blank' },
         { kind: 'decl', property: '--sv-fg', value: { ref: 'neutral-50' } },
         { kind: 'decl', property: '--sv-fg-muted', value: { ref: 'neutral-400' } },

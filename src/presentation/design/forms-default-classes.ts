@@ -57,6 +57,49 @@
 import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 
+// ──────────────────────────────────────────────────────────────────────────────
+// SWITCH — an endpoint form's on/off control
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The row a `control: switch` field sits in: the switch, then its label, on
+ * one line — the reading order of every settings screen, and the one that
+ * keeps a column of switches aligned on their controls rather than on their
+ * labels.
+ */
+export const computeFormSwitchFieldClasses = (): string =>
+  'inline-flex cursor-pointer items-center gap-2.5'
+
+/**
+ * The switch itself: a native checkbox (`role="switch"`) drawn as a pill whose
+ * `::before` is the thumb. Native rather than an island, because an endpoint
+ * form is a plain server-rendered `<form>` with no React on the client — so the
+ * control has to be one that works, and toggles with Space, before any script
+ * runs. Mirrors the island switch's proportions (a 36×20 track, a 16px thumb)
+ * and its colours: the muted surface off, the primary role on.
+ *
+ * The unchecked track carries a 1px inset outline in `--sv-border-control`,
+ * the one border token that reaches 3:1 — without it an unchecked switch is a
+ * 1.06:1 smudge on the page. It is a `shadow`, never a `ring-inset`: the inset
+ * ring shares `--tw-ring-inset` with the focus ring, which would then draw
+ * inside the track. Checked drops the outline; the primary fill is the edge.
+ */
+export const computeFormSwitchClasses = (): string =>
+  [
+    'relative h-5 w-9 shrink-0 cursor-pointer appearance-none rounded-full',
+    `bg-[${v('sv-bg-subtle', T.bgSubtle)}] checked:bg-primary`,
+    // Written out rather than composed with v(): the safelist harvest only
+    // resolves a bare `utility-[${v(…)}]`, so a composite shadow value would
+    // silently drop out of the binary's stylesheet.
+    'shadow-[inset_0_0_0_1px_var(--sv-border-control,oklch(0.62_0_0))] checked:shadow-none',
+    'transition-colors duration-150',
+    "before:pointer-events-none before:absolute before:top-0.5 before:left-0.5 before:h-4 before:w-4 before:rounded-full before:content-['']",
+    `before:bg-[${v('sv-bg-raised', T.bgRaised)}] before:shadow-sm`,
+    'before:transition-transform before:duration-150 checked:before:translate-x-4',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+    `focus-visible:ring-[${v('sv-focus-ring', T.focusRing)}]`,
+  ].join(' ')
+
 // Re-export the shared form-layout design contract (single source of truth in
 // `presentation/utils/design/form-layout-classes.ts`) so the element-renderers
 // cluster keeps a local import surface. Both form pipelines consume these.

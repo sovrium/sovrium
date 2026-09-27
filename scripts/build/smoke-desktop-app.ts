@@ -233,6 +233,62 @@ export const smokeEnv = (
 }
 
 /**
+ * The variables of `smokeEnv` whose value is a DIRECTORY the bundle will resolve
+ * against. Listed rather than inferred, because "this value looks like a path"
+ * is not a rule a test can hold.
+ */
+const REDIRECTED_DIR_VARS = [
+  'HOME',
+  'USERPROFILE',
+  'XDG_CONFIG_HOME',
+  'XDG_DATA_HOME',
+  'XDG_CACHE_HOME',
+  'APPDATA',
+  'LOCALAPPDATA',
+] as const
+
+/**
+ * Every redirected location, deduplicated — all of which must EXIST before the
+ * bundle launches.
+ *
+ * Creating the run directory's `home` and stopping there is what broke the
+ * Windows lane of v0.28.0, and the mechanism is worth writing down because
+ * nothing about the failure named it. The shell died at launch with
+ * `PluginInitialization("log", "unknown path")`, which is `tauri-plugin-log`'s
+ * default `LogDir` target failing on `app_log_dir()`. On Windows that resolves
+ * through `dirs::data_local_dir()` -> `SHGetKnownFolderPath(FOLDERID_LocalAppData,
+ * 0, NULL)` — the Win32 known-folder API, NOT `%LOCALAPPDATA%`. Two documented
+ * properties of that call combine into the defect:
+ *
+ *  - the known folder is stored in the registry as a REG_EXPAND_SZ that is
+ *    `%USERPROFILE%`-relative (which is exactly what `KF_FLAG_DONT_UNEXPAND`
+ *    exists to suppress), so redirecting `USERPROFILE` moves it; and
+ *  - with `dwFlags` of 0 the existence of the folder is VERIFIED — "If this flag
+ *    isn't set, then an attempt is made to verify that the folder is truly
+ *    present at the path. If that verification fails due to the folder being
+ *    absent or inaccessible, then the function returns a failure code, and no
+ *    path is returned." (KNOWN_FOLDER_FLAG / KF_FLAG_DONT_VERIFY.)
+ *
+ * So `<runDir>/home` existed, `<runDir>/home/AppData/Local` did not, the call
+ * returned nothing, and the plugin's own `create_dir_all` never got the chance —
+ * it runs AFTER the `?` on `app_log_dir()`.
+ *
+ * The isolation is not the bug and is not relaxed here: an unredirected smoke
+ * test that wrote into the developer's real settings store would be worse than
+ * the defect it is looking for. The rule is simply that a redirected location
+ * must be a real directory. Unix is unaffected — `dirs` reads `$HOME` there and
+ * returns it unverified — which is precisely why the same env passed on macOS
+ * and Linux and only Windows refused.
+ */
+export const smokeDirs = (env: Readonly<Record<string, string>>): readonly string[] => [
+  ...new Set(
+    REDIRECTED_DIR_VARS.map((name) => env[name]).filter(
+      (value): value is string => value !== undefined && value !== ''
+    )
+  ),
+]
+
+/**
  * Report a refusal and stop.
  *
  * The type annotation is on the VARIABLE rather than only on the arrow, and
@@ -252,7 +308,9 @@ const main = async (argv: readonly string[]): Promise<number> => {
   if (!existsSync(options.exe)) {
     fail(`no executable at ${options.exe}`)
   }
-  mkdirSync(join(options.runDir, 'home'), { recursive: true })
+  const env = smokeEnv(options, process.env)
+  // Every redirected location, not just `home` — see smokeDirs.
+  for (const dir of smokeDirs(env)) mkdirSync(dir, { recursive: true })
 
   const reportPath = join(options.runDir, 'smoke-report.json')
   const quitPath = join(options.runDir, 'quit')
@@ -262,7 +320,7 @@ const main = async (argv: readonly string[]): Promise<number> => {
   process.stdout.write(`smoke-desktop-app: run directory ${options.runDir}\n`)
 
   const child = Bun.spawn([options.exe], {
-    env: smokeEnv(options, process.env),
+    env,
     // Inherited rather than piped: the shell's log lines and the engine's are
     // the first thing anybody reads when this goes red, and a pipe this script
     // forgot to drain would deadlock the child instead.

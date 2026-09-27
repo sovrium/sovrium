@@ -104,8 +104,9 @@
  *  - `automationsPaused`   ← automations whose state is `paused`
  *  - `tableFields`         ← sum of declared field counts across `app.tables[]`
  *  - `automationsDisabled` ← automations whose state is `disabled`
- *  - `agentsDefault`       ← agents flagged as the default (`0` or `1`)
- *  - `bucketsS3` / `bucketsLocal` ← buckets grouped by resolved provider
+ *  - `agentsSystem`        ← whether the built-in System Agent can run (`0` or `1`)
+ *  - `bucketsSystem`       ← whether the built-in system bucket exists (`0` or `1`)
+ *  - `bucketsS3` / `bucketsLocal` ← declared buckets grouped by resolved provider
  *  - `linksConfig` / `linksDb`    ← links grouped by source (config-declared vs stored)
  *  - `usersBanned`         ← users whose `banned` flag is set
  *  - `teams`               ← configured teams
@@ -188,7 +189,9 @@ const attentionDegradedField = optionalField(
  *  - `automationsPaused` is BOTH the sixth pulse cell's count and the
  *    Automations tile's "paused" sub-line figure — one key, one reduction, so
  *    the strip and the tile can never disagree
- *  - `agentsDefault` is `0` or `1` (an app declares at most one default agent)
+ *  - `agentsSystem` is `0` or `1` (every app carries exactly one System Agent)
+ *  - `bucketsSystem` is `0` or `1`, and `bucketsSystem + bucketsS3 + bucketsLocal`
+ *    equals the buckets `/api/admin/buckets` lists
  *  - a `degraded` naming a source means that source's figures are fallbacks
  *
  * Exposed under the OpenAPI name `AdminAttentionResponse`.
@@ -256,14 +259,17 @@ export const adminAttentionResponseSchema = Schema.Struct({
   automationsDisabled: attentionCount(
     'Automations whose state is `disabled` — the second half of the Automations tile sub-line. Disjoint from `automationsPaused`: an automation is disabled OR paused, never both.'
   ),
-  agentsDefault: attentionCount(
-    'Agents flagged as the default — the Agents tile sub-line. `0` or `1`: an app declares at most one default agent.'
+  agentsSystem: attentionCount(
+    'Whether the built-in System Agent can run here — the Agents tile sub-line. `0` or `1`: `1` wherever an AI provider is configured.'
+  ),
+  bucketsSystem: attentionCount(
+    'Whether the built-in system bucket exists here — the first figure of the Buckets tile sub-line. `1` when a storage provider resolves, else `0`. Declared buckets are counted by `bucketsS3` / `bucketsLocal`, so the three sum to the buckets the console lists.'
   ),
   bucketsS3: attentionCount(
-    'Buckets resolving to the S3 provider — the first half of the Buckets tile sub-line.'
+    'Declared buckets resolving to the S3 provider — the first half of the Buckets tile sub-line.'
   ),
   bucketsLocal: attentionCount(
-    'Buckets resolving to the local-filesystem provider — the second half of the Buckets tile sub-line.'
+    'Declared buckets resolving to the local-filesystem provider — the second half of the Buckets tile sub-line.'
   ),
   linksConfig: attentionCount(
     'Links declared in the app config — the first half of the Links tile sub-line.'

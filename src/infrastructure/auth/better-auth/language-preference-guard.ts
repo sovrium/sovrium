@@ -69,6 +69,32 @@ const readLanguageField = (ctx: AuthMiddlewareCtx, location: 'body' | 'data'): u
 }
 
 /**
+ * The vocabulary the write door accepts: the HOST app's declared languages
+ * together with those of the app mounted on it — the operator console, when it
+ * is served.
+ *
+ * One account row serves both apps, and each READS it through its own clamp
+ * (`resolvePreferredLanguage`), so a value only the console declares is honoured
+ * by the console and ignored by the host, which keeps its own default. Refusing
+ * it at the door instead left an operator on an English-only host unable to
+ * save the French the console they were reading offers.
+ *
+ * The union keeps the host's own shape and appends the mounted app's entries:
+ * the guard reads `supported` and nothing else, and a code both declare with
+ * different locales stays matchable by either locale. A host with no
+ * `languages` block accepts exactly the mounted app's; with no mount, exactly
+ * the host's — unchanged from before.
+ */
+export const acceptedPreferenceLanguages = (
+  host: Languages | undefined,
+  mounted: Languages | undefined
+): Languages | undefined => {
+  if (mounted === undefined) return host
+  if (host === undefined) return mounted
+  return { ...host, supported: [...host.supported, ...mounted.supported] }
+}
+
+/**
  * Refuse a language the app does not declare, with a 400. `null` (clear the
  * preference) and an absent field both pass.
  *
@@ -90,9 +116,10 @@ const readLanguageField = (ctx: AuthMiddlewareCtx, location: 'body' | 'data'): u
  * reason, reported as though the value were wrong. Persistence is honoured
  * where it belongs, on the read.
  *
- * An app declaring no `languages` at all declares no language, so any value is
- * undeclared and is refused. That is the same rule, not a special case: there
- * is nothing that could ever honour it.
+ * `languages` is the ACCEPTED vocabulary, built by
+ * {@link acceptedPreferenceLanguages}: the host's plus the mounted console's.
+ * With neither declaring anything, every value is undeclared and is refused.
+ * That is the same rule, not a special case: nothing could ever honour it.
  *
  * ─── STATUS CODE ────────────────────────────────────────────────────────────
  *

@@ -67,6 +67,8 @@ availability:
 
 `cta.label` and `cta.href` are required together; neither alone renders a link. The same page serves all three closed states, so write copy that reads sensibly whether the form has not opened yet or has filled up.
 
+The page speaks the same language as the open form: the app's default language, or the one a visitor asks for with `?lang=` when the app supports it, and the text direction that language declares. The form title and every piece of `closedPage` text — `title`, `message` and `cta.label` — accept a `$t:` key and read the entry for that language; `cta.href` is used as written. The built-in sentence shown when you write no `message` of your own ships in English and French and follows the page language; in any other language it reads English, so a form in one of those languages should carry its own `message` as a `$t:` key.
+
 ## Only a real submission consumes a slot
 
 A submission rejected as spam — a tripped honeypot, a rate-limit miss — and one that failed downstream never count toward the cap. A bot cannot exhaust forty workshop seats in a burst, and a failed write does not quietly cost a genuine registrant their place.

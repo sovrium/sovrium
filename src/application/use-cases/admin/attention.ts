@@ -52,7 +52,7 @@
  * @see src/domain/models/api/admin/overview/attention.ts (the wire contract)
  */
 
-import { Cause, Data, Effect } from 'effect'
+import { Cause, Data, DateTime, Effect } from 'effect'
 import { AdminAutomationsRepository } from '@/application/ports/repositories/automations/admin-automations-repository'
 import { AdminFormsRepository } from '@/application/ports/repositories/forms/admin-forms-repository'
 import { LinkRepository } from '@/application/ports/repositories/links/link-repository'
@@ -65,8 +65,11 @@ import { listInvitations } from '@/application/use-cases/auth/admin-invitation-l
 import { buildCatalog } from '@/application/use-cases/links/catalog'
 import { configSlugs } from '@/application/use-cases/links/config-slugs'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
+import { FINAL_FAILURE_RUN_STATUSES } from '@/domain/models/app/automations/automation-run-outcome-service'
+import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
 import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import { Logger } from '@/infrastructure/logging/logger'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
@@ -208,21 +211,21 @@ const MONTHS = [
 ] as const
 
 /**
- * Render an instant as a compact UTC stamp (`9 Sep 16:20`).
+ * Render an instant as a compact stamp (`9 Sep 16:20`) on the wall clock of the
+ * operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset).
  *
  * Built from the date parts rather than through `toLocaleString`, because the
  * detail is a byte-compared contract value and ICU output varies with the
- * runtime's locale data. UTC rather than a server-local zone for the same
- * reason: the console has no operator timezone to render in, and a stamp that
- * silently followed the host's would disagree with every other timestamp on
- * the surface.
+ * runtime's locale data. The parts come from Effect's `DateTime` in an explicit
+ * zone, never from a `Date`'s local getters, which follow the host's POSIX `TZ`.
  */
 const pad2 = (n: number): string => String(n).padStart(2, '0')
 
-const formatStamp = (iso: string): string => {
+const formatStamp = (iso: string, timeZone: string): string => {
   const at = new Date(iso)
   if (Number.isNaN(at.getTime())) return 'an unknown time'
-  return `${at.getUTCDate()} ${MONTHS[at.getUTCMonth()] ?? '???'} ${pad2(at.getUTCHours())}:${pad2(at.getUTCMinutes())}`
+  const parts = DateTime.toParts(DateTime.makeZonedUnsafe(at.getTime(), { timeZone }))
+  return `${parts.day} ${MONTHS[parts.month - 1] ?? '???'} ${pad2(parts.hour)}:${pad2(parts.minute)}`
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -299,9 +302,6 @@ const SOURCE_CONCURRENCY = 4
  */
 const FAILED_RUNS_SCAN_LIMIT = 500
 
-/** The terminal status a run carries when it failed. */
-const FAILED_RUN_STATUS = 'failed'
-
 // ─── The six pulse cells ────────────────────────────────────────────────────
 
 /**
@@ -318,12 +318,14 @@ const failedRunsBlock = (
   degradeTo(
     Effect.gen(function* () {
       const repo = yield* AdminAutomationsRepository
-      const runs = yield* repo.listAdminRuns({
-        status: FAILED_RUN_STATUS,
-        from: since,
-        limit: FAILED_RUNS_SCAN_LIMIT,
-      })
-      return tallyCell(runs.map((run) => run.automationName))
+      // Every FINAL failure, not only `failed`: a run that exhausted its
+      // retries or timed out failed just as much, and the alert emails already
+      // count all three. The runs reader filters on one status, so one read
+      // per status.
+      const perStatus = yield* Effect.forEach(FINAL_FAILURE_RUN_STATUSES, (status) =>
+        repo.listAdminRuns({ status, from: since, limit: FAILED_RUNS_SCAN_LIMIT })
+      )
+      return tallyCell(perStatus.flat().map((run) => run.automationName))
     }),
     'automation runs',
     EMPTY_CELL
@@ -484,7 +486,7 @@ const automationStatesBlock = (
             .map((item) =>
               item.pausedAt === undefined
                 ? item.name
-                : `${item.name} · since ${formatStamp(item.pausedAt)}`
+                : `${item.name} · since ${formatStamp(item.pausedAt, resolveOperatorTimezone())}`
             )
         ),
         disabled: catalog.items.filter((item) => item.state === 'disabled').length,
@@ -568,33 +570,37 @@ const tableFieldsCount = (app: App): number =>
   toFiniteCount((app.tables ?? []).reduce((total, table) => total + table.fields.length, 0))
 
 /**
- * `agentsDefault` — whether the reserved general-purpose agent is exposed.
+ * `agentsSystem` — whether the built-in System Agent can run here.
  *
- * `0` or `1` by construction, and `0` on an app that declares no agents: the
- * virtual `default` view exists as a conversation source, but the Agents tile
- * it sub-lines shows nothing at all on such an app, and a "1 default" line
- * under a zero would read as a contradiction rather than as information.
+ * `0` or `1` by construction. Every app carries the System Agent, so the figure
+ * does not depend on what the app declares: it is `1` exactly when an AI
+ * provider is configured, which is the one thing the agent needs to answer.
  */
-const agentsDefaultCount = (app: App): number => ((app.agents ?? []).length > 0 ? 1 : 0)
+const agentsSystemCount = (): number => (isAiProviderConfigured(process.env) ? 1 : 0)
 
 /**
- * `bucketsS3` / `bucketsLocal` — the declared buckets, by resolved provider.
+ * `bucketsSystem` / `bucketsS3` / `bucketsLocal` — the buckets the console
+ * lists, split into the built-in one and the declared ones by provider.
  *
  * A bucket declares no provider of its own: storage is an env-wide deployment
  * concern (`STORAGE_PROVIDER`), so every declared bucket resolves to the same
- * one. The pair therefore partitions `app.buckets[]` — and sums to `0` both
- * when no bucket is declared AND when the provider is `bytea` or disabled,
- * neither of which the tile's two halves can express.
+ * one. The `s3`/`local` pair therefore partitions `app.buckets[]` — and sums
+ * to `0` both when no bucket is declared AND when the provider is `bytea` or
+ * disabled, neither of which those two halves can express.
+ *
+ * `system` is the built-in bucket, which exists wherever a storage provider
+ * resolves (`s3`, `local` or `bytea` — every config the parser can return),
+ * the same condition under which the buckets console lists it. It is counted
+ * apart from the declared buckets, so the three figures together add up to
+ * what that console lists.
  */
-interface BucketSplit {
-  readonly s3: number
-  readonly local: number
-}
-
-const bucketSplit = (app: App): BucketSplit => {
+const bucketSplit = (
+  app: App
+): { readonly system: number; readonly s3: number; readonly local: number } => {
   const declared = (app.buckets ?? []).length
   const provider = parseStorageEnvConfig()?.provider
   return {
+    system: provider === undefined ? 0 : 1,
     s3: provider === 's3' ? declared : 0,
     local: provider === 'local' ? declared : 0,
   }
@@ -778,7 +784,8 @@ const assembleAttention = (
 
     tableFields: tableFieldsCount(app),
     automationsDisabled: toFiniteCount(automations.value.disabled),
-    agentsDefault: agentsDefaultCount(app),
+    agentsSystem: agentsSystemCount(),
+    bucketsSystem: buckets.system,
     bucketsS3: toFiniteCount(buckets.s3),
     bucketsLocal: toFiniteCount(buckets.local),
     linksConfig: toFiniteCount(links.value.config),

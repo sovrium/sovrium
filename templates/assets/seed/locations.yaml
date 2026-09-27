@@ -1,46 +1,37 @@
-# Sample locations.
+# The five places an asset can sit.
 #
-# `key` is file-local — it exists so assets.yaml can name a location before
-# either row has a database id. It is never written to a column.
-#
-# Five locations, including a remote-worker bucket and a repair vendor, because
-# an asset register whose every row sits in one office never exercises the
-# "group by location" question the table exists to answer.
+# `key` names a record inside the seed files so other files can point at it; it
+# is never written to a column. "Remote" is not an address: it holds the kit of
+# people who work from home, so a count of the offices still balances.
 records:
   - key: paris-hq
     fields:
       name: Paris HQ
+      kind: Office
       address: |-
         14 rue de la Fontaine au Roi
         75011 Paris
-        France
-
   - key: lyon-office
     fields:
       name: Lyon office
+      kind: Office
       address: |-
         22 quai Perrache
         69002 Lyon
-        France
-
   - key: storeroom
     fields:
-      name: Storeroom (Paris, level -1)
-      address: >-
-        Basement of the Paris HQ building. Keypad code is on the facilities
-        wiki, not here.
-
+      name: Storeroom
+      kind: Storeroom
+      address: Paris HQ, level -1
   - key: remote
     fields:
-      name: With remote staff
-      address: >-
-        Not a place. Anything assigned to someone who works from home lives
-        here so the count still balances.
-
-  - key: repair-vendor
+      name: Remote
+      kind: Remote
+      address: At the holder's home
+  - key: ateliers-remi
     fields:
-      name: Ateliers Rémi (repair vendor)
+      name: Ateliers Rémi
+      kind: Repair shop
       address: |-
         8 avenue Jean Jaurès
         93500 Pantin
-        France

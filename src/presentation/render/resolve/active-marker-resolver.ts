@@ -11,8 +11,8 @@
  * ─── WHY THIS IS NOT A VISIBILITY PASS ─────────────────────────────────────
  *
  * Every other conditional in the render pipeline decides whether an element
- * EXISTS: `visibility.condition` and `visibility.capability` SSR-exclude it,
- * `when` / `roles` CSS-hide it, `visibility.record` omits it from a row. A
+ * EXISTS: `visibility.condition`, `when`, `roles` and `capability` SSR-exclude
+ * it, `visibility.record` omits it from a row. A
  * period rail needs none of those — all three of its presets are always
  * present, because they ARE the choice. What varies is one ATTRIBUTE on one of
  * them: `aria-current="page"`, plus the class that makes it look selected.

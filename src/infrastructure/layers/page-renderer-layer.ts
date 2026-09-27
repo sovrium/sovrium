@@ -6,6 +6,7 @@
  */
 
 import { Effect, Layer } from 'effect'
+import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
 import { getSovriumVersion } from '@/infrastructure/process/version'
@@ -21,17 +22,23 @@ import type { DataSourceDb } from '@/presentation/render/resolve/data-source-con
  * Bridges the Effect-based repository (infrastructure layer) to the
  * plain async interface expected by the presentation rendering layer.
  */
-function createDataSourceDbAdapter(repo: DataSourceRepository['Service']): DataSourceDb {
+function createDataSourceDbAdapter(
+  repo: DataSourceRepository['Service'],
+  auth: AuthRepository['Service']
+): DataSourceDb {
   return {
     fetchRecords: (tableName, options) => Effect.runPromise(repo.fetchRecords(tableName, options)),
     countRecords: (tableName, filter) => Effect.runPromise(repo.countRecords(tableName, filter)),
-    fetchSingleRecord: (tableName, paramField, paramValue, fields) =>
-      Effect.runPromise(repo.fetchSingleRecord(tableName, paramField, paramValue, fields)),
+    // eslint-disable-next-line max-params -- implements the port's positional signature; `options` is its optional fifth argument
+    fetchSingleRecord: (tableName, paramField, paramValue, fields, options) =>
+      Effect.runPromise(repo.fetchSingleRecord(tableName, paramField, paramValue, fields, options)),
     fetchUserAssignments: (userId, tableSlug) =>
       Effect.runPromise(repo.fetchUserAssignments(userId, tableSlug)),
     // Bug 2 / [internal ref]: overlay user_access roles onto the
     // Better Auth session role so page access checks see the engineer role.
     fetchUserAccessRoles: (userId) => Effect.runPromise(repo.fetchUserAccessRoles(userId)),
+    // The accounts an embedded form's `user` picker offers a signed-in visitor.
+    fetchAccountChoices: (limit) => Effect.runPromise(auth.listAccountChoices(limit)),
   }
 }
 
@@ -59,7 +66,8 @@ export const PageRendererLive = Layer.effect(
   PageRenderer,
   Effect.gen(function* () {
     const dataSourceRepo = yield* DataSourceRepository
-    const db = createDataSourceDbAdapter(dataSourceRepo)
+    const authRepo = yield* AuthRepository
+    const db = createDataSourceDbAdapter(dataSourceRepo, authRepo)
     const islandBuilder = { buildIslands }
     // `$app.engineVersion` — the engine's OWN version, read ONCE while this
     // Layer is built (before the listener binds) and handed to every render.
@@ -86,6 +94,7 @@ export const PageRendererLive = Layer.effect(
       renderNotFound: renderNotFoundPage,
       renderError: renderErrorPage,
       renderRssFeed: (app, baseUrl) => renderRssFeed(app, baseUrl, db),
+      fetchSitemapRecords: (tableName, options) => db.fetchRecords(tableName, options),
     }
   })
 )

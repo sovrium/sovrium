@@ -17,6 +17,11 @@ import {
   getRecordResponseSchema,
 } from '@/domain/models/api/tables/tables'
 import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
+import {
+  findViewByKey,
+  viewFilterConditions,
+  viewSortParam,
+} from '@/domain/models/app/tables/views/view-read-service'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { runEffect } from '@/presentation/api/runtime'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
@@ -120,42 +125,22 @@ type ResolveViewResult =
   | { readonly error: false; readonly view: ResolvedView | undefined }
   | { readonly error: true; readonly response: Response }
 
-type ViewSort = { readonly field: string; readonly direction: string }
-type ViewCondition = { readonly field: string; readonly operator: string; readonly value: unknown }
 type ViewConfig = {
   readonly id: string | number
   readonly name: string
   readonly filters?: unknown
-  readonly sorts?: readonly ViewSort[]
-  readonly query?: string
+  readonly sorts?: readonly { readonly field: string; readonly direction: string }[]
 }
 
 /**
- * Normalize view filter configuration to the { and: [...] } shape.
- * Supports both single-condition shape and { and: [...] } shape.
+ * A view's `filters` as the list's filter structure. Shared with the view
+ * records route through `view-read-service`, so `?view=` and
+ * `/views/:v/records` narrow to the same rows — an `or`-rooted view filter
+ * included, which a hand-written normaliser here used to drop.
  */
-function normalizeViewFilter(rawFilters: unknown): FilterStructure {
-  if (!rawFilters) return undefined
-  const f = rawFilters as {
-    readonly and?: readonly ViewCondition[]
-    readonly or?: unknown
-    readonly field?: string
-    readonly operator?: string
-    readonly value?: unknown
-  }
-  if ('and' in f && f.and) return { and: f.and }
-  if (!('and' in f) && !('or' in f) && f.field && f.operator) {
-    return { and: [{ field: f.field, operator: f.operator, value: f.value }] }
-  }
-  return undefined
-}
-
-/**
- * Convert view sorts array to comma-separated sort string (e.g., "title:asc,status:desc").
- */
-function normalizeViewSort(sorts: readonly ViewSort[] | undefined): string | undefined {
-  if (!sorts || sorts.length === 0) return undefined
-  return sorts.map((s) => `${s.field}:${s.direction}`).join(',')
+function viewFilterStructure(rawFilters: unknown): FilterStructure {
+  const conditions = viewFilterConditions(rawFilters)
+  return conditions.length === 0 ? undefined : { and: conditions }
 }
 
 /**
@@ -186,7 +171,7 @@ function resolveView(
     }
   }
 
-  const foundView = views.find((v) => String(v.id) === viewName || v.name === viewName)
+  const foundView = findViewByKey(views, viewName)
   if (!foundView) {
     return {
       error: true,
@@ -200,8 +185,8 @@ function resolveView(
   return {
     error: false,
     view: {
-      filter: normalizeViewFilter(foundView.filters),
-      sort: normalizeViewSort(foundView.sorts),
+      filter: viewFilterStructure(foundView.filters),
+      sort: viewSortParam(foundView.sorts),
     },
   }
 }
@@ -329,6 +314,7 @@ export async function handleListRecords(c: Context, app: App) {
         tableName,
         app,
         userRole,
+        userGroups,
         filter: finalFilter,
         ...params,
         sort: effectiveSort,
@@ -455,6 +441,7 @@ export async function handleGetRecord(c: Context, app: App) {
           userRole,
           recordId,
           includeDeleted,
+          userGroups,
           format: formatParam === 'display' ? 'display' : undefined,
           timezone,
           origin: new URL(c.req.url).origin,

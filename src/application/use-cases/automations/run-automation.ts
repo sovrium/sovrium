@@ -24,7 +24,7 @@
  * regardless of the internal file structure.
  */
 
-import { Duration, Effect } from 'effect'
+import { Effect, Ref } from 'effect'
 import {
   AutomationRepository,
   type AutomationDatabaseError,
@@ -33,12 +33,15 @@ import { isAutomationOperationallyEnabled } from '@/domain/models/app/automation
 import { runOnAutomationServices } from '@/infrastructure/automations/runtime-layer'
 import { traceAutomationRun } from '@/infrastructure/telemetry/automation-run-trace'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
+import { autoPauseOnFailures } from './auto-pause-on-failures'
 import { expandRefActions, type ActionTemplateLike } from './expand-action-refs'
 import { notifyPlatformFailure } from './notify-platform-failure'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import { buildEnvLookup } from './resolve-env-vars'
 import { buildAutomationContext, type TriggerData } from './resolve-trigger-data'
+import { resolveRunTimeoutMs, runActionsWithTimeout } from './run/action-loop'
 import { buildAutomationInvoker } from './run/automation-call-invoker'
+import { finaliseOnAbandon } from './run/defect-finaliser'
 import { dispatchFailureHandlers } from './run/failure-dispatch'
 import { finaliseRun, markRunRunning, persistQueuedRun } from './run/run-persistence'
 import {
@@ -49,18 +52,14 @@ import {
   resolveConcurrencyLimit,
   unregisterCancellation,
 } from './run/scheduler'
-import { appendSkippedStep, executeStep } from './run/step-executor'
 import {
-  EMPTY_RUN_ACCUMULATOR,
   cryptoRandomId,
-  isTerminalFailureStatus,
   toResolvedRetry,
   type ExecuteAutomationRunInput,
   type RunAccumulator,
   type RunAutomationResult,
   type RunRequirements,
   type StepContext,
-  type StepRequirements,
 } from './run/types'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
@@ -286,79 +285,6 @@ const buildRunResult = (runId: string, finalState: RunAccumulator): RunAutomatio
 })
 
 /**
- * Resolve the per-run timeout (top-level `automation.timeout`). Schema
- * gates the range 1_000 – 900_000 ms; here we trust the value.
- */
-const resolveRunTimeoutMs = (
-  automation: NonNullable<App['automations']>[number]
-): number | undefined => {
-  const raw = (automation as { readonly timeout?: number }).timeout
-  return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : undefined
-}
-
-/**
- * Run the action-reduce loop with an optional automation-level timeout.
- * When `automation.timeout` is configured and the loop exceeds it, the
- * resolved accumulator is marked with `runStatus: 'timed-out'` and an
- * explanatory `runError`. Any steps that completed BEFORE the timeout
- * remain in `finalState.steps` because the underlying reduce produces a
- * fresh accumulator per step — `Effect.timeoutOrElse` only fires after the
- * cumulative duration, so partially-completed runs are not observable
- * from inside the wrapped Effect; the timeout path emits an empty-steps
- * accumulator which the test specs accept (they only assert on status +
- * durationMs).
- */
-const runActionsWithTimeout = (
-  rawActions: readonly Record<string, unknown>[],
-  ctx: StepContext,
-  timeoutMs: number | undefined,
-  skipActionNames: ReadonlySet<string>
-): Effect.Effect<RunAccumulator, never, StepRequirements> => {
-  // The reduce produces a final accumulator. Three short-circuit cases append
-  // a `'skipped'` step record for the action WITHOUT executing it:
-  //
-  //  1. `acc.halted` — a `filter` or `automation:return` action requested
-  //     early-exit. Filtered actions intentionally omit subsequent steps
-  //     from `steps[]` (no record). `'return'` early-exits AS IF the
-  //     automation completed normally; subsequent actions are skipped from
-  //     the run history (no record).
-  // 2. `acc.runStatus` is a terminal failure — [internal ref]
-  //     requires every post-failure action to be recorded with status
-  //     `'skipped'` so callers can audit what was intentionally not run.
-  //     `'completed-with-errors'` is NOT a terminal failure — its defining
-  //     property is that subsequent actions DO continue.
-  //  3. The action's `name` is in `skipActionNames` — set by the replay
-  //     endpoint so a resumed run does not re-execute steps that already
-  // fired in the original run. Preserves
-  //     the side-effects-once-only guarantee at replay time.
-  const loop = Effect.reduce(
-    rawActions,
-    () => EMPTY_RUN_ACCUMULATOR,
-    (acc, rawAction) => {
-      if (acc.halted) return Effect.succeed(acc)
-      if (isTerminalFailureStatus(acc.runStatus))
-        return Effect.succeed(appendSkippedStep(acc, rawAction))
-      if (skipActionNames.has(String(rawAction['name'] ?? ''))) {
-        return Effect.succeed(appendSkippedStep(acc, rawAction))
-      }
-      return executeStep(acc, rawAction, ctx, boundAutomationInvoker)
-    }
-  )
-  if (timeoutMs === undefined) return loop
-  // EFFECT 4: see `overview-block-timeout.ts` — `timeoutTo` -> `timeoutOrElse`
-  // with an Effect fallback; `onSuccess` was the identity.
-  return Effect.timeoutOrElse(loop, {
-    duration: Duration.millis(timeoutMs),
-    orElse: (): Effect.Effect<RunAccumulator> =>
-      Effect.succeed({
-        ...EMPTY_RUN_ACCUMULATOR,
-        runStatus: 'timed-out',
-        runError: `automation run exceeded timeout of ${String(timeoutMs)}ms`,
-      }),
-  })
-}
-
-/**
  * Execute the action list for a previously-resolved automation, persist the
  * run + step rows to DB.
  *
@@ -370,21 +296,16 @@ const runActionsWithTimeout = (
  * Phase 1+2 of the scheduler-wrapped run loop: persist the row as
  * `'queued'`, surface the runId to any waiting caller, then park on the
  * per-automation FIFO semaphore until a slot frees. On admit, promote
- * the row to `'running'`. Returns the runId so the caller can thread
- * it through the loop + finalise step.
+ * the row to `'running'` and stamp its `startedAt` with the admission instant.
+ * Returns the runId and that instant: the run's duration and its timeout both
+ * count from admission, so the wait for a slot is never part of either.
  */
 const enqueueAndAdmit = (
-  input: ExecuteAutomationRunInput,
-  startedAt: Readonly<Date>
-): Effect.Effect<string, never, RunRequirements> =>
+  input: ExecuteAutomationRunInput
+): Effect.Effect<{ readonly runId: string; readonly admittedAt: Date }, never, RunRequirements> =>
   Effect.gen(function* () {
     const { name, automation, automationId, processEnv, triggerData, userId } = input
-    const persistedQueuedId = yield* persistQueuedRun({
-      automationId,
-      triggerData,
-      startedAt,
-      userId,
-    })
+    const persistedQueuedId = yield* persistQueuedRun({ automationId, triggerData, userId })
     const runId = persistedQueuedId ?? cryptoRandomId()
     // The returned AbortController is intentionally discarded — the cancel
     // endpoint reads it back via `signalCancellation(runId)` rather than
@@ -399,8 +320,9 @@ const enqueueAndAdmit = (
     const limit = resolveConcurrencyLimit(automation, processEnv)
     // effect-promise: total -- `acquireSlot` either resolves immediately or returns a promise that is only ever settled by `resolve`; it has no rejection path, and a queued automation waits rather than failing.
     yield* Effect.promise(() => acquireSlot(name, limit))
-    yield* markRunRunning(runId)
-    return runId
+    const admittedAt = new Date()
+    yield* markRunRunning(runId, admittedAt)
+    return { runId, admittedAt }
   })
 
 /**
@@ -418,6 +340,8 @@ const finaliseAndRelease = (input: {
   readonly startedAt: Date
   readonly finishedAt: Date
   readonly userId: string | undefined
+  /** Set once the row is finalised, so the abandon guard does not finalise it again. */
+  readonly finalised: Ref.Ref<boolean>
 }): Effect.Effect<
   { readonly observedRunId: string; readonly effectiveState: RunAccumulator },
   never,
@@ -443,6 +367,7 @@ const finaliseAndRelease = (input: {
       steps: effectiveState.steps,
       userId: input.userId,
     })
+    yield* Ref.set(input.finalised, true)
     const observedRunId = finalisedId ?? input.runId
     releaseSlot(input.name)
     unregisterCancellation(input.runId)
@@ -458,51 +383,79 @@ export const executeAutomationRun = (
   traceAutomationRun(
     input.name,
     Effect.gen(function* () {
-      const { name, automation, automationId, app, processEnv, triggerData } = input
-      const startedAtDate = new Date()
-      const rawActions = expandAutomationActions(app, automation)
-      const runTimeoutMs = resolveRunTimeoutMs(automation)
-      const skipActionNames = input.skipActionNames ?? new Set<string>()
-
-      const runId = yield* enqueueAndAdmit(input, startedAtDate)
-      // The step context is built AFTER the scheduler persists the queued run row
-      // so the resolved `runId` reaches each handler's `AutomationContext` —
-      // needed by the `approval/request` handler to link its pending row to the
-      // run it pauses.
-      // Captured from THIS fiber, so anything the invokers dispatch across the
-      // sandbox's Promise boundary runs on the services this run already holds.
-      const runProgram = runOnAutomationServices(yield* Effect.context<RunRequirements>())
-      const ctx = buildStepContext({ ...input, runId, runProgram })
-      const finalState = yield* runActionsWithTimeout(
-        rawActions,
-        ctx,
-        runTimeoutMs,
-        skipActionNames
-      )
-      const finishedAtDate = new Date()
-      const { observedRunId, effectiveState } = yield* finaliseAndRelease({
-        name,
-        automationId,
+      const { runId, admittedAt } = yield* enqueueAndAdmit(input)
+      const finalised = yield* Ref.make(false)
+      // From admission on, the run holds a slot, a canceller and a `running`
+      // row: the guard hands all three back if the run exits any way but
+      // through `finaliseAndRelease` (a defect, an interruption).
+      return yield* finaliseOnAbandon(runAdmitted(input, { runId, admittedAt, finalised }), {
+        name: input.name,
+        automationId: input.automationId,
         runId,
-        finalState,
-        triggerData,
-        startedAt: startedAtDate,
-        finishedAt: finishedAtDate,
+        triggerData: input.triggerData,
+        admittedAt,
         userId: input.userId,
+        finalised,
       })
-      yield* dispatchPostRunFailureEffects({
-        app,
-        processEnv,
-        automation,
-        name,
-        runId: observedRunId,
-        finalState: effectiveState,
-        startedAtDate,
-        finishedAtDate,
-      })
-      return buildRunResult(observedRunId, effectiveState)
     })
   ).pipe(Effect.withSpan('automations.execute-automation-run'))
+
+/**
+ * Phase 3–5 of a run the scheduler admitted: execute the actions under the run
+ * timeout, finalise the row, then fan out the failure effects. Every duration is
+ * measured from `admittedAt`.
+ */
+const runAdmitted = (
+  input: ExecuteAutomationRunInput,
+  admission: {
+    readonly runId: string
+    readonly admittedAt: Date
+    readonly finalised: Ref.Ref<boolean>
+  }
+): Effect.Effect<RunAutomationResult, never, RunRequirements> =>
+  Effect.gen(function* () {
+    const { name, automation, automationId, app, processEnv, triggerData } = input
+    const { runId, admittedAt, finalised } = admission
+    const rawActions = expandAutomationActions(app, automation)
+    const runTimeoutMs = resolveRunTimeoutMs(automation, processEnv)
+    const skipActionNames = input.skipActionNames ?? new Set<string>()
+    // The step context is built AFTER the scheduler persists the queued run row
+    // so the resolved `runId` reaches each handler's `AutomationContext` —
+    // needed by the `approval/request` handler to link its pending row to the
+    // run it pauses.
+    // Captured from THIS fiber, so anything the invokers dispatch across the
+    // sandbox's Promise boundary runs on the services this run already holds.
+    const runProgram = runOnAutomationServices(yield* Effect.context<RunRequirements>())
+    const ctx = buildStepContext({ ...input, runId, runProgram })
+    const finalState = yield* runActionsWithTimeout(rawActions, ctx, {
+      timeoutMs: runTimeoutMs,
+      skipActionNames,
+      automationInvoker: boundAutomationInvoker,
+    })
+    const finishedAtDate = new Date()
+    const { observedRunId, effectiveState } = yield* finaliseAndRelease({
+      name,
+      automationId,
+      runId,
+      finalState,
+      triggerData,
+      startedAt: admittedAt,
+      finishedAt: finishedAtDate,
+      userId: input.userId,
+      finalised,
+    })
+    yield* dispatchPostRunFailureEffects({
+      app,
+      processEnv,
+      automation,
+      name,
+      runId: observedRunId,
+      finalState: effectiveState,
+      startedAtDate: admittedAt,
+      finishedAtDate,
+    })
+    return buildRunResult(observedRunId, effectiveState)
+  })
 
 /**
  * The `automation:call` invoker, bound with this module's `executeAutomationRun`
@@ -516,14 +469,18 @@ const boundAutomationInvoker = buildAutomationInvoker({
 })
 
 /**
- * Post-run failure fan-out: when the run failed (or exhausted) AND it is
- * not itself an `automation-failure` handler, dispatch both the
- * user-configured `automation-failure` triggers AND the platform's
- * built-in admin failure email. Extracted from `executeAutomationRun`
- * to keep that generator below the per-function line cap.
+ * Post-run failure fan-out, for a run that is not itself an
+ * `automation-failure` handler:
  *
- * `'timed-out'` is NOT cascaded (mirrors the #97 timeout contract: timed-out
- * runs are a separate operator concern, not a routine failure).
+ * - a run that failed (or exhausted its retries) dispatches the user-configured
+ *   `automation-failure` triggers AND the platform's operator alert;
+ * - a run that TIMED OUT dispatches the operator alert only. It is still NOT
+ *   cascaded to the user handlers (the #97 timeout contract: a timeout is an
+ *   operator concern, not a routine failure a workflow should react to) — but
+ *   the operator must hear of it, which the alert gate used to deny.
+ *
+ * Extracted from `executeAutomationRun` to keep that generator below the
+ * per-function line cap.
  */
 const dispatchPostRunFailureEffects = (input: {
   readonly app: App
@@ -536,11 +493,43 @@ const dispatchPostRunFailureEffects = (input: {
   readonly finishedAtDate: Date
 }): Effect.Effect<void, never, RunRequirements> =>
   Effect.gen(function* () {
+    const { app, automation, name, runId, finalState } = input
+    if (automation.trigger.type === 'automation-failure') return
+    const timedOut = finalState.runStatus === 'timed-out'
+    const failed = finalState.runStatus === 'failure' || finalState.runStatus === 'exhausted'
+    if (!timedOut && !failed) return
+    if (failed) yield* cascadeToFailureHandlers(input)
+    // Platform operator alert —
+    // analogous to Zapier's built-in "Zap failed" email. A different concern
+    // from the handlers above: those are operator-defined workflows, this is the
+    // platform's safety net. Errors are swallowed by `notifyPlatformFailure` so
+    // a broken email path cannot re-fail the already-failed parent run.
+    yield* notifyPlatformFailure({
+      app,
+      automationName: name,
+      runId,
+      error: finalState.runError ?? 'Automation failed',
+      failedAt: input.finishedAtDate.toISOString(),
+      kind: timedOut ? 'timed-out' : 'failed',
+    })
+    // AFTER the alert, so the operator reads why it failed before reading that
+    // it was paused. A no-op unless `SOVRIUM_AUTOMATION_AUTOPAUSE` is set.
+    yield* autoPauseOnFailures({ app, automationName: name })
+  })
+
+/** Dispatch the user-configured `automation-failure` handlers for a failed run. */
+const cascadeToFailureHandlers = (input: {
+  readonly app: App
+  readonly processEnv: Readonly<Record<string, string | undefined>>
+  readonly automation: NonNullable<App['automations']>[number]
+  readonly name: string
+  readonly runId: string
+  readonly finalState: RunAccumulator
+  readonly startedAtDate: Date
+  readonly finishedAtDate: Date
+}): Effect.Effect<void, never, RunRequirements> =>
+  Effect.gen(function* () {
     const { app, processEnv, automation, name, runId, finalState } = input
-    const shouldCascadeFailure =
-      (finalState.runStatus === 'failure' || finalState.runStatus === 'exhausted') &&
-      automation.trigger.type !== 'automation-failure'
-    if (!shouldCascadeFailure) return
     yield* dispatchFailureHandlers(
       {
         app,
@@ -556,20 +545,6 @@ const dispatchPostRunFailureEffects = (input: {
       },
       { resolveAutomationId, executeAutomationRun }
     )
-    // Platform admin-failure email.
-    // Always-on when `app.auth` is configured — analogous to Zapier's
-    // built-in "Zap failed" email. Fires alongside the user-configured
-    // `automation-failure` handlers (different concern: handlers are
-    // operator-defined workflows; this is the platform's safety net).
-    // Errors swallowed by `notifyPlatformFailure` so a broken admin-email
-    // path cannot re-fail the already-failed parent run.
-    yield* notifyPlatformFailure({
-      app,
-      automationName: name,
-      runId,
-      error: finalState.runError ?? 'Automation failed',
-      failedAt: input.finishedAtDate.toISOString(),
-    })
   })
 
 /**

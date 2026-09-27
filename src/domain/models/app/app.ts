@@ -20,7 +20,7 @@ import { type Action, AutomationsSchema } from './automations'
 import { BadgeSchema } from './badge'
 import { BucketsSchema } from './buckets'
 import { ComponentsSchema } from './components'
-import { ConnectionsSchema } from './connections'
+import { callIssue, ConnectionsSchema } from './connections'
 import { DecisionsSchema } from './decisions'
 import { DescriptionSchema } from './description'
 import { DesignSchema } from './design'
@@ -460,7 +460,8 @@ export const AppSchema = Schema.Struct({
    * and public/private toggle. Infrastructure credentials (S3 keys, local path) are
    * configured via env vars. Buckets define application-level file organization.
    *
-   * When omitted, an implicit 'default' bucket is used at runtime.
+   * Every app also carries the built-in `system` bucket (a reserved name), which
+   * holds the files of any attachment field that names no bucket.
    */
   buckets: Schema.optional(BucketsSchema),
 
@@ -594,19 +595,23 @@ export const AppSchema = Schema.Struct({
       return errors.length > 0 ? errors[0] : true
     })
   ),
-  // Automation cross-validation: record triggers/actions must reference existing tables
+  // Automation cross-validation: record/comment triggers and record actions must
+  // reference existing tables. A config with no `tables` key declares an EMPTY
+  // set, not an unknown one, so every table-naming surface is refused there too.
   Schema.check(
     Schema.makeFilter((app) => {
-      if (!app.automations || !app.tables) return true
+      if (!app.automations) return true
 
-      const tableNames = new Set(app.tables.map((t) => t.name))
+      const tableNames = new Set((app.tables ?? []).map((t) => t.name))
 
       const triggerError = app.automations.find(
-        (a) => a.trigger.type === 'record' && !tableNames.has(a.trigger.table)
+        (a) =>
+          (a.trigger.type === 'record' || a.trigger.type === 'comment') &&
+          !tableNames.has(a.trigger.table)
       )
       if (triggerError) {
-        const trigger = triggerError.trigger as { readonly table: string }
-        return `Automation '${triggerError.name}' record trigger references table '${trigger.table}' which does not exist`
+        const trigger = triggerError.trigger as { readonly type: string; readonly table: string }
+        return `Automation '${triggerError.name}' ${trigger.type} trigger references table '${trigger.table}' which does not exist`
       }
 
       const actionError = app.automations
@@ -884,7 +889,28 @@ export const AppSchema = Schema.Struct({
         return `Automation '${connectionError.automation}' action '${connectionError.action.name}' references connection '${(connectionError.action.props as { readonly connection: string }).connection}' which does not exist`
       }
 
-      return true
+      // A `connection` / `call` step must name an operation its connection
+      // declares, pass only declared parameters, pass every required one, and
+      // give each literal a value of the declared type. Folded into this check
+      // rather than added beside it: the AppSchema pipe is at its arity limit.
+      const callError = app.automations
+        .flatMap((a) =>
+          collectAllActions(a.actions as ReadonlyArray<Action>)
+            .filter(
+              (action): action is Extract<Action, { readonly type: 'connection' }> =>
+                action.type === 'connection' && action.operator === 'call'
+            )
+            .map((action) => ({
+              automation: a.name,
+              action,
+              issue: callIssue(action.props, app.connections ?? []),
+            }))
+        )
+        .find((entry) => entry.issue !== undefined)
+
+      return callError === undefined
+        ? true
+        : `Automation '${callError.automation}' action '${callError.action.name}' ${callError.issue ?? ''}`
     })
   ),
   // Automation cross-validation: approval actions require auth config

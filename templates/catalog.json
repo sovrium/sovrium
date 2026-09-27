@@ -37,13 +37,13 @@
   },
   "crm": {
     "name": "CRM",
-    "description": "A sales CRM: pipeline kanban, grids, calendar.",
+    "description": "Kestrel CRM: a sales pipeline with forecast, contacts, tasks, assistant.",
     "category": "internal",
     "topics": ["sovrium", "template", "self-hosted", "crm", "sales"]
   },
   "projects": {
     "name": "Projects",
-    "description": "Gantt timeline, task kanban, deadline calendar.",
+    "description": "Dashboard, task board, timeline by project, deadline calendar.",
     "category": "business",
     "topics": ["sovrium", "template", "self-hosted", "project-management"]
   },
@@ -61,7 +61,7 @@
   },
   "people": {
     "name": "People",
-    "description": "Directory, time off, and admin-approved requests.",
+    "description": "HR: a directory with salaries withheld, time off, admin approvals.",
     "category": "business",
     "topics": ["sovrium", "template", "self-hosted", "hr"]
   },
@@ -73,13 +73,13 @@
   },
   "assets": {
     "name": "Assets",
-    "description": "Barcoded equipment, tracked by location.",
+    "description": "Arden Assets: a register with holders, check-outs, locations, lifecycle.",
     "category": "business",
     "topics": ["sovrium", "template", "self-hosted", "inventory", "assets"]
   },
   "inventory": {
     "name": "Inventory",
-    "description": "Products, stock, and orders \u2014 an Airtable alternative.",
+    "description": "Brunel Stock: products, stock per warehouse, orders, reorder list.",
     "category": "business",
     "topics": ["sovrium", "template", "self-hosted", "inventory", "orders"]
   },
@@ -103,13 +103,13 @@
   },
   "automation-recipes": {
     "name": "Automation Recipes",
-    "description": "Webhook, record, cron, and failure recipes.",
+    "description": "Automations that run in your own app, with every run kept.",
     "category": "business",
     "topics": ["sovrium", "template", "self-hosted", "automations"]
   },
   "company-os": {
     "name": "Company OS",
-    "description": "An entire information system in one config.",
+    "description": "Orrin OS: pipeline, projects, tickets, team and time off, one client list.",
     "category": "business",
     "topics": ["sovrium", "template", "self-hosted", "company-os", "erp"]
   }

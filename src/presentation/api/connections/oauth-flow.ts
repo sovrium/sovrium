@@ -26,6 +26,7 @@ import {
 } from '@/application/use-cases/automations/resolve-env-vars'
 import { computeCodeChallenge } from '@/domain/kernel/identity/pkce'
 import { OAUTH_CALLBACK_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
+import { exchangeMetaLongLivedToken } from '@/infrastructure/connections/long-lived-token-exchange'
 import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
 import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 // prettier-ignore
@@ -110,6 +111,25 @@ export interface OAuthTokenResponse {
 }
 
 /**
+ * The token-response fields the connection keeps (`tokenFields`), as strings —
+ * only the ones the provider actually returned. `undefined` when none.
+ */
+const keptTokenFields = (
+  tokens: OAuthTokenResponse,
+  keep: readonly string[] | undefined
+): Readonly<Record<string, string>> | undefined => {
+  const raw = tokens as Readonly<Record<string, unknown>>
+  const entries = (keep ?? [])
+    .map((name) => [name, raw[name]] as const)
+    .filter(
+      (entry): entry is readonly [string, string | number] =>
+        typeof entry[1] === 'string' || typeof entry[1] === 'number'
+    )
+    .map(([name, value]) => [name, String(value)] as const)
+  return entries.length === 0 ? undefined : Object.fromEntries(entries)
+}
+
+/**
  * Build the form-encoded body sent to the token endpoint. Extracted so it can
  * be tested in isolation and shared between the runtime + admin callbacks.
  */
@@ -141,6 +161,38 @@ export const buildTokenExchangeBody = (
 }
 
 /**
+ * With `longLivedToken: { style: meta }`, the short-lived token of the code
+ * exchange is exchanged for a long-lived one before anything is stored. A
+ * refused exchange refuses the whole callback: an hour-long token stored as
+ * if it were the connection would silently die within the day.
+ */
+const toLongLivedToken = async (
+  props: OAuth2AuthCodeProps,
+  tokens: OAuthTokenResponse
+): Promise<
+  | { readonly ok: true; readonly tokens: OAuthTokenResponse }
+  | { readonly ok: false; readonly error: string }
+> => {
+  const shortLived = tokens.access_token
+  if (props.longLivedToken?.style !== 'meta' || shortLived === undefined || shortLived === '') {
+    return { ok: true, tokens }
+  }
+  const result = await exchangeMetaLongLivedToken(props, shortLived)
+  if (!result.ok) return { ok: false, error: `long_lived_${result.error}` }
+  return {
+    ok: true,
+    tokens: {
+      ...tokens,
+      access_token: result.accessToken,
+      expires_in:
+        result.expiresAt === undefined
+          ? undefined
+          : Math.round((result.expiresAt.getTime() - Date.now()) / 1000),
+    },
+  }
+}
+
+/**
  * Exchange an authorization code (+ PKCE verifier) for tokens at the provider
  * `tokenUrl`. SSRF-guarded via `validateOutboundUrl` so a misconfigured
  * `tokenUrl` cannot exchange the auth code against an internal host.
@@ -150,7 +202,11 @@ export const exchangeCodeForToken = async (
   code: string,
   codeVerifier: string | undefined
 ): Promise<
-  | { readonly ok: true; readonly tokens: OAuthTokenResponse }
+  | {
+      readonly ok: true
+      readonly tokens: OAuthTokenResponse
+      readonly fields: Readonly<Record<string, string>> | undefined
+    }
   | { readonly ok: false; readonly error: string }
 > => {
   // SSRF guard: a misconfigured `tokenUrl` must not exchange the auth code
@@ -179,7 +235,13 @@ export const exchangeCodeForToken = async (
       return { ok: false, error: `token_endpoint_${String(response.status)}` }
     }
     const tokens = (await response.json()) as OAuthTokenResponse
-    return { ok: true, tokens }
+    const exchanged = await toLongLivedToken(props, tokens)
+    if (!exchanged.ok) return exchanged
+    return {
+      ok: true,
+      tokens: exchanged.tokens,
+      fields: keptTokenFields(tokens, props.tokenFields),
+    }
   } catch (error) {
     return {
       ok: false,

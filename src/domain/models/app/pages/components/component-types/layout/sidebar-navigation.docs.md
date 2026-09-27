@@ -166,6 +166,15 @@ Below the breakpoint the sidebar takes a fixed 56px width, every entry centres i
 
 **The labels are not removed.** They stay in the document and in the accessibility tree, and each row gains a `title` tooltip so a pointer reader can still name it. An entry whose accessible name changed with the viewport would be a link that resolves by name on a desktop and by nothing on a laptop — every deep link, runbook and test would hold at one width and silently fail at another while the page looked correct in both. Every row also keeps its tab stop and its `aria-current="page"` mark.
 
-**A rail is not a drawer.** It stays present, stays a navigation landmark and stays reachable by keyboard in its declared order. An app that wants the sidebar to _leave_ the layout on a phone and come back behind a button is describing a drawer, which is a different affordance with its own control. The two compose: a sidebar may be a rail from one breakpoint down and hidden behind a drawer from a narrower one, because the drawer is the frame's behaviour and the rail is the navigation's.
+**A drawer takes the sidebar out of the layout.** `drawer: { below: md }` removes the sidebar from the page at every width below the breakpoint and puts one menu button in its place. Pressing it opens the same groups, in the same order, as a modal panel over the page: focus moves into it and the page behind stops scrolling. Escape, a click on the backdrop, or following an entry closes it and puts focus back on the button — including an entry that stays on the same page. `label` names the button (a `$t:` key works) and defaults to "Menu"; the button reports `aria-expanded` and names the drawer with `aria-controls`. At the breakpoint and above the sidebar renders exactly as it does without the key. A reader whose browser runs no scripts keeps the sidebar in the layout at every width, since the menu button could open nothing for them.
 
-Omitting `rail` keeps today's rendering at every width.
+```yaml
+- type: sidebar
+  rail: { below: xl }
+  drawer: { below: md, label: Menu }
+  groups: …
+```
+
+**A rail and a drawer compose.** The rail keeps the navigation in the layout as icons; the drawer takes it out. The example above is a full sidebar on a desktop, a rail on a laptop and a drawer on a phone. The drawer must own the narrower range: a `drawer.below` at or above `rail.below` would hide every width the rail was declared for, so validation refuses it. Documentation pages built with `layout: docs` fold their navigation into the same drawer below `lg`, with nothing to configure.
+
+Omitting `rail` and `drawer` keeps today's rendering at every width.

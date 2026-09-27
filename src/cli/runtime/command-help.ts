@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { CHANGELOG_HELP_TEXT, DOCS_HELP_TEXT, LIBRARY_HELP_TEXT } from './reference-help'
+
 /**
  * Per-command `--help` text for every dispatchable `sovrium` command.
  *
@@ -171,55 +173,6 @@ const DESIGN_SYSTEM_HELP_TEXT = [
   '  sovrium design-system app.ts --format json         # DTCG tokens, for tooling',
 ].join('\n')
 
-const DOCS_HELP_TEXT = [
-  'Usage: sovrium docs [address] [options]',
-  '       sovrium docs <subcommand> <argument> [options]',
-  '',
-  'Read the platform manual out of this binary — offline, with no config file,',
-  'no database and no network. What it prints describes the engine you are',
-  'actually running, so it can never document a different version.',
-  '',
-  'Markdown is the default because the intended reader is an AI agent: point one',
-  'at `sovrium docs search <topic>` from your CLAUDE.md instead of at the web.',
-  '',
-  'Arguments:',
-  '  address                       <section> or <section>/<slug>; omit it for the',
-  '                                table of contents',
-  '',
-  'Subcommands:',
-  '  search <query>                Find the article covering a topic',
-  '  config <path>                 One option: kind, values, default, prose',
-  '  env <NAME>                    One environment variable',
-  '  cli <verb>                    One command, beside its help text',
-  '',
-  'Options:',
-  '  --full                        The whole manual, for a context window',
-  '  --format <md|json|llms>       md (default), json for tooling, llms for an index',
-  '  --section <slug>              Restrict to one section, repeatable',
-  '  --list-sections               Print the section slugs and exit',
-  '  --lang <code>                 Manual locale; `en` only, anything else refused',
-  '  --output <path>               Write to a file instead of stdout (creates parent dirs)',
-  '  --export <dir>                Write every article plus _nav.json into <dir> (refuses a',
-  '                                non-empty dir without --force)',
-  '  --force                       With --export, replace the files a previous export owns',
-  '  --help, -h                    Show this help message',
-  '',
-  'Exit codes:',
-  '  0                             The manual, or the piece of it you addressed',
-  '  1                             Unknown address, option path, variable, verb,',
-  '                                format or locale — each refused by name',
-  '',
-  'Examples:',
-  '  sovrium docs                                  # Table of contents',
-  '  sovrium docs app-schema/llms-txt              # One article',
-  '  sovrium docs search llms                      # Find the article',
-  '  sovrium docs config llms.full                 # Look one option up',
-  '  sovrium docs env DATABASE_URL                 # One variable',
-  '  sovrium docs cli migrate                      # One command',
-  '  sovrium docs --full --output MANUAL.md        # The whole manual',
-  "  sovrium docs --export content/docs/en         # A docs site's article tree",
-].join('\n')
-
 const VALIDATE_HELP_TEXT = [
   'Usage: sovrium validate <config>',
   '',
@@ -284,8 +237,14 @@ const SEED_HELP_TEXT = [
   '                                upsert    replay idempotently on each file mergeOn',
   '                                replace   delete every row, then insert',
   '  --table <name>                Restrict to one table (repeatable)',
+  '  --as <email>                  Write every row as this account (default: system)',
+  '  --today <YYYY-MM-DD>          The day {{today}} resolves against',
+  '                                (default: SOVRIUM_SEED_TODAY, else the clock)',
   '  --dry-run                     Report the plan and write nothing',
   '  --help, -h                    Show this help message',
+  '',
+  'Accounts in seed/users.yaml are created first; a password left out of the',
+  'file is taken from SOVRIUM_SEED_PASSWORD.',
   '',
   'Examples:',
   '  sovrium seed app.yaml                         # Seed empty tables only',
@@ -311,6 +270,8 @@ const MIGRATE_HELP_TEXT = [
   '  --dry-run                     Name what would change, and write nothing',
   '  --check                       Report whether the upgrade is safe to attempt,',
   '                                and write nothing',
+  '  --allow-destructive           Apply a plan that drops a table still holding',
+  '                                rows (one-shot consent; boot always refuses)',
   '  --help, -h                    Show this help message',
   '',
   'Environment variables:',
@@ -319,7 +280,8 @@ const MIGRATE_HELP_TEXT = [
   'Exit codes:',
   '  0                             Both migration machines completed, or the',
   '                                read-only mode finished with no blocker found',
-  '  1                             Refused, a migration failed, or --check found',
+  '  1                             Refused, a migration failed, a destructive plan',
+  '                                ran without --allow-destructive, or --check found',
   '                                a condition that would abort the upgrade',
   '',
   '--check is a pre-flight, not a guarantee. It names the conditions it can prove',
@@ -429,6 +391,32 @@ const RELOAD_HELP_TEXT = [
   '  sovrium reload --message "Add pricing page"',
 ].join('\n')
 
+const SKILLS_HELP_TEXT = [
+  'Usage: sovrium skills [--output <dir>] [--target claude|agents|all] [--check] [--force]',
+  '',
+  "Write this binary's agent skills into the project: one folder per skill, each a",
+  'SKILL.md your AI reads when a task matches it plus its references/, and a',
+  '.sovrium-skills.json recording a SHA-256 for every file written.',
+  '',
+  'Run it again after upgrading: files Sovrium wrote and you did not change are',
+  'replaced, a skill this version dropped is removed, and a file you edited is',
+  'refused (exit 1) until you pass --force. Skills with other names are never touched.',
+  '',
+  'Options:',
+  '  --output <dir>                Project root (default: current directory)',
+  '  --target <name>               claude  .claude/skills/ (default)',
+  '                                agents  .agents/skills/',
+  '                                all     both',
+  '  --check                       Write nothing; exit 1 listing missing, stale or edited files',
+  '  --force                       Replace files Sovrium wrote even if you edited them',
+  '  --help, -h                    Show this help message',
+  '',
+  'Examples:',
+  '  sovrium skills                                  # .claude/skills/',
+  '  sovrium skills --target all                     # .claude/skills/ and .agents/skills/',
+  '  sovrium skills --check                          # In CI: fail when the skills fell behind',
+].join('\n')
+
 /**
  * Every command whose `--help` is answered instead of executed.
  *
@@ -441,8 +429,11 @@ const COMMAND_HELP: Readonly<Record<string, string>> = {
   build: BUILD_HELP_TEXT,
   schema: SCHEMA_HELP_TEXT,
   types: TYPES_HELP_TEXT,
+  skills: SKILLS_HELP_TEXT,
   'design-system': DESIGN_SYSTEM_HELP_TEXT,
   docs: DOCS_HELP_TEXT,
+  changelog: CHANGELOG_HELP_TEXT,
+  library: LIBRARY_HELP_TEXT,
   validate: VALIDATE_HELP_TEXT,
   mcp: MCP_HELP_TEXT,
   seed: SEED_HELP_TEXT,

@@ -1,37 +1,87 @@
+# Every deadline on the month, and beside it the signed-in person's own open
+# tasks, the oldest due date first so a late one is always on top.
 name: calendar
 path: /calendar
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Calendar
-  description: Task deadlines on a month view
+  title: Calendar · Fernhill Projects
+  description: The month's deadlines, and your own open tasks beside them.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
         props:
-          className: text-3xl font-bold mb-1
-        content: Calendar
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Every task with a due date, laid out on the month.
-
-      # `colorField: status` paints each deadline with the option colour declared
-      # on the task's `status` field, so an overdue Blocked task reads as red
-      # without opening it. There is deliberately no `endDateField`: a task has a
-      # deadline, not a span, and drawing it as a bar would imply work is
-      # scheduled across those days when nothing in the model says so.
-      - type: calendar
-        dataSource:
-          table: tasks
-        dateField: due_date
-        colorField: status
-        defaultView: month
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Calendar
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Add task
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-task-dialog
+          - $ref: ./_add-task.yaml
+          - type: container
+            props:
+              className: flex items-start gap-4 px-5 pb-5 pt-4 max-lg:flex-col
+            children:
+              - type: container
+                props:
+                  className: min-w-0 grow
+                children:
+                  # A task has a deadline, not a span, so it sits on the day it
+                  # is due. Blocked and Done read in their status colours.
+                  - type: calendar
+                    dataSource:
+                      table: tasks
+                    dateField: due_date
+                    labelField: title
+                    colorField: status
+                    defaultView: month
+              - type: container
+                element: section
+                props:
+                  className: flex w-[300px] flex-none flex-col gap-2 max-lg:w-full
+                  aria-label: My tasks
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+                    content: My tasks
+                  # `$currentUser.id` is the signed-in person, so each teammate
+                  # sees their own list.
+                  - type: list
+                    dataSource:
+                      table: tasks
+                      filter:
+                        - { field: assignee, operator: eq, value: $currentUser.id }
+                        - { field: status, operator: neq, value: Done }
+                      sort:
+                        - { field: due_date, direction: asc }
+                      limit: 10
+                    listDisplay:
+                      emptyMessage: Nothing assigned to you is open. Tasks given to you appear here by due date.
+                      itemTemplate:
+                        title: $record.title
+                        subtitle: $record.project_name
+                        metadata:
+                          - { field: due_date, format: short-date }

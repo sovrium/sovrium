@@ -28,6 +28,12 @@ import { logInfo, logWarning } from '@/infrastructure/logging/logger'
 import { registerAccountPurgeScheduler } from '@/infrastructure/scheduling/register-account-purge'
 import { registerActivityLogRetentionScheduler } from '@/infrastructure/scheduling/register-activity-log-retention'
 import { registerCronAutomations } from '@/infrastructure/scheduling/register-cron-automations'
+import { registerFailureRollupScheduler } from '@/infrastructure/scheduling/register-failure-rollup'
+import { registerStuckRunSweepScheduler } from '@/infrastructure/scheduling/register-stuck-run-sweep'
+import {
+  registerWeeklyDigestScheduler,
+  runWeeklyDigestCatchUp,
+} from '@/infrastructure/scheduling/register-weekly-digest'
 import {
   buildDomainRuntimeAndApp,
   buildHonoAppFromConfig,
@@ -123,6 +129,22 @@ const writeSidecarFiles = (
   })
 
 /**
+ * Warn once at boot when a multi-language app has no public origin.
+ *
+ * Search engines reject relative `hreflang` alternates, so a page with no
+ * absolute `canonical` omits them entirely when `BASE_URL` is unset. The
+ * operator gets one line saying so rather than discovering it in a search
+ * console weeks later.
+ */
+const warnWhenHreflangHasNoOrigin = (config: ServerConfig): void => {
+  const multiLanguage = (config.app.languages?.supported.length ?? 0) > 1
+  if (!multiLanguage || config.silent || config.reload || Bun.env.BASE_URL) return
+  logWarning(
+    '[seo] BASE_URL is not set, so pages without an absolute canonical publish no hreflang alternates. Set BASE_URL to the public origin of this multi-language app.'
+  )
+}
+
+/**
  * Creates and starts a Bun server with Hono
  *
  * Collects startup phases and renders a clean summary at the end.
@@ -149,7 +171,9 @@ export const createServer = (
     // surface later on whichever request first touches that lever. Shared with
     // the render path so the two cannot come to disagree about which levers are
     // checked — see `validate-operator-env.ts`.
-    yield* validateOperatorEnv
+    yield* validateOperatorEnv.pipe(
+      Effect.tap(() => Effect.sync(() => warnWhenHreflangHasNoOrigin(config)))
+    )
     const port = config.port ?? parsePort(Bun.env.PORT) ?? 3000
     const hostname = config.hostname ?? (Bun.env.HOSTNAME || 'localhost')
     const { configHash = '', configPath = '' } = config
@@ -198,6 +222,16 @@ export const createServer = (
         registerAgentSchedules(config.app, fireAgentSchedule),
         registerAccountPurgeScheduler(config.app),
         registerActivityLogRetentionScheduler,
+        registerFailureRollupScheduler(config.app),
+        registerStuckRunSweepScheduler(config.app),
+        registerWeeklyDigestScheduler(config.app),
+        // The weekly summary's boot catch-up: one summary for a week missed
+        // while the server was down. Post-bind, because it reads every domain
+        // the summary covers — the app's own tables included — through this
+        // runtime; awaited (the list runs in sequence), so a summary it sends
+        // has gone out by the time the banner says the boot is complete. It
+        // cannot fail the boot.
+        runWeeklyDigestCatchUp(config.app),
       ]),
       domain.context
     )

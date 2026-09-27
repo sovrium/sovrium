@@ -10,6 +10,11 @@ import {
   BatchRepository,
   type BatchValidationError,
 } from '@/application/ports/repositories/tables/batch-repository'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import {
+  buildCreateAuthorshipOverrides,
+  createdByFieldNames,
+} from '@/domain/models/app/tables/authorship-fields'
 import { transformRecords, type TransformedRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { NotFoundError, DatabaseError, ValidationError } from '@/domain/errors'
@@ -139,12 +144,22 @@ export function upsertProgram(
 > {
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
-    const result = yield* batch.upsert(
-      session,
-      tableName,
-      params.recordsData,
-      params.fieldsToMergeOn
-    )
+    // Stamp every `created-by`/`updated-by`-typed field BY NAME, as the
+    // single-record create does (`write-record-programs.ts`): the infra only
+    // fills the literal `created_by`/`updated_by` columns, and the create half
+    // of an upsert must satisfy a NOT NULL author column like any other create.
+    // The created-by names, plus the intrinsic `created_at`/`created_by`, are
+    // insert-only: a matched row keeps its original author and creation date.
+    const tables = params.app?.tables
+    const overrides = isGuestSession(session.userId)
+      ? {}
+      : buildCreateAuthorshipOverrides(tables, tableName, session.userId)
+    const recordsData = params.recordsData.map((fields) => ({ ...fields, ...overrides }))
+    const insertOnlyFields = ['created_at', 'created_by', ...createdByFieldNames(tables, tableName)]
+    const result = yield* batch.upsert(session, tableName, recordsData, {
+      fieldsToMergeOn: params.fieldsToMergeOn,
+      insertOnlyFields,
+    })
 
     const transformed = transformRecords(result.records, { app: params.app, tableName })
     return {

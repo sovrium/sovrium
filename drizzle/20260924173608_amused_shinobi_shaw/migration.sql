@@ -1,0 +1,1 @@
+ALTER TABLE "system"."automation_run_steps" ADD COLUMN "logs" jsonb;

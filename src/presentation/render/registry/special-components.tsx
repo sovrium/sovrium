@@ -10,6 +10,10 @@ import {
   computeListLoadMoreClasses,
   computeListShellClasses,
 } from '@/presentation/design/list-default-classes'
+import {
+  hostClassName,
+  hostComponentType,
+} from '@/presentation/render/registry/island-host-attributes'
 import * as Renderers from '../elements'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
@@ -153,6 +157,8 @@ function renderListIsland(elementProps: Record<string, unknown>): ReactElement {
       id={elementProps['id'] as string | undefined}
       data-island="list"
       data-component="list"
+      data-component-type={hostComponentType(elementProps)}
+      className={hostClassName(elementProps)}
       // On the HOST rather than inside the island payload, where it used to sit
       // and where nothing read it: the island returns a fragment, so it has no
       // single element of its own to name, and the host is the element that is
@@ -200,6 +206,8 @@ function renderSearchIsland(elementProps: Record<string, unknown>): ReactElement
       id={elementProps['id'] as string | undefined}
       data-island="search-list"
       data-component="list"
+      data-component-type={hostComponentType(elementProps)}
+      className={hostClassName(elementProps)}
       data-island-props={islandProps}
     >
       {/* SSR placeholder: search input skeleton visible before island hydration. */}

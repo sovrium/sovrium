@@ -101,11 +101,15 @@ const PASSWORD_FIELD: AuthFormField = {
  *
  * - `setNewPassword` → password only.
  * - `resetPassword` → email only.
+ * - `login` with the `magicLink` strategy → email only: the link mailed to that
+ *   address IS the credential, so a password input would ask for something the
+ *   sign-in never reads.
  * - `login` / `signup` (and any unknown method) → email + password.
  */
-export function defaultAuthFields(method: string): readonly AuthFormField[] {
+export function defaultAuthFields(method: string, strategy?: string): readonly AuthFormField[] {
   if (method === 'setNewPassword') return [PASSWORD_FIELD]
   if (method === 'resetPassword') return [EMAIL_FIELD]
+  if (method === 'login' && strategy === 'magicLink') return [EMAIL_FIELD]
   return [EMAIL_FIELD, PASSWORD_FIELD]
 }
 

@@ -15,7 +15,7 @@ import {
   formatHtmlWithPrettier,
   generateClientHydrationScript,
   generateRobotsContent,
-  generateSitemapContent,
+  generateSitemapDocuments,
   type HreflangConfig,
 } from './static-content-generators'
 import {
@@ -25,6 +25,7 @@ import {
 } from './static-url-rewriter'
 import * as translationReplacer from './translation-replacer'
 import type { GenerateStaticOptions } from './generate-static'
+import type { CollectionRecordIndex } from './sitemap-record-fan-out'
 import type { App } from '@/domain/models/app'
 
 // Re-export static modules for callers that previously used the import helpers
@@ -195,7 +196,7 @@ export function formatHtmlFiles(
 
     // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- build-time static generation: filesystem/SSG work on a dedicated process, no shared database pool connection is held.
     yield* Effect.forEach(
-      generatedFiles.filter((f) => f.endsWith('.html') && !f.endsWith('.js.html')),
+      generatedFiles.filter((f) => f.endsWith('.html')),
       (file) =>
         Effect.gen(function* () {
           const filePath = file.startsWith('/') ? file : path.join(outputDir, file)
@@ -299,15 +300,32 @@ const buildHreflangConfig = (
   }
 }
 
+/** Write one sitemap document into the output directory. */
+const writeSitemapDocument = (fs: FileSystemLike, outputDir: string, file: string, xml: string) =>
+  Effect.tryPromise({
+    try: () => fs.writeFile(`${outputDir}/${file}`, xml, 'utf-8'),
+    catch: (error) =>
+      new StaticGenerationError({
+        message: `Failed to write ${file}`,
+        cause: error,
+      }),
+  })
+
 /**
- * Generate sitemap.xml if enabled
+ * Generate sitemap.xml if enabled — plus `sitemap-1.xml`, `sitemap-2.xml`, …
+ * beside it when it is split into an index.
+ *
+ * `collectionRecords` is the build's one enumeration of the listed records, the
+ * same one its record pages were rendered from, so every record address this
+ * sitemap lists is a page the build wrote.
  */
 export function generateSitemapFile(
-  app: App,
+  site: { readonly app: App; readonly collectionRecords: CollectionRecordIndex },
   outputDir: string,
   options: GenerateStaticOptions,
   fs: FileSystemLike
 ) {
+  const { app, collectionRecords } = site
   return Effect.suspend(() =>
     (options.generateSitemap ?? false)
       ? Effect.gen(function* () {
@@ -316,28 +334,28 @@ export function generateSitemapFile(
           const languages = app.languages && options.languages ? options.languages : undefined
           const hreflangConfig = buildHreflangConfig(app, options)
 
-          const sitemap = yield* Effect.tryPromise({
+          const documents = yield* Effect.tryPromise({
             try: () =>
-              generateSitemapContent(
-                pages,
-                options.baseUrl || 'https://example.com',
-                languages || hreflangConfig ? { languages, hreflangConfig } : undefined
-              ),
+              generateSitemapDocuments(pages, options.baseUrl || 'https://example.com', {
+                ...(languages !== undefined ? { languages } : {}),
+                ...(hreflangConfig !== undefined ? { hreflangConfig } : {}),
+                collectionRecords,
+              }),
             catch: (error) =>
               new StaticGenerationError({
                 message: 'Failed to generate sitemap.xml',
                 cause: error,
               }),
           })
-          yield* Effect.tryPromise({
-            try: () => fs.writeFile(`${outputDir}/sitemap.xml`, sitemap, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: 'Failed to write sitemap.xml',
-                cause: error,
-              }),
-          })
-          return ['sitemap.xml'] as const
+          yield* writeSitemapDocument(fs, outputDir, 'sitemap.xml', documents.sitemap)
+          const childFiles = documents.children.map((_, index) => `sitemap-${index + 1}.xml`)
+          // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- build-time static generation: filesystem writes on a dedicated process, no shared database pool connection is held.
+          yield* Effect.forEach(
+            documents.children,
+            (xml, index) => writeSitemapDocument(fs, outputDir, `sitemap-${index + 1}.xml`, xml),
+            { concurrency: 'unbounded' }
+          )
+          return ['sitemap.xml', ...childFiles] as readonly string[]
         })
       : Effect.succeed([] as readonly string[])
   ).pipe(Effect.withSpan('server.generate-sitemap-file'))

@@ -6,7 +6,7 @@
  */
 
 import { errorResponseSchema } from '@/domain/models/api/combinators/error'
-import { viewOnlyParamSchema } from '@/domain/models/api/tables/params'
+import { listRecordsQuerySchema, viewOnlyParamSchema } from '@/domain/models/api/tables/params'
 import {
   getViewRecordsResponseSchema,
   getViewResponseSchema,
@@ -54,10 +54,14 @@ const routes: readonly RouteSpec[] = [
     method: 'get',
     pathTemplate: '/api/tables/{tableSlug}/views/{viewId}/records',
     summary: 'Get records through a view',
-    description: 'Returns records filtered and sorted according to the view configuration.',
+    description:
+      "Returns one page of records through the view: its filters and sorts apply on the server, a `filter` only narrows them, `fields` is intersected with the view's list, and `deleted`/`includeDeleted` are ignored. Needs no session when the view is public.",
     operationIdBase: 'getViewRecords',
 
-    parameters: effectParameters(viewOnlyParamSchema, 'path'),
+    parameters: [
+      ...effectParameters(viewOnlyParamSchema, 'path'),
+      ...effectParameters(listRecordsQuerySchema, 'query'),
+    ],
     responses: {
       200: effectJsonResponse(getViewRecordsResponseSchema, 'Filtered records'),
       401: errorResponse('Unauthorized'),

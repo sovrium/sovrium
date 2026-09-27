@@ -12,6 +12,7 @@ import { ApprovalActionSchema } from './approval'
 import { AuthActionSchema } from './auth'
 import { AutomationActionSchema } from './automation'
 import { CodeActionSchema } from './code'
+import { ConnectionActionSchema } from './connection'
 import { CryptoActionSchema } from './crypto'
 import { DataActionSchema } from './data'
 import { DateActionSchema } from './date'
@@ -58,6 +59,9 @@ export interface PathBranch {
 
 type Props<T> = { readonly props: T }
 
+/** One value of an HTTP action's `query` object, encoded by the engine. */
+type HttpQueryValue = string | number | boolean
+
 /** Column definition shared by the `generateXlsx` single- and multi-sheet forms. */
 type XlsxColumnDef = {
   readonly key?: string
@@ -87,6 +91,9 @@ export type Action =
         readonly url: string
         // Literal HTTP method or a template string resolved at runtime.
         readonly method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | string
+        readonly query?: {
+          readonly [key: string]: HttpQueryValue | readonly HttpQueryValue[]
+        }
         readonly headers?: { readonly [key: string]: string }
         readonly body?: string | { readonly [key: string]: unknown }
         readonly contentType?: 'json' | 'form' | 'text' | 'xml'
@@ -97,6 +104,9 @@ export type Action =
       readonly operator: 'get'
     } & Props<{
         readonly url: string
+        readonly query?: {
+          readonly [key: string]: HttpQueryValue | readonly HttpQueryValue[]
+        }
         readonly headers?: { readonly [key: string]: string }
         readonly timeout?: number
         readonly connection?: string
@@ -106,6 +116,9 @@ export type Action =
       readonly operator: 'post' | 'put' | 'patch'
     } & Props<{
         readonly url: string
+        readonly query?: {
+          readonly [key: string]: HttpQueryValue | readonly HttpQueryValue[]
+        }
         readonly headers?: { readonly [key: string]: string }
         readonly body?: string | { readonly [key: string]: unknown }
         readonly contentType?: 'json' | 'form' | 'text' | 'xml'
@@ -117,10 +130,24 @@ export type Action =
       readonly operator: 'delete'
     } & Props<{
         readonly url: string
+        readonly query?: {
+          readonly [key: string]: HttpQueryValue | readonly HttpQueryValue[]
+        }
         readonly headers?: { readonly [key: string]: string }
         readonly body?: string | { readonly [key: string]: unknown }
         readonly timeout?: number
         readonly connection?: string
+      }>)
+  // ── connection ──
+  | (ActionBase & {
+      readonly type: 'connection'
+      readonly operator: 'call'
+    } & Props<{
+        readonly connection: string
+        readonly operation: string
+        readonly params?: { readonly [key: string]: unknown }
+        readonly paginate?: 'all' | number
+        readonly timeout?: number
       }>)
   // ── record (6 single-record + set-read operator variants) ──
   | (ActionBase & {
@@ -746,6 +773,17 @@ export type Action =
         readonly namespace?: string
         readonly limit?: number
       }>)
+  | (ActionBase & {
+      readonly type: 'state'
+      readonly operator: 'filterNew'
+    } & Props<{
+        readonly input: string
+        readonly key: string
+        readonly cursor?: { readonly field: string; readonly stateKey: string }
+        readonly initial?: 'skip' | 'emit'
+        readonly remember?: number
+        readonly namespace?: string
+      }>)
   // ── digest (2 operator variants) ──
   | (ActionBase & {
       readonly type: 'digest'
@@ -929,6 +967,7 @@ export const ActionSchema: Schema.Codec<Action, unknown> = Schema.Union([
   WebhookActionSchema,
   DelayActionSchema,
   AutomationActionSchema,
+  ConnectionActionSchema,
   AiActionSchema,
   ApprovalActionSchema,
   FileActionSchema,

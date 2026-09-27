@@ -79,6 +79,13 @@ export interface NavigatedDetail {
 export interface OpenDrawerDetail {
   readonly id: string
   readonly record: Record<string, unknown>
+  /**
+   * The table the record belongs to, when the dispatcher knows it. A drawer
+   * binds the record only to the update forms of THIS table: two tables number
+   * their rows independently, so a contact's id handed to a form editing notes
+   * names an unrelated note. Absent, every update form is bound, as before.
+   */
+  readonly table?: string
 }
 
 /**

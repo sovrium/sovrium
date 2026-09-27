@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Cron, DateTime, Effect, Result, Schema } from 'effect'
+import { Cron, DateTime, Result, Schema } from 'effect'
 
 /**
  * Cron Trigger
@@ -26,7 +26,9 @@ import { Cron, DateTime, Effect, Result, Schema } from 'effect'
  *
  * Timezone is validated as an IANA identifier via
  * `DateTime.zoneMakeNamedUnsafe`. Invalid zones cause schema validation to
- * fail at server boot.
+ * fail at server boot. The key is optional and carries no decoding default:
+ * an omitted zone is resolved at each boundary to the operator timezone
+ * (`SOVRIUM_TIMEZONE`, UTC when unset), which the domain never reads.
  */
 export const CronTriggerSchema = Schema.Struct({
   type: Schema.Literal('cron').pipe(
@@ -41,9 +43,13 @@ export const CronTriggerSchema = Schema.Struct({
         'No @daily/@hourly/@weekly aliases — use the equivalent numeric expression instead.',
     })
   ),
-  timezone: Schema.String.pipe(
-    Schema.annotate({ description: 'IANA timezone (e.g., "America/New_York"). Default: UTC' }),
-    Schema.withDecodingDefaultKey(Effect.succeed('UTC'))
+  timezone: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'IANA timezone (e.g., "America/New_York"). Default: the operator timezone (SOVRIUM_TIMEZONE, UTC when unset)',
+      })
+    )
   ),
 }).pipe(
   Schema.check(
@@ -60,12 +66,18 @@ export const CronTriggerSchema = Schema.Struct({
       // chain that preserves the original throw, and the overlay swallows
       // failures silently. A shared helper would force adapter wrappers at each
       // site that cost more lines than the duplicated 5 lines save.
-      const zone = Result.try({
-        try: () => DateTime.zoneMakeNamedUnsafe(timezone),
-        catch: () => undefined,
-      })
-      if (Result.isFailure(zone)) return `Invalid IANA timezone: ${timezone}`
-      const parsed = Cron.parse(expression, zone.success)
+      //
+      // An omitted zone is only resolved at runtime (operator timezone), so the
+      // expression is then validated zone-free: field ranges do not depend on it.
+      const zone =
+        timezone === undefined
+          ? undefined
+          : Result.try({
+              try: () => DateTime.zoneMakeNamedUnsafe(timezone),
+              catch: () => undefined,
+            })
+      if (zone !== undefined && Result.isFailure(zone)) return `Invalid IANA timezone: ${timezone}`
+      const parsed = Cron.parse(expression, zone?.success)
       if (Result.isFailure(parsed)) {
         const cause = parsed.failure as unknown as { readonly message?: string }
         const detail = cause.message ?? String(parsed.failure)

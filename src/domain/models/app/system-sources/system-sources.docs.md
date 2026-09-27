@@ -74,6 +74,48 @@ The read borrows the requesting visitor's own credentials, so a row somebody may
 
 **Read-only.** A live submit control inside the template — a form at any depth — is refused at startup. A system row has no table identity, so there are no field permissions to apply and no write path the platform owns. Put the form on a page of its own.
 
+## An approval inbox
+
+`GET /api/automations/approvals` answers `{ approvals: [...] }` with only the automation approval requests the signed-in person may resolve, each carrying the `runId` and `approvalId` the resolution endpoint takes. Bound to a table, it is each approver's own inbox, and an action column resolves a request from its row:
+
+```yaml
+name: my-app
+pages:
+  - name: Approvals
+    path: /approvals
+    components:
+      - type: table
+        props: { id: approvals-inbox }
+        dataSource:
+          system:
+            endpoint: /api/automations/approvals
+            rowsKey: approvals
+            idKey: approvalId
+            query: { status: pending }
+        columns:
+          - field: message
+            label: Request
+          - field: automationName
+            label: Workflow
+          - type: actions
+            actions:
+              - label: Approve
+                action:
+                  type: fetch
+                  method: POST
+                  url: /api/automations/runs/$record.runId/approvals/$record.approvalId/approve
+                  onSuccess: { type: toast, message: Approved, refetch: approvals-inbox }
+              - label: Reject
+                action:
+                  type: fetch
+                  method: POST
+                  url: /api/automations/runs/$record.runId/approvals/$record.approvalId/reject
+                  onSuccess: { type: toast, message: Rejected, refetch: approvals-inbox }
+        emptyMessage: Nothing waiting for you
+```
+
+`refetch` reloads the grid once the request is resolved, so the row leaves it. `status: approved` or `status: rejected` lists the requests already decided instead.
+
 ## Cursor feeds
 
 Some platform endpoints paginate by **cursor** rather than by page number: each response carries a token for the rows after the ones it returned, and reports no total. Automation runs, the audit log and agent conversations all read this way — a feed still being written to has no stable count to report.

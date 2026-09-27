@@ -429,8 +429,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
       en: {
         'admin.agents.blurb':
           'Every conversation your users had with this agent. Open one to read the full thread.',
-        'admin.agents.blurbDefault':
-          'The general-purpose agent: every conversation no declared agent claimed. Open one to read the full thread.',
+        'admin.agents.blurbSystem':
+          'Conversations with the built-in System agent: the Welcome assistant, and every chat that names no declared agent. It reads your app’s data and never changes it. Open one to read the full thread.',
         'admin.agents.heading': 'Conversations',
         'admin.agents.loading': 'Loading conversations…',
         'admin.agents.region': 'Conversations',
@@ -467,21 +467,86 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.auth.backToSignIn': 'Back to sign in',
         'admin.automations.blurb':
           'Every run this app has made, and the automations they came from. Pause one to stop it running without changing your config; an automation disabled in your app config can only be re-enabled there.',
+        'admin.automations.cancel': 'Cancel',
+        'admin.automations.catalog.action.pause': 'Pause',
+        'admin.automations.catalog.action.resume': 'Resume',
+        'admin.automations.catalog.col.automation': 'Automation',
+        'admin.automations.catalog.col.pausedAt': 'Paused at',
+        'admin.automations.catalog.col.pausedBy': 'Paused by',
+        'admin.automations.catalog.col.state': 'State',
+        'admin.automations.catalog.col.trigger': 'Trigger',
+        'admin.automations.catalog.empty': 'No automations',
+        'admin.automations.catalog.pause.message':
+          'New runs stop until you resume. A run already in progress is not cancelled.',
+        'admin.automations.catalog.pause.title': 'Pause this automation?',
+        'admin.automations.catalog.pause.toast': 'Automation paused',
+        'admin.automations.catalog.reason': 'Pause reason',
+        'admin.automations.catalog.reason.automatic': 'Automatic, after repeated failures',
+        'admin.automations.catalog.resume.toast': 'Automation resumed',
+        'admin.automations.catalog.state.active': 'Active',
+        'admin.automations.catalog.state.disabled': 'Disabled in config',
+        'admin.automations.catalog.state.paused': 'Paused',
         'admin.automations.empty.body':
           'This app declares no automations yet. Add one in your app config to see its runs appear here.',
         'admin.automations.empty.heading': 'No automations',
         'admin.automations.empty.hint': 'No automations yet — so nothing to run.',
         'admin.automations.heading': 'Runs',
+        'admin.automations.metrics.automations': 'Automations',
+        'admin.automations.metrics.failures24h': 'Failures (24h)',
         'admin.automations.metrics.region': 'Run metrics',
+        'admin.automations.metrics.runs24h': 'Runs (24h)',
+        'admin.automations.metrics.successRate': 'Success rate',
         'admin.automations.region': 'Automations',
+        'admin.automations.runs.action.view': 'View run',
+        'admin.automations.runs.col.automation': 'Automation',
+        'admin.automations.runs.col.duration': 'Duration',
+        'admin.automations.runs.col.started': 'Started',
+        'admin.automations.runs.col.status': 'Status',
+        'admin.automations.runs.detail.back': 'Back to runs',
+        'admin.automations.runs.detail.blurb':
+          'One run: what it was given, and what each step did and logged.',
         'admin.automations.runs.detail.configuredInCode':
           'Configured in code, not here. Edit the app config and restart to change it.',
+        'admin.automations.runs.detail.dataIn': 'Data in',
+        'admin.automations.runs.detail.dataOut': 'Data out',
+        'admin.automations.runs.detail.failure': 'Failure',
+        'admin.automations.runs.detail.field.attempt': 'Attempt',
+        'admin.automations.runs.detail.field.automation': 'Automation',
+        'admin.automations.runs.detail.field.duration': 'Duration (ms)',
+        'admin.automations.runs.detail.field.finished': 'Finished',
+        'admin.automations.runs.detail.field.started': 'Started',
+        'admin.automations.runs.detail.field.status': 'Status',
+        'admin.automations.runs.detail.field.trigger': 'Trigger',
+        'admin.automations.runs.detail.log': 'Log',
+        'admin.automations.runs.detail.noLogs': 'This step logged nothing.',
+        'admin.automations.runs.detail.retry': 'Retry',
+        'admin.automations.runs.detail.retry.error': 'The run was not retried.',
+        'admin.automations.runs.detail.retry.message':
+          'The automation runs again as a new run. This run is kept as it is.',
+        'admin.automations.runs.detail.retry.title': 'Confirm retry',
+        'admin.automations.runs.detail.retry.toast': 'Retry started',
+        'admin.automations.runs.detail.steps': 'Steps',
+        'admin.automations.runs.empty': 'No runs',
+        'admin.automations.runs.filter.all': 'All',
+        'admin.automations.runs.filter.automation': 'Filter by automation',
+        'admin.automations.runs.filter.status': 'Filter by status',
         'admin.automations.runs.heading': 'Run history',
+        'admin.automations.runs.noMatch': 'No run matches “{query}”',
         'admin.automations.runs.scope':
           'Shows the 25 most recent runs. Search and the filters query every run and return the 25 most recent matches.',
+        'admin.automations.runs.search': 'Search runs',
+        'admin.automations.runs.status.failed': 'Failed',
+        'admin.automations.runs.status.partial': 'Partial',
+        'admin.automations.runs.status.success': 'Success',
+        'admin.automations.tabs.automations': 'Automations',
+        'admin.automations.tabs.history': 'History',
         'admin.automations.tabs.region': 'Runs sub-views',
         'admin.buckets.blurb':
           'Browse the files stored in your buckets. Choose a bucket to open its browser — search, sort, filter by type, then download a file.',
+        'admin.buckets.blurbBucket':
+          'The files stored in this bucket. Search, sort or filter by type, then download or delete a file.',
+        'admin.buckets.blurbSystem':
+          'The built-in bucket. It lists every document and image attached to a record, with the bucket, table, record and field it belongs to, and stores the attachments whose field names no bucket.',
         'admin.buckets.browser.region': 'File browser',
         'admin.buckets.heading': 'Files',
         'admin.buckets.upload.region': 'Upload file',
@@ -524,13 +589,37 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.changelog.row.engine': 'Sovrium',
         'admin.changelog.row.migrations': 'engine migrations applied',
         'admin.changelog.toCurrent': 'Read the configuration as booted',
+        'admin.connections.action.connect': 'Connect',
+        'admin.connections.action.disconnect': 'Disconnect',
+        'admin.connections.action.disconnectConfirm': 'Revoke this connection’s tokens?',
+        'admin.connections.action.reconnect': 'Reconnect',
         'admin.connections.blurb':
-          'Inspect your app’s connections to external services and the state of their tokens: active, expiring soon, or expired. Connections are declared in config — here you observe their real state.',
+          'Inspect your app’s connections to external services and the state of their tokens: active, expiring soon, expired, or needing a reconnection. Connections are declared in config — here you observe their real state.',
+        'admin.connections.col.actions': 'Actions',
+        'admin.connections.col.connection': 'Connection',
+        'admin.connections.col.created': 'Created',
+        'admin.connections.col.expiration': 'Expiration',
+        'admin.connections.col.provider': 'Provider',
+        'admin.connections.col.status': 'Status',
+        'admin.connections.col.tokens': 'Tokens',
+        'admin.connections.col.type': 'Type',
+        'admin.connections.empty': 'No connections',
         'admin.connections.heading': 'Connections',
+        'admin.connections.noMatch': 'No connection matches “{query}”',
         'admin.connections.region': 'Connections',
+        'admin.connections.search': 'Search connections',
+        'admin.connections.status.active': 'Active',
+        'admin.connections.status.expired': 'Expired',
+        'admin.connections.status.expiringSoon': 'Expiring soon',
+        'admin.connections.status.reconnectNeeded': 'Reconnect needed',
+        'admin.connections.tokens.none': 'No tokens',
+        'admin.connections.tokens.one': '1 user',
+        'admin.connections.tokens.two': '2 users',
+        'admin.connections.type.apiKey': 'API key',
         'admin.crumb.agents': 'Conversations',
         'admin.crumb.api': 'API',
         'admin.crumb.apiKeys': 'API keys',
+        'admin.crumb.automationRun': 'Run',
         'admin.crumb.automations': 'Runs',
         'admin.crumb.buckets': 'Files',
         'admin.crumb.changelog': 'Changelog',
@@ -760,6 +849,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.meta.agents': 'Sovrium — Data · Conversations',
         'admin.meta.api': 'Sovrium — API',
         'admin.meta.apiKeys': 'Sovrium — API keys',
+        'admin.meta.automationRun': 'Sovrium — Data · Run',
         'admin.meta.automations': 'Sovrium — Data · Runs',
         'admin.meta.buckets': 'Sovrium — Data · Files',
         'admin.meta.changelog': 'Sovrium — Changelog',
@@ -922,6 +1012,20 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.profile.language.savedDetail':
           'Language saved. The console switches on your next page.',
         'admin.profile.language.submit': 'Save',
+        'admin.profile.notifications.automationAlerts.formRegion': 'Change your automation alerts',
+        'admin.profile.notifications.automationAlerts.hint':
+          'Email me when an automation fails, is interrupted, paused or resumed.',
+        'admin.profile.notifications.automationAlerts.label': 'Automation alerts',
+        'admin.profile.notifications.failed': 'Could not save the preference.',
+        'admin.profile.notifications.hint':
+          'Every alert email links back here, where you turn them off.',
+        'admin.profile.notifications.label': 'Notifications',
+        'admin.profile.notifications.saved': 'Preference saved.',
+        'admin.profile.notifications.submit': 'Save',
+        'admin.profile.notifications.weeklyDigest.formRegion': 'Change your weekly summary',
+        'admin.profile.notifications.weeklyDigest.hint':
+          'Email me every week with what ran, what failed and how the data grew.',
+        'admin.profile.notifications.weeklyDigest.label': 'Weekly summary',
         'admin.profile.password.failed': 'Could not change your password — check your current one.',
         'admin.profile.password.formRegion': 'Change your password',
         'admin.profile.password.saved': 'Password changed.',
@@ -1031,8 +1135,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
       fr: {
         'admin.agents.blurb':
           'Toutes les conversations que tes utilisateurs ont eues avec cet agent. Ouvres-en une pour lire le fil complet.',
-        'admin.agents.blurbDefault':
-          'L’agent généraliste : toutes les conversations qu’aucun agent déclaré n’a revendiquées. Ouvres-en une pour lire le fil complet.',
+        'admin.agents.blurbSystem':
+          'Les conversations avec l’agent Système intégré : l’assistant de Bienvenue, et toute discussion qui ne nomme aucun agent déclaré. Il lit les données de ton app sans jamais les modifier. Ouvres-en une pour lire le fil complet.',
         'admin.agents.heading': 'Conversations',
         'admin.agents.loading': 'Chargement des conversations…',
         'admin.agents.region': 'Conversations',
@@ -1070,22 +1174,87 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.auth.backToSignIn': 'Retour à la connexion',
         'admin.automations.blurb':
           'Toutes les exécutions de cette app, et les automatisations dont elles viennent. Mets-en une en pause pour arrêter son exécution sans changer ta config ; une automatisation désactivée dans ta config d’app ne peut être réactivée que là.',
+        'admin.automations.cancel': 'Annuler',
+        'admin.automations.catalog.action.pause': 'Mettre en pause',
+        'admin.automations.catalog.action.resume': 'Reprendre',
+        'admin.automations.catalog.col.automation': 'Automatisation',
+        'admin.automations.catalog.col.pausedAt': 'Mise en pause le',
+        'admin.automations.catalog.col.pausedBy': 'Mise en pause par',
+        'admin.automations.catalog.col.state': 'État',
+        'admin.automations.catalog.col.trigger': 'Déclencheur',
+        'admin.automations.catalog.empty': 'Aucune automatisation',
+        'admin.automations.catalog.pause.message':
+          'Les nouvelles exécutions s’arrêtent jusqu’à la reprise. Une exécution déjà en cours n’est pas annulée.',
+        'admin.automations.catalog.pause.title': 'Mettre cette automatisation en pause ?',
+        'admin.automations.catalog.pause.toast': 'Automatisation mise en pause',
+        'admin.automations.catalog.reason': 'Motif de la pause',
+        'admin.automations.catalog.reason.automatic': 'Automatique, après des échecs répétés',
+        'admin.automations.catalog.resume.toast': 'Automatisation reprise',
+        'admin.automations.catalog.state.active': 'Active',
+        'admin.automations.catalog.state.disabled': 'Désactivée dans la config',
+        'admin.automations.catalog.state.paused': 'En pause',
         'admin.automations.empty.body':
           'Cette app ne déclare encore aucune automatisation. Ajoutes-en une dans ta config d’app pour voir ses exécutions apparaître ici.',
         'admin.automations.empty.heading': 'Aucune automatisation',
         'admin.automations.empty.hint':
           'Aucune automatisation pour l’instant — donc rien à exécuter.',
         'admin.automations.heading': 'Exécutions',
+        'admin.automations.metrics.automations': 'Automatisations',
+        'admin.automations.metrics.failures24h': 'Échecs (24 h)',
         'admin.automations.metrics.region': 'Indicateurs des exécutions',
+        'admin.automations.metrics.runs24h': 'Exécutions (24 h)',
+        'admin.automations.metrics.successRate': 'Taux de réussite',
         'admin.automations.region': 'Automatisations',
+        'admin.automations.runs.action.view': 'Voir l’exécution',
+        'admin.automations.runs.col.automation': 'Automatisation',
+        'admin.automations.runs.col.duration': 'Durée',
+        'admin.automations.runs.col.started': 'Démarrée',
+        'admin.automations.runs.col.status': 'Statut',
+        'admin.automations.runs.detail.back': 'Retour aux exécutions',
+        'admin.automations.runs.detail.blurb':
+          'Une exécution : ce qu’elle a reçu, et ce que chaque étape a fait et journalisé.',
         'admin.automations.runs.detail.configuredInCode':
           'Configurée dans le code, pas ici. Modifie la configuration de l’app puis redémarre.',
+        'admin.automations.runs.detail.dataIn': 'Données en entrée',
+        'admin.automations.runs.detail.dataOut': 'Données en sortie',
+        'admin.automations.runs.detail.failure': 'Échec',
+        'admin.automations.runs.detail.field.attempt': 'Tentative',
+        'admin.automations.runs.detail.field.automation': 'Automatisation',
+        'admin.automations.runs.detail.field.duration': 'Durée (ms)',
+        'admin.automations.runs.detail.field.finished': 'Terminée',
+        'admin.automations.runs.detail.field.started': 'Démarrée',
+        'admin.automations.runs.detail.field.status': 'Statut',
+        'admin.automations.runs.detail.field.trigger': 'Déclencheur',
+        'admin.automations.runs.detail.log': 'Journal',
+        'admin.automations.runs.detail.noLogs': 'Cette étape n’a rien journalisé.',
+        'admin.automations.runs.detail.retry': 'Relancer',
+        'admin.automations.runs.detail.retry.error': 'L’exécution n’a pas été relancée.',
+        'admin.automations.runs.detail.retry.message':
+          'L’automatisation s’exécute de nouveau, comme une nouvelle exécution. Celle-ci reste telle quelle.',
+        'admin.automations.runs.detail.retry.title': 'Confirmer la relance',
+        'admin.automations.runs.detail.retry.toast': 'Relance lancée',
+        'admin.automations.runs.detail.steps': 'Étapes',
+        'admin.automations.runs.empty': 'Aucune exécution',
+        'admin.automations.runs.filter.all': 'Toutes',
+        'admin.automations.runs.filter.automation': 'Filtrer par automatisation',
+        'admin.automations.runs.filter.status': 'Filtrer par statut',
         'admin.automations.runs.heading': 'Historique des exécutions',
+        'admin.automations.runs.noMatch': 'Aucune exécution ne correspond à « {query} »',
         'admin.automations.runs.scope':
           'Affiche les 25 exécutions les plus récentes. La recherche et les filtres interrogent toutes les exécutions et renvoient les 25 correspondances les plus récentes.',
+        'admin.automations.runs.search': 'Rechercher des exécutions',
+        'admin.automations.runs.status.failed': 'Échouée',
+        'admin.automations.runs.status.partial': 'Partielle',
+        'admin.automations.runs.status.success': 'Réussie',
+        'admin.automations.tabs.automations': 'Automatisations',
+        'admin.automations.tabs.history': 'Historique',
         'admin.automations.tabs.region': 'Sous-vues Exécutions',
         'admin.buckets.blurb':
           'Parcours les fichiers stockés dans tes buckets. Choisis un bucket pour ouvrir son explorateur — cherche, trie, filtre par type, puis télécharge un fichier.',
+        'admin.buckets.blurbBucket':
+          'Les fichiers stockés dans ce bucket. Cherche, trie ou filtre par type, puis télécharge ou supprime un fichier.',
+        'admin.buckets.blurbSystem':
+          'Le bucket intégré. Il liste chaque document et chaque image joints à un enregistrement, avec le bucket, la table, l’enregistrement et le champ auxquels ils appartiennent, et stocke les pièces jointes dont le champ ne nomme aucun bucket.',
         'admin.buckets.browser.region': 'Explorateur de fichiers',
         'admin.buckets.heading': 'Fichiers',
         'admin.buckets.upload.region': 'Envoyer un fichier',
@@ -1128,13 +1297,37 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.changelog.row.engine': 'Sovrium',
         'admin.changelog.row.migrations': 'migrations moteur appliquées',
         'admin.changelog.toCurrent': 'Lire la configuration telle qu’elle a démarré',
+        'admin.connections.action.connect': 'Connecter',
+        'admin.connections.action.disconnect': 'Déconnecter',
+        'admin.connections.action.disconnectConfirm': 'Révoquer les jetons de cette connexion ?',
+        'admin.connections.action.reconnect': 'Reconnecter',
         'admin.connections.blurb':
-          'Inspecte les connexions de ton app aux services externes et l’état de leurs jetons : actif, bientôt expiré, ou expiré. Les connexions sont déclarées dans la config — ici, tu observes leur état réel.',
+          'Inspecte les connexions de ton app aux services externes et l’état de leurs jetons : actif, bientôt expiré, expiré, ou à reconnecter. Les connexions sont déclarées dans la config — ici, tu observes leur état réel.',
+        'admin.connections.col.actions': 'Actions',
+        'admin.connections.col.connection': 'Connexion',
+        'admin.connections.col.created': 'Créée le',
+        'admin.connections.col.expiration': 'Expiration',
+        'admin.connections.col.provider': 'Fournisseur',
+        'admin.connections.col.status': 'Statut',
+        'admin.connections.col.tokens': 'Jetons',
+        'admin.connections.col.type': 'Type',
+        'admin.connections.empty': 'Aucune connexion',
         'admin.connections.heading': 'Connexions',
+        'admin.connections.noMatch': 'Aucune connexion ne correspond à « {query} »',
         'admin.connections.region': 'Connexions',
+        'admin.connections.search': 'Rechercher une connexion',
+        'admin.connections.status.active': 'Actif',
+        'admin.connections.status.expired': 'Expiré',
+        'admin.connections.status.expiringSoon': 'Bientôt expiré',
+        'admin.connections.status.reconnectNeeded': 'À reconnecter',
+        'admin.connections.tokens.none': 'Aucun jeton',
+        'admin.connections.tokens.one': '1 utilisateur',
+        'admin.connections.tokens.two': '2 utilisateurs',
+        'admin.connections.type.apiKey': 'Clé d’API',
         'admin.crumb.agents': 'Conversations',
         'admin.crumb.api': 'API',
         'admin.crumb.apiKeys': 'Clés API',
+        'admin.crumb.automationRun': 'Exécution',
         'admin.crumb.automations': 'Exécutions',
         'admin.crumb.buckets': 'Fichiers',
         'admin.crumb.changelog': 'Journal des versions',
@@ -1365,6 +1558,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.meta.agents': 'Sovrium — Données · Conversations',
         'admin.meta.api': 'Sovrium — API',
         'admin.meta.apiKeys': 'Sovrium — Clés API',
+        'admin.meta.automationRun': 'Sovrium — Données · Exécution',
         'admin.meta.automations': 'Sovrium — Données · Exécutions',
         'admin.meta.buckets': 'Sovrium — Données · Fichiers',
         'admin.meta.changelog': 'Sovrium — Journal des versions',
@@ -1528,6 +1722,21 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.profile.language.savedDetail':
           'Langue enregistrée. La console bascule à ta prochaine page.',
         'admin.profile.language.submit': 'Enregistrer',
+        'admin.profile.notifications.automationAlerts.formRegion':
+          'Changer tes alertes d’automatisation',
+        'admin.profile.notifications.automationAlerts.hint':
+          'M’écrire quand une automatisation échoue, est interrompue, mise en pause ou relancée.',
+        'admin.profile.notifications.automationAlerts.label': 'Alertes d’automatisation',
+        'admin.profile.notifications.failed': 'Impossible d’enregistrer la préférence.',
+        'admin.profile.notifications.hint':
+          'Chaque e-mail d’alerte renvoie ici, où tu les désactives.',
+        'admin.profile.notifications.label': 'Notifications',
+        'admin.profile.notifications.saved': 'Préférence enregistrée.',
+        'admin.profile.notifications.submit': 'Enregistrer',
+        'admin.profile.notifications.weeklyDigest.formRegion': 'Changer ton résumé hebdomadaire',
+        'admin.profile.notifications.weeklyDigest.hint':
+          'M’écrire chaque semaine ce qui a tourné, ce qui a échoué et comment les données ont évolué.',
+        'admin.profile.notifications.weeklyDigest.label': 'Résumé hebdomadaire',
         'admin.profile.password.failed':
           'Impossible de changer ton mot de passe — vérifie ton mot de passe actuel.',
         'admin.profile.password.formRegion': 'Changer ton mot de passe',
@@ -2196,16 +2405,17 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         {
                           children: [
                             {
+                              agent: 'system',
+                              chatHeight: 220,
+                              placeholder: 'Ask about this app…',
                               props: {
-                                chatHeight: 220,
-                                placeholder: 'Ask about this app…',
-                                showHistory: false,
                                 suggestions: [
                                   'What failed since this instance started?',
                                   'Which required variables are unset?',
                                   'Summarise this week’s submissions',
                                 ],
                               },
+                              showHistory: false,
                               type: 'ai-chat',
                             },
                           ],
@@ -2845,7 +3055,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   type: 'kpi',
                                 },
                                 {
-                                  content: '$record.agentsDefault default',
+                                  content: '$record.agentsSystem built-in',
                                   element: 'span',
                                   props: {
                                     className: 'text-foreground-subtle px-3.5 text-xs',
@@ -2876,7 +3086,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   type: 'kpi',
                                 },
                                 {
-                                  content: '$record.bucketsS3 s3 · $record.bucketsLocal local',
+                                  content:
+                                    '$record.bucketsSystem built-in · $record.bucketsS3 s3 · $record.bucketsLocal local',
                                   element: 'span',
                                   props: {
                                     className: 'text-foreground-subtle px-3.5 text-xs',
@@ -4130,6 +4341,146 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                         className: 'text-foreground-subtle text-sm empty:hidden!',
                                         'data-testid': 'profile-language-status',
                                         id: 'profile-language-status',
+                                      },
+                                      type: 'text',
+                                    },
+                                  ],
+                                  element: 'div',
+                                  props: {
+                                    className: 'flex min-w-0 flex-col gap-2',
+                                  },
+                                  type: 'container',
+                                },
+                              ],
+                              element: 'div',
+                              props: {
+                                className:
+                                  'grid grid-cols-1 gap-y-2.5 border-b border-border py-4 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-6 sm:gap-y-0',
+                              },
+                              type: 'container',
+                            },
+                            {
+                              children: [
+                                {
+                                  content: '$t:admin.profile.notifications.label',
+                                  element: 'h2',
+                                  props: {
+                                    className:
+                                      'text-foreground block text-base font-medium sm:leading-8',
+                                  },
+                                  type: 'text',
+                                },
+                                {
+                                  children: [
+                                    {
+                                      endpoint: {
+                                        method: 'POST',
+                                        onError: {
+                                          message: '$t:admin.profile.notifications.failed',
+                                          type: 'toast',
+                                          variant: 'destructive',
+                                        },
+                                        onSuccess: {
+                                          message: '$t:admin.profile.notifications.saved',
+                                          status: {
+                                            message: '$t:admin.profile.notifications.saved',
+                                            target: 'profile-automation-alerts-status',
+                                          },
+                                          type: 'toast',
+                                          variant: 'success',
+                                        },
+                                        responseEnvelope: 'better-auth',
+                                        submitLabel: '$t:admin.profile.notifications.submit',
+                                        submitVariant: 'secondary',
+                                        url: '/api/auth/update-user',
+                                      },
+                                      fields: [
+                                        {
+                                          control: 'switch',
+                                          defaultValue: '$session.notifyAutomationAlerts',
+                                          description:
+                                            '$t:admin.profile.notifications.automationAlerts.hint',
+                                          field: 'notifyAutomationAlerts',
+                                          label:
+                                            '$t:admin.profile.notifications.automationAlerts.label',
+                                        },
+                                      ],
+                                      props: {
+                                        'aria-label':
+                                          '$t:admin.profile.notifications.automationAlerts.formRegion',
+                                        className:
+                                          'grid grid-cols-1 items-start gap-x-6 border-0 bg-transparent p-0 rounded-none sm:grid-cols-[minmax(0,26rem)_max-content]',
+                                        'data-testid': 'profile-automation-alerts',
+                                      },
+                                      type: 'form',
+                                    },
+                                    {
+                                      content: '',
+                                      element: 'p',
+                                      props: {
+                                        className: 'text-foreground-subtle text-sm empty:hidden!',
+                                        'data-testid': 'profile-automation-alerts-status',
+                                        id: 'profile-automation-alerts-status',
+                                      },
+                                      type: 'text',
+                                    },
+                                    {
+                                      endpoint: {
+                                        method: 'POST',
+                                        onError: {
+                                          message: '$t:admin.profile.notifications.failed',
+                                          type: 'toast',
+                                          variant: 'destructive',
+                                        },
+                                        onSuccess: {
+                                          message: '$t:admin.profile.notifications.saved',
+                                          status: {
+                                            message: '$t:admin.profile.notifications.saved',
+                                            target: 'profile-weekly-digest-status',
+                                          },
+                                          type: 'toast',
+                                          variant: 'success',
+                                        },
+                                        responseEnvelope: 'better-auth',
+                                        submitLabel: '$t:admin.profile.notifications.submit',
+                                        submitVariant: 'secondary',
+                                        url: '/api/auth/update-user',
+                                      },
+                                      fields: [
+                                        {
+                                          control: 'switch',
+                                          defaultValue: '$session.notifyWeeklyDigest',
+                                          description:
+                                            '$t:admin.profile.notifications.weeklyDigest.hint',
+                                          field: 'notifyWeeklyDigest',
+                                          label:
+                                            '$t:admin.profile.notifications.weeklyDigest.label',
+                                        },
+                                      ],
+                                      props: {
+                                        'aria-label':
+                                          '$t:admin.profile.notifications.weeklyDigest.formRegion',
+                                        className:
+                                          'grid grid-cols-1 items-start gap-x-6 border-0 bg-transparent p-0 rounded-none sm:grid-cols-[minmax(0,26rem)_max-content]',
+                                        'data-testid': 'profile-weekly-digest',
+                                      },
+                                      type: 'form',
+                                    },
+                                    {
+                                      content: '',
+                                      element: 'p',
+                                      props: {
+                                        className: 'text-foreground-subtle text-sm empty:hidden!',
+                                        'data-testid': 'profile-weekly-digest-status',
+                                        id: 'profile-weekly-digest-status',
+                                      },
+                                      type: 'text',
+                                    },
+                                    {
+                                      content: '$t:admin.profile.notifications.hint',
+                                      element: 'p',
+                                      props: {
+                                        className: 'text-foreground-subtle text-sm',
                                       },
                                       type: 'text',
                                     },
@@ -21808,7 +22159,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   kpiFormat: {
                                     type: 'number',
                                   },
-                                  label: 'Automations',
+                                  label: '$t:admin.automations.metrics.automations',
                                   type: 'kpi',
                                 },
                                 {
@@ -21821,7 +22172,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   kpiFormat: {
                                     type: 'number',
                                   },
-                                  label: 'Runs (24h)',
+                                  label: '$t:admin.automations.metrics.runs24h',
                                   type: 'kpi',
                                 },
                                 {
@@ -21834,7 +22185,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   kpiFormat: {
                                     type: 'number',
                                   },
-                                  label: 'Failures (24h)',
+                                  label: '$t:admin.automations.metrics.failures24h',
                                   type: 'kpi',
                                 },
                                 {
@@ -21850,7 +22201,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                     },
                                     type: 'percentage',
                                   },
-                                  label: 'Success rate',
+                                  label: '$t:admin.automations.metrics.successRate',
                                   type: 'kpi',
                                 },
                               ],
@@ -21875,13 +22226,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                     valueKey: 'name',
                                   },
                                   emptyOption: {
-                                    label: 'All',
+                                    label: '$t:admin.automations.runs.filter.all',
                                   },
                                   native: true,
                                   props: {
                                     className: 'w-56',
                                     id: 'automation-filter',
-                                    label: 'Filter by automation',
+                                    label: '$t:admin.automations.runs.filter.automation',
                                   },
                                   publishes: {
                                     bindTo: 'automation-runs-filter',
@@ -21891,27 +22242,27 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 },
                                 {
                                   emptyOption: {
-                                    label: 'All',
+                                    label: '$t:admin.automations.runs.filter.all',
                                   },
                                   native: true,
                                   options: [
                                     {
-                                      label: 'Success',
+                                      label: '$t:admin.automations.runs.status.success',
                                       value: 'completed',
                                     },
                                     {
-                                      label: 'Failed',
+                                      label: '$t:admin.automations.runs.status.failed',
                                       value: 'failed',
                                     },
                                     {
-                                      label: 'Partial',
+                                      label: '$t:admin.automations.runs.status.partial',
                                       value: 'completed-with-errors',
                                     },
                                   ],
                                   props: {
                                     className: 'w-56',
                                     id: 'status-filter',
-                                    label: 'Filter by status',
+                                    label: '$t:admin.automations.runs.filter.status',
                                   },
                                   publishes: {
                                     bindTo: 'automation-runs-filter',
@@ -21930,7 +22281,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                               columns: [
                                 {
                                   field: 'automationName',
-                                  label: 'Automation',
+                                  label: '$t:admin.automations.runs.col.automation',
                                 },
                                 {
                                   cellStyle: [
@@ -21957,26 +22308,32 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                     },
                                   ],
                                   field: 'status',
-                                  label: 'Status',
+                                  label: '$t:admin.automations.runs.col.status',
+                                  valueLabels: {
+                                    Failed: '$t:admin.automations.runs.status.failed',
+                                    Partial: '$t:admin.automations.runs.status.partial',
+                                    Success: '$t:admin.automations.runs.status.success',
+                                  },
                                 },
                                 {
                                   field: 'startedAt',
                                   format: 'datetime',
-                                  label: 'Started',
+                                  label: '$t:admin.automations.runs.col.started',
                                 },
                                 {
                                   align: 'right',
                                   field: 'durationMs',
-                                  label: 'Duration',
+                                  label: '$t:admin.automations.runs.col.duration',
                                 },
                                 {
                                   actions: [
                                     {
                                       action: {
-                                        action: 'openDrawer',
-                                        component: 'automation-runs-detail',
+                                        mode: 'navigate',
+                                        type: 'fetch',
+                                        url: '/automations/runs/$record.id',
                                       },
-                                      label: 'View run',
+                                      label: '$t:admin.automations.runs.action.view',
                                     },
                                   ],
                                   label: '',
@@ -21994,16 +22351,16 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   },
                                 },
                               },
-                              emptyMessage: 'No runs',
+                              emptyMessage: '$t:admin.automations.runs.empty',
                               layout: 'fill',
-                              noMatchMessage: 'No run matches “{query}”',
+                              noMatchMessage: '$t:admin.automations.runs.noMatch',
                               props: {
                                 'aria-label': '$t:admin.automations.runs.heading',
                                 id: 'automation-runs-grid',
                               },
                               search: {
                                 enabled: true,
-                                placeholder: 'Search runs',
+                                placeholder: '$t:admin.automations.runs.search',
                               },
                               toolbar: {
                                 search: true,
@@ -22018,188 +22375,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 className: 'text-foreground-subtle text-md',
                               },
                               type: 'text',
-                            },
-                            {
-                              actions: [
-                                {
-                                  action: {
-                                    method: 'POST',
-                                    type: 'fetch',
-                                    url: '/api/admin/automations/runs/$record.id/retry',
-                                  },
-                                  confirm: 'Confirm retry',
-                                  label: 'Retry',
-                                },
-                              ],
-                              canEdit: false,
-                              children: [
-                                {
-                                  children: [
-                                    {
-                                      content: 'Steps',
-                                      element: 'h3',
-                                      props: {
-                                        className:
-                                          'text-foreground-subtle text-xs font-medium tracking-wide uppercase',
-                                      },
-                                      type: 'text',
-                                    },
-                                    {
-                                      children: [
-                                        {
-                                          children: [
-                                            {
-                                              children: [
-                                                {
-                                                  content: '$record.name',
-                                                  element: 'span',
-                                                  props: {
-                                                    className:
-                                                      'text-foreground min-w-0 font-mono text-xs',
-                                                  },
-                                                  type: 'text',
-                                                },
-                                                {
-                                                  content: '$record.status',
-                                                  element: 'span',
-                                                  props: {
-                                                    className:
-                                                      'text-foreground-subtle shrink-0 text-xs',
-                                                  },
-                                                  type: 'text',
-                                                },
-                                              ],
-                                              element: 'div',
-                                              props: {
-                                                className:
-                                                  'flex items-baseline justify-between gap-3',
-                                              },
-                                              type: 'container',
-                                            },
-                                            {
-                                              content: '$record.error',
-                                              element: 'span',
-                                              props: {
-                                                className: 'text-error-fg text-xs',
-                                              },
-                                              type: 'text',
-                                            },
-                                          ],
-                                          element: 'div',
-                                          props: {
-                                            className: 'flex flex-col gap-0.5 px-3 py-2',
-                                            'data-step-index': '$record.index',
-                                            'data-step-status': '$record.status',
-                                            'data-testid': 'run-step',
-                                          },
-                                          type: 'container',
-                                        },
-                                      ],
-                                      element: 'div',
-                                      props: {
-                                        className:
-                                          'border-border divide-border divide-y overflow-hidden rounded-lg border',
-                                      },
-                                      repeat: {
-                                        record: 'steps',
-                                      },
-                                      type: 'container',
-                                    },
-                                  ],
-                                  element: 'section',
-                                  props: {
-                                    'aria-label': 'Steps',
-                                    className: 'border-border flex flex-col gap-2 border-t pt-3',
-                                    'data-testid': 'run-steps',
-                                  },
-                                  type: 'container',
-                                },
-                                {
-                                  children: [
-                                    {
-                                      content: 'automations[] → $record.automationName',
-                                      element: 'span',
-                                      props: {
-                                        className: 'text-foreground-subtle font-mono text-xs',
-                                      },
-                                      type: 'text',
-                                    },
-                                    {
-                                      content: '$t:admin.automations.runs.detail.configuredInCode',
-                                      element: 'p',
-                                      props: {
-                                        className: 'text-foreground-subtle text-sm',
-                                      },
-                                      type: 'text',
-                                    },
-                                  ],
-                                  element: 'div',
-                                  props: {
-                                    className: 'border-border flex flex-col gap-1 border-t pt-3',
-                                  },
-                                  type: 'container',
-                                },
-                              ],
-                              dataSource: {
-                                system: {
-                                  endpoint: '/api/admin/automations/runs/:runId',
-                                  param: 'runId',
-                                },
-                              },
-                              id: 'automation-runs-detail',
-                              props: {
-                                title: 'Run details',
-                              },
-                              recordFields: [
-                                {
-                                  label: 'Automation',
-                                  name: 'automationName',
-                                  type: 'single-line-text',
-                                },
-                                {
-                                  label: 'Status',
-                                  name: 'status',
-                                  type: 'single-line-text',
-                                },
-                                {
-                                  label: 'Trigger',
-                                  name: 'triggerType',
-                                  type: 'single-line-text',
-                                },
-                                {
-                                  label: 'Started',
-                                  name: 'startedAt',
-                                  type: 'single-line-text',
-                                },
-                                {
-                                  label: 'Finished',
-                                  name: 'completedAt',
-                                  type: 'single-line-text',
-                                },
-                                {
-                                  label: 'Duration (ms)',
-                                  name: 'durationMs',
-                                  type: 'single-line-text',
-                                },
-                                {
-                                  label: 'Attempt',
-                                  name: 'attempt',
-                                  type: 'single-line-text',
-                                },
-                                {
-                                  label: 'Data in',
-                                  name: 'triggerData',
-                                  renderAs: 'json',
-                                  type: 'json',
-                                },
-                                {
-                                  label: 'Failure',
-                                  name: 'error',
-                                  renderAs: 'code',
-                                  type: 'long-text',
-                                },
-                              ],
-                              type: 'drawer',
                             },
                           ],
                           element: 'div',
@@ -22216,29 +22391,37 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   columns: [
                                     {
                                       field: 'name',
-                                      label: 'Automation',
+                                      label: '$t:admin.automations.catalog.col.automation',
                                     },
                                     {
                                       field: 'trigger',
-                                      label: 'Trigger',
+                                      label: '$t:admin.automations.catalog.col.trigger',
                                     },
                                     {
                                       field: 'state',
-                                      label: 'State',
+                                      label: '$t:admin.automations.catalog.col.state',
                                       valueLabels: {
-                                        active: 'Active',
-                                        disabled: 'Disabled in config',
-                                        paused: 'Paused',
+                                        active: '$t:admin.automations.catalog.state.active',
+                                        disabled: '$t:admin.automations.catalog.state.disabled',
+                                        paused: '$t:admin.automations.catalog.state.paused',
+                                      },
+                                    },
+                                    {
+                                      field: 'reason',
+                                      label: '$t:admin.automations.catalog.reason',
+                                      valueLabels: {
+                                        'consecutive-failures':
+                                          '$t:admin.automations.catalog.reason.automatic',
                                       },
                                     },
                                     {
                                       field: 'pausedBy',
-                                      label: 'Paused by',
+                                      label: '$t:admin.automations.catalog.col.pausedBy',
                                     },
                                     {
                                       field: 'pausedAt',
                                       format: 'datetime',
-                                      label: 'Paused at',
+                                      label: '$t:admin.automations.catalog.col.pausedAt',
                                     },
                                     {
                                       actions: [
@@ -22246,7 +22429,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           action: {
                                             method: 'POST',
                                             onSuccess: {
-                                              message: 'Automation paused',
+                                              message: '$t:admin.automations.catalog.pause.toast',
                                               refetch: 'automations-catalog-grid',
                                               type: 'toast',
                                             },
@@ -22254,13 +22437,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                             url: '/api/admin/automations/$record.name/pause',
                                           },
                                           confirm: {
-                                            cancelLabel: 'Cancel',
-                                            confirmLabel: 'Pause',
-                                            message:
-                                              'New runs stop until you resume. A run already in progress is not cancelled.',
-                                            title: 'Pause this automation?',
+                                            cancelLabel: '$t:admin.automations.cancel',
+                                            confirmLabel:
+                                              '$t:admin.automations.catalog.action.pause',
+                                            message: '$t:admin.automations.catalog.pause.message',
+                                            title: '$t:admin.automations.catalog.pause.title',
                                           },
-                                          label: 'Pause',
+                                          label: '$t:admin.automations.catalog.action.pause',
                                           visibleWhen: {
                                             eq: 'active',
                                             field: 'state',
@@ -22270,14 +22453,14 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                           action: {
                                             method: 'POST',
                                             onSuccess: {
-                                              message: 'Automation resumed',
+                                              message: '$t:admin.automations.catalog.resume.toast',
                                               refetch: 'automations-catalog-grid',
                                               type: 'toast',
                                             },
                                             type: 'fetch',
                                             url: '/api/admin/automations/$record.name/resume',
                                           },
-                                          label: 'Resume',
+                                          label: '$t:admin.automations.catalog.action.resume',
                                           visibleWhen: {
                                             eq: 'paused',
                                             field: 'state',
@@ -22295,7 +22478,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       rowsKey: 'items',
                                     },
                                   },
-                                  emptyMessage: 'No automations',
+                                  emptyMessage: '$t:admin.automations.catalog.empty',
                                   props: {
                                     'aria-label': '$t:admin.automations.region',
                                     id: 'automations-catalog-grid',
@@ -22325,11 +22508,11 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                       panels: [
                         {
                           id: 'history',
-                          label: 'History',
+                          label: '$t:admin.automations.tabs.history',
                         },
                         {
                           id: 'automations',
-                          label: 'Automations',
+                          label: '$t:admin.automations.tabs.automations',
                         },
                       ],
                       props: {
@@ -22442,6 +22625,1038 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           enum: ['history', 'automations'],
         },
       },
+    },
+    {
+      components: [
+        {
+          children: [
+            {
+              children: [
+                {
+                  children: [
+                    {
+                      children: [
+                        {
+                          children: [
+                            {
+                              content: '$app.label',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground truncate text-md font-semibold',
+                              },
+                              type: 'text',
+                            },
+                          ],
+                          props: {
+                            'aria-label': '$t:admin.shell.openSite',
+                            className: 'flex min-w-0 flex-1 items-center gap-2',
+                            href: '$app.origin',
+                            rel: 'noopener',
+                            target: '_blank',
+                          },
+                          type: 'link',
+                        },
+                        {
+                          content: '$app.version',
+                          element: 'span',
+                          props: {
+                            className:
+                              "bg-background-subtle text-foreground-subtle shrink-0 rounded-full px-2 py-0.5 font-mono text-xs leading-[1.3] before:content-['v'] empty:hidden!",
+                            'data-testid': 'sidebar-version',
+                          },
+                          type: 'text',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex items-center gap-2',
+                      },
+                      type: 'container',
+                    },
+                    {
+                      content: '(Sovrium v$app.engineVersion)',
+                      element: 'p',
+                      props: {
+                        className:
+                          'text-foreground-subtle truncate font-mono text-xs leading-[1.3]',
+                        'data-testid': 'sidebar-engine',
+                      },
+                      type: 'text',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className: 'flex flex-col gap-0.5 md:max-xl:hidden',
+                  },
+                  type: 'container',
+                },
+                {
+                  children: [
+                    {
+                      props: {
+                        className: 'shrink-0',
+                        name: 'search',
+                        size: 16,
+                      },
+                      type: 'icon',
+                    },
+                    {
+                      content: '$t:admin.shell.searchPlaceholder',
+                      element: 'span',
+                      props: {
+                        className: 'flex-1 text-left max-xl:hidden',
+                      },
+                      type: 'text',
+                    },
+                    {
+                      content: '⌘K',
+                      element: 'span',
+                      props: {
+                        className: 'text-foreground-subtle text-sm max-xl:hidden',
+                      },
+                      type: 'text',
+                    },
+                  ],
+                  props: {
+                    'aria-label': '$t:admin.shell.search',
+                    className:
+                      'border-border text-foreground-subtle hover:text-foreground flex h-9 w-full items-center justify-start gap-2 rounded-md px-3 py-2 text-md font-normal md:max-xl:w-9 md:max-xl:justify-center md:max-xl:px-0',
+                    'data-command-palette-trigger': 'true',
+                    type: 'button',
+                  },
+                  type: 'button',
+                  variant: 'secondary',
+                },
+                {
+                  groups: [
+                    {
+                      items: [
+                        {
+                          activeMatch: 'exact',
+                          href: '/',
+                          icon: 'house',
+                          label: '$t:admin.nav.welcome',
+                          props: {
+                            'data-testid': 'data-nav-overview',
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      headingLevel: 2,
+                      items: [
+                        {
+                          activeMatch: 'prefix',
+                          href: '/organisation',
+                          icon: 'network',
+                          label: '$t:admin.crumb.organisation',
+                          props: {
+                            'data-testid': 'data-nav-organisation',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/users',
+                          icon: 'users',
+                          label: '$t:admin.crumb.users',
+                          props: {
+                            'data-testid': 'data-nav-users',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/pages',
+                          icon: 'chart-column',
+                          label: '$t:admin.crumb.pages',
+                          props: {
+                            'data-testid': 'data-nav-pages',
+                          },
+                        },
+                        {
+                          children: [
+                            {
+                              href: '/design-system',
+                              label: '$t:admin.nav.design.overview',
+                              props: {
+                                'data-testid': 'data-nav-design-system-overview',
+                              },
+                            },
+                            {
+                              href: '/design-system/foundations',
+                              label: '$t:admin.nav.design.foundations',
+                              props: {
+                                'data-testid': 'data-nav-design-system-foundations',
+                              },
+                            },
+                            {
+                              badge: {
+                                endpoint: '/api/admin/schema/component-types',
+                                valuePath: 'total',
+                              },
+                              href: '/design-system/ui-kit',
+                              label: '$t:admin.nav.design.uiKit',
+                              props: {
+                                'data-testid': 'data-nav-design-system-ui-kit',
+                              },
+                            },
+                            {
+                              badge: {
+                                endpoint: '/api/admin/design-system/usage?subject=component',
+                                valuePath: 'total',
+                              },
+                              href: '/design-system/components',
+                              label: '$t:admin.nav.design.components',
+                              props: {
+                                'data-testid': 'data-nav-design-system-components',
+                              },
+                            },
+                            {
+                              href: '/design-system/brand',
+                              label: '$t:admin.nav.design.brand',
+                              props: {
+                                'data-testid': 'data-nav-design-system-brand',
+                              },
+                            },
+                            {
+                              href: '/design-system/voice',
+                              label: '$t:admin.nav.design.voice',
+                              props: {
+                                'data-testid': 'data-nav-design-system-voice',
+                              },
+                            },
+                          ],
+                          childrenProps: {
+                            'data-testid': 'design-system-nav-children',
+                          },
+                          icon: 'palette',
+                          label: '$t:admin.nav.design',
+                          props: {
+                            'data-testid': 'data-nav-design-system',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/decisions',
+                          icon: 'scroll-text',
+                          label: '$t:admin.crumb.decisions',
+                          props: {
+                            'data-testid': 'data-nav-decisions',
+                          },
+                        },
+                      ],
+                      label: '$t:admin.nav.group.system',
+                      landmark: '$t:admin.nav.landmark.data',
+                    },
+                    {
+                      headingLevel: 2,
+                      items: [
+                        {
+                          activeMatch: 'prefix',
+                          href: '/automations',
+                          icon: 'zap',
+                          label: '$t:admin.crumb.automations',
+                          props: {
+                            'data-testid': 'data-nav-automations',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'tables-nav-children',
+                          },
+                          href: '/tables',
+                          icon: 'table',
+                          label: '$t:admin.crumb.tables',
+                          props: {
+                            'data-testid': 'data-nav-tables',
+                          },
+                          source: {
+                            endpoint: '/api/admin/tables/overview',
+                            hrefTemplate: '/tables/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-tables-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'by_table',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'forms-nav-children',
+                          },
+                          href: '/forms',
+                          icon: 'clipboard-list',
+                          label: '$t:admin.crumb.forms',
+                          props: {
+                            'data-testid': 'data-nav-forms',
+                          },
+                          source: {
+                            endpoint: '/api/admin/forms',
+                            hrefTemplate: '/forms/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-forms-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'buckets-nav-children',
+                          },
+                          href: '/buckets',
+                          icon: 'folder',
+                          label: '$t:admin.crumb.buckets',
+                          props: {
+                            'data-testid': 'data-nav-buckets',
+                          },
+                          source: {
+                            endpoint: '/api/admin/buckets',
+                            hrefTemplate: '/buckets/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-buckets-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'agents-nav-children',
+                          },
+                          href: '/agents',
+                          icon: 'message-square',
+                          label: '$t:admin.crumb.agents',
+                          props: {
+                            'data-testid': 'data-nav-agents',
+                          },
+                          source: {
+                            endpoint: '/api/admin/agents',
+                            hrefTemplate: '/agents/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-agents-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/links',
+                          icon: 'link',
+                          label: '$t:admin.crumb.links',
+                          props: {
+                            'data-testid': 'data-nav-links',
+                          },
+                        },
+                      ],
+                      label: '$t:admin.nav.group.application',
+                      landmark: '$t:admin.nav.landmark.data',
+                    },
+                    {
+                      headingLevel: 2,
+                      items: [
+                        {
+                          activeMatch: 'prefix',
+                          href: '/connections',
+                          icon: 'plug',
+                          label: '$t:admin.crumb.connections',
+                          props: {
+                            'data-testid': 'data-nav-connections',
+                          },
+                        },
+                        {
+                          href: '/api',
+                          icon: 'code',
+                          label: '$t:admin.crumb.api',
+                          props: {
+                            'data-testid': 'developer-nav-api',
+                          },
+                        },
+                        {
+                          href: '/mcp',
+                          icon: 'bot',
+                          label: '$t:admin.crumb.mcp',
+                          props: {
+                            'data-testid': 'developer-nav-mcp',
+                          },
+                        },
+                        {
+                          href: '/changelog',
+                          icon: 'history',
+                          label: '$t:admin.crumb.changelog',
+                          props: {
+                            'data-testid': 'developer-nav-changelog',
+                          },
+                        },
+                        {
+                          href: '/env',
+                          icon: 'settings',
+                          label: '$t:admin.crumb.env',
+                          props: {
+                            'data-testid': 'developer-nav-env',
+                          },
+                        },
+                      ],
+                      label: '$t:admin.nav.group.developers',
+                      landmark: '$t:admin.nav.group.developers',
+                    },
+                  ],
+                  props: {
+                    className:
+                      'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto max-xl:w-full max-md:[&_a]:justify-start max-md:[&_a>span]:not-sr-only max-md:[&_button]:justify-start max-md:[&_button>span]:not-sr-only max-md:[&_h2]:not-sr-only',
+                  },
+                  rail: {
+                    below: 'xl',
+                  },
+                  trackNavigation: true,
+                  type: 'sidebar',
+                },
+                {
+                  children: [
+                    {
+                      label: '$session.name',
+                      props: {
+                        'data-testid': 'operator-avatar',
+                      },
+                      size: 'sm',
+                      src: '$session.image',
+                      type: 'avatar',
+                    },
+                    {
+                      children: [
+                        {
+                          element: 'span',
+                          props: {
+                            className: 'text-foreground truncate text-sm font-medium',
+                            'data-testid': 'operator-name',
+                          },
+                          session: 'name',
+                          type: 'text',
+                        },
+                        {
+                          element: 'span',
+                          props: {
+                            className: 'text-foreground-muted truncate text-[11px]',
+                            'data-testid': 'operator-email',
+                          },
+                          session: 'email',
+                          type: 'text',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex min-w-0 flex-col text-left md:max-xl:hidden',
+                      },
+                      type: 'container',
+                    },
+                  ],
+                  menuItems: [
+                    {
+                      action: {
+                        path: '/profile',
+                        type: 'navigate',
+                      },
+                      label: '$t:admin.shell.myAccount',
+                    },
+                    {
+                      separator: true,
+                    },
+                    {
+                      action: {
+                        path: 'https://github.com/sovrium/sovrium/issues/new?labels=feedback',
+                        type: 'navigate',
+                      },
+                      label: '$t:admin.shell.giveFeedback',
+                    },
+                    {
+                      action: {
+                        path: 'https://github.com/sovrium/sovrium/issues/new?labels=bug',
+                        type: 'navigate',
+                      },
+                      label: '$t:admin.shell.reportBug',
+                    },
+                    {
+                      separator: true,
+                    },
+                    {
+                      action: {
+                        method: 'logout',
+                        onSuccess: {
+                          navigate: '/login',
+                        },
+                        type: 'auth',
+                      },
+                      label: '$t:admin.shell.signOut',
+                      variant: 'destructive',
+                    },
+                  ],
+                  props: {
+                    className:
+                      'border-border text-foreground-subtle hover:text-foreground mt-auto w-full border-t px-2 pt-3 text-left text-md md:max-xl:justify-center md:max-xl:px-0 md:max-xl:[&>svg]:hidden',
+                    'data-testid': 'operator-menu',
+                  },
+                  triggerLabel: '$t:admin.shell.account',
+                  type: 'dropdown-menu',
+                },
+              ],
+              element: 'aside',
+              props: {
+                className:
+                  'hidden md:flex w-64 md:max-xl:w-14 shrink-0 border-r border-border bg-background-raised p-4 md:max-xl:px-2.5 flex-col gap-4 overflow-hidden',
+                'data-dashboard-aside': 'true',
+                'data-dashboard-sidebar': 'true',
+              },
+              type: 'container',
+            },
+            {
+              children: [
+                {
+                  children: [
+                    {
+                      content: '☰',
+                      props: {
+                        'aria-label': '$t:admin.shell.openMenu',
+                        className:
+                          'md:hidden inline-flex h-8 w-8 items-center justify-center rounded-md border border-border p-2 text-foreground-subtle hover:text-foreground',
+                        'data-dashboard-burger': 'true',
+                        type: 'button',
+                      },
+                      type: 'button',
+                      variant: 'ghost',
+                    },
+                    {
+                      derive: 'path',
+                      home: {
+                        label: '$app.label',
+                      },
+                      labels: {
+                        automations: '$t:admin.crumb.automations',
+                        runs: '$t:admin.crumb.automationRun',
+                      },
+                      props: {
+                        className:
+                          'min-w-0 flex-1 overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate',
+                        'data-testid': 'breadcrumb',
+                      },
+                      type: 'breadcrumb',
+                      unlinked: ['runs'],
+                    },
+                    {
+                      children: [
+                        {
+                          props: {
+                            'data-testid': 'admin-scheme-toggle',
+                          },
+                          type: 'theme-toggle',
+                          variant: 'icon',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'ml-auto flex items-center gap-2',
+                        'data-testid': 'chrome-end',
+                      },
+                      type: 'container',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className:
+                      'bg-background border-border sticky top-0 z-20 flex min-h-12 flex-none items-center gap-3 border-b px-4 py-1.5',
+                    'data-testid': 'design-system-topbar',
+                  },
+                  type: 'container',
+                },
+                {
+                  children: [
+                    {
+                      children: [
+                        {
+                          children: [
+                            {
+                              content: '$t:admin.automations.runs.detail.back',
+                              props: {
+                                className:
+                                  'text-foreground-muted hover:text-foreground text-sm underline',
+                                href: '/automations',
+                              },
+                              type: 'link',
+                            },
+                            {
+                              action: {
+                                method: 'POST',
+                                onError: {
+                                  message: '$t:admin.automations.runs.detail.retry.error',
+                                  type: 'toast',
+                                  variant: 'destructive',
+                                },
+                                onSuccess: {
+                                  message: '$t:admin.automations.runs.detail.retry.toast',
+                                  type: 'toast',
+                                },
+                                type: 'fetch',
+                                url: '/api/admin/automations/runs/$param.id/retry',
+                              },
+                              confirm: {
+                                cancelLabel: '$t:admin.automations.cancel',
+                                confirmLabel: '$t:admin.automations.runs.detail.retry',
+                                message: '$t:admin.automations.runs.detail.retry.message',
+                                role: 'alertdialog',
+                                title: '$t:admin.automations.runs.detail.retry.title',
+                              },
+                              label: '$t:admin.automations.runs.detail.retry',
+                              type: 'button',
+                              variant: 'secondary',
+                            },
+                          ],
+                          element: 'div',
+                          props: {
+                            className: 'flex min-h-10 flex-wrap items-center gap-2',
+                            'data-testid': 'admin-toolbar-row',
+                          },
+                          type: 'container',
+                        },
+                        {
+                          children: [
+                            {
+                              content: '$record.automationName',
+                              element: 'h1',
+                              props: {
+                                className: 'text-foreground font-mono text-lg font-medium',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$t:admin.automations.runs.detail.blurb',
+                              element: 'p',
+                              props: {
+                                className: 'sr-only',
+                              },
+                              type: 'text',
+                            },
+                          ],
+                          element: 'div',
+                          props: {
+                            className: 'flex flex-col gap-1',
+                          },
+                          type: 'container',
+                        },
+                        {
+                          children: [
+                            {
+                              content: '$t:admin.automations.runs.detail.field.automation',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground-subtle',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$record.automationName',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground min-w-0 break-words',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$t:admin.automations.runs.detail.field.status',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground-subtle',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$record.status',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground min-w-0 break-words',
+                                'data-testid': 'run-status',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$t:admin.automations.runs.detail.field.trigger',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground-subtle',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$record.triggerType',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground min-w-0 break-words',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$t:admin.automations.runs.detail.field.started',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground-subtle',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$record.startedAt',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground min-w-0 break-words',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$t:admin.automations.runs.detail.field.finished',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground-subtle',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$record.completedAt',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground min-w-0 break-words',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$t:admin.automations.runs.detail.field.duration',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground-subtle',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$record.durationMs',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground min-w-0 break-words',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$t:admin.automations.runs.detail.field.attempt',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground-subtle',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$record.attempt',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground min-w-0 break-words',
+                              },
+                              type: 'text',
+                            },
+                          ],
+                          element: 'div',
+                          props: {
+                            className:
+                              'grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-1 text-sm',
+                          },
+                          type: 'container',
+                        },
+                        {
+                          content: '$record.triggerData',
+                          filename: '$t:admin.automations.runs.detail.dataIn',
+                          props: {
+                            language: 'json',
+                          },
+                          type: 'code',
+                        },
+                        {
+                          children: [
+                            {
+                              content: '$t:admin.automations.runs.detail.failure',
+                              element: 'h2',
+                              props: {
+                                className:
+                                  'text-foreground-subtle text-xs font-medium tracking-wide uppercase',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$record.error',
+                              element: 'p',
+                              props: {
+                                className:
+                                  'text-error-fg font-mono text-xs break-words whitespace-pre-wrap',
+                              },
+                              type: 'text',
+                            },
+                          ],
+                          element: 'div',
+                          props: {
+                            className: 'flex flex-col gap-1 has-[>p:empty]:hidden',
+                          },
+                          type: 'container',
+                        },
+                        {
+                          children: [
+                            {
+                              content: '$t:admin.automations.runs.detail.steps',
+                              element: 'h2',
+                              props: {
+                                className:
+                                  'text-foreground-subtle text-xs font-medium tracking-wide uppercase',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              children: [
+                                {
+                                  children: [
+                                    {
+                                      children: [
+                                        {
+                                          content: '$step.name',
+                                          element: 'span',
+                                          props: {
+                                            className: 'text-foreground min-w-0 font-mono text-sm',
+                                          },
+                                          type: 'text',
+                                        },
+                                        {
+                                          content: '$step.status',
+                                          element: 'span',
+                                          props: {
+                                            className: 'text-foreground-subtle shrink-0 text-xs',
+                                          },
+                                          type: 'text',
+                                        },
+                                      ],
+                                      element: 'div',
+                                      props: {
+                                        className: 'flex items-baseline justify-between gap-3',
+                                      },
+                                      type: 'container',
+                                    },
+                                    {
+                                      content: '$step.error',
+                                      element: 'p',
+                                      props: {
+                                        className: 'text-error-fg text-xs break-words empty:hidden',
+                                      },
+                                      type: 'text',
+                                    },
+                                    {
+                                      children: [
+                                        {
+                                          content: '$step.input',
+                                          filename: '$t:admin.automations.runs.detail.dataIn',
+                                          props: {
+                                            language: 'json',
+                                          },
+                                          type: 'code',
+                                        },
+                                        {
+                                          content: '$step.output',
+                                          filename: '$t:admin.automations.runs.detail.dataOut',
+                                          props: {
+                                            language: 'json',
+                                          },
+                                          type: 'code',
+                                        },
+                                      ],
+                                      element: 'div',
+                                      props: {
+                                        className: 'grid gap-3 lg:grid-cols-2',
+                                      },
+                                      type: 'container',
+                                    },
+                                    {
+                                      children: [
+                                        {
+                                          children: [
+                                            {
+                                              content: '$log.level',
+                                              element: 'span',
+                                              props: {
+                                                className:
+                                                  'text-foreground-subtle in-data-[log-level=error]:text-error-fg w-12 shrink-0 font-mono text-xs uppercase',
+                                              },
+                                              type: 'text',
+                                            },
+                                            {
+                                              content: '$log.message',
+                                              element: 'span',
+                                              props: {
+                                                className:
+                                                  'min-w-0 font-mono text-xs break-words whitespace-pre-wrap',
+                                              },
+                                              type: 'text',
+                                            },
+                                          ],
+                                          element: 'div',
+                                          props: {
+                                            className:
+                                              'text-foreground flex items-baseline gap-3 px-3 py-1.5 data-[log-level=error]:text-error-fg',
+                                            'data-log-level': '$log.level',
+                                            'data-testid': 'run-log',
+                                            role: 'listitem',
+                                          },
+                                          type: 'container',
+                                        },
+                                      ],
+                                      element: 'div',
+                                      props: {
+                                        'aria-label': '$t:admin.automations.runs.detail.log',
+                                        className:
+                                          'peer border-border divide-border flex max-h-64 flex-col divide-y overflow-y-auto rounded border empty:hidden',
+                                        role: 'list',
+                                      },
+                                      repeat: {
+                                        as: 'log',
+                                        record: 'logs',
+                                      },
+                                      type: 'container',
+                                    },
+                                    {
+                                      content: '$t:admin.automations.runs.detail.noLogs',
+                                      element: 'p',
+                                      props: {
+                                        className:
+                                          'text-foreground-subtle hidden text-sm peer-empty:block',
+                                      },
+                                      type: 'text',
+                                    },
+                                  ],
+                                  element: 'div',
+                                  props: {
+                                    className: 'flex flex-col gap-3 px-4 py-3',
+                                    'data-step-index': '$step.index',
+                                    'data-step-status': '$step.status',
+                                    'data-testid': 'run-step',
+                                  },
+                                  type: 'container',
+                                },
+                              ],
+                              element: 'div',
+                              props: {
+                                className:
+                                  'border-border divide-border divide-y overflow-hidden rounded-lg border',
+                              },
+                              repeat: {
+                                as: 'step',
+                                record: 'steps',
+                              },
+                              type: 'container',
+                            },
+                          ],
+                          element: 'section',
+                          props: {
+                            'aria-label': '$t:admin.automations.runs.detail.steps',
+                            className: 'flex flex-col gap-2',
+                          },
+                          type: 'container',
+                        },
+                        {
+                          children: [
+                            {
+                              content: 'automations[] → $record.automationName',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground-subtle font-mono text-xs',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$t:admin.automations.runs.detail.configuredInCode',
+                              element: 'p',
+                              props: {
+                                className: 'text-foreground-subtle text-sm',
+                              },
+                              type: 'text',
+                            },
+                          ],
+                          element: 'div',
+                          props: {
+                            className: 'border-border flex flex-col gap-1 border-t pt-3',
+                          },
+                          type: 'container',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex min-w-0 flex-col gap-6 pt-2 pb-8',
+                      },
+                      type: 'container',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className: 'flex min-w-0 flex-1 flex-col gap-6 px-4 pt-3 pb-4',
+                  },
+                  type: 'container',
+                },
+              ],
+              element: 'div',
+              props: {
+                className: 'flex flex-1 flex-col overflow-y-auto',
+                'data-admin-content': 'true',
+                id: 'admin-surface-content',
+              },
+              type: 'container',
+            },
+            {
+              search: {
+                endpoint: '/api/admin/search',
+              },
+              type: 'command-palette',
+            },
+            {
+              children: [
+                {
+                  content: '',
+                  element: 'span',
+                  props: {
+                    className: 'sr-only',
+                  },
+                  type: 'text',
+                },
+              ],
+              element: 'div',
+              props: {
+                className: 'hidden',
+                'data-island': 'admin-spa-nav',
+                'data-island-props': '{}',
+              },
+              type: 'container',
+            },
+          ],
+          element: 'div',
+          props: {
+            className: 'flex h-screen overflow-hidden bg-background text-foreground',
+            'data-admin-base-path': '/',
+          },
+          type: 'container',
+        },
+      ],
+      dataSource: {
+        system: {
+          endpoint: '/api/admin/automations/runs/:id',
+          param: 'id',
+        },
+      },
+      id: 'dashboard-data-automation-run',
+      meta: {
+        lang: 'en-US',
+        title: '$t:admin.meta.automationRun',
+      },
+      name: 'dashboard-data-automation-run',
+      path: '/automations/runs/:id',
     },
     {
       components: [
@@ -26749,17 +27964,23 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         {
                           content: '$t:admin.buckets.heading',
                           element: 'h1',
+                          props: {
+                            className: 'sr-only',
+                          },
                           type: 'text',
                         },
                         {
-                          content: '$t:admin.buckets.blurb',
+                          content: '$t:admin.buckets.blurbSystem',
                           element: 'p',
+                          props: {
+                            className: 'text-muted-foreground max-w-3xl text-sm',
+                          },
                           type: 'text',
                         },
                       ],
                       element: 'div',
                       props: {
-                        className: 'sr-only',
+                        className: 'flex flex-col',
                       },
                       type: 'container',
                     },
@@ -26768,17 +27989,845 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         {
                           children: [
                             {
-                              dataSource: {
-                                system: {
-                                  endpoint: '/api/admin/buckets/overview',
-                                  valuePath: 'totals.totalBytes',
+                              children: [
+                                {
+                                  dataSource: {
+                                    system: {
+                                      endpoint: '/api/admin/buckets/system/files',
+                                      valuePath: 'totalBytes',
+                                    },
+                                  },
+                                  kpiFormat: {
+                                    type: 'bytes',
+                                  },
+                                  label: 'Total size',
+                                  type: 'kpi',
                                 },
+                                {
+                                  dataSource: {
+                                    system: {
+                                      endpoint: '/api/admin/buckets/overview',
+                                      valuePath: 'totals.totalBytes',
+                                    },
+                                  },
+                                  kpiFormat: {
+                                    type: 'bytes',
+                                  },
+                                  label: 'All buckets',
+                                  type: 'kpi',
+                                },
+                              ],
+                              element: 'div',
+                              props: {
+                                className: 'grid grid-cols-2 gap-4',
                               },
-                              kpiFormat: {
-                                type: 'bytes',
+                              type: 'container',
+                            },
+                            {
+                              dropZone: true,
+                              maxFiles: 1,
+                              onSuccess: {
+                                message: 'File added',
+                                refetch: 'admin-bucket-files-grid',
+                                type: 'toast',
+                                variant: 'success',
                               },
-                              label: 'Storage used',
-                              type: 'kpi',
+                              props: {
+                                'aria-label': '$t:admin.buckets.upload.region',
+                                id: 'admin-bucket-upload',
+                                label: 'Add file',
+                              },
+                              type: 'file-upload',
+                              uploadAction: '/api/admin/buckets/system/files',
+                            },
+                            {
+                              children: [
+                                {
+                                  columns: [
+                                    {
+                                      field: 'filename',
+                                      label: 'File',
+                                    },
+                                    {
+                                      field: 'bucket',
+                                      label: 'Bucket',
+                                      sortable: false,
+                                    },
+                                    {
+                                      field: 'table',
+                                      label: 'Table',
+                                      sortable: false,
+                                    },
+                                    {
+                                      field: 'recordId',
+                                      label: 'Record',
+                                      sortable: false,
+                                    },
+                                    {
+                                      field: 'field',
+                                      label: 'Field',
+                                      sortable: false,
+                                    },
+                                    {
+                                      field: 'mimeType',
+                                      label: 'Type',
+                                    },
+                                    {
+                                      align: 'right',
+                                      field: 'size',
+                                      format: 'compact',
+                                      label: 'Size',
+                                    },
+                                    {
+                                      field: 'createdAt',
+                                      format: 'short-date',
+                                      label: 'Modified',
+                                    },
+                                    {
+                                      actions: [
+                                        {
+                                          action: {
+                                            filename: '$record.filename',
+                                            mode: 'download',
+                                            type: 'fetch',
+                                            url: '/api/buckets/$record.bucket/files/$record.key',
+                                          },
+                                          icon: 'download',
+                                          label: 'Download',
+                                        },
+                                        {
+                                          action: {
+                                            method: 'DELETE',
+                                            type: 'fetch',
+                                            url: '/api/buckets/$record.bucket/files/$record.key',
+                                          },
+                                          confirm: {
+                                            cancelLabel: 'Cancel',
+                                            confirmLabel: 'Delete file',
+                                            message:
+                                              'Deleting this file removes it from storage. A record that attaches it keeps the reference, which then opens nothing. This cannot be undone.',
+                                            title: 'Delete this file?',
+                                          },
+                                          label: 'Delete',
+                                        },
+                                      ],
+                                      label: '',
+                                      type: 'actions',
+                                    },
+                                  ],
+                                  dataSource: {
+                                    system: {
+                                      endpoint: '/api/admin/buckets/system/files',
+                                      idKey: 'key',
+                                      rowsKey: 'items',
+                                    },
+                                  },
+                                  emptyMessage:
+                                    'No files yet. Documents and images appear here once a record’s attachment field holds one — or add one above.',
+                                  layout: 'fill',
+                                  noMatchMessage: 'No file matches “{query}”',
+                                  props: {
+                                    id: 'admin-bucket-files-grid',
+                                  },
+                                  search: {
+                                    enabled: true,
+                                    placeholder: 'Search files',
+                                  },
+                                  toolbar: {
+                                    filters: true,
+                                    search: true,
+                                    sort: true,
+                                  },
+                                  type: 'table',
+                                },
+                              ],
+                              element: 'section',
+                              props: {
+                                'aria-label': '$t:admin.buckets.browser.region',
+                                className: 'flex min-h-0 flex-1 flex-col gap-2',
+                              },
+                              type: 'container',
+                            },
+                          ],
+                          element: 'div',
+                          props: {
+                            className: 'flex min-h-0 flex-1 flex-col gap-4',
+                          },
+                          type: 'container',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex min-h-0 min-w-0 flex-1 flex-col pt-2',
+                      },
+                      type: 'container',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className: 'flex min-w-0 min-h-0 flex-1 flex-col gap-6 px-4 pt-3 pb-4',
+                  },
+                  type: 'container',
+                },
+              ],
+              element: 'div',
+              props: {
+                className: 'flex flex-1 flex-col overflow-y-auto',
+                'data-admin-content': 'true',
+                id: 'admin-surface-content',
+              },
+              type: 'container',
+            },
+            {
+              search: {
+                endpoint: '/api/admin/search',
+              },
+              type: 'command-palette',
+            },
+            {
+              children: [
+                {
+                  content: '',
+                  element: 'span',
+                  props: {
+                    className: 'sr-only',
+                  },
+                  type: 'text',
+                },
+              ],
+              element: 'div',
+              props: {
+                className: 'hidden',
+                'data-island': 'admin-spa-nav',
+                'data-island-props': '{}',
+              },
+              type: 'container',
+            },
+          ],
+          element: 'div',
+          props: {
+            className: 'flex h-screen overflow-hidden bg-background text-foreground',
+            'data-admin-base-path': '/',
+          },
+          type: 'container',
+        },
+      ],
+      id: 'dashboard-data-buckets-system',
+      meta: {
+        lang: 'en-US',
+        title: '$t:admin.meta.buckets',
+      },
+      name: 'dashboard-data-buckets-system',
+      path: '/buckets/system',
+    },
+    {
+      components: [
+        {
+          children: [
+            {
+              children: [
+                {
+                  children: [
+                    {
+                      children: [
+                        {
+                          children: [
+                            {
+                              content: '$app.label',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground truncate text-md font-semibold',
+                              },
+                              type: 'text',
+                            },
+                          ],
+                          props: {
+                            'aria-label': '$t:admin.shell.openSite',
+                            className: 'flex min-w-0 flex-1 items-center gap-2',
+                            href: '$app.origin',
+                            rel: 'noopener',
+                            target: '_blank',
+                          },
+                          type: 'link',
+                        },
+                        {
+                          content: '$app.version',
+                          element: 'span',
+                          props: {
+                            className:
+                              "bg-background-subtle text-foreground-subtle shrink-0 rounded-full px-2 py-0.5 font-mono text-xs leading-[1.3] before:content-['v'] empty:hidden!",
+                            'data-testid': 'sidebar-version',
+                          },
+                          type: 'text',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex items-center gap-2',
+                      },
+                      type: 'container',
+                    },
+                    {
+                      content: '(Sovrium v$app.engineVersion)',
+                      element: 'p',
+                      props: {
+                        className:
+                          'text-foreground-subtle truncate font-mono text-xs leading-[1.3]',
+                        'data-testid': 'sidebar-engine',
+                      },
+                      type: 'text',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className: 'flex flex-col gap-0.5 md:max-xl:hidden',
+                  },
+                  type: 'container',
+                },
+                {
+                  children: [
+                    {
+                      props: {
+                        className: 'shrink-0',
+                        name: 'search',
+                        size: 16,
+                      },
+                      type: 'icon',
+                    },
+                    {
+                      content: '$t:admin.shell.searchPlaceholder',
+                      element: 'span',
+                      props: {
+                        className: 'flex-1 text-left max-xl:hidden',
+                      },
+                      type: 'text',
+                    },
+                    {
+                      content: '⌘K',
+                      element: 'span',
+                      props: {
+                        className: 'text-foreground-subtle text-sm max-xl:hidden',
+                      },
+                      type: 'text',
+                    },
+                  ],
+                  props: {
+                    'aria-label': '$t:admin.shell.search',
+                    className:
+                      'border-border text-foreground-subtle hover:text-foreground flex h-9 w-full items-center justify-start gap-2 rounded-md px-3 py-2 text-md font-normal md:max-xl:w-9 md:max-xl:justify-center md:max-xl:px-0',
+                    'data-command-palette-trigger': 'true',
+                    type: 'button',
+                  },
+                  type: 'button',
+                  variant: 'secondary',
+                },
+                {
+                  groups: [
+                    {
+                      items: [
+                        {
+                          activeMatch: 'exact',
+                          href: '/',
+                          icon: 'house',
+                          label: '$t:admin.nav.welcome',
+                          props: {
+                            'data-testid': 'data-nav-overview',
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      headingLevel: 2,
+                      items: [
+                        {
+                          activeMatch: 'prefix',
+                          href: '/organisation',
+                          icon: 'network',
+                          label: '$t:admin.crumb.organisation',
+                          props: {
+                            'data-testid': 'data-nav-organisation',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/users',
+                          icon: 'users',
+                          label: '$t:admin.crumb.users',
+                          props: {
+                            'data-testid': 'data-nav-users',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/pages',
+                          icon: 'chart-column',
+                          label: '$t:admin.crumb.pages',
+                          props: {
+                            'data-testid': 'data-nav-pages',
+                          },
+                        },
+                        {
+                          children: [
+                            {
+                              href: '/design-system',
+                              label: '$t:admin.nav.design.overview',
+                              props: {
+                                'data-testid': 'data-nav-design-system-overview',
+                              },
+                            },
+                            {
+                              href: '/design-system/foundations',
+                              label: '$t:admin.nav.design.foundations',
+                              props: {
+                                'data-testid': 'data-nav-design-system-foundations',
+                              },
+                            },
+                            {
+                              badge: {
+                                endpoint: '/api/admin/schema/component-types',
+                                valuePath: 'total',
+                              },
+                              href: '/design-system/ui-kit',
+                              label: '$t:admin.nav.design.uiKit',
+                              props: {
+                                'data-testid': 'data-nav-design-system-ui-kit',
+                              },
+                            },
+                            {
+                              badge: {
+                                endpoint: '/api/admin/design-system/usage?subject=component',
+                                valuePath: 'total',
+                              },
+                              href: '/design-system/components',
+                              label: '$t:admin.nav.design.components',
+                              props: {
+                                'data-testid': 'data-nav-design-system-components',
+                              },
+                            },
+                            {
+                              href: '/design-system/brand',
+                              label: '$t:admin.nav.design.brand',
+                              props: {
+                                'data-testid': 'data-nav-design-system-brand',
+                              },
+                            },
+                            {
+                              href: '/design-system/voice',
+                              label: '$t:admin.nav.design.voice',
+                              props: {
+                                'data-testid': 'data-nav-design-system-voice',
+                              },
+                            },
+                          ],
+                          childrenProps: {
+                            'data-testid': 'design-system-nav-children',
+                          },
+                          icon: 'palette',
+                          label: '$t:admin.nav.design',
+                          props: {
+                            'data-testid': 'data-nav-design-system',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/decisions',
+                          icon: 'scroll-text',
+                          label: '$t:admin.crumb.decisions',
+                          props: {
+                            'data-testid': 'data-nav-decisions',
+                          },
+                        },
+                      ],
+                      label: '$t:admin.nav.group.system',
+                      landmark: '$t:admin.nav.landmark.data',
+                    },
+                    {
+                      headingLevel: 2,
+                      items: [
+                        {
+                          activeMatch: 'prefix',
+                          href: '/automations',
+                          icon: 'zap',
+                          label: '$t:admin.crumb.automations',
+                          props: {
+                            'data-testid': 'data-nav-automations',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'tables-nav-children',
+                          },
+                          href: '/tables',
+                          icon: 'table',
+                          label: '$t:admin.crumb.tables',
+                          props: {
+                            'data-testid': 'data-nav-tables',
+                          },
+                          source: {
+                            endpoint: '/api/admin/tables/overview',
+                            hrefTemplate: '/tables/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-tables-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'by_table',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'forms-nav-children',
+                          },
+                          href: '/forms',
+                          icon: 'clipboard-list',
+                          label: '$t:admin.crumb.forms',
+                          props: {
+                            'data-testid': 'data-nav-forms',
+                          },
+                          source: {
+                            endpoint: '/api/admin/forms',
+                            hrefTemplate: '/forms/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-forms-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'buckets-nav-children',
+                          },
+                          href: '/buckets',
+                          icon: 'folder',
+                          label: '$t:admin.crumb.buckets',
+                          props: {
+                            'data-testid': 'data-nav-buckets',
+                          },
+                          source: {
+                            endpoint: '/api/admin/buckets',
+                            hrefTemplate: '/buckets/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-buckets-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'agents-nav-children',
+                          },
+                          href: '/agents',
+                          icon: 'message-square',
+                          label: '$t:admin.crumb.agents',
+                          props: {
+                            'data-testid': 'data-nav-agents',
+                          },
+                          source: {
+                            endpoint: '/api/admin/agents',
+                            hrefTemplate: '/agents/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-agents-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/links',
+                          icon: 'link',
+                          label: '$t:admin.crumb.links',
+                          props: {
+                            'data-testid': 'data-nav-links',
+                          },
+                        },
+                      ],
+                      label: '$t:admin.nav.group.application',
+                      landmark: '$t:admin.nav.landmark.data',
+                    },
+                    {
+                      headingLevel: 2,
+                      items: [
+                        {
+                          activeMatch: 'prefix',
+                          href: '/connections',
+                          icon: 'plug',
+                          label: '$t:admin.crumb.connections',
+                          props: {
+                            'data-testid': 'data-nav-connections',
+                          },
+                        },
+                        {
+                          href: '/api',
+                          icon: 'code',
+                          label: '$t:admin.crumb.api',
+                          props: {
+                            'data-testid': 'developer-nav-api',
+                          },
+                        },
+                        {
+                          href: '/mcp',
+                          icon: 'bot',
+                          label: '$t:admin.crumb.mcp',
+                          props: {
+                            'data-testid': 'developer-nav-mcp',
+                          },
+                        },
+                        {
+                          href: '/changelog',
+                          icon: 'history',
+                          label: '$t:admin.crumb.changelog',
+                          props: {
+                            'data-testid': 'developer-nav-changelog',
+                          },
+                        },
+                        {
+                          href: '/env',
+                          icon: 'settings',
+                          label: '$t:admin.crumb.env',
+                          props: {
+                            'data-testid': 'developer-nav-env',
+                          },
+                        },
+                      ],
+                      label: '$t:admin.nav.group.developers',
+                      landmark: '$t:admin.nav.group.developers',
+                    },
+                  ],
+                  props: {
+                    className:
+                      'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto max-xl:w-full max-md:[&_a]:justify-start max-md:[&_a>span]:not-sr-only max-md:[&_button]:justify-start max-md:[&_button>span]:not-sr-only max-md:[&_h2]:not-sr-only',
+                  },
+                  rail: {
+                    below: 'xl',
+                  },
+                  trackNavigation: true,
+                  type: 'sidebar',
+                },
+                {
+                  children: [
+                    {
+                      label: '$session.name',
+                      props: {
+                        'data-testid': 'operator-avatar',
+                      },
+                      size: 'sm',
+                      src: '$session.image',
+                      type: 'avatar',
+                    },
+                    {
+                      children: [
+                        {
+                          element: 'span',
+                          props: {
+                            className: 'text-foreground truncate text-sm font-medium',
+                            'data-testid': 'operator-name',
+                          },
+                          session: 'name',
+                          type: 'text',
+                        },
+                        {
+                          element: 'span',
+                          props: {
+                            className: 'text-foreground-muted truncate text-[11px]',
+                            'data-testid': 'operator-email',
+                          },
+                          session: 'email',
+                          type: 'text',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex min-w-0 flex-col text-left md:max-xl:hidden',
+                      },
+                      type: 'container',
+                    },
+                  ],
+                  menuItems: [
+                    {
+                      action: {
+                        path: '/profile',
+                        type: 'navigate',
+                      },
+                      label: '$t:admin.shell.myAccount',
+                    },
+                    {
+                      separator: true,
+                    },
+                    {
+                      action: {
+                        path: 'https://github.com/sovrium/sovrium/issues/new?labels=feedback',
+                        type: 'navigate',
+                      },
+                      label: '$t:admin.shell.giveFeedback',
+                    },
+                    {
+                      action: {
+                        path: 'https://github.com/sovrium/sovrium/issues/new?labels=bug',
+                        type: 'navigate',
+                      },
+                      label: '$t:admin.shell.reportBug',
+                    },
+                    {
+                      separator: true,
+                    },
+                    {
+                      action: {
+                        method: 'logout',
+                        onSuccess: {
+                          navigate: '/login',
+                        },
+                        type: 'auth',
+                      },
+                      label: '$t:admin.shell.signOut',
+                      variant: 'destructive',
+                    },
+                  ],
+                  props: {
+                    className:
+                      'border-border text-foreground-subtle hover:text-foreground mt-auto w-full border-t px-2 pt-3 text-left text-md md:max-xl:justify-center md:max-xl:px-0 md:max-xl:[&>svg]:hidden',
+                    'data-testid': 'operator-menu',
+                  },
+                  triggerLabel: '$t:admin.shell.account',
+                  type: 'dropdown-menu',
+                },
+              ],
+              element: 'aside',
+              props: {
+                className:
+                  'hidden md:flex w-64 md:max-xl:w-14 shrink-0 border-r border-border bg-background-raised p-4 md:max-xl:px-2.5 flex-col gap-4 overflow-hidden',
+                'data-dashboard-aside': 'true',
+                'data-dashboard-sidebar': 'true',
+              },
+              type: 'container',
+            },
+            {
+              children: [
+                {
+                  children: [
+                    {
+                      content: '☰',
+                      props: {
+                        'aria-label': '$t:admin.shell.openMenu',
+                        className:
+                          'md:hidden inline-flex h-8 w-8 items-center justify-center rounded-md border border-border p-2 text-foreground-subtle hover:text-foreground',
+                        'data-dashboard-burger': 'true',
+                        type: 'button',
+                      },
+                      type: 'button',
+                      variant: 'ghost',
+                    },
+                    {
+                      derive: 'path',
+                      home: {
+                        label: '$app.label',
+                      },
+                      labels: {
+                        buckets: '$t:admin.crumb.buckets',
+                      },
+                      props: {
+                        className:
+                          'min-w-0 flex-1 overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate',
+                        'data-testid': 'breadcrumb',
+                      },
+                      type: 'breadcrumb',
+                    },
+                    {
+                      children: [
+                        {
+                          props: {
+                            'data-testid': 'admin-scheme-toggle',
+                          },
+                          type: 'theme-toggle',
+                          variant: 'icon',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'ml-auto flex items-center gap-2',
+                        'data-testid': 'chrome-end',
+                      },
+                      type: 'container',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className:
+                      'bg-background border-border sticky top-0 z-20 flex min-h-12 flex-none items-center gap-3 border-b px-4 py-1.5',
+                    'data-testid': 'design-system-topbar',
+                  },
+                  type: 'container',
+                },
+                {
+                  children: [
+                    {
+                      children: [
+                        {
+                          content: '$t:admin.buckets.heading',
+                          element: 'h1',
+                          props: {
+                            className: 'sr-only',
+                          },
+                          type: 'text',
+                        },
+                        {
+                          content: '$t:admin.buckets.blurbBucket',
+                          element: 'p',
+                          props: {
+                            className: 'text-muted-foreground max-w-3xl text-sm',
+                          },
+                          type: 'text',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex flex-col',
+                      },
+                      type: 'container',
+                    },
+                    {
+                      children: [
+                        {
+                          children: [
+                            {
+                              children: [
+                                {
+                                  dataSource: {
+                                    system: {
+                                      endpoint: '/api/admin/buckets/$param.bucket/files',
+                                      valuePath: 'totalBytes',
+                                    },
+                                  },
+                                  kpiFormat: {
+                                    type: 'bytes',
+                                  },
+                                  label: 'Total size',
+                                  type: 'kpi',
+                                },
+                                {
+                                  dataSource: {
+                                    system: {
+                                      endpoint: '/api/admin/buckets/overview',
+                                      valuePath: 'totals.totalBytes',
+                                    },
+                                  },
+                                  kpiFormat: {
+                                    type: 'bytes',
+                                  },
+                                  label: 'All buckets',
+                                  type: 'kpi',
+                                },
+                              ],
+                              element: 'div',
+                              props: {
+                                className: 'grid grid-cols-2 gap-4',
+                              },
+                              type: 'container',
                             },
                             {
                               dropZone: true,
@@ -28153,7 +30202,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           type: 'text',
                         },
                         {
-                          content: '$t:admin.agents.blurbDefault',
+                          content: '$t:admin.agents.blurbSystem',
                           element: 'p',
                           type: 'text',
                         },
@@ -28191,7 +30240,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           props: {
                             className: 'flex flex-col gap-4',
                             'data-island': 'admin-agent-conversations',
-                            'data-island-props': '{"agentNames":["default"]}',
+                            'data-island-props': '{"agentNames":["system"]}',
                           },
                           type: 'container',
                         },
@@ -28252,13 +30301,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           type: 'container',
         },
       ],
-      id: 'dashboard-data-agents-default',
+      id: 'dashboard-data-agents-system',
       meta: {
         lang: 'en-US',
         title: '$t:admin.meta.agents',
       },
-      name: 'dashboard-data-agents-default',
-      path: '/agents/default',
+      name: 'dashboard-data-agents-system',
+      path: '/agents/system',
     },
     {
       components: [
@@ -31976,17 +34025,17 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                       columns: [
                         {
                           field: 'name',
-                          label: 'Connection',
+                          label: '$t:admin.connections.col.connection',
                         },
                         {
                           field: 'provider',
-                          label: 'Provider',
+                          label: '$t:admin.connections.col.provider',
                         },
                         {
                           field: 'type',
-                          label: 'Type',
+                          label: '$t:admin.connections.col.type',
                           valueLabels: {
-                            apiKey: 'API key',
+                            apiKey: '$t:admin.connections.type.apiKey',
                             basic: 'Basic',
                             bearer: 'Bearer',
                             oauth2: 'OAuth2',
@@ -31996,52 +34045,60 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           cellStyle: [
                             {
                               className:
-                                'bg-success-bg text-success-fg rounded-full px-2 py-0.5 text-sm',
+                                '[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:rounded-full [&:is(span)]:px-2 [&:is(span)]:py-0.5 [&:is(span)]:text-sm [&:is(span)]:font-medium [&:is(span)]:bg-success-bg [&:is(span)]:text-success-fg',
                               when: {
                                 eq: 'active',
                               },
                             },
                             {
                               className:
-                                'bg-warning-bg text-warning-fg rounded-full px-2 py-0.5 text-sm',
+                                '[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:rounded-full [&:is(span)]:px-2 [&:is(span)]:py-0.5 [&:is(span)]:text-sm [&:is(span)]:font-medium [&:is(span)]:bg-warning-bg [&:is(span)]:text-warning-fg',
                               when: {
                                 eq: 'expiring-soon',
                               },
                             },
                             {
                               className:
-                                'bg-error-bg text-error-fg rounded-full px-2 py-0.5 text-sm',
+                                '[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:rounded-full [&:is(span)]:px-2 [&:is(span)]:py-0.5 [&:is(span)]:text-sm [&:is(span)]:font-medium [&:is(span)]:bg-error-bg [&:is(span)]:text-error-fg',
                               when: {
                                 eq: 'expired',
                               },
                             },
+                            {
+                              className:
+                                '[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:rounded-full [&:is(span)]:px-2 [&:is(span)]:py-0.5 [&:is(span)]:text-sm [&:is(span)]:font-medium [&:is(span)]:bg-error-bg [&:is(span)]:text-error-fg',
+                              when: {
+                                eq: 'reconnect-needed',
+                              },
+                            },
                           ],
                           field: 'status',
-                          label: 'Status',
+                          label: '$t:admin.connections.col.status',
                           valueLabels: {
-                            active: 'Active',
-                            expired: 'Expired',
-                            'expiring-soon': 'Expiring soon',
+                            active: '$t:admin.connections.status.active',
+                            expired: '$t:admin.connections.status.expired',
+                            'expiring-soon': '$t:admin.connections.status.expiringSoon',
+                            'reconnect-needed': '$t:admin.connections.status.reconnectNeeded',
                           },
                         },
                         {
                           field: 'tokenCount',
-                          label: 'Tokens',
+                          label: '$t:admin.connections.col.tokens',
                           valueLabels: {
-                            '0': 'No tokens',
-                            '1': '1 user',
-                            '2': '2 users',
+                            '0': '$t:admin.connections.tokens.none',
+                            '1': '$t:admin.connections.tokens.one',
+                            '2': '$t:admin.connections.tokens.two',
                           },
                         },
                         {
                           field: 'expiresAt',
                           format: 'datetime',
-                          label: 'Expiration',
+                          label: '$t:admin.connections.col.expiration',
                         },
                         {
                           field: 'createdAt',
                           format: 'datetime',
-                          label: 'Created',
+                          label: '$t:admin.connections.col.created',
                         },
                         {
                           actions: [
@@ -32054,7 +34111,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 type: 'fetch',
                                 url: '/api/admin/connections/$record.id/authorize',
                               },
-                              label: 'Connect',
+                              label: '$t:admin.connections.action.connect',
                               visibleWhen: {
                                 eq: 'connect',
                                 field: 'rowAction',
@@ -32069,7 +34126,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 type: 'fetch',
                                 url: '/api/admin/connections/$record.id/authorize',
                               },
-                              label: 'Reconnect',
+                              label: '$t:admin.connections.action.reconnect',
                               variant: 'ghost',
                               visibleWhen: {
                                 eq: 'reconnect',
@@ -32082,8 +34139,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 type: 'fetch',
                                 url: '/api/admin/connections/$record.id/disconnect',
                               },
-                              confirm: 'Revoke this connection’s tokens?',
-                              label: 'Disconnect',
+                              confirm: '$t:admin.connections.action.disconnectConfirm',
+                              label: '$t:admin.connections.action.disconnect',
                               variant: 'ghost',
                               visibleWhen: {
                                 field: 'rowAction',
@@ -32091,7 +34148,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                               },
                             },
                           ],
-                          label: 'Actions',
+                          label: '$t:admin.connections.col.actions',
                           type: 'actions',
                         },
                       ],
@@ -32102,18 +34159,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           rowsKey: 'connections',
                         },
                       },
-                      emptyMessage: 'No connections',
-                      noMatchMessage: 'No connection matches “{query}”',
+                      emptyMessage: '$t:admin.connections.empty',
+                      noMatchMessage: '$t:admin.connections.noMatch',
                       props: {
                         'aria-label': '$t:admin.connections.region',
                         id: 'admin-connections-grid',
                       },
                       search: {
                         enabled: true,
-                        placeholder: 'Search connections',
-                      },
-                      toolbar: {
-                        sort: true,
+                        placeholder: '$t:admin.connections.search',
                       },
                       type: 'table',
                     },
@@ -63745,6 +65799,52 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                     {
                                                       children: [
                                                         {
+                                                          content: 'unchecked',
+                                                          element: 'span',
+                                                          props: {
+                                                            className:
+                                                              'text-foreground font-mono text-[11px]',
+                                                          },
+                                                          type: 'text',
+                                                        },
+                                                        {
+                                                          children: [
+                                                            {
+                                                              children: [
+                                                                {
+                                                                  checked: false,
+                                                                  type: 'switch',
+                                                                },
+                                                              ],
+                                                              element: 'article',
+                                                              props: {
+                                                                className: 'w-full',
+                                                                'data-design-drawing': 'unchecked',
+                                                                'data-design-specimen': 'switch',
+                                                                'data-testid':
+                                                                  'design-system-specimen-switch-unchecked',
+                                                              },
+                                                              type: 'container',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className:
+                                                              'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
+                                                            'data-design-preview-card': 'true',
+                                                          },
+                                                          type: 'container',
+                                                        },
+                                                      ],
+                                                      element: 'div',
+                                                      props: {
+                                                        className: 'flex flex-col gap-2',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                    {
+                                                      children: [
+                                                        {
                                                           content: 'with label',
                                                           element: 'span',
                                                           props: {
@@ -63773,6 +65873,56 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                                 'data-design-specimen': 'switch',
                                                                 'data-testid':
                                                                   'design-system-specimen-switch-with label',
+                                                              },
+                                                              type: 'container',
+                                                            },
+                                                          ],
+                                                          element: 'div',
+                                                          props: {
+                                                            className:
+                                                              'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
+                                                            'data-design-preview-card': 'true',
+                                                          },
+                                                          type: 'container',
+                                                        },
+                                                      ],
+                                                      element: 'div',
+                                                      props: {
+                                                        className: 'flex flex-col gap-2',
+                                                      },
+                                                      type: 'container',
+                                                    },
+                                                    {
+                                                      children: [
+                                                        {
+                                                          content: 'with label, unchecked',
+                                                          element: 'span',
+                                                          props: {
+                                                            className:
+                                                              'text-foreground font-mono text-[11px]',
+                                                          },
+                                                          type: 'text',
+                                                        },
+                                                        {
+                                                          children: [
+                                                            {
+                                                              children: [
+                                                                {
+                                                                  checked: false,
+                                                                  props: {
+                                                                    label: 'Send the weekly digest',
+                                                                  },
+                                                                  type: 'switch',
+                                                                },
+                                                              ],
+                                                              element: 'article',
+                                                              props: {
+                                                                className: 'w-full',
+                                                                'data-design-drawing':
+                                                                  'with label, unchecked',
+                                                                'data-design-specimen': 'switch',
+                                                                'data-testid':
+                                                                  'design-system-specimen-switch-with label, unchecked',
                                                               },
                                                               type: 'container',
                                                             },
@@ -79573,7 +81723,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                       children: [
                                                         {
                                                           content:
-                                                            'dataSource: { table, labelField, valueField }',
+                                                            'dataSource: { table, displayField, valueField }',
                                                           element: 'span',
                                                           props: {
                                                             className:
@@ -79595,7 +81745,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                           children: [
                                                             {
                                                               content:
-                                                                'dataSource:\n  table: stages\n  labelField: name\n  valueField: slug',
+                                                                'dataSource:\n  table: stages\n  displayField: name\n  valueField: slug',
                                                               props: {
                                                                 language: 'yaml',
                                                               },
@@ -79623,7 +81773,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                   props: {
                                                     className: 'flex flex-col gap-2',
                                                     'data-design-option':
-                                                      'dataSource: { table, labelField, valueField }',
+                                                      'dataSource: { table, displayField, valueField }',
                                                   },
                                                   type: 'container',
                                                 },
@@ -91014,7 +93164,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                                           children: [
                                                             {
                                                               content:
-                                                                'optionsSource:\n  table: stages\n  labelField: name\n  valueField: slug',
+                                                                'optionsSource:\n  table: stages\n  displayField: name\n  valueField: slug',
                                                               props: {
                                                                 language: 'yaml',
                                                               },

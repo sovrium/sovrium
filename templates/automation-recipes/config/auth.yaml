@@ -1,5 +1,14 @@
-# Email + password auth for the operators who watch the activity feed.
-allowSignUp: true
+# Email and password sign-in, closed to strangers.
+#
+# The run history names leads and the errors a mailbox returned, so nobody
+# signs themselves up: the first administrator comes from `AUTH_ADMIN_EMAIL` /
+# `AUTH_ADMIN_PASSWORD` on the first start (see `.env.example`), and everyone
+# else is added by an admin with `sovrium admin create <email>`. The demo
+# accounts come from `seed/users.yaml`.
+#
+# Two roles: `member` reads the runs and the leads, `admin` may also delete a
+# lead or a run. Each table's `permissions` block says which is which.
+allowSignUp: false
 defaultRole: member
 strategies:
   - type: emailAndPassword

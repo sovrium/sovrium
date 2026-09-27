@@ -26,21 +26,22 @@
  * `Form` schema and circular imports would otherwise force a third
  * module purely for the type alias.
  */
+import { computeFormFieldClasses } from '@/presentation/design/form-layout-classes'
 import {
-  computeFormFieldClasses,
-  computeFormFieldLabelClasses,
-  computeFormHelpTextClasses,
-} from '@/presentation/design/form-layout-classes'
-
-// Shared form-field chrome — composes the semantic class names (kept as theme /
-// back-compat hooks) with the shared form-layout design contract so STANDALONE
-// forms render with the same field spacing + label/help typography as the
-// EMBEDDED CRUD pipeline by default. The semantic classes (`form-field`,
-// `help-text`, `form-field-legend`, …) stay so `app.design`-driven CSS that
-// targets them keeps working.
-const FIELD_WRAPPER_CLASS = `form-field ${computeFormFieldClasses()}`
-const FIELD_LABEL_CLASS = computeFormFieldLabelClasses()
-const HELP_TEXT_CLASS = `help-text ${computeFormHelpTextClasses()}`
+  typedInputAttributes,
+  withAdornment,
+} from '@/presentation/render/elements/crud-form/crud-form-typed-input'
+import {
+  ariaRequired,
+  FIELD_LABEL_CLASS,
+  FIELD_WRAPPER_CLASS,
+  fieldWrapperAttributes,
+} from './form-field-chrome'
+import { FileInput, UserInput } from './form-field-elements-media'
+import { RatingInput, RequiredMark, SectionHeading } from './form-field-elements-typed'
+import { HelpText } from './form-help-text'
+import type { ControlAttributeField } from '@/presentation/design/field-control-attributes'
+import type { ReactElement } from 'react'
 
 export interface ResolvedFormField {
   readonly name: string
@@ -49,8 +50,19 @@ export interface ResolvedFormField {
   readonly label: string
   readonly placeholder: string
   readonly helpText: string
+  /**
+   * `helpText` after its `$t:` key resolves, rendered as inline markdown and
+   * sanitized (`renderInlineMarkdown`); `''` when there is no help text.
+   */
+  readonly helpTextHtml?: string
   readonly required: boolean
   readonly hidden: boolean
+  /**
+   * True when the field's `visibleWhen` is false for the values the page is
+   * served with: the wrapper is served `hidden` and its controls `disabled`,
+   * so it is neither shown, validated nor sent until the rule turns true.
+   */
+  readonly conditionHidden?: boolean
   readonly options?: ReadonlyArray<{ readonly value: string; readonly label: string }>
   /** File-upload accept attribute (MIME types or extensions). */
   readonly accept?: string
@@ -60,6 +72,8 @@ export interface ResolvedFormField {
   readonly maxFiles?: number
   /** Whether to render a drag-and-drop zone alongside the file picker. */
   readonly dropZone?: boolean
+  /** Seconds a browser recording may last; present only when `recordAudio` is set. */
+  readonly recordAudioMaxSeconds?: number
   /**
    * For `user`-typed columns (Bug 4 / [internal ref]): whether the picker
    * allows multiple selections. Surfaces as the `data-allow-multiple`
@@ -67,6 +81,16 @@ export interface ResolvedFormField {
    * single- and multi-select widgets.
    */
   readonly allowMultiple?: boolean
+  /**
+   * The bound column's type and its typed configuration (`precision`,
+   * `currency`, `symbolPosition`, `min`, `max`, `ratingStyle`), for a
+   * table-bound field. It decides a number input's `step` / bounds / keypad and
+   * the unit beside it, through the same `field-control-attributes` the page
+   * `form` component reads — so one column is drawn alike on both.
+   */
+  readonly column?: ControlAttributeField
+  /** For a `section` item: its heading level, `3` inside a multi-step form. */
+  readonly sectionLevel?: 2 | 3
 }
 
 /**
@@ -98,21 +122,27 @@ const TextareaInput = ({
   readonly field: ResolvedFormField
   readonly defaultValue: string | undefined
 }) => (
-  <div className={FIELD_WRAPPER_CLASS}>
+  <div
+    className={FIELD_WRAPPER_CLASS}
+    {...fieldWrapperAttributes(field)}
+  >
     <label
       htmlFor={`field-${field.name}`}
       className={FIELD_LABEL_CLASS}
     >
       {field.label}
+      <RequiredMark required={field.required} />
     </label>
     <textarea
       id={`field-${field.name}`}
       name={field.name}
       required={field.required}
+      {...ariaRequired(field.required)}
+      disabled={field.conditionHidden}
       placeholder={field.placeholder || undefined}
       defaultValue={defaultValue ?? undefined}
     />
-    {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
+    <HelpText html={field.helpTextHtml} />
   </div>
 )
 
@@ -155,17 +185,23 @@ const SelectInput = ({
   readonly field: ResolvedFormField
   readonly defaultValue: string | undefined
 }) => (
-  <div className={FIELD_WRAPPER_CLASS}>
+  <div
+    className={FIELD_WRAPPER_CLASS}
+    {...fieldWrapperAttributes(field)}
+  >
     <label
       htmlFor={`field-${field.name}`}
       className={FIELD_LABEL_CLASS}
     >
       {field.label}
+      <RequiredMark required={field.required} />
     </label>
     <select
       id={`field-${field.name}`}
       name={field.name}
       required={field.required}
+      {...ariaRequired(field.required)}
+      disabled={field.conditionHidden}
       defaultValue={defaultValue ?? ''}
     >
       <option value="">{field.placeholder}</option>
@@ -178,7 +214,7 @@ const SelectInput = ({
         </option>
       ))}
     </select>
-    {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
+    <HelpText html={field.helpTextHtml} />
   </div>
 )
 
@@ -206,12 +242,15 @@ const RadioInput = ({
     className={`form-field form-field-radio ${computeFormFieldClasses()}`}
     role="radiogroup"
     aria-labelledby={`field-${field.name}-legend`}
+    {...ariaRequired(field.required)}
+    {...fieldWrapperAttributes(field)}
   >
     <div
       id={`field-${field.name}-legend`}
       className={`form-field-legend ${FIELD_LABEL_CLASS}`}
     >
       {field.label}
+      <RequiredMark required={field.required} />
     </div>
     {(field.options ?? []).map((option) => {
       const optionId = `field-${field.name}-${option.value}`
@@ -226,13 +265,14 @@ const RadioInput = ({
             name={field.name}
             value={option.value}
             required={field.required}
+            disabled={field.conditionHidden}
             defaultChecked={defaultValue === option.value}
           />
           <label htmlFor={optionId}>{option.label}</label>
         </div>
       )
     })}
-    {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
+    <HelpText html={field.helpTextHtml} />
   </div>
 )
 
@@ -250,19 +290,21 @@ const SignatureInput = ({ field }: { readonly field: ResolvedFormField }) => (
   <div
     className={FIELD_WRAPPER_CLASS}
     data-field-name={field.name}
+    {...fieldWrapperAttributes(field)}
   >
     <label
       htmlFor={`field-${field.name}`}
       className={FIELD_LABEL_CLASS}
     >
       {field.label}
+      <RequiredMark required={field.required} />
     </label>
     <canvas
       id={`field-${field.name}`}
       className="signature"
       data-name={field.name}
     />
-    {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
+    <HelpText html={field.helpTextHtml} />
   </div>
 )
 
@@ -273,132 +315,48 @@ const TextInput = ({
   readonly field: ResolvedFormField
   readonly defaultValue: string | undefined
 }) => (
-  <div className={FIELD_WRAPPER_CLASS}>
-    <label
-      htmlFor={`field-${field.name}`}
-      className={FIELD_LABEL_CLASS}
-    >
-      {field.label}
-    </label>
-    <input
-      id={`field-${field.name}`}
-      type={field.htmlInputType}
-      name={field.name}
-      required={field.required}
-      placeholder={field.placeholder || undefined}
-      defaultValue={defaultValue ?? undefined}
-    />
-    {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
-  </div>
-)
-
-/**
- * SSR picker for `user`-typed columns (Bug 4 / [internal ref]).
- *
- * Emits a `<div data-field-type="user" data-field-name="..."
- * data-allow-multiple="true|false">` wrapping a native `<select>` so the
- * field works without JS (progressive enhancement) and the inline runtime
- * can upgrade it to a fetch-backed combobox client-side.
- *
- * Option content is intentionally left empty server-side; the runtime
- * populates `<option>` entries on hydration. The wrapper's
- * `data-field-type="user"` marker is the contract the spec asserts.
- */
-const UserInput = ({
-  field,
-  defaultValue,
-}: {
-  readonly field: ResolvedFormField
-  readonly defaultValue: string | undefined
-}) => {
-  const multiple = field.allowMultiple === true
-  return (
-    <div
-      className={`form-field form-field-user ${computeFormFieldClasses()}`}
-      data-field-type="user"
-      data-field-name={field.name}
-      data-allow-multiple={multiple ? 'true' : 'false'}
-    >
-      <label
-        htmlFor={`field-${field.name}`}
-        className={FIELD_LABEL_CLASS}
-      >
-        {field.label}
-      </label>
-      <select
-        id={`field-${field.name}`}
-        name={field.name}
-        required={field.required}
-        multiple={multiple}
-        defaultValue={defaultValue ?? (multiple ? undefined : '')}
-      >
-        {!multiple && <option value="">{field.placeholder || 'Select a user...'}</option>}
-      </select>
-      {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
-    </div>
-  )
-}
-
-/**
- * File-input component for `single-attachment` / `multiple-attachments`
- * columns and standalone `attachment` fields. Emits a vanilla `<input
- * type="file">` plus a host `<div>` for the file-chips list and (when
- * `dropZone: true`) a sibling drop-target. The inline runtime
- * (`form-runtime.tsx`) wires up multipart pre-upload, accept / maxFileSize
- * / maxFiles validation, thumbnail previews, and remove buttons against
- * these elements via stable `data-*` markers.
- *
- * Field-level required/disabled/help-text rendering matches the rest of
- * the form-field family for consistency.
- */
-const FileInput = ({
-  field,
-  multiple,
-}: {
-  readonly field: ResolvedFormField
-  readonly multiple: boolean
-}) => (
   <div
-    className={`form-field form-field-file ${computeFormFieldClasses()}`}
-    data-field-name={field.name}
+    className={FIELD_WRAPPER_CLASS}
+    {...fieldWrapperAttributes(field)}
   >
     <label
       htmlFor={`field-${field.name}`}
       className={FIELD_LABEL_CLASS}
     >
       {field.label}
+      <RequiredMark required={field.required} />
     </label>
-    {field.dropZone === true && (
-      <div
-        className="form-dropzone"
-        data-testid={`dropzone-${field.name}`}
-        data-form-dropzone={field.name}
-      >
-        <span>Drop files here or click to browse</span>
-      </div>
+    {typedInput(
+      field,
+      <input
+        id={`field-${field.name}`}
+        type={field.htmlInputType}
+        name={field.name}
+        required={field.required}
+        {...ariaRequired(field.required)}
+        {...typedAttributesOf(field)}
+        disabled={field.conditionHidden}
+        placeholder={field.placeholder || undefined}
+        defaultValue={defaultValue ?? undefined}
+      />
     )}
-    <input
-      id={`field-${field.name}`}
-      type="file"
-      name={field.name}
-      required={field.required}
-      multiple={multiple}
-      accept={field.accept || undefined}
-      data-form-file-input={field.name}
-      {...(field.maxFileSize !== undefined
-        ? { 'data-max-file-size': String(field.maxFileSize) }
-        : {})}
-      {...(multiple && field.maxFiles !== undefined
-        ? { 'data-max-files': String(field.maxFiles) }
-        : {})}
-    />
-    <div
-      className="form-file-chips"
-      data-form-file-chips={field.name}
-    />
-    {field.helpText && <small className={HELP_TEXT_CLASS}>{field.helpText}</small>}
+    <HelpText html={field.helpTextHtml} />
   </div>
 )
+
+/**
+ * A table-bound number input with its unit (`€`, `%`) beside it, drawn by the
+ * helper the page `form` component draws it with; any other input as is.
+ */
+function typedInput(field: ResolvedFormField, input: ReactElement): ReactElement {
+  return field.column === undefined ? input : withAdornment(field.column, input)
+}
+
+/** A table-bound number input's `inputMode` / `step` / `min` / `max`; nothing otherwise. */
+function typedAttributesOf(field: ResolvedFormField): Readonly<Record<string, unknown>> {
+  return field.column === undefined ? NO_TYPED_ATTRIBUTES : typedInputAttributes(field.column)
+}
+const NO_TYPED_ATTRIBUTES = {} as const
 
 /**
  * Hidden submission input used when `inlinePrefill.lockPrefill: true` is
@@ -483,6 +441,19 @@ const LockedHiddenInput = ({
  * Bug 4 / [internal ref] added the `'user'` branch.
  */
 
+/** A `section` item and a `rating` scale, the two items that are not a single input. */
+function dispatchAnswerlessOrScale(field: ResolvedFormField, defaultValue: string | undefined) {
+  if (field.inputElement === 'section') return <SectionHeading field={field} />
+  if (field.inputElement === 'rating')
+    return (
+      <RatingInput
+        field={field}
+        defaultValue={defaultValue}
+      />
+    )
+  return undefined
+}
+
 function dispatchFieldInput(field: ResolvedFormField, defaultValue: string | undefined) {
   const f = field
   const dv = defaultValue
@@ -508,6 +479,8 @@ function dispatchFieldInput(field: ResolvedFormField, defaultValue: string | und
       />
     )
   if (f.inputElement === 'signature') return <SignatureInput field={f} />
+  const item = dispatchAnswerlessOrScale(f, dv)
+  if (item !== undefined) return item
   if (f.inputElement === 'file')
     return (
       <FileInput

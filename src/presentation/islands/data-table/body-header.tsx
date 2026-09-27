@@ -14,6 +14,7 @@ import {
   computeTableSortGlyphClasses,
   computeTableStickyHeaderClasses,
 } from '@/presentation/design/table-default-classes'
+import { columnAlignClass, headerLabelAlignClass } from './column-align'
 import {
   FROZEN_CELL_CLASS,
   frozenHeaderStyle,
@@ -282,12 +283,13 @@ function HeaderLabel({ header }: { readonly header: DataTableHeader }): ReactEle
   const label = header.isPlaceholder
     ? undefined
     : flexRender(header.column.columnDef.header, header.getContext())
+  const rowClass = `flex items-center gap-1 ${headerLabelAlignClass(header.column.columnDef.meta?.align)}`
   if (!header.column.getCanSort()) {
-    return <div className="flex items-center gap-1">{label}</div>
+    return <div className={rowClass}>{label}</div>
   }
   const action = sortActionLabel(sorted)
   return (
-    <div className="flex items-center gap-1">
+    <div className={rowClass}>
       {label}
       <button
         type="button"
@@ -302,6 +304,13 @@ function HeaderLabel({ header }: { readonly header: DataTableHeader }): ReactEle
       </button>
     </div>
   )
+}
+
+/** The class list of a header cell: the recipe, its alignment, sort and pin. */
+function headerCellClassName(meta: DataTableColumnMeta | undefined, canSort: boolean): string {
+  return `${computeTableHeaderCellClasses()} relative ${columnAlignClass(meta?.align)} ${
+    canSort ? 'cursor-pointer select-none' : ''
+  } ${meta?.frozen === true ? FROZEN_CELL_CLASS : ''}`
 }
 
 /** Renders a single header cell with sort indicator + resize handle. */
@@ -344,9 +353,7 @@ function HeaderCell({
       // density map, and interpolating it grew the column labels' padding
       // whenever the reader asked for taller rows. A header's padding is a
       // constant of the design; the recipe owns it.
-      className={`${computeTableHeaderCellClasses()} relative ${
-        canSort ? 'cursor-pointer select-none' : ''
-      } ${meta?.frozen === true ? FROZEN_CELL_CLASS : ''}`}
+      className={headerCellClassName(meta, canSort)}
       {...(cellStyle && { style: cellStyle })}
       onClick={header.column.getToggleSortingHandler()}
       aria-sort={ariaSortFor(canSort, header.column.getIsSorted())}

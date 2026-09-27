@@ -63,7 +63,10 @@
  */
 
 import { type PermissionCaller } from '@/domain/models/app/auth/permission-evaluation'
-import { hasReadPermissionForRoles } from '../auth/permission-evaluator-service'
+import {
+  hasReadPermissionForRoles,
+  readRequiresSession,
+} from '../auth/permission-evaluator-service'
 import { isFieldReadableByCaller } from './field-read-filter-service'
 import {
   isPredicateGroup,
@@ -452,11 +455,17 @@ export const buildReadAccessPlan = (input: ReadAccessPlanInput): ReadAccessPlan 
     }
   }
 
-  const allowed = hasReadPermissionForRoles(
-    table as Parameters<typeof hasReadPermissionForRoles>[0],
-    principal.effectiveRoles,
-    app.tables as Parameters<typeof hasReadPermissionForRoles>[2]
-  )
+  // `'authenticated'` admits any SESSION. The evaluator answers it for every
+  // role because the records API's session gate has already refused a caller
+  // without one; a page render has no such gate, so the plan asks here.
+  const allowed =
+    hasReadPermissionForRoles(
+      table as Parameters<typeof hasReadPermissionForRoles>[0],
+      principal.effectiveRoles,
+      app.tables as Parameters<typeof hasReadPermissionForRoles>[2]
+    ) &&
+    (principal.isAuthenticated ||
+      !readRequiresSession(table, app.tables as Parameters<typeof readRequiresSession>[1]))
 
   if (!allowed) {
     return {

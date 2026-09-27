@@ -1,3 +1,251 @@
+## [0.29.0](https://github.com/sovrium/sovrium/compare/v0.28.0...v0.29.0) (2026-09-27)
+
+### BREAKING CHANGES
+
+- **env**: require env variables declared without `required`
+- **buckets**: rename the default bucket to system and list record-linked files there
+- **agents**: add the built-in System Agent and rename the default agent to system
+
+### Features
+
+- **cli**: read this binary's release notes with sovrium changelog
+- **pages**: search can cover the pages a signed-in reader may open
+- **automations**: list pending approvals so a page can resolve them
+- **pages**: the sidebar can fold into a drawer behind a menu button on narrow screens
+- **pages**: charts keep a select field's option order and colours, and a donut legend names its slices
+- **pages**: bind a table component to one of the table's views
+- **tables**: let a public view serve its named columns to visitors without an account
+- **design**: choose the app's density step, per zone, and apply it to every page
+- **pages**: load a grid page by page under one scroll
+- **pages**: let a grid column name the field shown for a linked record
+- **server**: warn at boot when open sign-up gives new accounts access to tables
+- **automations**: default run timeout, kept steps on timeout, a finaliser for crashed runs, and a stuck-run sweep
+- **pages**: open a navigate action or a url cell in a new tab
+- **admin**: translate the automations page
+- **email**: name the app in every subject, sender and greeting; list items and one-decimal sizes
+- **app**: the Built with Sovrium badge can sit in a footer line instead of floating over content
+- **cli**: seed accounts, user fields, same-table links, authorship and a pinned today
+- **forms**: allow links and emphasis in help text and descriptions
+- **admin**: weekly operational summary email
+- **pages**: a record drawer lists the records related to the one it opened
+- **forms**: read a field's choices from a table without a read permission
+- **pages**: kanban cards print related records by name, relative dates in the reader's language, a currency footer format, and columns can start folded
+- **pages**: let a breadcrumb keep a segment as text when it has no page
+- **admin**: open a run on its own page with each step's logs
+- **admin**: mark automatic pauses in the automations table
+- **automations**: recover interrupted runs, roll up repeated failures, and pause after consecutive failures
+- **pages**: let a list repeat inside a list
+- **cli**: write each listed record's page and list it in the static sitemap
+- **admin**: include each step's logs in the run detail read
+- **cli**: refuse to drop a populated table unless migrate runs with --allow-destructive
+- **forms**: show and require fields live as the visitor answers
+- **admin**: notification preferences on the profile page
+- **automations**: make failure alerts actionable and configurable
+- **pages**: add a switch control to endpoint-bound forms
+- **pages**: list a page's other languages as og:locale:alternate
+- **cli**: serve Sovrium's agent skills as MCP prompts
+- **cli**: write each article's Markdown twin in sovrium build
+- **cli**: add sovrium skills to write agent skills into a project
+- **pages**: validate the content-directory structured-data toggle
+- **server**: add an operator timezone for every scheduled and displayed time
+- **pages**: announce the RSS feed and Markdown twins in the page head
+- **pages**: list public collection records in the sitemap
+- **library**: add the settings form, guide-with-contents and side-panel form blocks
+- **automations**: page through APIs that continue after the last item
+- **library**: add the confirmation toast block
+- **cli**: install individual API operations from the library
+- **library**: add twelve automation recipes
+- **library**: add data-bound blocks that read the operator's own tables
+- **library**: add application interface blocks
+- **library**: add marketing section and page element blocks
+- **library**: give the Qonto connection its API root and transaction operations
+- **library**: add eighteen ready-made connections
+- **library**: add the Slack connection and a new-record-to-Slack recipe
+- **library**: add a shared block kit and rebuild the centered hero on it
+- **library**: let an entry declare the tables it reads
+- **connections**: exchange a stored credential for a short-lived token
+- **connections**: exchange and renew Meta long-lived tokens
+- **connections**: report reconnect-needed before a non-renewable token lapses
+- **ai**: add push-to-talk voice input to the chat component
+- **forms**: record audio in the browser on attachment fields
+- **automations**: verify Stripe, Slack, Svix and base64 webhook signatures
+- **automations**: encode an http action's query object value by value
+- **automations**: keep only new items between polling runs with state filterNew
+- **automations**: answer the Meta webhook subscription handshake
+- **connections**: default the OAuth2 redirect URI and resolve known provider endpoints
+- **connections**: keep OAuth2 token response fields and read them as the API root
+- **connections**: obtain OAuth2 tokens with the client credentials grant
+- **automations**: call a declared connection operation from an automation step
+- **cli**: add sovrium library to browse and install ready-made blocks, connections and recipes
+
+### Bug Fixes
+
+- **cli**: print the whole document when changelog, docs or design-system output is piped
+- **pages**: keep a navigation menu's authored content after the page loads
+- **pages**: render a navigation menu's test id once after hydration
+- **pages**: a closing record drawer is named once, not twice, while it animates out
+- **pages**: a filter bar narrows a table's own filter instead of replacing it
+- **forms**: a user picker masks the address of an account with no name
+- **forms**: an empty optional barcode with a format is stored empty
+- **tables**: name the refused column of a single-column unique violation on SQLite
+- **cli**: stop sovrium update from hanging on a stalled download
+- **pages**: every data component on a page follows its filter bar
+- **pages**: charts and timelines grouped by a person or a linked record show the name
+- **pages**: toggles, scroll areas, navigation menus and menubars become interactive on their own
+- **pages**: the record drawer names its type
+- **pages**: a read-only drawer shows chips and currency as the grid does
+- **pages**: a dialog wrapping a form shows one title
+- **forms**: a status column is a select and a user column offers accounts by name
+- **forms**: an empty optional answer is stored empty and a refused submission says which field
+- **pages**: a page whose children include plain text renders again
+- **tables**: formula columns are listed by the SQLite catalog read as on PostgreSQL
+- **tables**: bound the account ids one user-label read binds
+- **pages**: a dialog embedding a form the visitor may not use hides the page like a bare form
+- **ai**: chat failure and not-configured notices follow the page language
+- **buckets**: audit entries for browsing and uploading name the bucket touched
+- **pages**: user fields show the account's name wherever a value is shown as text
+- **pages**: props.className reaches every data component's own element
+- **pages**: every component names its type on the element it renders, including islands
+- **pages**: a $currentUser filter is resolved for every data component wherever it sits on the page
+- **pages**: a referenced form renders its fields inside any dialog or container
+- **tables**: adding a column after a formula column no longer fails the migration
+- **pages**: the session page search drops any result that is not a same-origin path
+- **pages**: search answers vary on the session cookie
+- **pages**: page search leaves out a page whose embedded form the reader may not use
+- **pages**: the command palette no longer returns pages the caller may not open
+- **forms**: show a keyboard focus ring on hosted-form rating ranks
+- **automations**: resolve an approval once and bound the approvals list
+- **automations**: only a named approver can resolve an approval request
+- **forms**: render currency, percentage and rating columns as typed inputs and draw section headings on hosted forms
+- **pages**: a search-mode list no longer serialises columns the visitor may not read
+- **pages**: collection pages and their prev/next links print only what the visitor may read
+- **pages**: a table whose read is "authenticated" is shown only to signed-in visitors
+- **pages**: a folded sidebar stays reachable without JavaScript
+- **pages**: a page bound to one record answers 404 and prints nothing the visitor may not read
+- **pages**: a single-record form carries only the fields its visitor may read
+- **pages**: a form that inherits its page's record shows only what the visitor may read
+- **pages**: an edit form on a page bound to one record opens with that record's values
+- **pages**: the language switcher opens a styled menu and no longer prints its fallback language
+- **pages**: previous and next links walk the sidebar's order across sections
+- **pages**: the prose markdown layout is styled like the docs layout, and callouts carry their declared type
+- **pages**: a series chart's currency axis prints the currency its series share
+- **pages**: charts sort category names as displayed, and pies rank slices largest first by default
+- **pages**: the timeline's Today marker no longer covers the first bar's label
+- **pages**: calendar controls read Today, Month, Week, Day in the page's language
+- **pages**: KPI currency and compact values follow the page's language and the field's precision
+- **tables**: sort group headers in the page's language and read each group's first row in one pass
+- **pages**: keep a nested grid bound to a view readable through the view's own grant
+- **tables**: name relationship groups by the related record's display field, not its id
+- **design**: a declared dark palette follows the visitor's system scheme by default
+- **pages**: keep a load-more grid's rows apart from a numbered grid's in the shared cache
+- **tables**: keep the page-language currency symbol in place when a negative format is declared
+- **pages**: hide data grids over tables the visitor cannot read, wherever the grid sits
+- **api**: the health endpoint tells anonymous callers only that the server is up
+- **pages**: key system-bound reads on the whole binding now that islands share a cache
+- **api**: the API reference is titled and versioned after the app and drops the vendor's outbound controls
+- **api**: records no longer carry an empty deleted_at field
+- **pages**: share one query cache between the islands on a page
+- **tables**: revalidate record and admin reads with ETag instead of resending them
+- **tables**: hide create, import and add-row from visitors who cannot create records, wherever the grid sits
+- **tables**: group thousands in whole-number currency amounts and follow the page language
+- **pages**: refuse a grid page size above what the records API serves
+- **mcp**: tool calls check table and field permissions against the account's real role
+- **tables**: resolve relationship labels only from fields the reader may see
+- **pages**: filter a hand-written command palette page list by page access
+- **server**: the boot banner finds the admin account the environment just created when custom roles are declared
+- **mcp**: read tools stay marked read-only whatever the table's annotation override
+- **pages**: the command palette offers only the pages the visitor may open
+- **pages**: the RSS feed is built only from a page anyone may open
+- **mcp**: a tool call cannot create, change or delete a record its caller's role may not touch over the API
+- **admin**: answer unknown pages in the account's language, and let any host save the console's languages
+- **pages**: format every date in the page's language
+- **pages**: visibility gates also reach responsive children and keep tabs aligned
+- **design**: give every unchecked control a visible outline
+- **auth**: escape names and links in every email, and sanitise names on every write path
+- **admin**: keep the weekly summary running past an unreadable snapshot, and summarise error lines
+- **pages**: check every navigation address before following it
+- **forms**: keep a public choice list away from sensitive or hidden columns reached through computed fields
+- **pages**: the llms.txt exports leave out pages that require signing in
+- **pages**: a magic-link sign-in form asks for an email only
+- **pages**: content limited to a role or to signed-in visitors is left out of the page instead of hidden by style
+- **cli**: describe in the migration plan how a table becomes or stops being view-backed
+- **cli**: refuse a seed account role the app does not define before creating any account
+- **design**: a plain border uses the theme's border colour instead of the text colour
+- **pages**: keep two kanban boards on one page from pointing their fold toggles at each other
+- **pages**: re-read a drawer's related records on every open
+- **pages**: hide a drawer's related sections from signed-out visitors who may not read them
+- **api**: refuse a malformed signed-URL token cleanly
+- **cli**: seed upsert keeps created_at on update and fills created-by fields
+- **pages**: keep typing in a form field while its interactive version loads
+- **admin**: keep the run breadcrumb's middle segment as text
+- **migrations**: never refuse or report a drop of the SQLite search index
+- **cli**: ship the scripts a built site loads and leave dev reload out
+- **pages**: render a form field's description as help text
+- **email**: head every email with the app's own name
+- **pages**: render number, date, currency, percentage, rating and user fields of a table-bound form as their own controls
+- **ai**: complete Mistral calls — name the extraction schema and accept a null tool-call list
+- **migrations**: never drop the base or junction tables behind config tables
+- **pages**: keep auto-saving forms and system grids working with drawer record binding
+- **pages**: make drawer forms wait for, bind to and protect the right record
+- keep pager summary and comment sort text whole on small screens and short controls
+- **forms**: translate the closed form page and honour the chosen language
+- **tables**: build the command palette index on the table behind a lookup view
+- **forms**: let visitors without an account submit into tables that record who created a row
+- **pages**: run forms and islands placed in drawers, popovers and scroll areas
+- **forms**: serve hosted form pages in the app's language and text direction
+- **tables**: give compact selects a proportionate chevron and keep the pager label on one line
+- **pages**: keep restricted Markdown twins out of shared caches
+- **pages**: answer 404 for a soft-deleted record page
+- **pages**: list only readable, live records in the sitemap and cache it
+- **automations**: declare every run-detail field the API returns
+- **cli**: refuse to write agent skills through a symlink
+- **forms**: keep a select's options readable while its placeholder is chosen
+- **forms**: keep the select chevron clear of the value on right-to-left pages
+- **pages**: submit forms rendered inside a dialog through their action
+- **forms**: draw native selects with the same chrome as text inputs
+- **cli**: explain when the data directory cannot hold the encryption key
+- **automations**: keep what a code action logs in its run history
+- **pages**: read the chat component's options from where the docs say to write them
+- **automations**: retry only transient failures and honour Retry-After
+- **cli**: locate every validate --json finding by its path
+- **pages**: send Vary: Accept on content-negotiated article URLs
+- **pages**: mark the Markdown of a noindex page with X-Robots-Tag
+- **cli**: drop the SOVRIUM_GENERATE_MANIFEST build variable
+- **pages**: write a sitemap lastmod only when the date is known
+- **pages**: omit hreflang alternates when no absolute origin is known
+- **pages**: stop disallowing noindex pages in robots.txt
+- **pages**: lazy-load images by default and fetch the hero first
+- **pages**: refuse AVIF sharing images in openGraph and twitter
+- **tables**: record the audit trail for writes made by the system actor
+- **ai**: refuse a speech timeout too long for a timer, and log speech engine failures
+- **ai**: rate-limit anonymous AI requests on apps without authentication
+- **ai**: bound transcription requests by the speech timeout and answer 504 or 502 on engine failure
+- **auth**: refuse a session presented from another client on pages too
+- **buckets**: refuse attachment references to files outside the field's bucket or the writer's reach
+- **pages**: read page records over loopback and 404 a declared home page that cannot render
+- **pages**: settle a gallery whose records the visitor may not read
+- **pages**: keep calendar event text legible in the light palette
+- **pages**: draw a dropdown label trigger as tall as the buttons beside it
+- **pages**: align data table columns as declared
+- **pages**: format list item metadata as each entry declares
+- **pages**: format KPI numbers with their declared digits and the page's language
+- **pages**: keep drawers closed until opened
+- **pages**: pre-fill record forms and derive breadcrumbs wherever they are placed
+- **pages**: build the table of contents from headings inside reusable components
+- **pages**: show a toast when a toast button is clicked
+- **pages**: format data table cells and toolbar captions in the page's language
+- **pages**: mount data-bound lists placed through a reusable component
+- **automations**: refuse automations that name a table the app does not declare
+- **admin**: translate the connections directory and let its status chips hug their label
+- **admin**: label and flag connections whose token needs a new authorization
+- **cli**: list the speech-to-text variables in the generated .env.example
+- **ai**: refuse a cloud speech provider configured without an API key
+- **connections**: send Basic credentials with an empty username when a password is set
+
+### Performance Improvements
+
+- **automations**: refuse oversized recordings before downloading them
+
 ## [0.28.0](https://github.com/sovrium/sovrium/compare/v0.27.1...v0.28.0) (2026-09-23)
 
 ### Features
@@ -662,7 +910,7 @@
 - **automations**: implement the path/branch conditional branching action
 - **automations**: implement the record batchUpdate, batchDelete and batchUpsert actions
 - **pages**: stop canonicalizing redirects from disclosing non-public pages
-- **eco**: reconcile the lever surface with the DEC-077 typo refusal
+- **eco**: reconcile the lever surface with the refusal of unrecognised eco lever values
 - **redirects**: compare both the verbatim and canonicalized redirect target
 - **cli**: stop auto-discovering app.json as a config candidate
 - **pages**: drop the trailing slash from non-root hreflang alternates
@@ -1015,15 +1263,15 @@
 
 ### Bug Fixes
 
-- **migrations**: make dynamic-table schema re-init idempotent across upgrades (DEC-063)
+- **migrations**: make dynamic-table schema re-init idempotent across upgrades
 
 ## [0.15.0](https://github.com/sovrium/sovrium/compare/v0.14.0...v0.15.0) (2026-07-18)
 
 ### Bug Fixes
 
-- **theming**: mint shadcn-convention alias utilities on the default theme (DEC-060)
-- **tables**: admit anonymous read of read:all tables (DEC-059)
-- **i18n**: localize the data-table create-record affordance (DEC-061)
+- **theming**: mint shadcn-convention alias utilities on the default theme
+- **tables**: admit anonymous read of read:all tables
+- **i18n**: localize the data-table create-record affordance
 - **server**: drop Hono context param from the empty-chunk stub helper
 - **pages**: normalize colored status options for kanban group-by
 - **build**: pad zero-byte island split chunks that broke production hydration
@@ -1035,14 +1283,14 @@
 - navbar hover-to-open, authored trigger override, and child target/rel
 - **cli**: scaffold init from remote GitHub template repositories
 - **templates**: ship deploy + mirror files with every template
-- **ai**: boot AI agents inert when no provider is configured (DEC-057)
-- navbar badges, dropdown chevron, and inverted popup (DEC-056)
+- **ai**: boot AI agents inert when no provider is configured
+- navbar badges, dropdown chevron, and inverted popup
 - **examples**: add automation-recipes and knowledge-base templates
 - **examples**: add the company-os flagship template
 - **website**: re-slice docs sub-nav into 8 product tabs + chrome polish
 - **examples**: add people, events, assets, and expenses business apps
 - **examples**: add projects, helpdesk, and content-calendar business apps
-- serve contentDir.index at the collection base path (DEC-054)
+- serve contentDir.index at the collection base path
 - **pages**: shared component templates host interactive islands
 - **website**: fuse a docs zone sub-nav under the top navbar
 - add the "Built with Sovrium" badge with free one-line removal
@@ -1072,7 +1320,7 @@
 - **pages**: localize the docs last-updated date value per active locale
 - **pages**: drive the RSS feed channel identity from the rss page meta
 - **automations**: provide PackageResolver to record-event code actions
-- attribute record actions to the triggering user via runAs (DEC-049)
+- attribute record actions to the triggering user via runAs
 - **lookup**: preserve an explicit id on view-backed INSTEAD OF INSERT
 
 ## [0.12.1](https://github.com/sovrium/sovrium/compare/v0.12.0...v0.12.1) (2026-07-12)
@@ -1174,16 +1422,16 @@
 ### Bug Fixes
 
 - **tables**: don't run view-backed id resolution on composite-key tables
-- **tables**: correct DEC-048 many-to-many types and clear batch-3 quality drift
-- complete m2m-on-create for view-backed tables and the form path (DEC-048)
-- split many-to-many fields on record create and resolve them on read (DEC-048)
-- view-backed insert applies base DEFAULTs and returns the real id (DEC-047)
-- **comments**: opt-in per-user comment read/unread state (DEC-045)
+- **tables**: correct the many-to-many record field types
+- complete m2m-on-create for view-backed tables and the form path
+- split many-to-many fields on record create and resolve them on read
+- view-backed insert applies base DEFAULTs and returns the real id
+- **comments**: opt-in per-user comment read/unread state
 - **theme**: raise --sv-fg-subtle to WCAG AA contrast in light and dark
 - **pages**: render the default 404/500 pages with theme tokens
 - exclude soft-deleted child rows from rollup and count aggregates
 - apply admin-equivalent override to field-level read filtering
-- enforce permissions.comment server-side (DEC-046)
+- enforce permissions.comment server-side
 - **pages**: emit absolute hreflang alternates sharing the canonical origin
 - hide role-gated embedded form references
 - **tables**: resolved top custom role bypasses row-level scoping (GAP #1)
@@ -1204,9 +1452,9 @@
 
 ### Features
 
-- RAG Phase 2 — opt-in sqlite-vec ANN + FTS5 hybrid retrieval (DEC-029)
-- **pages**: alert-dialog confirm dispatches its configured automation action (DEC-037)
-- **automations**: approval action pauses run, resolves via run-scoped approve/reject (DEC-037)
+- RAG Phase 2 — opt-in sqlite-vec ANN + FTS5 hybrid retrieval
+- **pages**: alert-dialog confirm dispatches its configured automation action
+- **automations**: approval action pauses run, resolves via run-scoped approve/reject
 - record-context submit fields for schema-config editors
 - hydrate reverse one-to-many collections in record-trigger envelope (GAP-J2)
 - docs-article breadcrumb + "View as Markdown" header
@@ -1277,22 +1525,22 @@
 - AI-compute async refinement via real provider on both engines
 - AI-compute deterministic baseline on both engines + two-phase scaffolding
 - RAG works on SQLite via BLOB embeddings + app-side cosine
-- **comments**: filter non-admin comment list to approved-only (APP-PAGES-PUBLIC-COMMENTS-019)
-- **comments**: persist resolved moderation status on create (APP-PAGES-PUBLIC-COMMENTS-027)
-- **comments**: surface guest name in comment thread (APP-PAGES-PUBLIC-COMMENTS-006)
-- **comments**: persist guest identity on comment create (APP-PAGES-PUBLIC-COMMENTS-005)
+- **comments**: filter non-admin comment list to approved-only
+- **comments**: persist resolved moderation status on create
+- **comments**: surface guest name in comment thread
+- **comments**: persist guest identity on comment create
 
 ### Bug Fixes
 
 - map numeric precision to SQL scale, not total digits (#15)
 - defer FK enforcement during SQLite schema-migration transaction
-- align SQLite field-value serialization with Postgres (DEC-027)
+- align SQLite field-value serialization with Postgres
 - emit ISO-8601 timestamps from SQLite updated_at trigger
 - **types**: export DeleteViewTarget so @sovrium/types .d.ts emit succeeds
 - harden email validation and HTML-tag regexes flagged by CodeQL
 - **css**: compile per-app CSS under ECO_DESIGN_LAYER=off (light parity)
 - **css**: serve per-app CSS when app adds candidates beyond builtin
-- **comments**: persist pending/rejected comments so admin queue lists them (APP-PAGES-PUBLIC-COMMENTS-020)
+- **comments**: persist pending/rejected comments so admin queue lists them
 
 ## [0.9.0](https://github.com/sovrium/sovrium/compare/v0.8.1...v0.9.0) (2026-05-31)
 
@@ -1314,25 +1562,25 @@
 - **domain**: add Zod PATCH schemas for user-prefs + user-views
 - **design-system**: Phase 5 contract proof — drift gate + smoke tests + ECO_DESIGN_LAYER env var
 - **design-system**: add + prestyle read-only cell renderers (user/relational/status/formula/geolocation/count/json/array/code)
-- **runtime-views**: APP-RUNTIME-VIEWS-026 + regression — 404 for cross-table share
+- **runtime-views**: 404 for cross-table share
 - **design-system**: prestyle field-type affordances (rating/currency/percentage/color/attachments) with var-fallback recipe
-- **runtime-views**: APP-RUNTIME-VIEWS-024..025 — URL contract + shared-view lookup
+- **runtime-views**: URL contract + shared-view lookup
 - **design-system**: prestyle specialty + ai surfaces (comments/lang-switcher/reorderable-list/time-picker/ai-chat) with var-fallback recipe
-- **runtime-views**: APP-RUNTIME-VIEWS-023 — Share button generates view link
+- **runtime-views**: Share button generates view link
 - **design-system**: prestyle interactive + content surfaces (link/button-group/icon/image/iframe/audio/video/search) with var-fallback recipe
 - **design-system**: prestyle display surfaces (carousel/empty-state/list-item/scroll-area/speech-bubble/static-table/timeline) with var-fallback recipe
 - **runtime-views**: drain remaining save-personal-views + cycle-4 deferred fixmes
-- **runtime-views**: wire saved-views surface for APP-RUNTIME-VIEWS-016
-- **data-table**: runtime group-by picker + collapsible groups (APP-RUNTIME-VIEWS-032/033/034)
+- **runtime-views**: wire the saved-views surface — save, apply and delete personal views
+- **data-table**: runtime group-by picker + collapsible groups
 - **design-system**: prestyle typography (heading/paragraph/code/blockquote/list) with var-fallback recipe
 - **design-system**: prestyle data surfaces (data-table chrome + kanban + chart shells) with var-fallback recipe
-- **pages**: PG-03 APP-RUNTIME-VIEWS-009/011/SORT-REGRESSION — runtime multi-sort + view switcher
+- **pages**: runtime multi-sort + view switcher
 - **design-system**: prestyle form surfaces (form-card + file-upload dropzone) with var-fallback recipe
 - **design-system**: prestyle layout surfaces (card + divider) with var-fallback recipe
-- **pages**: PG-03 APP-RUNTIME-VIEWS-001..007 — runtime filter builder
+- **pages**: runtime filter builder
 - **design-system**: prestyle navigation surfaces (breadcrumb/pagination) with var-fallback recipe
 - **design-system**: prestyle feedback surfaces (badge/alert/skeleton/progress) with var-fallback recipe
-- **pages**: PG-03 APP-RUNTIME-VIEWS-028..031 — user table preferences runtime
+- **pages**: user table preferences runtime
 - **design-system**: prestyle tabs + accordion islands with var-fallback recipe
 - **design-system**: prestyle overlay islands (dialog/popover/tooltip/drawer/menu) with var-fallback recipe
 - **design-system**: prestyle date-picker islands with var-fallback recipe
@@ -1341,42 +1589,42 @@
 - **design-system**: prestyle select island with var-fallback recipe
 - **design-system**: prestyle input renderer with state defaults
 - **design-system**: prestyle button-renderer with variant/size/state defaults
-- **pages**: PG-04 PATTERN-REGRESSION — tabs renders React children + nested forms get collection record
-- **design-system**: land DEC-026 prestyled-default contract + css-var helper
-- **pages**: PG-04 APP-PAGES-RECORD-DETAIL-011 + DRAWER-REGRESSION — drawer save closes + sibling table refreshes
-- **pages**: PG-02 guest-comment storage + inline form runtime
-- **pages**: PG-02 single-level threading — reply UI + collection auto-bind + API depth check
-- **pages**: PG-04 APP-PAGES-RECORD-DETAIL-005 — synthesized CRUD update obeys table-update perms
-- **data-components**: PG-03 sort-direction indicator (APP-RUNTIME-VIEWS-010)
-- **pages**: CA-01 APP-PAGES-CONTENT-013 — alert dismissibility via event-delegated toggle
-- **data-components**: PG-03 column-visibility drag-reorder (drain 2)
-- **pages**: PG-04 record-detail composition — tabs / openDrawer dispatch / data-form alias / CRUD synthesis (drain 5)
-- **pages**: PG-02 moderation pipeline — manual queue + autoApprove + PATCH-status + auth-required (drain 11)
+- **pages**: tabs renders React children + nested forms get collection record
+- **design-system**: prestyled-by-default islands contract + css-var helper
+- **pages**: drawer save closes + sibling table refreshes
+- **pages**: guest-comment storage + inline form runtime
+- **pages**: single-level threading — reply UI + collection auto-bind + API depth check
+- **pages**: synthesized CRUD update obeys table-update perms
+- **data-components**: sort-direction indicator
+- **pages**: alert dismissibility via event-delegated toggle
+- **data-components**: column-visibility drag-reorder
+- **pages**: record-detail composition — tabs / openDrawer dispatch / data-form alias / CRUD synthesis
+- **pages**: moderation pipeline — manual queue + autoApprove + PATCH-status + auth-required
 - **css**: ship Source Serif 4 italic via inline @font-face
-- **pages**: PG-02 spam guards — rate-limit + link-threshold + blocked-words + guest-comment auth-exemption (drain 9)
-- **automations**: wire comment trigger to fire on approved comments (drain 4)
-- **pages**: thread session into comment-thread island props (drain 14)
-- **pages**: page-search client island — interactive results UX (US-PAGES-PUBLIC-SEARCH-009)
-- **pages**: PG-01 — comment thread + count hydration islands (drain 7)
-- **pages**: PG-01/PG-02 — SSR comment form skeleton + honeypot + schema foundation (drain 12)
-- **pages**: pageSearch SSR placeholder + renderer dispatch (US-PAGES-PUBLIC-SEARCH-001)
-- **pages**: pre-boot search-index generation for sovrium start (US-PAGES-PUBLIC-SEARCH-004)
-- **pages**: data-sovrium-search-body marker + indexer narrowing (US-PAGES-PUBLIC-SEARCH-007)
-- **pages**: Sovrium-native search indexer (US-PAGES-PUBLIC-SEARCH-002)
-- **pages**: PG-03 schema+routes foundation — user_saved_views + user_table_preferences (DEC-017)
-- **pages**: activation gate predicate + build-path stub (US-PAGES-PUBLIC-SEARCH-003)
+- **pages**: spam guards — rate-limit + link-threshold + blocked-words + guest-comment auth-exemption
+- **automations**: wire comment trigger to fire on approved comments
+- **pages**: thread session into comment-thread island props
+- **pages**: page-search client island — interactive results UX
+- **pages**: comment thread + count hydration islands
+- **pages**: SSR comment form skeleton + honeypot + schema foundation
+- **pages**: pageSearch SSR placeholder + renderer dispatch
+- **pages**: pre-boot search-index generation for sovrium start
+- **pages**: data-sovrium-search-body marker + indexer narrowing
+- **pages**: Sovrium-native search indexer
+- **pages**: schema+routes foundation — user_saved_views + user_table_preferences
+- **pages**: activation gate predicate + build-path stub
 - **forms**: F-04 — admin analytics & responses dashboard + drain 11 specs
 - **sovrium**: fix 5-bug cluster from sovrium-partner consumer-app
-- **pages**: close static-build access leak (US-PAGES-PUBLIC-SEARCH-008)
-- **pages**: pageSearch component schema stub + spec corpus (US-PAGES-PUBLIC-SEARCH-001..008)
-- **pages**: PG-04 schema prep — OpenDrawerActionSchema + 10 narrowing fixes
+- **pages**: close static-build access leak
+- **pages**: pageSearch component schema stub + spec corpus
+- **pages**: schema prep — OpenDrawerActionSchema + 10 narrowing fixes
 - **forms**: F-03 — anti-spam rate-limit + IP hash-on-write + drain 6 specs
 - **buckets**: B-01 — attachment field signed-URL enrichment + drain 6 specs
-- **schema**: API-1 — schema_prune retention resolver + REST handler + MCP tool + drain 2 specs
+- **schema**: schema_prune retention resolver + REST handler + MCP tool
 - **automations**: AU-03 — auth-event dispatch bridge + drain 3 specs
 - **automations**: AU-02 — concurrency scheduler + cancel-mid-flight + drain 2 specs
-- **cli**: CLI-LOG-OUTPUT-010/011/012 — quiet better-auth verifier + admin display in banner
-- **cli**: C-01 — reload versioning + drift detection (DEC-023) + drain 6 specs
+- **cli**: quiet better-auth verifier + admin display in banner
+- **cli**: record a config version on reload, with drift detection
 - **admin**: ADM-1 — GET /api/admin/users/overview endpoint + drain 6 specs
 - **pages**: P-05 — text component markdown rendering + drain 6 specs
 - **pages**: P-06 — TOC renderer (auto-anchor headings, sticky nav) + drain 5 specs
@@ -1384,7 +1632,7 @@
 - **cli**: scaffold public/ in init for web-facing templates
 - **infra**: harden setupPublicDirRoute with realpath + secret-blocklist
 - **cli**: default --publicDir to <app.yaml dir>/public with opt-out flag
-- **pages**: APP-PAGES-TWITTER-APP-REGRESSION — add appUrl deep-link metadata to TwitterCardSchema
+- **pages**: add appUrl deep-link metadata to TwitterCardSchema
 - **automations**: RUNS-004 filter halts surface as run.status='skipped' (+ remove fossilized RUNS-011)
 
 ### Bug Fixes
@@ -1419,7 +1667,7 @@
 
 ### Bug Fixes
 
-- **database**: MIGRATION-CHECKSUM-VIEW-DRIFT-001 — preserve auto-generated lookup views across boots
+- **database**: preserve auto-generated lookup views across boots
 
 ## [0.8.0](https://github.com/sovrium/sovrium/compare/v0.7.2...v0.8.0) (2026-05-25)
 
@@ -1429,11 +1677,11 @@
 - **database**: align SQLite dynamic-table default id to INTEGER (ADR-016)
 - **pages-social**: add comments + commentCount page components (SSR scaffolding tier)
 - **admin-automations**: drain overview.spec.ts (8 fixmes → GREEN)
-- **data-components**: drain runtime-sort-configuration — APP-RUNTIME-VIEWS-008 + a11y polish
-- **data-components**: drain runtime-column-visibility — APP-RUNTIME-VIEWS-012/014/015
-- **data-components**: drain related-records-display — APP-PAGES-RECORD-DETAIL-013..016
-- **data-components**: drain record-header-breadcrumb — APP-PAGES-RECORD-DETAIL-006..008
-- **data-components**: drain form-reset-after-success — APP-PAGES-FORM-062
+- **data-components**: accessible labels on the runtime sort-direction indicator
+- **data-components**: accessible toggles in the runtime column-visibility menu
+- **data-components**: navigate on a data-table row click, with row-field tokens in the path
+- **data-components**: top-level label and confirm on the button component
+- **data-components**: render select columns as a select in standalone forms
 - **pages-layout**: drain divider-spacer specs — divider + spacer renderer bodies
 - **pages-layout**: drain divider-spacer — add divider + spacer renderers (HR with style/label, sized div spacer); rename structural-components.ts to .tsx for JSX
 - **pages-layout**: drain basic-app-shell + app-shell-sidebar — honor navigation-menu className for vertical layout
@@ -1448,24 +1696,24 @@
 - **form-controls**: drain combobox specs
 - **form-controls**: drain time-picker + number-input specs
 - **form-controls**: drain dropzone-file-upload + label specs
-- **cli**: drain CLI-COMMANDS-AGENTS-001..006 + REGRESSION
-- **cli**: drain CLI-COMMANDS-HELP-001..005 + REGRESSION
+- **cli**: an add alias and dedicated help for the agents command
+- **cli**: reject an unknown flag by name instead of falling through to start
 - **admin**: drain ADMIN-CONFIG-VERSION + ADMIN-TABLES-OVERVIEW
-- **forms**: drain APP-FORMS-088/090/091/093 — partner role, defaultValue, formRef gates
-- **forms**: drain APP-FORMS-109 — availability.closedPage schema
+- **forms**: partner role, defaultValue, formRef gates
+- **forms**: availability.closedPage schema
 - **pages-overlays**: add hover-card island + drain OVERLAY-029..034 + REGRESSION
 - **pages-overlays**: wire drawer island hydration + drain DRAWER-001..004 + REGRESSION
 - **pages-navigation**: drain dropdown-menu — render icons + fix top-level schema field pickup
 - **pages-navigation**: drain split-button — register dropdown-menu/context-menu as island types
-- **bootstrap**: drain APP-SCHEMA-BOOTSTRAP-001..011 + REGRESSION
+- **bootstrap**: skip the environment admin bootstrap once a user exists, and purge stale bootstrap tokens
 
 ### Bug Fixes
 
 - **realtime**: dedup presence-sync by user.id, make leave connection-aware
-- **cli**: honor --help on update command (CLI-COMMANDS-UPDATE-001)
-- **forms**: coerce scalar values to arrays for multi-select column inserts (APP-FORMS-INLINE-CREATE-001)
-- **cli**: short-circuit start --help to prevent watch-mode hang (CLI-COMMANDS-START-005)
-- **server**: make SIGUSR1 reload atomic with readFileSync (CLI-SERVER-015)
+- **cli**: honor --help on update command
+- **forms**: coerce scalar values to arrays for multi-select column inserts
+- **cli**: short-circuit start --help to prevent watch-mode hang
+- **server**: make SIGUSR1 reload atomic with readFileSync
 - **tables**: resolve FK column via reciprocalField in rollup and count generators
 - **admin**: consolidate audit-log store — route bucket emits through emitAuditEvent
 - **admin**: tighten audit-log schema + emit nextCursor: null (Wave 3 merge)
@@ -1476,10 +1724,10 @@
 
 ### Features
 
-- **i18n**: drain US-I18N-MULTI-LANGUAGE-APPS-REGRESSION
-- **ai**: drain APP-AI-CHAT-STREAM-010 via truncate-mode mock seed
+- **i18n**: resolve translated page titles before they reach the command palette
+- **ai**: do not persist a chat turn whose stream closed before its end marker
 - **api**: drain mcp-schema-tools.spec — wire 7 MCP parity tools + family catalog (partial)
-- **api**: drain fileenv-launch-seeds-the-version-ledger.spec — DEC-023 boot-time auto-seed
+- **api**: opt-in boot-time seeding of the config version history (SOVRIUM_BOOT_SEED_VERSION)
 
 ### Bug Fixes
 
@@ -1502,39 +1750,39 @@
 ### Features
 
 - **pages/navigation**: add triggerLabel to dropdown-menu schema + island
-- **pages/overlays**: dialog component-type + alert-dialog branch — APP-PAGES-DIALOG-001..005 + ALERTDIALOG-001..004 + REGRESSIONs
-- **pages/display**: badge status-indicator variant — APP-PAGES-STATUSINDICATOR-001/002/REGRESSION
+- **pages/overlays**: dialog component-type + alert-dialog branch
+- **pages/display**: badge status-indicator variant
 - **pages**: code-block component + landmine rest of layout (CONTENT-006..009)
 - **pages**: activate skeleton + progress specs (OVERLAY-035..042, OVERLAY-043..049)
-- **pages**: button-group + pagination components (NAVCOMP-BUTTON-GROUP-001..003, PAGINATION-001..003)
-- **pages**: implement breadcrumb component (APP-PAGES-NAVCOMP-BREADCRUMB-001..003)
-- **pages**: wire tooltip island hydration (APP-PAGES-TOOLTIP-001,003)
+- **pages**: button-group + pagination components
+- **pages**: implement breadcrumb component
+- **pages**: wire tooltip island hydration
 - link global stylesheet from form-page <head> + landmine markers for embedding specs
-- schema diff + export admin endpoints (APP-SCHEMA-DRIFT-008..012 + REGRESSION)
-- implement APP-FORMS-094,095,098 — SSR honeypot rendering + spam isolation
-- X-Sovrium-Config header surfaces driftStatus (APP-SCHEMA-DRIFT-005 + REGRESSION)
+- schema diff + export admin endpoints
+- SSR honeypot rendering + spam isolation
+- X-Sovrium-Config header surfaces driftStatus
 - **automations**: protect standard OAuth2 params from extraAuthParams/extraTokenParams override
-- implement APP-FORMS-087,089,092 — form access control gate + submitter id capture
+- form access control gate + submitter id capture
 - **automations**: implement record/upsert action operator
-- surface driftStatus + source in schema status (APP-SCHEMA-DRIFT-001..004,006,007)
-- **pages**: wire popover island hydration + trigger/content (APP-PAGES-POPOVER-001..003)
-- draft rebase endpoint (REST + MCP) — APP-DRAFT-STALENESS-008..014
+- surface driftStatus + source in schema status
+- **pages**: wire popover island hydration + trigger/content
+- draft rebase endpoint (REST + MCP)
 - **automations**: implement record/delete action operator
-- implement APP-FORMS-110,113 — embed route gating + frame-ancestors CSP
-- **pages**: video embed auto-conversion, track subtitles, autoplay mapping (APP-PAGES-MEDIA-009..015)
+- embed route gating + frame-ancestors CSP
+- **pages**: video embed auto-conversion, track subtitles, autoplay mapping
 - **automations**: HMAC-sign outgoing webhook payloads with props.secret
-- implement APP-FORMS-103..108 — form availability windows, atomic submission cap, honeypot anti-spam
-- expose draftStale in schema status envelope (APP-DRAFT-STALENESS-001..007)
+- form availability windows, atomic submission cap, honeypot anti-spam
+- expose draftStale in schema status envelope
 - **automations**: expose step outputs under .result alias for chaining
-- **pages**: implement list search-first display (APP-SEARCH-LIST-001..005)
-- implement APP-FORMS-134,135,136,138,139 — single-page form field groups
-- implement APP-FORMS-128..133 — per-form display overrides
+- **pages**: implement list search-first display
+- single-page form field groups
+- per-form display overrides
 - implement calendar + kanban component search bars
-- implement APP-FORMS-146,148,149,150 — standalone form prefill resolution
+- standalone form prefill resolution
 - implement progress + skeleton feedback components
-- implement APP-PAGES-SITEMAP-001..010 — runtime /sitemap.xml + /robots.txt
-- implement APP-FORMS-140..143 — form $t: resolution against app catalog
-- implement APP-BUCKETS-SIGNED-URLS-024..029 — signed URL API endpoint auth + Content-Disposition
+- runtime /sitemap.xml + /robots.txt
+- form $t: resolution against app catalog
+- signed URL API endpoint auth + Content-Disposition
 
 ### Bug Fixes
 
@@ -1562,7 +1810,7 @@ _No user-facing changes in this release._
 ### Features
 
 - **cli**: add 3 starter templates + auto-install paired agent on init
-- **cli**: array-element $ref resolves full-object-per-file (CLI-MULTIFILE-017..024)
+- **cli**: array-element $ref resolves full-object-per-file
 - **markdown-pages**: emit code-block theme name in compiled CSS (cluster 6)
 - **markdown-pages**: collection nav + docs prev/next + 'none' layout (cluster 5)
 - **markdown-pages**: $t: i18n interpolation in body (cluster 4)
@@ -1728,19 +1976,19 @@ _No user-facing changes in this release._
 - **pages**: form reset-after-success with preserveFields + wizard reset
 - **pages**: reorderable-list component with keyboard reorder
 - **buckets**: image format conversion + Accept-header negotiation
-- **buckets**: image-transform crop modes (APP-BUCKETS-TRANSFORMS-023..028 + REGRESSION)
-- **tables**: webhook authentication (APP-TABLES-WEBHOOKS-011..018 + REGRESSION)
-- **buckets**: advanced bucket features + storage env validation (APP-BUCKETS-ADVANCED-001..004 + REGRESSION)
-- **tables**: per-table outgoing webhooks (APP-TABLES-WEBHOOKS-001..010 + REGRESSION)
-- **pages**: data-chart series styling (APP-PAGES-CHART-012..016 + REGRESSION)
-- **pages**: form auto-save (APP-AUTOSAVE-023..028 + REGRESSION)
-- **tables**: advanced table features (APP-TABLES-ADVANCED-001..007 + REGRESSION)
-- **pages**: data-chart legend + tooltip (APP-PAGES-CHART-017..020 + REGRESSION)
-- **pages**: data-chart axis labels (APP-PAGES-CHART-007..011 + REGRESSION)
-- **pages**: data-table auto-save debounce timing (APP-AUTOSAVE-006..010 + REGRESSION)
-- **records-api**: optimistic-lock conflict detection on record update (APP-REALTIME-042/046/047)
-- **pages**: implement data-chart aggregate functions (APP-PAGES-CHART-021..024 + REGRESSION)
-- **pages**: implement data-table inline auto-save (APP-AUTOSAVE-017..022 + REGRESSION)
+- **buckets**: image-transform crop modes
+- **tables**: webhook authentication
+- **buckets**: advanced bucket features + storage env validation
+- **tables**: per-table outgoing webhooks
+- **pages**: data-chart series styling
+- **pages**: form auto-save
+- **tables**: advanced table features
+- **pages**: data-chart legend + tooltip
+- **pages**: data-chart axis labels
+- **pages**: data-table auto-save debounce timing
+- **records-api**: optimistic-lock conflict detection on record update
+- **pages**: implement data-chart aggregate functions
+- **pages**: implement data-table inline auto-save
 
 ### Bug Fixes
 
@@ -1780,57 +2028,57 @@ _No user-facing changes in this release._
 
 ### Features
 
-- **automations**: implement digest/release automation action (APP-AUTOMATION-ACTION-DIGEST-RELEASE-001..002 + REGRESSION)
-- **automations**: implement digest/collect automation action (APP-AUTOMATION-ACTION-DIGEST-COLLECT-001..002 + REGRESSION)
-- **automations**: implement crypto/hash and crypto/hmac automation actions (APP-AUTOMATION-ACTION-CRYPTO-HASH-001, HMAC-001 + REGRESSION)
-- **automations**: implement auth/unbanUser automation action (APP-AUTO-AUTH-UNBANUSER-001..003 + REGRESSION)
-- **automations**: implement auth/createUser automation action (APP-AUTO-AUTH-CREATEUSER-001..003 + REGRESSION)
-- **automations**: implement auth/banUser automation action (APP-AUTO-AUTH-BANUSER-001..003 + REGRESSION)
-- **automations**: implement auth/assignRole automation action (APP-AUTO-AUTH-ASSIGNROLE-001..003 + REGRESSION)
-- **automations**: implement approval/request automation action (APP-AUTOMATION-ACTION-APPROVAL-REQUEST-001..002 + REGRESSION)
-- **automations**: implement analytics/track automation action (APP-AUTOMATION-ACTION-ANALYTICS-TRACK-001..003 + REGRESSION)
-- **automations**: tool-call validation for ai/agent action (APP-AUTOMATION-ACTION-AI-ERROR-006)
-- **automations**: implement ai/agent automation action (6/9 APP-AUTOMATION-ACTION-AI-AGENT + REGRESSION)
-- **auth**: enforce group maxMembers capacity (APP-AUTH-GROUPS-026..030 + REGRESSION)
-- **auth**: implement group-based table permissions (APP-AUTH-GROUPS-014..020 + REGRESSION)
-- **auth**: implement group-based page access control (APP-AUTH-GROUPS-021..025 + REGRESSION)
-- **auth**: implement group-aware permission evaluation (APP-AUTH-GROUPS-008..013 + REGRESSION)
-- **auth**: implement admin API for group management (API-AUTH-GROUPS-001..014 + REGRESSION)
-- **api**: implement schema-management version restore (APP-SCHEMA-VERSIONS-001..008 + REGRESSION)
-- **api**: implement schema-management draft publish (APP-SCHEMA-PUBLISH-001..008 + REGRESSION)
+- **automations**: implement digest/release automation action
+- **automations**: implement digest/collect automation action
+- **automations**: implement crypto/hash and crypto/hmac automation actions
+- **automations**: implement auth/unbanUser automation action
+- **automations**: implement auth/createUser automation action
+- **automations**: implement auth/banUser automation action
+- **automations**: implement auth/assignRole automation action
+- **automations**: implement approval/request automation action
+- **automations**: implement analytics/track automation action
+- **automations**: tool-call validation for ai/agent action
+- **automations**: implement ai/agent automation action
+- **auth**: enforce group maxMembers capacity
+- **auth**: implement group-based table permissions
+- **auth**: implement group-based page access control
+- **auth**: implement group-aware permission evaluation
+- **auth**: implement admin API for group management
+- **api**: implement schema-management version restore
+- **api**: implement schema-management draft publish
 - **security**: GDPR account export & deletion endpoints
-- **api**: implement schema-management draft preview (APP-SCHEMA-PREVIEW-001..012 + REGRESSION)
-- **api**: implement schema-management status endpoint + enablement gate (APP-SCHEMA-ENABLEMENT-001..004 + REGRESSION)
-- **api**: implement schema-management draft lifecycle (APP-SCHEMA-DRAFT-001..011 + REGRESSION)
-- **api**: implement schema-management draft REST resources (APP-SCHEMA-DRAFT-RESOURCES-001..015 + REGRESSION)
-- **api**: implement MCP schema-management tools (APP-AI-MCP-SCHEMA-TOOLS-001..013 + REGRESSION)
-- **ai**: implement ai-tag compute trigger + model override (APP-AI-CONFIG-048..050 + REGRESSION)
-- **ai**: require AI_MODEL for openai-compatible provider (APP-AI-CONFIG-022..025 + REGRESSION)
-- **ai**: implement base-URL config for Ollama / local AI providers (APP-AI-CONFIG-017..021 + REGRESSION)
-- **ai**: propagate field-level maxTokens to AI compute calls (APP-AI-CONFIG-038)
-- **ai-chat**: implement automation triggering from chat (APP-AI-CHAT-TRIGGER-001..012 + REGRESSION)
-- **ai-chat**: implement AI chat tool calling (12/13 APP-AI-CHAT-TOOL specs + REGRESSION)
-- **ai-chat**: implement AI chat record queries (APP-AI-CHAT-QUERY-001..015 + REGRESSION)
+- **api**: implement schema-management draft preview
+- **api**: implement schema-management status endpoint + enablement gate
+- **api**: implement schema-management draft lifecycle
+- **api**: implement schema-management draft REST resources
+- **api**: implement MCP schema-management tools
+- **ai**: implement ai-tag compute trigger + model override
+- **ai**: require AI_MODEL for openai-compatible provider
+- **ai**: implement base-URL config for Ollama / local AI providers
+- **ai**: propagate field-level maxTokens to AI compute calls
+- **ai-chat**: implement automation triggering from chat
+- **ai-chat**: implement AI chat tool calling
+- **ai-chat**: implement AI chat record queries
 - **ai**: enforce RBAC on knowledge-table embedding
 - **ai**: document knowledge ingestion
 - **ai**: learned-facts memory and agent-bound chat persistence
 - **ai**: interactive ai-chat island
 - **ai**: retrieval-augmented generation (RAG)
 - **ai**: persist chat conversations to PostgreSQL
-- **ai-chat**: field-level write enforcement for chat mutations (APP-AI-CHAT-MUTATE-008)
-- **ai-chat**: implement AI chat record mutations (13/16 APP-AI-CHAT-MUTATE specs + REGRESSION)
-- **ai-chat**: implement AI chat rate limiting (APP-AI-CHAT-RATE-001..008 + REGRESSION)
-- **ai-chat**: implement AI chat error handling (APP-AI-CHAT-ERROR-001..012 + REGRESSION)
-- **ai-chat**: implement AI chat cross-cutting concerns (APP-AI-CHAT-CROSS-001..013 + REGRESSION)
-- **ai-chat**: implement AI chat context block (APP-AI-CHAT-CONTEXT-001..010 + REGRESSION)
-- **ai-agents**: implement agent tools (APP-AI-AGENT-TOOLS-001..012 + REGRESSION)
-- **ai-agents**: implement agent system prompts (APP-AI-AGENT-PROMPT-001..010 + REGRESSION)
-- **ai-agents**: implement agent scheduling (APP-AI-AGENT-SCHEDULE-001..008 + REGRESSION)
-- **ai-agents**: implement agent permissions (APP-AI-AGENT-PERMS-001..010 + REGRESSION)
-- **ai-agents**: implement agent limits (APP-AI-AGENT-LIMITS-001..008 + REGRESSION)
-- **ai-agents**: implement agent definition (APP-AI-AGENT-DEF-001..015 + REGRESSION)
-- **ai-agents**: implement agent cross-cutting rules (APP-AI-AGENT-CROSS-001..005 + REGRESSION)
-- **ai-agents**: implement human-in-the-loop agent approval (AGENT-APPROVAL-001..015 + REGRESSION)
+- **ai-chat**: field-level write enforcement for chat mutations
+- **ai-chat**: implement AI chat record mutations
+- **ai-chat**: implement AI chat rate limiting
+- **ai-chat**: implement AI chat error handling
+- **ai-chat**: implement AI chat cross-cutting concerns
+- **ai-chat**: implement AI chat context block
+- **ai-agents**: implement agent tools
+- **ai-agents**: implement agent system prompts
+- **ai-agents**: implement agent scheduling
+- **ai-agents**: implement agent permissions
+- **ai-agents**: implement agent limits
+- **ai-agents**: implement agent definition
+- **ai-agents**: implement agent cross-cutting rules
+- **ai-agents**: implement human-in-the-loop agent approval
 
 ### Bug Fixes
 
@@ -1919,7 +2167,7 @@ _No user-facing changes in this release._
 
 ### Bug Fixes
 
-- implement APP-PAGES-FORM-031 file type validation for attachment fields
+- implement file type validation for attachment fields
 - **forms**: use immutable conditional spread for formAttributes
 
 ## [0.3.0](https://github.com/sovrium/sovrium/compare/v0.2.11...v0.3.0) (2026-05-09)
@@ -1985,7 +2233,7 @@ _No user-facing changes in this release._
 ### Features
 
 - implement actual DB querying for table data source binding
-- implement table data source binding for page sections (APP-PAGES-DATA-001..005)
+- implement table data source binding for page sections
 
 ### Bug Fixes
 
@@ -2011,7 +2259,7 @@ _No user-facing changes in this release._
 
 ### Bug Fixes
 
-- support shorthand auth strategy format for CLI-LOG-ERROR-003
+- support the shorthand auth strategy format
 - import z from @hono/zod-openapi for .openapi() method support
 - resolve internal asset paths relative to package root
 

@@ -1,22 +1,29 @@
-# Recipe 4 — AUTOMATION-FAILURE trigger: the global error handler. If any
-# other automation exhausts its retries, this one emails the operator with
-# the failure context. Failure triggers never fire for each other, so no
-# cascade loops. Change `to` to your operator inbox.
+# Recipe 4 — a run that failed after its last retry is written down.
+#
+# Sovrium already emails the people who operate the app when a run fails after
+# its retries: every admin, plus the addresses in `SOVRIUM_NOTIFY_TO`. So this
+# recipe does not send a second email. It adds the failed run to the activity
+# log, with the recipe, the number of attempts and the error the failing step
+# returned, so the failure is on the Activity page next to the runs that
+# worked. A failure handler never fires for another failure handler, so this
+# cannot loop.
 name: alert-on-failure
-label: Failure — alert the operator
-description: Email the operator whenever any automation fails after its retries.
+label: Failure → alert
+description: Write every run that failed after its retries into the activity log.
 enabled: true
 trigger:
   type: automation-failure
 actions:
-  - name: emailOperator
-    type: email
-    operator: send
+  - name: logFailure
+    type: record
+    operator: create
     props:
-      to: ops@example.com
-      subject: 'Automation failed: {{trigger.data.automationName}}'
-      body: |
-        <p>The automation <strong>{{trigger.data.automationName}}</strong>
-        failed after exhausting its retries.</p>
-        <p>Open the Admin Space to inspect the run — the full history is in
-        your database.</p>
+      table: activity_log
+      data:
+        logged_at: '{{now}}'
+        recipe: '{{trigger.data.body.automationName}}'
+        outcome: Failed
+        attempts: '{{trigger.data.body.attempt}}'
+        reference: '{{trigger.data.body.runId}}'
+        error: '{{trigger.data.body.error}}'
+        detail: 'Failed after {{trigger.data.body.attempt}} attempts; the operators were emailed'

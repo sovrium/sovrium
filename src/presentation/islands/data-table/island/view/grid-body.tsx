@@ -5,8 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeTablePagerClasses,
+  computeTableToolbarButtonClasses,
+} from '@/presentation/design/table-default-classes'
+import { LoadMoreButton } from '../../../parts/load-more-button'
 import { AlternateView } from '../alternate-view'
-import { LoadMoreControl } from '../load-more'
 import { PaginationControls } from '../pagination'
 import { TableContent } from '../table-content'
 import type { GridBodyProps } from '../view-props'
@@ -27,6 +31,9 @@ import type { GridBodyProps } from '../view-props'
  */
 function showsPagerAt(props: GridBodyProps, edge: 'top' | 'bottom'): boolean {
   if (!props.paginationConfig || props.cursorPaged) return false
+  // A load-more grid is one list, so it has no page to number and no page size
+  // for the reader to pick — the size is the author's.
+  if (props.paginationConfig.style === 'loadMore') return false
   const position = props.paginationConfig.position ?? 'bottom'
   return position === edge || position === 'both'
 }
@@ -81,7 +88,13 @@ export function GridBody(props: GridBodyProps) {
   )
 }
 
-/** The bottom pager, and the cursor feed's continuation control beneath it. */
+const LOAD_MORE_FOOTER_CLASSES = `${computeTablePagerClasses({ position: 'bottom' })} justify-center`
+
+/**
+ * The bottom pager, and the continuation control beneath it — for a cursor feed
+ * and for a table grid that loads page by page. It is drawn only while more
+ * rows exist: at the end there is nothing to offer.
+ */
 function GridFooter(props: GridBodyProps) {
   return (
     <>
@@ -91,11 +104,16 @@ function GridFooter(props: GridBodyProps) {
           edge="bottom"
         />
       )}
-      {props.onLoadMore && (
-        <LoadMoreControl
-          hasMore={props.hasMore}
+      {props.onLoadMore && props.hasMore && (
+        <LoadMoreButton
+          onClick={props.onLoadMore}
           isLoading={props.isLoadingMore}
-          onLoadMore={props.onLoadMore}
+          label="Load more"
+          // The same footer chrome the page-number pager wears — it stands in
+          // the same place and answers the same question — with its single
+          // button centred.
+          footerClassName={LOAD_MORE_FOOTER_CLASSES}
+          buttonClassName={computeTableToolbarButtonClasses({ disabled: props.isLoadingMore })}
         />
       )}
     </>

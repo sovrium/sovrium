@@ -17,7 +17,7 @@ export const MultipleAttachmentsFieldSchema = BaseFieldSchema.pipe(
       })
     ),
     /** Storage bucket name for this field's files. References a bucket defined in app.buckets.
-     *  When omitted, uses the implicit 'default' bucket. */
+     *  When omitted, uses the built-in `system` bucket. */
     bucket: Schema.optional(
       Schema.String.pipe(
         Schema.annotate({

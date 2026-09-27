@@ -8,11 +8,13 @@
 import { QueryClient } from '@tanstack/react-query'
 
 /**
- * Creates a QueryClient instance for an island root.
+ * Creates a fresh QueryClient.
  *
- * Each island gets its own QueryClient to ensure isolation —
- * cache invalidation in one island doesn't cause unnecessary
- * refetches in unrelated islands.
+ * In the browser, islands do NOT call this directly: they share the page's
+ * client through {@link getPageQueryClient}. It stays for server-side renders
+ * (a field specimen rendered to a string), where one client per render is the
+ * only safe scope — a module-level client on the server would be shared by
+ * every request the process answers.
  */
 export function createIslandQueryClient(): QueryClient {
   return new QueryClient({
@@ -26,11 +28,49 @@ export function createIslandQueryClient(): QueryClient {
   })
 }
 
+/** The page's one client, created on first use. */
+// eslint-disable-next-line functional/no-let -- the lazily created, resettable page singleton
+let pageQueryClient: QueryClient | undefined
+
+/**
+ * The QueryClient every island mounted on this page shares.
+ *
+ * One client per page is what lets two islands asking the same question — four
+ * KPI tiles over one endpoint, two grids over the same rows — share one request
+ * and one cached answer, and what lets a write made through one island refresh
+ * every other island showing the same data.
+ *
+ * Sharing is safe because no island clears the cache wholesale: every
+ * `invalidateQueries` / `resetQueries` in the island tree names a `queryKey`
+ * (held by `query-client-key-guard.test.ts`), and cross-island refreshes that
+ * are not about the same query still travel on the event bus.
+ *
+ * Browser-only: never call this during a server render.
+ */
+export function getPageQueryClient(): QueryClient {
+  pageQueryClient ??= createIslandQueryClient()
+  return pageQueryClient
+}
+
+/**
+ * Drop every cached answer no mounted island is still reading. Called when a
+ * client-side navigation replaces the page's content, right after the outgoing
+ * surface's islands unmounted, so the next surface starts from a fresh read
+ * (revalidated cheaply by ETag) rather than the previous surface's answers.
+ *
+ * Inactive queries only, rather than `clear()`: the islands OUTSIDE the swapped
+ * region (the shell's own) are still mounted, and wiping the queries they
+ * observe would strand them on a removed cache entry.
+ */
+export function clearPageQueryClient(): void {
+  pageQueryClient?.removeQueries({ type: 'inactive' })
+}
+
 /**
  * Options that make a `useQuery` behave like the hand-rolled
  * `useEffect` + `fetch` + `useState` reads it replaced.
  *
- * The island QueryClient's defaults are `retry: 2` and
+ * The page QueryClient's defaults are `retry: 2` and
  * `refetchOnWindowFocus: true` — deliberately, for the data surfaces that were
  * written against them. A read that used to be a bare effect had NEITHER: it
  * fired once, and a failure was final. Migrating such a read without pinning

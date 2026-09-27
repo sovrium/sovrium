@@ -140,7 +140,6 @@ const buildInto = (
       hydration: false,
       generateSitemap: false,
       generateRobotsTxt: false,
-      generateManifest: false,
       // This pass exists only to materialize HTML into a temp dir. Emitting
       // the pre-compiled CSS artifact would overwrite a stylesheet this boot
       // does not own — the one `sovrium build` produced, or whatever

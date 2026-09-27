@@ -55,7 +55,15 @@ export interface AutomationPauseRow {
   readonly automationName: string
   readonly pausedBy: string | null
   readonly pausedAt: Date | string
+  /**
+   * Why it is paused: `null` for an operator's pause, `'consecutive-failures'`
+   * for one the platform set after repeated final failures.
+   */
+  readonly reason: AutomationPauseReason | null
 }
+
+/** Why the PLATFORM paused an automation. An operator's pause carries no reason. */
+export type AutomationPauseReason = 'consecutive-failures'
 
 export class AutomationPauseRepository extends Context.Service<
   AutomationPauseRepository,
@@ -77,15 +85,23 @@ export class AutomationPauseRepository extends Context.Service<
      * place. An operator hammering Pause during an incident must not have the
      * audit trail misreport when containment actually began — so this is
      * `ON CONFLICT DO NOTHING`, never an upsert.
+     *
+     * Answers whether THIS call created the pause (`false` when the automation
+     * was already paused), so a caller that announces a pause announces it once.
      */
     readonly pause: (input: {
       readonly automationName: string
       readonly pausedByUserId?: string | undefined
-    }) => Effect.Effect<void, AutomationPauseDatabaseError>
+      /** Set only by the platform's own pause; an operator's pause leaves it NULL. */
+      readonly reason?: AutomationPauseReason | undefined
+    }) => Effect.Effect<boolean, AutomationPauseDatabaseError>
 
     /**
      * Clear a pause. IDEMPOTENT: deleting a row that is not there succeeds.
+     * Answers whether a pause was actually cleared.
      */
-    readonly resume: (automationName: string) => Effect.Effect<void, AutomationPauseDatabaseError>
+    readonly resume: (
+      automationName: string
+    ) => Effect.Effect<boolean, AutomationPauseDatabaseError>
   }
 >()('AutomationPauseRepository') {}

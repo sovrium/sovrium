@@ -41,7 +41,7 @@ Reusing `member` means every capability you later grant members, you have also s
 
 <!-- sovrium:options AgentDefinitionSchema -->
 
-`name` is a kebab-case identifier; `role` must exist in the declared roles; `systemPrompt` is required. `model`, `temperature` and `maxTokens` override the provider defaults for this agent alone. A disabled agent skips its scheduled runs and cannot execute.
+`name` is a kebab-case identifier, and `system` is reserved for the built-in agent described below; `role` must exist in the declared roles; `systemPrompt` is required. `model`, `temperature` and `maxTokens` override the provider defaults for this agent alone. A disabled agent skips its scheduled runs and cannot execute.
 
 The prompt and the instructions divide cleanly in practice: the prompt says who the agent **is**, and each instruction is one rule you would otherwise bury in a paragraph. Rules stated as separate numbered lines are followed more reliably, and they diff better in review.
 
@@ -65,6 +65,17 @@ From a chat component, over the API at `POST /api/agents/{name}/chat`, on its ow
 Every one of those except the schedule is a **caller**, and every caller passes the agent's trigger grant first — as does every endpoint that reads an agent back, since its definition includes the prompts and the allowlist. The agent's own cron is deliberately outside that grant: a timer is not a caller.
 
 Because each agent is a distinct virtual user with its own role and allowlist, several can coexist at different privilege levels — a read-only analyst beside a write-capable triage agent — without either inheriting the other's reach.
+
+## The built-in System Agent
+
+Every app has one agent it never declares: `system`. It exists as soon as a provider is configured, even in an app that declares no agents, no AI fields and no AI actions — so an operator who sets `AI_PROVIDER` gets an assistant with nothing else to write.
+
+- **It knows the app.** Its prompt is built from the app itself — its name, its description and the tables it declares — so there is nothing to author and nothing to keep in step.
+- **It only reads.** Its tools look up and count records; it cannot create, change or delete anything, and it never reads or edits the configuration. A reply asking for a change is answered without making one.
+- **It reads as you.** Each turn is scoped to the signed-in person's own table and field permissions, so it never shows a caller a row or a column they could not open themselves.
+- **It is reached like any agent** — `POST /api/agents/system/chat`, or a chat component whose `agent` is `system` — and the operator console's Welcome page talks to it by default. Its conversations are the ones no declared agent claimed.
+
+Because the name belongs to this agent, an `agents` entry called `system` fails validation. To give an assistant write access, its own prompt or a narrower allowlist, declare an agent of your own.
 
 ## A worked example
 

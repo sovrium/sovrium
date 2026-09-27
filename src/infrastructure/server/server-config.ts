@@ -18,7 +18,10 @@
  * `render-app.ts` rather than through a flag on this type.
  */
 
-import type { PageRenderResult } from '@/application/ports/services/page-renderer'
+import type {
+  FetchSitemapRecords,
+  PageRenderResult,
+} from '@/application/ports/services/page-renderer'
 import type { DatabaseStartupReport } from '@/application/ports/services/server-factory'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -46,6 +49,11 @@ export interface ServerConfig {
    * `ServerFactoryConfig.databaseStartup`.
    */
   readonly databaseStartup?: DatabaseStartupReport
+  /**
+   * The app renders a static build rather than serving requests, so it mounts
+   * no dev live-reload surface. Set only by `render-app.ts`.
+   */
+  readonly staticRender?: boolean
   readonly configHash?: string
   readonly configPath?: string
   readonly renderPage: (
@@ -70,6 +78,8 @@ export interface ServerConfig {
    * RSS pipeline keep working — the route handler 404s when undefined.
    */
   readonly renderRssFeed?: (app: App, baseUrl: string) => Promise<string | undefined>
+  /** Row reader behind the sitemap's record fan-out. */
+  readonly fetchSitemapRecords?: FetchSitemapRecords
   /** Plaintext bootstrap token surfaced in the startup banner exactly once when defined. */
   readonly bootstrapToken?: string
 }

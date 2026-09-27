@@ -1,8 +1,15 @@
-# Email + password auth. First registered user becomes admin (Better Auth
-# firstUserAdmin); subsequent sign-ups get the default `member` role. HR data
-# is then protected in layers: table permissions, field-level permissions on
-# salary, and the approval automation for time off.
-allowSignUp: true
+# Email and password sign-in, closed to strangers.
+#
+# An HR workspace holds salaries and absences, so nobody signs themselves up:
+# the first administrator comes from `AUTH_ADMIN_EMAIL` / `AUTH_ADMIN_PASSWORD`
+# on the first start (see `.env.example`), and everyone else is added by an
+# admin with `sovrium admin create <email>`. The demo accounts come from
+# `seed/users.yaml`.
+#
+# Two roles: `member` for everyone on the team, who reads the directory and
+# asks for time off, and `admin` for HR, who also reads salaries and decides on
+# the requests. Each table's `permissions` block says which is which.
+allowSignUp: false
 defaultRole: member
 strategies:
   - type: emailAndPassword

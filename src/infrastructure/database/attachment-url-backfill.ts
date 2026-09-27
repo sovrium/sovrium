@@ -12,11 +12,16 @@
  * `enrichAttachmentMetadata` (the record-create write path) used to persist a
  * hardcoded `/api/buckets/default/files/<key>` into every `single-attachment`
  * column declaring `storeMetadata: true`, whatever bucket the column declared.
- * It is the only member of the [internal ref] family that wrote bad DATA rather than
- * computing a bad response — the read enricher deliberately leaves a
- * `storeMetadata` object untouched (it carries no `key`; [internal ref] rule 2), so
- * the API echoes the stored value verbatim and fixing the write path alone
+ * It wrote bad DATA rather than computing a bad response — the read enricher
+ * deliberately leaves a `storeMetadata` object untouched (it carries no `key`),
+ * so the API echoes the stored value verbatim and fixing the write path alone
  * repairs nothing already on disk.
+ *
+ * Then the implicit `default` bucket itself was retired: it became the built-in
+ * `system` bucket, and a `/api/buckets/default/...` URL now answers 404. So a
+ * column that declares NO bucket is repaired too, onto `system` — unless the app
+ * declares an ordinary bucket named `default`, in which case such a URL may be
+ * right and is left alone.
  *
  * ── Why this is NOT a Drizzle migration ───────────────────────────────────
  * Two independent reasons: `runMigrations` runs BEFORE `initializeSchema`, so
@@ -48,6 +53,7 @@
 
 import { sql } from 'drizzle-orm'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { db } from '@/infrastructure/database'
 import { logError, logInfo } from '@/infrastructure/logging/logger'
@@ -67,8 +73,8 @@ import type { App, Table } from '@/domain/models/app'
  */
 const DEFAULT_BUCKET_URL_PREFIX = '/api/buckets/default/files/'
 
-/** The implicit bucket a column resolves to when it declares none. */
-const DEFAULT_BUCKET = 'default'
+/** The retired name of the built-in bucket, which stored URLs may still carry. */
+export const LEGACY_DEFAULT_BUCKET = 'default'
 
 /** One column of one physical relation that may hold rows needing repair. */
 export interface RepairTarget {
@@ -78,7 +84,7 @@ export interface RepairTarget {
   readonly primaryKey: string
   /** `field.name` IS the column name; there is no mapper. */
   readonly column: string
-  /** The bucket the column declares, guaranteed not to be `default`. */
+  /** The bucket the column resolves to (`system` when it declares none), never `default`. */
   readonly bucket: string
 }
 
@@ -122,13 +128,23 @@ const parseStoredCell = (raw: unknown): unknown => {
 }
 
 /**
+ * Whether the app declares an ordinary bucket named `default` — the retired
+ * name of the built-in bucket, which an app may now use freely. When it does, a
+ * stored `/api/buckets/default/...` URL or a `default` attribution may be right,
+ * so the legacy repairs leave them alone.
+ */
+export const declaresLegacyDefaultBucket = (app: Readonly<App>): boolean =>
+  (app.buckets ?? []).some((bucket) => bucket.name === LEGACY_DEFAULT_BUCKET)
+
+/**
  * Columns of one table that the defective write path could have written.
  *
  * Narrow by construction — `single-attachment` + an explicit
  * `storeMetadata: true` is the ONLY surface that ever persisted a URL. A
- * column resolving to no bucket, or literally to `default`, already holds the
- * right answer and is excluded, so an app that binds nothing produces no
- * targets and pays no scan at all.
+ * column bound to a DECLARED bucket named `default` already holds the right
+ * answer and is excluded. A column declaring no bucket resolves to the built-in
+ * `system` bucket, unless the app declares a `default` bucket of its own: a
+ * `/api/buckets/default/...` URL may then be right, so it is left alone.
  */
 const collectTableTargets = (
   app: Readonly<App>,
@@ -147,8 +163,10 @@ const collectTableTargets = (
         (field as { readonly storeMetadata?: unknown }).storeMetadata === true
     )
     .flatMap((field) => {
-      const bucket = resolveFieldBucket(app, table.name, field.name)
-      if (bucket === undefined || bucket === DEFAULT_BUCKET) return []
+      const declared = resolveFieldBucket(app, table.name, field.name)
+      if (declared === undefined && declaresLegacyDefaultBucket(app)) return []
+      const bucket = declared ?? SYSTEM_BUCKET_NAME
+      if (bucket === LEGACY_DEFAULT_BUCKET) return []
       return [{ relation, primaryKey, column: field.name, bucket }]
     })
 }
@@ -204,8 +222,8 @@ const repairTarget = async (target: Readonly<RepairTarget>): Promise<number> => 
 
 /**
  * Post-schema startup entry point: rebind every stored attachment URL that
- * still names the implicit `default` bucket onto the bucket its column
- * declares.
+ * still names the retired `default` bucket onto the bucket its column resolves
+ * to — its declared bucket, or the built-in `system` one.
  *
  * Best-effort per target AND overall — one unreachable relation must not skip
  * the rest, and no failure may block startup.

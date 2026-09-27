@@ -31,12 +31,12 @@ import {
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
 import { createGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { deleteRecordProgram } from '@/application/use-cases/tables/record-lifecycle-programs'
+import { getUserGroups } from '@/application/use-cases/tables/user-groups'
 import {
   createRecordProgram,
   updateRecordProgram,
 } from '@/application/use-cases/tables/write-record-programs'
 import { isAiAccessEnabled } from '@/domain/models/app/auth/ai-access'
-import { hasPermission } from '@/domain/models/app/auth/permissions'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   evaluateRecordAgainstPredicate,
@@ -47,8 +47,15 @@ import {
   type RowLevelFilterNode,
 } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
+import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import { handleActionCall, resolveActionTemplateTool } from './action-call'
 import { handleAutomationCall, resolveAutomationTool } from './automation-call'
+import {
+  findFirstFieldWriteViolation,
+  passesTablePermission,
+  resolveCallerAuthority,
+  type CallerAuthority,
+} from './caller-authority'
 import {
   applyMcpFieldExposureToRecord,
   applyMcpFieldExposureToRecords,
@@ -124,7 +131,22 @@ export async function handleToolsCall(
     return toolFailure(-32_603, opGateError)
   }
 
-  return executeTool({ app, caller, envelope, resolved })
+  // One permission identity for the whole call — the account role plus its
+  // groups — so the table gate, the field-write check, the row-level context
+  // and the programs' field-read filtering all see the role the records API
+  // sees, never the three-tier MCP view `caller.role` holds.
+  const authority = await resolveCallerAuthority({
+    app,
+    caller,
+    lookupGroups: (userId) => runOnDomain(domainContext, getUserGroups(userId)),
+  })
+  if (!passesTablePermission(app, resolved.table, resolved.operation, authority)) {
+    // The records API's own refusal, byte for byte: a caller the table does not
+    // admit learns nothing from MCP that it would not learn from REST.
+    return toolFailure(-32_603, 'Resource not found')
+  }
+
+  return executeTool({ app, caller, authority, envelope, resolved })
 }
 
 /**
@@ -181,6 +203,7 @@ function checkOperationGate(
 interface ExecuteToolInput {
   readonly app: App
   readonly caller: McpCaller
+  readonly authority: CallerAuthority
   readonly envelope: CallEnvelope
   readonly resolved: ResolvedTool
 }
@@ -193,41 +216,35 @@ interface ExecuteToolInput {
  * up as -32602 / -32603 per the user-story spec.
  */
 async function executeTool(input: ExecuteToolInput): Promise<McpToolResult> {
-  const { app, caller, envelope, resolved } = input
+  const { app, caller, authority, envelope, resolved } = input
   const { operation, table } = resolved
   const session = synthesizeSession(caller.userId)
+  const branch = { app, caller, authority, envelope, table, session }
 
-  if (operation === 'list') {
-    return executeList({ app, caller, envelope, table, session })
-  }
-  if (operation === 'read') {
-    return executeRead({ app, caller, envelope, table, session })
-  }
-  if (operation === 'create') {
-    return executeCreate({ app, caller, envelope, table, session })
-  }
-  if (operation === 'update') {
-    return executeUpdate({ app, caller, envelope, table, session })
-  }
-  return executeDelete({ app, caller, envelope, table, session })
+  if (operation === 'list') return executeList(branch)
+  if (operation === 'read') return executeRead(branch)
+  if (operation === 'create') return executeCreate(branch)
+  if (operation === 'update') return executeUpdate(branch)
+  return executeDelete(branch)
 }
 
 interface ExecBranchInput {
   readonly app: App
   readonly caller: McpCaller
+  readonly authority: CallerAuthority
   readonly envelope: CallEnvelope
   readonly table: Table
   readonly session: UserSession
 }
 
 async function executeList(input: ExecBranchInput): Promise<McpToolResult> {
-  const { app, caller, envelope, table, session } = input
+  const { app, caller, authority, envelope, table, session } = input
   const limitArg = envelope.args['limit']
   const limit = typeof limitArg === 'number' ? limitArg : undefined
   const offsetArg = envelope.args['offset']
   const offset = typeof offsetArg === 'number' ? offsetArg : undefined
 
-  const userCtx = await resolveUserContextOrUndefined(caller, table, app)
+  const userCtx = await resolveUserContextOrUndefined(caller.userId, authority, table, app)
   const filter = buildReadListFilter(table, userCtx)
   if (filter === 'empty') {
     return toolSuccess([])
@@ -241,7 +258,7 @@ async function executeList(input: ExecBranchInput): Promise<McpToolResult> {
       session,
       tableName: table.name,
       app,
-      userRole: caller.role,
+      userRole: authority.role,
       filter: filter ?? undefined,
       limit,
       offset,
@@ -258,20 +275,20 @@ async function executeList(input: ExecBranchInput): Promise<McpToolResult> {
 }
 
 async function executeRead(input: ExecBranchInput): Promise<McpToolResult> {
-  const { app, caller, envelope, table, session } = input
+  const { app, caller, authority, envelope, table, session } = input
   const recordId = String(envelope.args['id'] ?? '')
   if (!recordId) {
     return toolFailure(-32_602, "Missing 'id' parameter")
   }
 
-  const userCtx = await resolveUserContextOrUndefined(caller, table, app)
+  const userCtx = await resolveUserContextOrUndefined(caller.userId, authority, table, app)
   return runProgramAsToolResult({
     program: createGetRecordProgram({
       session,
       tableName: table.name,
       recordId,
       app,
-      userRole: caller.role,
+      userRole: authority.role,
     }),
     formatSuccess: (out) => {
       const record = out as Record<string, unknown>
@@ -285,13 +302,13 @@ async function executeRead(input: ExecBranchInput): Promise<McpToolResult> {
 }
 
 async function executeCreate(input: ExecBranchInput): Promise<McpToolResult> {
-  const { app, caller, envelope, table, session } = input
+  const { app, authority, envelope, table, session } = input
   const fields = extractFields(envelope.args)
   const whitelistError = findFirstWhitelistViolation(table, fields)
   if (whitelistError !== undefined) {
     return toolFailure(-32_602, `Field '${whitelistError}' is not in aiAccess.whitelistFields`)
   }
-  const writeError = findFirstFieldWriteViolation(table, caller.role, fields)
+  const writeError = findFirstFieldWriteViolation(app, table, authority, fields)
   if (writeError !== undefined) {
     return toolFailure(-32_602, `Cannot write to field '${writeError}': insufficient permissions`)
   }
@@ -306,13 +323,13 @@ async function executeCreate(input: ExecBranchInput): Promise<McpToolResult> {
       tableName: table.name,
       fields,
       app,
-      userRole: caller.role,
+      userRole: authority.role,
     }),
   })
 }
 
 async function executeUpdate(input: ExecBranchInput): Promise<McpToolResult> {
-  const { app, caller, envelope, table, session } = input
+  const { app, authority, envelope, table, session } = input
   const recordId = String(envelope.args['id'] ?? '')
   if (!recordId) {
     return toolFailure(-32_602, "Missing 'id' parameter")
@@ -322,7 +339,7 @@ async function executeUpdate(input: ExecBranchInput): Promise<McpToolResult> {
   if (whitelistError !== undefined) {
     return toolFailure(-32_602, `Field '${whitelistError}' is not in aiAccess.whitelistFields`)
   }
-  const writeError = findFirstFieldWriteViolation(table, caller.role, fields)
+  const writeError = findFirstFieldWriteViolation(app, table, authority, fields)
   if (writeError !== undefined) {
     return toolFailure(-32_602, `Cannot write to field '${writeError}': insufficient permissions`)
   }
@@ -335,7 +352,7 @@ async function executeUpdate(input: ExecBranchInput): Promise<McpToolResult> {
     program: updateRecordProgram(session, table.name, recordId, {
       fields,
       app,
-      userRole: caller.role,
+      userRole: authority.role,
     }),
   })
 }
@@ -348,27 +365,6 @@ async function executeDelete(input: ExecBranchInput): Promise<McpToolResult> {
   }
   return runProgramAsToolResult({
     program: deleteRecordProgram(session, table.name, recordId, app),
-  })
-}
-
-/**
- * Walk the requested fields and return the first field name the role lacks
- * write permission on (per `table.permissions.fields[].write`). Returns
- * `undefined` when every requested field is writable. Mirrors the
- * `validateFieldWritePermissions` helper in `presentation/api/utils/field-permission-validator`
- * but inlined here because `infrastructure-server` cannot import from
- * `presentation-api-util` per the layer boundary rules.
- */
-function findFirstFieldWriteViolation(
-  table: Table,
-  role: McpCaller['role'],
-  fields: Readonly<Record<string, unknown>>
-): string | undefined {
-  const fieldPerms = table.permissions?.fields
-  if (!fieldPerms) return undefined
-  return Object.keys(fields).find((fieldName) => {
-    const fieldPermission = fieldPerms.find((fp) => fp.field === fieldName)
-    return fieldPermission?.write !== undefined && !hasPermission(fieldPermission.write, role)
   })
 }
 
@@ -502,14 +498,15 @@ function recordPassesReadPredicate(
  * static tokens are operator-issued and have no per-user identity.
  */
 async function resolveUserContextOrUndefined(
-  caller: McpCaller,
+  userId: string | undefined,
+  authority: CallerAuthority,
   table: Table,
   app: App
 ): Promise<CurrentUserContext | undefined> {
-  if (!caller.userId) return undefined
+  if (!userId) return undefined
   const projection = toSessionProjection(
-    { userId: caller.userId },
-    { role: caller.role, isUnrestricted: isAdminEquivalent(caller.role, app) }
+    { userId },
+    { role: authority.role, isUnrestricted: isAdminEquivalent(authority.role, app) }
   )
   const scopeTables = collectAssignmentScopeTables(table.rowLevelPermissions)
   return Effect.runPromise(provideTableLive(loadCurrentUserContext(projection, scopeTables)))

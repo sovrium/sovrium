@@ -20,8 +20,27 @@
  *   component whose `dataSource.bindTo` names this input's `props.id`
  *   subscribes to those events and applies the query to its own records. No
  *   island of its own.
- * - **`page`** — the static-public-pages search shell. It hydrates the
- *   `page-search` island against a prebuilt index and renders its own results.
+ * - **`page`** — the pages search shell. It hydrates the `page-search` island
+ *   and renders its own results. WHICH pages it searches is `index` (below).
+ *
+ * ## `index` — which pages a page-scope box searches
+ *
+ * `scope` says WHAT a box searches; under `scope: page`, `index` says whose
+ * pages. It is not a third scope, because the mechanism is the same shell and
+ * the same results panel — only the corpus behind it differs:
+ *
+ * - **`public`** (the meaning of an omitted key) — the prebuilt static index,
+ *   served as a file to anyone. It holds anonymously readable pages only, and
+ *   must stay that way: a public artefact is public-only.
+ * - **`session`** — the pages the CALLER may open, answered per request by the
+ *   server, which filters every candidate through the same page-access check
+ *   the router applies. A visitor with no session gets the public pages; a
+ *   signed-in reader additionally gets the gated pages and `contentDir`
+ *   articles their role may open, and nothing their role may not.
+ *
+ * Omitted means `public` rather than being required like `scope`: here the
+ * default is the SAFE side. An author who forgets the key ships a box that
+ * searches less than intended, never one that searches more.
  *
  * ## Why `scope` is REQUIRED
  *
@@ -37,7 +56,7 @@
  *
  * ## Scope-specific keys are inert, not refused
  *
- * `maxResults` belongs to `page`; `debounceMs` and `minQueryLength` belong to
+ * `maxResults` and `index` belong to `page`; `debounceMs` and `minQueryLength` belong to
  * `subscribers`. Each is ignored under the other scope rather than rejected —
  * the union of both shapes is one open struct, and refusing per-scope would
  * need a per-branch refinement hook `buildComponentUnion` does not have.
@@ -57,6 +76,14 @@ import { visibilityFields } from '../modules/visibility'
 
 export const SearchInputTypeLiteral = Schema.Literal('search-input')
 
+/** Which pages a page-scope `search-input` searches. */
+export const SearchIndexSchema = Schema.Literals(['public', 'session']).annotate({
+  title: 'Search Index',
+  description:
+    "Which pages a page-scope search box searches. 'public' (the default when omitted) searches the prebuilt index of pages anyone may read, served as a static file. 'session' asks the server on every query and answers with the pages the current reader may open: public pages for a visitor who is not signed in, plus the gated pages and content-directory articles their role allows once they are. Ignored under scope: subscribers.",
+  examples: ['session'],
+})
+
 /** What a `search-input` searches. */
 export const SearchScopeSchema = Schema.Literals(['page', 'subscribers']).annotate({
   title: 'Search Scope',
@@ -70,6 +97,8 @@ export const searchInputFields = {
   ...i18nFields,
   /** Which of the two search mechanisms this box drives. Required — see the header. */
   scope: SearchScopeSchema,
+  /** Which pages a page-scope box searches. Read under `scope: page`; omitted means `public`. */
+  index: Schema.optional(SearchIndexSchema),
   /** Placeholder text. Also readable from `props.placeholder`. */
   placeholder: Schema.optional(
     Schema.String.annotate({

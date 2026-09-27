@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { StateDeleteActionSchema } from './delete'
+import { StateFilterNewActionSchema } from './filter-new'
 import { StateGetActionSchema } from './get'
 import { StateIncrementActionSchema } from './increment'
 import { StateListActionSchema } from './list'
@@ -21,11 +22,12 @@ export const StateActionSchema = Schema.Union([
   StateIncrementActionSchema,
   StateDeleteActionSchema,
   StateListActionSchema,
+  StateFilterNewActionSchema,
 ]).pipe(
   Schema.annotate({
     identifier: 'StateAction',
     title: 'State Action',
-    description: 'Key-value state operations: get, set, increment, delete, and list',
+    description: 'Key-value state operations: get, set, increment, delete, list, and filterNew',
   })
 )
 

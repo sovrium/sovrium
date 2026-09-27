@@ -5,12 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { computeListShellClasses } from '@/presentation/design/list-default-classes'
+import {
+  computeListLoadMoreClasses,
+  computeListShellClasses,
+} from '@/presentation/design/list-default-classes'
+import { LoadMoreButton } from '../parts/load-more-button'
 import { hasDataBinding } from '../runtime/data-binding'
 import { renderResultsBody, type ItemTemplate } from '../search/search-list-renderers'
-import { ListLoadMore } from './list-load-more'
 import { useListRecords, type ListRecordsDataSource } from './use-list-records'
 import type { ReactElement } from 'react'
+
+/** The list's load-more footer. Pure: resolved once, not per page loaded. */
+const LIST_LOAD_MORE_CLASSES = computeListLoadMoreClasses()
 
 interface ListIslandProps {
   readonly dataSource?: ListRecordsDataSource
@@ -142,9 +148,10 @@ export default function ListIsland({
     <>
       {renderResultsBody({ records: drawn, emptyMessage, itemTemplate, childTemplate: [] })}
       {showLoadMore ? (
-        <ListLoadMore
+        <LoadMoreButton
           onClick={fetchMore}
           isLoading={isLoadingMore}
+          footerClassName={LIST_LOAD_MORE_CLASSES}
         />
       ) : undefined}
     </>

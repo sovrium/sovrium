@@ -31,6 +31,7 @@
  * @see src/presentation/rendering/first-object-redirect-resolver.ts — the consumer
  */
 
+import { resolveLoopbackOrigin } from '@/infrastructure/egress/loopback-listener'
 import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import type { Context } from 'hono'
 
@@ -69,11 +70,7 @@ export function systemRowsFetcher(
   c: Context
 ): (endpoint: string, rowsKey: string) => Promise<readonly Record<string, unknown>[]> {
   return async (endpoint, rowsKey) => {
-    const response = await withFetchTimeout(
-      new URL(endpoint, c.req.url),
-      { headers: borrowedIdentityHeaders(c) },
-      LOOPBACK_READ_TIMEOUT_MS
-    ).catch(() => undefined)
+    const response = await readOwnApi(c, endpoint)
     if (response === undefined || !response.ok) return []
     const body = (await response.json()) as Record<string, unknown>
     const rows = body[rowsKey]
@@ -109,11 +106,7 @@ export function systemRecordFetcher(
   recordKey: string | undefined
 ) => Promise<Readonly<Record<string, unknown>> | undefined> {
   return async (endpoint, recordKey) => {
-    const response = await withFetchTimeout(
-      new URL(endpoint, c.req.url),
-      { headers: borrowedIdentityHeaders(c) },
-      LOOPBACK_READ_TIMEOUT_MS
-    ).catch(() => undefined)
+    const response = await readOwnApi(c, endpoint)
     if (response === undefined || !response.ok) return undefined
     const body = (await response.json()) as Record<string, unknown>
     const record = recordKey === undefined ? body : body[recordKey]
@@ -121,6 +114,39 @@ export function systemRecordFetcher(
       ? (record as Readonly<Record<string, unknown>>)
       : undefined
   }
+}
+
+/**
+ * Read one of THIS server's own API routes, as the caller.
+ *
+ * Addressed at the listener that served this request, over loopback — never at
+ * the request's own URL. Behind a reverse proxy that URL names the public edge,
+ * which the process may be unable to reach and should not route through: the
+ * read would leave the machine to come back to it, or fail outright. A request
+ * that did not arrive through a Bun listener (a Hono app driven by
+ * `app.request()`) has no listener to name, and its URL is the right origin.
+ *
+ * The borrowed cookie must never leave the process, and two things hold it in:
+ *  - an endpoint resolving to any other origin — an absolute URL, a
+ *    protocol-relative `//host` — is refused rather than fetched;
+ *  - redirects are NOT followed. An API route has no business redirecting, and
+ *    a followed 3xx would carry the caller's headers to wherever it pointed.
+ *    The 3xx surfaces as a non-2xx answer, which both readers treat as "no
+ *    data".
+ */
+async function readOwnApi(
+  // eslint-disable-next-line functional/prefer-immutable-types
+  c: Context,
+  endpoint: string
+): Promise<Response | undefined> {
+  const base = new URL(resolveLoopbackOrigin(c) ?? c.req.url)
+  const target = new URL(endpoint, base)
+  if (target.origin !== base.origin) return undefined
+  return withFetchTimeout(
+    target,
+    { headers: borrowedIdentityHeaders(c), redirect: 'manual' },
+    LOOPBACK_READ_TIMEOUT_MS
+  ).catch(() => undefined)
 }
 
 /**

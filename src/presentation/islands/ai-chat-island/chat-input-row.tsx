@@ -11,7 +11,9 @@ import {
   computeAiChatInputRowClasses,
 } from '@/presentation/design/ai-chat-default-classes'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { ChatVoiceButton } from './chat-voice-button'
 import { SuggestionStrip } from './suggestion-strip'
+import type { ChatVoiceInput } from './types'
 import type { ReactElement, RefObject } from 'react'
 
 /**
@@ -39,6 +41,8 @@ interface ChatInputRowProps {
   readonly initialDraft: string
   /** Starter prompts drawn as chips under this row; absent when none apply. */
   readonly suggestions: ReadonlyArray<string> | undefined
+  /** Push-to-talk settings; absent means no microphone button. */
+  readonly voiceInput: ChatVoiceInput | undefined
   readonly onSend: (text: string) => void
 }
 
@@ -63,7 +67,12 @@ const AttachButton = (): ReactElement => (
  * customer, for Dupont?") rather than a second click away. Filling without
  * focusing would be the same number of lines and a worse composer.
  */
-function useComposerState(isSending: boolean, initialDraft: string, onSend: (t: string) => void) {
+function useComposerState(
+  isSending: boolean,
+  initialDraft: string,
+  onSend: (t: string) => void,
+  voiceMode: 'draft' | 'send'
+) {
   const [draft, setDraft] = useState(initialDraft)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -88,7 +97,24 @@ function useComposerState(isSending: boolean, initialDraft: string, onSend: (t: 
     inputRef.current?.focus()
   }, [])
 
-  return { draft, inputRef, handleChange, handleSubmit, handleSelectSuggestion }
+  /**
+   * A dictated transcript: in `send` mode it is the message, sent at once; in
+   * `draft` mode it fills the box and takes the caret, like a suggestion.
+   */
+  const handleTranscript = useCallback(
+    (text: string) => {
+      if (voiceMode === 'send') {
+        onSend(text)
+        setDraft('')
+        return
+      }
+      setDraft(text)
+      inputRef.current?.focus()
+    },
+    [voiceMode, onSend]
+  )
+
+  return { draft, inputRef, handleChange, handleSubmit, handleSelectSuggestion, handleTranscript }
 }
 
 interface ComposerFormProps {
@@ -99,6 +125,8 @@ interface ComposerFormProps {
   readonly inputRef: RefObject<HTMLInputElement | null>
   readonly onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   readonly onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
+  readonly voiceInput: ChatVoiceInput | undefined
+  readonly onTranscript: (text: string) => void
 }
 
 /** The composer proper: label, optional attach button, field, submit. */
@@ -110,6 +138,8 @@ function ComposerForm({
   inputRef,
   onChange,
   onSubmit,
+  voiceInput,
+  onTranscript,
 }: ComposerFormProps): ReactElement {
   const canSend = draft.trim().length > 0 && !isSending
 
@@ -139,6 +169,13 @@ function ComposerForm({
         placeholder={placeholder}
         className={computeAiChatInputClasses()}
       />
+      {voiceInput !== undefined && (
+        <ChatVoiceButton
+          voiceInput={voiceInput}
+          disabled={isSending}
+          onTranscript={onTranscript}
+        />
+      )}
       <button
         type="submit"
         data-ai-chat-send
@@ -158,13 +195,11 @@ export function ChatInputRow({
   allowAttachments,
   initialDraft,
   suggestions,
+  voiceInput,
   onSend,
 }: ChatInputRowProps): ReactElement {
-  const { draft, inputRef, handleChange, handleSubmit, handleSelectSuggestion } = useComposerState(
-    isSending,
-    initialDraft,
-    onSend
-  )
+  const { draft, inputRef, handleChange, handleSubmit, handleSelectSuggestion, handleTranscript } =
+    useComposerState(isSending, initialDraft, onSend, voiceInput?.mode ?? 'draft')
 
   // A FRAGMENT, not a wrapper: the chip strip must be a SIBLING of the form
   // rather than a descendant of it, because a `button` inside a form is a
@@ -179,6 +214,8 @@ export function ChatInputRow({
         inputRef={inputRef}
         onChange={handleChange}
         onSubmit={handleSubmit}
+        voiceInput={voiceInput}
+        onTranscript={handleTranscript}
       />
       <SuggestionStrip
         suggestions={suggestions}

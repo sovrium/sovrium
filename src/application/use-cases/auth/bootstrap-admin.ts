@@ -33,6 +33,14 @@ export class BootstrapDatabaseError extends Data.TaggedError('BootstrapDatabaseE
 }> {}
 
 /**
+ * The operator-facing text of a {@link BootstrapDatabaseError}. The tagged
+ * error's own `message` is empty — the real failure is its `cause` — so every
+ * place that prints one reads it through here.
+ */
+export const describeBootstrapDatabaseError = (error: Readonly<BootstrapDatabaseError>): string =>
+  error.cause instanceof Error ? error.cause.message : String(error.cause)
+
+/**
  * Admin bootstrap configuration from environment variables
  */
 export interface AdminBootstrapConfig {

@@ -5,13 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useState } from 'react'
 import {
   computeKanbanGridClasses,
   computeKanbanLaneRowClasses,
 } from '@/presentation/design/kanban-default-classes'
 import { KanbanColumnHeader } from './kanban-column'
 import { KanbanSwimlane } from './kanban-swimlane'
+import { useFoldedValues } from './use-folded-values'
 import type { KanbanGrid } from './group-lanes'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { ReactElement } from 'react'
@@ -24,6 +24,8 @@ export interface KanbanSwimlaneGridProps {
   readonly colorFieldColors: Readonly<Record<string, string>> | undefined
   /** Lane values the author declared as starting closed (`swimlanes.collapsed`). */
   readonly initiallyCollapsed: readonly string[] | undefined
+  /** The board's DOM-id scope, so each lane's `aria-controls` is unique per page. */
+  readonly idPrefix: string
 }
 
 /**
@@ -44,10 +46,8 @@ export interface KanbanSwimlaneGridProps {
  * ─── COLLAPSE IS LOCAL STATE, SEEDED ONCE FROM THE CONFIG ─────────────────
  *
  * `swimlanes.collapsed` names a STARTING state, not a capability — every lane
- * carries its disclosure whether or not it is listed. So the set is the lazy
- * initialiser of a `useState` and is never read again: re-seeding it on a
- * re-render would slam a lane shut under a reader who had just opened it, every
- * time the records query refetched.
+ * carries its disclosure whether or not it is listed. {@link useFoldedValues}
+ * holds it, the same hook `kanbanGroupBy.collapsed` uses one axis over.
  */
 export function KanbanSwimlaneGrid({
   grid,
@@ -56,18 +56,9 @@ export function KanbanSwimlaneGrid({
   draggableEnabled,
   colorFieldColors,
   initiallyCollapsed,
+  idPrefix,
 }: KanbanSwimlaneGridProps): ReactElement {
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
-    () => new Set(initiallyCollapsed ?? [])
-  )
-
-  const handleToggle = useCallback((laneValue: string) => {
-    setCollapsed((previous) =>
-      previous.has(laneValue)
-        ? new Set([...previous].filter((value) => value !== laneValue))
-        : new Set([...previous, laneValue])
-    )
-  }, [])
+  const [collapsed, handleToggle] = useFoldedValues(initiallyCollapsed)
 
   return (
     <div className={computeKanbanGridClasses()}>
@@ -91,7 +82,7 @@ export function KanbanSwimlaneGrid({
           card={card}
           draggableEnabled={draggableEnabled}
           colorFieldColors={colorFieldColors}
-          idPrefix="kanban"
+          idPrefix={idPrefix}
         />
       ))}
     </div>

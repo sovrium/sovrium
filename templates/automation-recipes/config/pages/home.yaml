@@ -1,105 +1,354 @@
+# The public page: what the four recipes do, each as its trigger, its steps
+# and the lines of configuration that declare them, and one way in to the
+# runs. It explains; the gated Activity page proves.
+#
+# The declarations on the cards are written by hand from the files in
+# config/automations/. Change a recipe there and change its card here too.
 name: home
 path: /
 meta:
-  title: Automation recipes
-  description: Four automation patterns — webhook, record, cron, and failure alerting
+  title: Kerlo Automations
+  description: Four automations that run inside this app, each shown as the configuration that declares it, with every run kept.
 components:
   - type: container
-    element: section
+    element: header
     props:
-      className: py-16 px-6
+      className: border-b border-border bg-background
     children:
       - type: container
         props:
-          className: max-w-3xl mx-auto
+          className: flex h-[58px] items-center gap-6 px-12 max-md:px-4
         children:
-          - type: text
-            element: h1
-            props:
-              className: text-4xl font-bold mb-4
-            content: Automation recipes
-          - type: text
-            element: p
-            props:
-              className: text-xl mb-8
-            content: Four small recipes cover the trigger families. Every run is stored in your own database with infinite history — no monthly task quota, no 30-day cap.
           - type: container
             props:
-              className: grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10
+              className: flex grow items-center gap-2.5 font-mono text-sm font-semibold text-foreground
             children:
-              - type: container
+              - type: icon
                 props:
-                  className: p-5 rounded-xl border
-                children:
-                  - type: text
-                    element: h3
-                    props:
-                      className: text-lg font-semibold mb-2
-                    content: 1. Webhook → record
-                  - type: text
-                    element: p
-                    props:
-                      className: text-md
-                    content: POST a JSON payload and it becomes a lead row — the inbound door for any external system.
-              - type: container
-                props:
-                  className: p-5 rounded-xl border
-                children:
-                  - type: text
-                    element: h3
-                    props:
-                      className: text-lg font-semibold mb-2
-                    content: 2. Record → email + log
-                  - type: text
-                    element: p
-                    props:
-                      className: text-md
-                    content: Every new lead notifies the team and appends to the activity log — two actions, one trigger.
-              - type: container
-                props:
-                  className: p-5 rounded-xl border
-                children:
-                  - type: text
-                    element: h3
-                    props:
-                      className: text-lg font-semibold mb-2
-                    content: 3. Cron → digest
-                  - type: text
-                    element: p
-                    props:
-                      className: text-md
-                    content: Weekday evenings, one digest email — scheduled work without an external scheduler.
-              - type: container
-                props:
-                  className: p-5 rounded-xl border
-                children:
-                  - type: text
-                    element: h3
-                    props:
-                      className: text-lg font-semibold mb-2
-                    content: 4. Failure → alert
-                  - type: text
-                    element: p
-                    props:
-                      className: text-md
-                    content: A global error handler — any automation that exhausts its retries emails the operator.
+                  name: zap
+                  size: 14
+                  className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+              - type: text
+                element: span
+                content: Kerlo Automations
           - type: link
             props:
-              href: /activity
-              className: inline-block px-6 py-3 rounded-lg font-medium
-              # The one filled element on the page. Four bordered cards and a
-              # fifth bordered box gave the single primary action no more weight
-              # than the things describing it, and left the accent declared in
-              # config/design.yaml with nowhere to appear above the fold.
-              #
-              # Inline `style` rather than a `bg-primary` class on purpose: the
-              # CSS compiler does not scan templates/ for class names, so a
-              # utility that is not already in the emitted candidate set renders
-              # as nothing at all. A `var(--color-*)` reference needs no
-              # candidate — the custom property is emitted by the design tokens themselves.
-              style:
-                backgroundColor: var(--color-primary)
-                # Text ON a filled button, so it stays a literal rather than
-                # following a surface token.
-                color: '#ffffff'
-            content: Open the activity feed
+              href: /
+              aria-current: page
+              className: text-sm font-medium text-foreground no-underline max-md:hidden
+            content: Recipes
+          - type: link
+            props:
+              href: https://sovrium.com/en/docs
+              className: text-sm text-foreground no-underline max-md:hidden
+            content: Documentation
+          - type: link
+            props:
+              href: /sign-in
+              className: inline-flex h-8 items-center rounded-md border border-border bg-background-raised px-3 text-[13px] font-medium text-foreground no-underline hover:bg-background-subtle
+            content: Sign in
+  - type: container
+    element: main
+    props:
+      className: min-h-screen bg-background-subtle
+    children:
+      - type: container
+        props:
+          className: flex flex-col gap-8 px-10 py-12 max-md:px-4 max-md:py-8
+        children:
+          - type: container
+            props:
+              className: flex max-w-[760px] flex-col gap-3
+            children:
+              - type: text
+                element: p
+                props:
+                  className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-muted
+                content: Four recipes · one config file
+              - type: text
+                element: h1
+                props:
+                  className: font-mono text-[32px] font-semibold leading-tight tracking-tight text-foreground max-md:text-2xl
+                content: Automations that run in your own app, with every run kept.
+              - type: text
+                element: p
+                props:
+                  className: text-[15px] leading-relaxed text-foreground-muted
+                content: Each recipe below is a few lines of the app's configuration, a trigger and its steps. Every run is stored in this app's own database; sign in to see what ran and why.
+              - type: container
+                props:
+                  className: flex flex-wrap gap-2 pt-1
+                children:
+                  - type: link
+                    props:
+                      href: /sign-in
+                      className: inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground no-underline hover:bg-primary-hover
+                    content: Sign in to see the runs
+                  - type: link
+                    props:
+                      href: https://sovrium.com/en/docs
+                      className: inline-flex h-8 items-center rounded-md border border-border bg-background-raised px-3 text-sm font-medium text-foreground no-underline hover:bg-background-subtle max-md:hidden
+                    content: Read the configuration
+          - type: grid
+            props:
+              className: grid grid-cols-1 gap-3.5 md:grid-cols-2
+            children:
+              # Recipe 1: config/automations/capture-lead-from-webhook.yaml
+              - type: card
+                props:
+                  className: flex flex-col gap-3 p-[18px]
+                children:
+                  - type: container
+                    props:
+                      className: flex items-baseline gap-2
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-xs text-foreground-subtle
+                        content: '01'
+                      - type: text
+                        element: h2
+                        props:
+                          className: grow text-[14px] font-semibold text-foreground
+                        content: Webhook → record
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-xs text-foreground-subtle
+                        content: capture-lead-from-webhook
+                  - type: container
+                    props:
+                      className: flex flex-wrap items-center gap-2
+                    children:
+                      - type: container
+                        props:
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                        children:
+                          - type: icon
+                            props: { name: webhook, size: 13 }
+                          - type: text
+                            element: span
+                            content: 'webhook'
+                      - type: icon
+                        props: { name: arrow-right, size: 13, className: text-foreground-subtle }
+                      - type: container
+                        props:
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                        children:
+                          - type: text
+                            element: span
+                            content: 'create lead'
+                  - type: text
+                    element: p
+                    props:
+                      className: text-[13px] leading-relaxed text-foreground-muted
+                    content: 'A POST to the webhook becomes a lead row: the way in for a form, a shop or any external system that holds the token.'
+                  # On a phone the declaration folds away; the trigger and steps stay.
+                  - type: container
+                    props:
+                      className: max-md:hidden
+                    children:
+                      - type: code
+                        props: { language: yaml }
+                        codeFrame: none
+                        content: |-
+                          trigger: webhook · bearer $env.LEADS_WEBHOOK_TOKEN
+                          path: /api/automations/capture-lead-from-webhook/webhook
+                          action: record · create · leads
+              # Recipe 2: config/automations/log-new-lead.yaml
+              - type: card
+                props:
+                  className: flex flex-col gap-3 p-[18px]
+                children:
+                  - type: container
+                    props:
+                      className: flex items-baseline gap-2
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-xs text-foreground-subtle
+                        content: '02'
+                      - type: text
+                        element: h2
+                        props:
+                          className: grow text-[14px] font-semibold text-foreground
+                        content: Record → email + log
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-xs text-foreground-subtle
+                        content: log-new-lead
+                  - type: container
+                    props:
+                      className: flex flex-wrap items-center gap-2
+                    children:
+                      - type: container
+                        props:
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                        children:
+                          - type: icon
+                            props: { name: database, size: 13 }
+                          - type: text
+                            element: span
+                            content: 'record · create'
+                      - type: icon
+                        props: { name: arrow-right, size: 13, className: text-foreground-subtle }
+                      - type: container
+                        props:
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                        children:
+                          - type: text
+                            element: span
+                            content: 'email team'
+                      - type: icon
+                        props: { name: arrow-right, size: 13, className: text-foreground-subtle }
+                      - type: container
+                        props:
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                        children:
+                          - type: text
+                            element: span
+                            content: 'log event'
+                  - type: text
+                    element: p
+                    props:
+                      className: text-[13px] leading-relaxed text-foreground-muted
+                    content: 'Every new lead emails the team and adds a line to the activity log: one trigger, two steps. The email is tried three times before the run fails.'
+                  # On a phone the declaration folds away; the trigger and steps stay.
+                  - type: container
+                    props:
+                      className: max-md:hidden
+                    children:
+                      - type: code
+                        props: { language: yaml }
+                        codeFrame: none
+                        content: |-
+                          trigger: record · leads · create
+                          action: email · team@kerlo.example · retry 3
+                          action: record · create · activity_log
+              # Recipe 3: config/automations/daily-digest.yaml
+              - type: card
+                props:
+                  className: flex flex-col gap-3 p-[18px]
+                children:
+                  - type: container
+                    props:
+                      className: flex items-baseline gap-2
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-xs text-foreground-subtle
+                        content: '03'
+                      - type: text
+                        element: h2
+                        props:
+                          className: grow text-[14px] font-semibold text-foreground
+                        content: Cron → digest
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-xs text-foreground-subtle
+                        content: daily-digest
+                  - type: container
+                    props:
+                      className: flex flex-wrap items-center gap-2
+                    children:
+                      - type: container
+                        props:
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                        children:
+                          - type: icon
+                            props: { name: clock, size: 13 }
+                          - type: text
+                            element: span
+                            content: "cron '0 18 * * 1-5'"
+                      - type: icon
+                        props: { name: arrow-right, size: 13, className: text-foreground-subtle }
+                      - type: container
+                        props:
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                        children:
+                          - type: text
+                            element: span
+                            content: 'email digest'
+                  - type: text
+                    element: p
+                    props:
+                      className: text-[13px] leading-relaxed text-foreground-muted
+                    content: 'Weekday evenings at 18:00, one email to the team: scheduled work without an outside scheduler.'
+                  # On a phone the declaration folds away; the trigger and steps stay.
+                  - type: container
+                    props:
+                      className: max-md:hidden
+                    children:
+                      - type: code
+                        props: { language: yaml }
+                        codeFrame: none
+                        content: |-
+                          trigger: cron · '0 18 * * 1-5' · Europe/Paris
+                          action: email · team@kerlo.example
+              # Recipe 4: config/automations/alert-on-failure.yaml
+              - type: card
+                props:
+                  className: flex flex-col gap-3 p-[18px]
+                children:
+                  - type: container
+                    props:
+                      className: flex items-baseline gap-2
+                    children:
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-xs text-foreground-subtle
+                        content: '04'
+                      - type: text
+                        element: h2
+                        props:
+                          className: grow text-[14px] font-semibold text-foreground
+                        content: Failure → alert
+                      - type: text
+                        element: span
+                        props:
+                          className: font-mono text-xs text-foreground-subtle
+                        content: alert-on-failure
+                  - type: container
+                    props:
+                      className: flex flex-wrap items-center gap-2
+                    children:
+                      - type: container
+                        props:
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                        children:
+                          - type: icon
+                            props: { name: triangle-alert, size: 13 }
+                          - type: text
+                            element: span
+                            content: 'automation-failure'
+                      - type: icon
+                        props: { name: arrow-right, size: 13, className: text-foreground-subtle }
+                      - type: container
+                        props:
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                        children:
+                          - type: text
+                            element: span
+                            content: 'log failure'
+                  - type: text
+                    element: p
+                    props:
+                      className: text-[13px] leading-relaxed text-foreground-muted
+                    content: When a recipe fails after its last retry, the operators are emailed and the failed run is written to the activity log with its error.
+                  # On a phone the declaration folds away; the trigger and steps stay.
+                  - type: container
+                    props:
+                      className: max-md:hidden
+                    children:
+                      - type: code
+                        props: { language: yaml }
+                        codeFrame: none
+                        content: |-
+                          trigger: automation-failure
+                          action: record · create · activity_log

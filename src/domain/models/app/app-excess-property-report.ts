@@ -1077,6 +1077,51 @@ export const messageAsConfigFinding = (message: string): ConfigFinding => ({
   severity: 'error',
 })
 
+/** One segment of the decoder's `["key"][0]` path notation. */
+const DECODER_PATH_SEGMENT = /\["((?:[^"\\]|\\.)*)"\]|\[(\d+)\]/g
+
+/**
+ * Convert the decoder's `["pages"][0]["meta"]["title"]` notation into the
+ * dotted form `ConfigFinding.path` uses — `pages[0].meta.title`. Pure.
+ */
+export const decoderPathToFindingPath = (notation: string): string =>
+  [...notation.matchAll(DECODER_PATH_SEGMENT)].reduce((path, match) => {
+    if (match[2] !== undefined) return `${path}[${match[2]}]`
+    const key = match[1] ?? ''
+    return path === '' ? key : `${path}.${key}`
+  }, '')
+
+/** The `at [...]` line under a decoder message, or `undefined` for any other line. */
+const decoderAtNotation = (line: string): string | undefined =>
+  /^\s+at (\[.*\])\s*$/.exec(line)?.[1]
+
+/**
+ * Structure the decoder's own message lines — the fallback for a refusal the
+ * walker above cannot explain, such as a length or pattern check.
+ *
+ * The decoder prints each complaint on one line and, indented beneath it, the
+ * `at ["key"][0]` line locating it. Publishing both as pathless findings left a
+ * program parsing prose to find the position; pairing them keeps each finding
+ * locatable by its `path` alone, and the message ends `(at <path>)` for a reader. A line with no `at` line under it stays a
+ * finding about the config as a whole (`path: ''`). Pure.
+ */
+export const messageLinesAsConfigFindings = (lines: readonly string[]): readonly ConfigFinding[] =>
+  lines.reduce<readonly ConfigFinding[]>((findings, line) => {
+    const notation = decoderAtNotation(line)
+    const previous = findings.at(-1)
+    if (notation !== undefined && previous !== undefined && previous.path === '') {
+      const path = decoderPathToFindingPath(notation)
+      // The position rides in `path` for a program, and stays named in the
+      // one-line message for a reader shown the message alone (an overlay, an
+      // MCP transcript) — trailing, so the message still opens with the fault.
+      return [
+        ...findings.slice(0, -1),
+        { ...previous, path, message: `${previous.message} (at ${path})` },
+      ]
+    }
+    return notation === undefined ? [...findings, messageAsConfigFinding(line)] : findings
+  }, [])
+
 export const formatDecodeReport = (
   findings: readonly DecodeFinding[],
   refSources: ReadonlyMap<string, string>

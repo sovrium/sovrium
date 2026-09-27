@@ -6,6 +6,7 @@
  */
 
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { isSystemAgentName, SYSTEM_AGENT_NAME } from '@/domain/models/app/agents/agent-identity'
 import {
   defaultModelForProvider,
   isAiProviderConfigured,
@@ -15,6 +16,7 @@ import { requireDomainContext } from '@/infrastructure/logging/request-effect'
 import { checkTriggerPermission } from '@/presentation/api/agents/agent-trigger-guard'
 import { resolveAgentChatBackend } from '@/presentation/api/ai/agent-chat-env'
 import { persistChatTurnDurably } from '@/presentation/api/ai/chat-durable-memory'
+import { runAgentBoundChatTurn } from '@/presentation/api/ai/chat-routes'
 import {
   computeAgentMcpToolCatalog,
   DEFAULT_MCP_CLIENT_TOOL_CATALOG,
@@ -394,16 +396,7 @@ const resolveChatPreflight = async (
   // an explicitly-misconfigured provider is enforced at startup, so a booted
   // server with an unset `AI_PROVIDER` is unambiguously the inert case.
   if (!isAiProviderConfigured(process.env)) {
-    return {
-      ok: false,
-      response: c.json(
-        errorBody({
-          error: 'AI provider not configured — the assistant is currently unavailable.',
-          code: ApiErrorCode.SERVICE_UNAVAILABLE,
-        }),
-        503
-      ),
-    }
+    return { ok: false, response: providerUnavailable(c) }
   }
   const aiEnv = readAiEnv(process.env, agent)
   if ('error' in aiEnv) {
@@ -416,6 +409,51 @@ const resolveChatPreflight = async (
     }
   }
   return { ok: true, agent, aiEnv }
+}
+
+const providerUnavailable = (c: Readonly<Context>): Response =>
+  c.json(
+    errorBody({
+      error: 'AI provider not configured — the assistant is currently unavailable.',
+      code: ApiErrorCode.SERVICE_UNAVAILABLE,
+    }),
+    503
+  )
+
+/**
+ * `POST /api/agents/system/chat` — the built-in System Agent, which has no
+ * declaration for {@link resolveChatPreflight} to find.
+ *
+ * In an app with auth, an anonymous caller gets the same 404 an undeclared
+ * agent gives: the System Agent reads AS the caller, and a caller with no
+ * identity has nothing to read. With no provider it answers the 503 a declared
+ * agent gives (the agent exists but cannot run), and otherwise runs the same
+ * dispatch `POST /api/ai/chat` with `agent: 'system'` runs.
+ */
+const systemAgentRefusal = (c: Readonly<Context>, app: App): Response | undefined => {
+  const session = getSessionContext(c as unknown as Context)
+  if (app.auth !== undefined && session === undefined) return agentNotFound(c)
+  return isAiProviderConfigured(process.env) ? undefined : providerUnavailable(c)
+}
+
+const handleSystemAgentChat = async (c: Readonly<Context>, app: App): Promise<Response> => {
+  const refusal = systemAgentRefusal(c, app)
+  if (refusal !== undefined) return refusal
+  const { message, sessionId } = await parseChatBody(c)
+  if (message.length === 0) {
+    return c.json(
+      errorBody({
+        error: '`message` is required and must be a non-empty string.',
+        code: ApiErrorCode.BAD_REQUEST,
+      }),
+      400
+    )
+  }
+  return runAgentBoundChatTurn(c, app, {
+    message,
+    sessionId: sessionId ?? crypto.randomUUID(),
+    agentName: SYSTEM_AGENT_NAME,
+  })
 }
 
 const handleAgentChat =
@@ -490,6 +528,8 @@ export function chainAiMcpStatusRoutes<T extends Hono>(honoApp: T, app?: App): T
     .get('/api/ai/mcp/client/status', (c) => handleClientStatus(c as unknown as Readonly<Context>))
     .get('/api/ai/mcp/client/tools', (c) => handleClientTools(c as unknown as Readonly<Context>))
     .post('/api/agents/:name/chat', (c) =>
-      handleAgentChat(app)(c as unknown as Readonly<Context>)
+      app !== undefined && isSystemAgentName(c.req.param('name'))
+        ? handleSystemAgentChat(c as unknown as Readonly<Context>, app)
+        : handleAgentChat(app)(c as unknown as Readonly<Context>)
     ) as T
 }

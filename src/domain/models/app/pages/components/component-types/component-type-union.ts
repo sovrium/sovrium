@@ -515,6 +515,24 @@ export const ENGINE_COMPONENT_TYPES: readonly EngineComponentType[] = [
   ),
 ]
 
+/**
+ * Every component type whose schema declares a `formRef` — the kinds that can
+ * embed a top-level `app.forms[]` form.
+ *
+ * DERIVED from each type's fields record, never listed by hand. The embedded-form
+ * access gate (a page embedding a form the caller may not use is a 404) reads
+ * this set, and a hand-written list is exactly how it once saw `form` alone and
+ * missed a `dialog` carrying `formRef`: a new host type now joins the gate the
+ * moment its schema declares the key.
+ */
+export const FORM_REF_HOST_TYPES: ReadonlySet<string> = new Set(
+  allComponents.flatMap(([typeLiteral, fields]) => {
+    const { ast } = typeLiteral
+    if (ast._tag !== 'Literal' || typeof ast.literal !== 'string') return []
+    return 'formRef' in fields ? [ast.literal] : []
+  })
+)
+
 // ─── Container Types (components that support children nesting) ─────────────
 
 /**

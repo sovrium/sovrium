@@ -1,0 +1,24 @@
+# The five people of Arden & Co who appear in the register, created as sign-in
+# accounts before any table is filled, so an asset can name who holds it.
+#
+# Claire runs the office and the register (admin). Tomás, Nadia, Marc and
+# Sarah hold kit (members): they read the register and hand assets over, but
+# only Claire deletes one. No password is written here: every account takes
+# `SOVRIUM_SEED_PASSWORD` from the environment, so a password never lands in a
+# file you might commit.
+users:
+  - email: claire.arden@arden.example
+    name: Claire Arden
+    role: admin
+  - email: tomas.ferreira@arden.example
+    name: Tomás Ferreira
+    role: member
+  - email: nadia.benali@arden.example
+    name: Nadia Benali
+    role: member
+  - email: marc.dubois@arden.example
+    name: Marc Dubois
+    role: member
+  - email: sarah.lemoine@arden.example
+    name: Sarah Lemoine
+    role: member

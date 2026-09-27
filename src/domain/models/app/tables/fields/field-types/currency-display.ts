@@ -74,7 +74,8 @@ export const CurrencyThousandsSeparatorSchema = Schema.Literals([
   'none',
 ]).pipe(
   Schema.annotate({
-    description: 'Character used to separate thousands',
+    description:
+      'Character used to separate thousands. When omitted, amounts are grouped in the page language (a comma in the records API); `none` switches grouping off',
     examples: ['comma', 'period', 'space', 'none'],
   })
 )

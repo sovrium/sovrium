@@ -21,6 +21,8 @@ import { requestId } from 'hono/request-id'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
 import { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
+import { isLiveReloadEligible } from '@/infrastructure/process/env'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { adminMountsFor } from '@/infrastructure/server/admin-mounts'
 import {
   apiErrorCodeForStatus,
@@ -93,6 +95,13 @@ function mountPerformanceMiddleware(honoApp: Readonly<Hono>): void {
 interface HonoAppExtras {
   readonly configHash?: string
   readonly domainContext: DomainContext
+  /**
+   * This app renders a static build (`render-app.ts`) rather than serving
+   * requests. A build is never a `--watch` session, so it mounts no dev
+   * live-reload surface whatever `NODE_ENV` says — no route, and no tag in
+   * the pages it renders.
+   */
+  readonly staticRender?: boolean
 }
 
 /**
@@ -231,7 +240,10 @@ export async function createHonoApp(
 
     honoApp.use('*', async (c, next) => {
       await Effect.runPromise(
-        provideDomain(c, purgeOldAnalyticsData(app.name, retentionDays)).pipe(
+        provideDomain(
+          c,
+          purgeOldAnalyticsData(app.name, retentionDays, resolveOperatorTimezone())
+        ).pipe(
           Effect.tapCause((cause) =>
             Effect.sync(() => {
               logDebug('[analytics] retention purge failed', { cause: String(cause) })
@@ -265,7 +277,7 @@ export async function createHonoApp(
   // `sendEmail` and a live nodemailer transport in the import graph of a file
   // that is otherwise a request handler. Constructing it at the root is what
   // lets that file name the factory as a TYPE only and hold no transport.
-  const emailHandlers = createEmailHandlers(app?.auth)
+  const emailHandlers = createEmailHandlers(app?.auth, app?.name)
   // Config-mutation REST routes (`/api/admin/schema/*` draft→publish, versions,
   // drift, preview) were retired with the config-code-only reshape:
   // config changes ONLY by editing the app config file.
@@ -310,7 +322,7 @@ export async function createHonoApp(
                     setupAuthRoutes(
                       setupAuthMiddleware(
                         setupOpenApiRoutes(
-                          createApiRoutes(app, honoWithBootstrap as Hono, authInstance),
+                          createApiRoutes(app, honoWithBootstrap as Hono, authInstance, getSession),
                           app,
                           authInstance
                         ),
@@ -332,11 +344,13 @@ export async function createHonoApp(
                       readStatusDocument,
                     }
                   ),
-                  app
+                  app,
+                  config.fetchSitemapRecords
                 ),
                 app,
                 config.publicDir
-              )
+              ),
+              config.staticRender !== true && isLiveReloadEligible()
             ),
             app
           ),

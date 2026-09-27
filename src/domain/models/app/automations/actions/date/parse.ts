@@ -72,12 +72,12 @@ export const DateParseActionSchema = Schema.Struct({
       })
     ),
 
-    /** IANA timezone the parsed wall-clock fields are interpreted in. Default UTC. */
+    /** IANA timezone the parsed wall-clock fields are interpreted in. Default: the operator timezone. */
     timezone: Schema.optional(
       TimezoneProp.pipe(
         Schema.annotate({
           description:
-            'IANA timezone the wall-clock fields are read in (e.g. "Europe/Paris"). Default "UTC". ' +
+            'IANA timezone the wall-clock fields are read in (e.g. "Europe/Paris"). Default: the operator timezone (SOVRIUM_TIMEZONE, UTC when unset). ' +
             'A pattern without an offset is ambiguous without this.',
         })
       )

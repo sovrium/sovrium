@@ -1,72 +1,70 @@
-# Sample leads for the automation demo.
+# Eight leads, captured over one week.
 #
-# `key` is file-local — it exists so other seed files can name a row before it
-# has a database id, and it is never written to a column. Nothing links to leads
-# here, but the key is still what every refusal message quotes, so it is worth
-# making it readable.
+# They are listed oldest first, so the ids follow the order they arrived in:
+# Sofia Ricci is lead #6, whose notification email failed, and Nadia Okonkwo is
+# lead #8, the one that came in a few minutes ago.
 #
-# `source` is spread across all four options and `status` across all four on
-# purpose: both columns are declared `filterable` on /activity, and a filter
-# control over a column where every row holds the same value demonstrates
-# nothing about filtering.
+# `captured_at` is written relative to the moment the seed runs — `{{now-138m}}`
+# is 2 hours 18 minutes earlier — so a demo re-seeded every night always shows
+# a week that ends today. Run `sovrium seed --today <YYYY-MM-DD>` to pin the
+# day; the time of day follows your clock.
 #
-# There are no dates in this file. `created_at` is a `created-at` field — the
-# engine stamps it on insert and a seeded value would be discarded — so every
-# row's "Captured" column reads as the moment the seed ran. That is the honest
-# behaviour, not an omission.
+# Two came from an import, one from a referral, and five through the webhook
+# (recipe 1). Every one of them ran recipe 2 when it was written.
 records:
-  - key: nadia-okonkwo
-    fields:
-      name: Nadia Okonkwo
-      email: nadia.okonkwo@brightpath.example
-      source: Webhook
-      status: Qualified
-
-  - key: liam-carver
-    fields:
-      name: Liam Carver
-      email: liam.carver@northgate-supply.example
-      source: Webhook
-      status: Contacted
-
-  - key: sofia-ricci
-    fields:
-      name: Sofia Ricci
-      email: sofia.ricci@atelier-ricci.example
-      source: Website
-      status: New
-
   - key: dev-patel
     fields:
       name: Dev Patel
       email: dev.patel@meridian-labs.example
-      source: Referral
-      status: Qualified
-
-  - key: hannah-bloom
-    fields:
-      name: Hannah Bloom
-      email: hannah.bloom@bloomfield.example
-      source: Website
-      status: New
-
-  - key: yusuf-demir
-    fields:
-      name: Yusuf Demir
-      email: yusuf.demir@karadeniz-freight.example
+      company: Meridian Labs
       source: Import
-      status: Contacted
-
+      captured_at: '{{now-9805m}}'
   - key: elena-varga
     fields:
       name: Elena Varga
       email: elena.varga@varga-consulting.example
+      company: Varga Consulting
       source: Import
-      status: Dropped
-
+      captured_at: '{{now-9804m}}'
+  - key: hannah-bloom
+    fields:
+      name: Hannah Bloom
+      email: hannah.bloom@bloomfield.example
+      company: Bloomfield
+      source: Webhook
+      captured_at: '{{now-4553m}}'
+  - key: yusuf-demir
+    fields:
+      name: Yusuf Demir
+      email: yusuf.demir@karadeniz-freight.example
+      company: Karadeniz Freight
+      source: Referral
+      captured_at: '{{now-2785m}}'
   - key: theo-mercier
     fields:
       name: Théo Mercier
       email: theo.mercier@mercier-atelier.example
-      source: Referral
-      status: New
+      company: Mercier Atelier
+      source: Webhook
+      captured_at: '{{now-1740m}}'
+  - key: sofia-ricci
+    fields:
+      name: Sofia Ricci
+      email: sofia.ricci@atelier-ricci.example
+      company: Atelier Ricci
+      source: Webhook
+      captured_at: '{{now-1305m}}'
+  - key: liam-carver
+    fields:
+      name: Liam Carver
+      email: liam.carver@northgate-supply.example
+      company: Northgate Supply
+      source: Webhook
+      captured_at: '{{now-138m}}'
+  - key: nadia-okonkwo
+    fields:
+      name: Nadia Okonkwo
+      email: nadia.okonkwo@brightpath.example
+      company: Brightpath
+      source: Webhook
+      captured_at: '{{now-3m}}'

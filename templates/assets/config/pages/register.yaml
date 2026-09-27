@@ -1,0 +1,197 @@
+# The register: everything the firm owns, grouped by category, with the tag,
+# the holder and the place of each asset, and four figures above it. The
+# assets that need someone — missing at the last count, due back today or
+# overdue, a warranty about to end — carry one word beside their name.
+#
+# A row opens its asset in a drawer over the grid, with its check-outs and its
+# history; `/?record=<id>` opens it too, so an asset can be sent as a link.
+name: register
+path: /
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Register · Arden Assets
+  description: Everything the firm owns, with its holder, its place and what needs attention.
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Register
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Register asset
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: register-asset-dialog
+          - $ref: ./_register-asset.yaml
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              # Four figures, computed from the register on every visit.
+              - type: grid
+                props:
+                  className: grid grid-cols-2 gap-3 lg:grid-cols-4
+                children:
+                  # What the kit in service is worth. A retired asset is
+                  # written off, so it counts for nothing.
+                  - type: kpi
+                    label: Register value
+                    dataSource:
+                      table: assets
+                      filter:
+                        - { field: status, operator: neq, value: Retired }
+                    kpiAggregate: { function: sum, field: value }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+                  - type: kpi
+                    label: Checked out
+                    dataSource:
+                      table: assets
+                      filter:
+                        - { field: status, operator: eq, value: In use }
+                    kpiAggregate: { function: count }
+                    kpiFormat: { type: number }
+                  # Missing at the last count, or away for repair.
+                  - type: kpi
+                    label: Needs attention
+                    dataSource:
+                      table: assets
+                    kpiAggregate: { function: sum, field: needs_attention }
+                    kpiFormat: { type: number }
+                  - type: kpi
+                    label: Warranties ending
+                    dataSource:
+                      table: assets
+                    kpiAggregate: { function: sum, field: warranty_ending }
+                    kpiFormat: { type: number }
+              - type: filter-bar
+                publishes:
+                  bindTo: register-filter
+                fields:
+                  - { name: name, label: Asset, kind: text }
+                  - { name: asset_tag, label: Tag, kind: text }
+                  - name: status
+                    label: Status
+                    kind: select
+                    options:
+                      - { value: In storage, label: In storage }
+                      - { value: In use, label: In use }
+                      - { value: In repair, label: In repair }
+                      - { value: Retired, label: Retired }
+                  - name: location_name
+                    label: Location
+                    kind: select
+                    options:
+                      - { value: Paris HQ, label: Paris HQ }
+                      - { value: Lyon office, label: Lyon office }
+                      - { value: Storeroom, label: Storeroom }
+                      - { value: Remote, label: Remote }
+                      - { value: Ateliers Rémi, label: Ateliers Rémi }
+              - type: table
+                dataSource:
+                  table: assets
+                  bindTo: register-filter
+                  sharedFilter: {}
+                  sort:
+                    - { field: asset_tag, direction: asc }
+                rowHeight: short
+                columns:
+                  - { field: asset_tag, label: Tag, sortable: true }
+                  - { field: name, label: Asset, sortable: true }
+                  # One word when the asset needs someone, nothing otherwise.
+                  - field: flag
+                    label: Attention
+                    cellStyle:
+                      - {
+                          when: { in: [Missing at count, Overdue] },
+                          className: 'font-medium text-error [&_*]:text-error',
+                        }
+                      - {
+                          when: { in: [Due back today, Warranty ending] },
+                          className: 'font-medium text-warning [&_*]:text-warning',
+                        }
+                  - { field: status, label: Status }
+                  - { field: assigned_to, label: Assigned to }
+                  - { field: location, label: Location }
+                  - { field: purchased_on, label: Purchased, format: short-date, align: right }
+                  - { field: value, label: Value, format: currency, align: right, sortable: true }
+                groupBy:
+                  field: category
+                summary:
+                  - { field: asset_tag, function: count, label: Assets }
+                  - { field: value, function: sum, label: Σ }
+                pagination:
+                  pageSize: 100
+                onRowClick:
+                  action: openDrawer
+                  component: asset-detail
+                emptyMessage: Everything the firm owns appears here with its tag, its holder and its place. Register the first asset, or import a CSV.
+          # One asset, opened over the grid: its facts, who has it and until
+          # when, every hand-over, and its history.
+          - type: drawer
+            id: asset-detail
+            drawerSide: right
+            drawerSize: md
+            canEdit: false
+            dataSource:
+              table: assets
+            props:
+              title: Asset
+            recordFields:
+              - { name: name, type: single-line-text, label: Asset }
+              - { name: asset_tag, type: single-line-text, label: Tag }
+              - { name: status, type: status, label: Status }
+              - { name: flag, type: single-line-text, label: Attention }
+              - { name: assigned_to, type: user, label: Assigned to }
+              - { name: holder_note, type: single-line-text, label: Held by }
+              - { name: due_back, type: date, label: Return by }
+              - { name: location, type: relationship, label: Location }
+              - { name: serial, type: single-line-text, label: Serial }
+              - { name: barcode, type: barcode, label: Barcode }
+              - { name: value, type: currency, label: Value }
+              - { name: purchased_on, type: date, label: Purchased }
+              - { name: warranty_end, type: date, label: Warranty ends }
+            related:
+              # Who held it is written in the History below: a related list
+              # prints a person column as an account id, so it is left out.
+              - label: Check-outs
+                table: check_outs
+                field: asset
+                columns:
+                  - { field: checked_out_at, label: Out }
+                  - { field: due_back, label: Return by }
+                  - { field: checked_in_at, label: Back }
+                  - { field: note, label: Note }
+                sort:
+                  - { field: checked_out_at, direction: desc }
+                emptyMessage: Never checked out. Its first hand-over appears here with the return date.
+              - label: History
+                table: asset_events
+                field: asset
+                columns:
+                  - { field: happened_on, label: Date }
+                  - { field: event, label: Event }
+                  - { field: detail, label: Detail }
+                sort:
+                  - { field: happened_on, direction: desc }
+                emptyMessage: Nothing recorded yet. Hand-overs, repairs and counts appear here as they happen.

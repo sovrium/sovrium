@@ -8,6 +8,7 @@
 import { humanizeFieldName } from '@/presentation/design/string-utils'
 import type { RecordButtonConfig } from '../../runtime/record-button'
 import type { FieldType } from '@/domain/models/app/tables/fields'
+import type { TypedColumnConfig } from '@/presentation/design/field-control-attributes'
 
 /**
  * A single conditional rule used by visibleWhen / requiredWhen / disabledWhen.
@@ -29,7 +30,7 @@ export type ConditionRule =
  * per-field user overrides (displayLabel, placeholder, readOnly, defaultValue,
  * hidden) and editor-specific options (language, toolbar, etc.).
  */
-export interface FieldDef {
+export interface FieldDef extends TypedColumnConfig {
   readonly name: string
   /**
    * The field's type discriminator, narrowed to the domain field-type union
@@ -86,7 +87,7 @@ export interface FieldDef {
   /**
    * Storage bucket DECLARED on the bound attachment column (single-attachment,
    * multiple-attachments). Uploads and previews target this bucket; when
-   * omitted the field falls back to the implicit 'default' bucket..
+   * omitted the field falls back to the built-in `system` bucket.
    */
   readonly bucket?: string
   /**

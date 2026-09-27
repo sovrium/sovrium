@@ -42,6 +42,8 @@ export interface DocsChromeLabels {
   readonly reportAnIssue: string
   /** Prefix for the last-updated stamp (the date value stays as-is). */
   readonly lastUpdated: string
+  /** Name of the button that opens the documentation navigation below `lg`. */
+  readonly menu: string
 }
 
 const EN: DocsChromeLabels = {
@@ -54,6 +56,7 @@ const EN: DocsChromeLabels = {
   editThisPage: 'Edit this page',
   reportAnIssue: 'Report an issue',
   lastUpdated: 'Last updated',
+  menu: 'Menu',
 }
 
 const FR: DocsChromeLabels = {
@@ -66,6 +69,7 @@ const FR: DocsChromeLabels = {
   editThisPage: 'Modifier cette page',
   reportAnIssue: 'Signaler un problème',
   lastUpdated: 'Dernière mise à jour',
+  menu: 'Menu',
 }
 
 /**

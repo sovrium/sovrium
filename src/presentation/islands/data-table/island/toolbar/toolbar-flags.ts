@@ -58,10 +58,11 @@ export function resolveToolbarFlags(config: DataTableToolbar | undefined): Toolb
 // beside the components because a file that exports both a component and a plain
 // function loses React Fast Refresh for the whole file.
 //
-// Two of the terms are NOT configuration. `canCreate` and `!readOnly` gate
-// controls the grid draws unconditionally on a writable bound table — `+ New
-// record` and `Import` — so such a table has a toolbar whether or not its author
-// declared one, and the empty case is narrower than "no `toolbar` block".
+// Two of the terms are NOT configuration. `canCreate` and `canImport` gate
+// controls the grid draws unconditionally on a bound table the caller may create
+// in — `+ New record` and `Import` — so such a table has a toolbar whether or
+// not its author declared one, and the empty case is narrower than "no
+// `toolbar` block".
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -88,12 +89,14 @@ export function hasLeadingControls(props: LeadingControlsProps): boolean {
  * {@link hasLeadingControls} for why the predicate sits beside the component
  * whose branches it mirrors.
  *
- * `!readOnly` is the term that makes this cluster non-empty for almost every
- * bound table: Import is a fixed control rather than a configured one, so a
- * writable grid has a toolbar whether or not its author asked for one.
+ * `canImport` is the term that makes this cluster non-empty for a grid its
+ * caller may create in: Import is a fixed control rather than a configured one,
+ * so such a grid has a toolbar whether or not its author asked for one. A
+ * caller who may not create gets no Import, and so no toolbar unless something
+ * else is configured.
  */
 export function hasQueryControls(props: QueryControlsProps): boolean {
-  return !props.readOnly || props.filtersEnabled || props.sortEnabled || props.groupByEnabled
+  return props.canImport || props.filtersEnabled || props.sortEnabled || props.groupByEnabled
 }
 
 /**

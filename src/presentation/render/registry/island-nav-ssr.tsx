@@ -54,6 +54,10 @@ export function renderSsrNavItem(
     <button
       key={index}
       type="button"
+      // Inert until the island mounts: the placeholder opens nothing, so it
+      // does not pretend to be operable (a disabled button is also skipped by
+      // Tab, so focus never lands on a control the swap is about to replace).
+      disabled
       className={computeNavMenuTriggerClasses(triggerClassName)}
     >
       {item.label}

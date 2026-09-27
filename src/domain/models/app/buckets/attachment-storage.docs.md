@@ -17,7 +17,7 @@ tables:
 
 ## Which bucket
 
-`bucket` names an entry in your buckets array. Omit it and the field writes to the implicit default bucket, whose visibility follows whether authentication is configured.
+`bucket` names an entry in your buckets array. Omit it and the field writes to the built-in `system` bucket, whose visibility follows whether authentication is configured.
 
 Two layers of limits then apply to the same upload, and **both must pass**.
 
@@ -33,6 +33,14 @@ Declaring the tighter of the two on the field keeps the intent next to the colum
 The file reaches storage through the ordinary upload endpoint, which returns a key. **That key** — not the filename, not a URL — is what the column holds.
 
 With `storeMetadata` on, the column instead holds an object carrying the key plus the metadata captured at upload, such as dimensions or duration. Either shape resolves to the same stored object; the difference is only how much you can render without a second request.
+
+### Referencing a file you already uploaded
+
+An attachment value can reference a previously uploaded key only when that key was uploaded into the column's own bucket; inline `{ name, content }` values and multipart form uploads are stored there automatically, and existing rows and seeds are not re-checked.
+
+The writer's role must also be able to download from that bucket. A reference that fails either condition — or names a key storage has never recorded — is refused with a `400`, and the answer is the same in every case, so it never reveals whether a file exists.
+
+An update checks only the columns it carries, and it checks them as new references. A client that echoes a whole record back therefore re-submits its attachment values too, and a seeded or legacy key that storage never recorded is refused there. Leave an unchanged attachment column out of the update rather than sending it back.
 
 ## What a read returns
 
@@ -64,7 +72,7 @@ Because the URL is minted per read, a record fetched an hour ago carries a link 
 
 ### The URL is bound to the field's own bucket
 
-The link a read attaches is built against the bucket the column declares, so a field pointing at `documents` returns a URL under `documents`. A column declaring no `bucket` falls back to the implicit `default` — not to the first bucket in your array, which would make the target depend on the order you happened to write them in.
+The link a read attaches is built against the bucket the column declares, so a field pointing at `documents` returns a URL under `documents`. A column declaring no `bucket` falls back to the built-in `system` bucket — not to the first bucket in your array, which would make the target depend on the order you happened to write them in.
 
 The signature covers that bucket name along with the path, the operation and the expiry, so a URL minted for one bucket cannot be re-pointed at another by editing the query string.
 

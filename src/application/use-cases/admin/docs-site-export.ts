@@ -8,13 +8,15 @@
 /**
  * The manual, rendered into the shape a documentation SITE reads.
  *
- * ## One code path, two callers
+ * ## One code path
  *
  * `sovrium docs --export <dir>` writes this into a consumer repository from the
- * compiled binary; `scripts/build/generate-website-docs.ts` writes it into
- * `apps/website/content/docs/en/` from the source tree. Both call
- * {@link renderSiteArticles}, so the two trees cannot disagree — a site that
- * leaves this repository switches to the binary with a zero-line diff.
+ * compiled binary. It had a second caller until the website left this
+ * repository: a source-tree generator that wrote the same articles
+ * into the in-repo site. Both called {@link renderSiteArticles}, which is why
+ * the site switched to the binary with a zero-line diff. The site authors its
+ * own project articles (licence, trademark, contributing) beside the exported
+ * ones; an export never owns them.
  *
  * The rendered article differs from `sovrium docs <address>` in exactly ONE way:
  * a six-key frontmatter block is prepended, and links a website cannot follow
@@ -46,20 +48,6 @@ import { markdownSegments, proseOf } from '@/domain/kernel/markdown/markdown-seg
 import { articleAddress, embeddedDocKey, locatedArticles, renderManualArticle } from './docs-manual'
 import type { LocatedArticle, ManualSection } from './docs-manual'
 import type { BehaviourStory } from './docs-markdown'
-
-/**
- * Articles about the PROJECT rather than the software.
- *
- * The licence, the trademark, how to contribute and how Sovrium is built. None
- * of it is a property of the running binary, so none of it is in the manual:
- * a site authors these beside the exported ones, and an export never owns them.
- */
-export const PROJECT_ARTICLES: readonly string[] = [
-  'contributing',
-  'how-sovrium-is-built',
-  'license',
-  'trademark',
-]
 
 /** The manifest an export writes beside its articles. */
 export const EXPORT_MANIFEST_FILE = '_nav.json'

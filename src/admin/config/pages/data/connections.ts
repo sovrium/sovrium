@@ -57,61 +57,94 @@ const oauthAuthorizeAction = {
 } as const
 
 /**
+ * The status chip, drawn on the cell's inner `<span>` only.
+ *
+ * `cellStyle.className` is applied TWICE by the grid — to the `<td>` and again
+ * to the `<span>` wrapping the value — so a pill written plainly paints a
+ * second, cell-sized rounded bar that fills the row height. Every class below
+ * is scoped with the `[&:is(span)]:` variant, which matches the inner span and
+ * never the cell, so the chip hugs its label like every other badge in the
+ * console. Literal strings, not composed: the build-time class harvest reads
+ * this file as text.
+ */
+const STATUS_PILL = {
+  positive:
+    '[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:rounded-full [&:is(span)]:px-2 [&:is(span)]:py-0.5 [&:is(span)]:text-sm [&:is(span)]:font-medium [&:is(span)]:bg-success-bg [&:is(span)]:text-success-fg',
+  caution:
+    '[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:rounded-full [&:is(span)]:px-2 [&:is(span)]:py-0.5 [&:is(span)]:text-sm [&:is(span)]:font-medium [&:is(span)]:bg-warning-bg [&:is(span)]:text-warning-fg',
+  consequence:
+    '[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:rounded-full [&:is(span)]:px-2 [&:is(span)]:py-0.5 [&:is(span)]:text-sm [&:is(span)]:font-medium [&:is(span)]:bg-error-bg [&:is(span)]:text-error-fg',
+} as const
+
+/**
  * The directory's columns, and the per-row connect / reconnect / disconnect
  * column. Each affordance is gated on the server-computed `rowAction`:
  *
  *   Connect     — `rowAction === 'connect'`   (oauth2, no tokens)
- *   Reconnect   — `rowAction === 'reconnect'` (oauth2, expiring or expired)
+ *   Reconnect   — `rowAction === 'reconnect'` (oauth2, expiring, expired or
+ *                 reconnect-needed)
  *   Disconnect  — `rowAction ∈ {disconnect, reconnect}` (oauth2 with tokens)
  *
  * A `none` row (a non-oauth2 connection) renders no action at all. Disconnect is
  * destructive, so it carries a `confirm` gate before POSTing.
  *
- * Every `label` here is a LITERAL. The table is island-hosted, so its
- * column and action labels are serialized into `data-island-props` verbatim and
- * a `$t:` token would ship the raw key into a table cell.
+ * Every caption here is a `$t:` key: the component translation pass resolves a
+ * table's column and action labels, `valueLabels`, placeholders and empty copy
+ * before the island props are built, so the whole directory speaks the
+ * console's language.
  */
 const CONNECTIONS_COLUMNS = [
-  { field: 'name', label: 'Connection' },
-  { field: 'provider', label: 'Provider' },
+  { field: 'name', label: '$t:admin.connections.col.connection' },
+  { field: 'provider', label: '$t:admin.connections.col.provider' },
   {
     field: 'type',
-    label: 'Type',
-    valueLabels: { oauth2: 'OAuth2', apiKey: 'API key', basic: 'Basic', bearer: 'Bearer' },
+    label: '$t:admin.connections.col.type',
+    valueLabels: {
+      oauth2: 'OAuth2',
+      apiKey: '$t:admin.connections.type.apiKey',
+      basic: 'Basic',
+      bearer: 'Bearer',
+    },
   },
   {
     field: 'status',
-    label: 'Status',
-    valueLabels: { active: 'Active', 'expiring-soon': 'Expiring soon', expired: 'Expired' },
+    label: '$t:admin.connections.col.status',
+    valueLabels: {
+      active: '$t:admin.connections.status.active',
+      'expiring-soon': '$t:admin.connections.status.expiringSoon',
+      expired: '$t:admin.connections.status.expired',
+      'reconnect-needed': '$t:admin.connections.status.reconnectNeeded',
+    },
     cellStyle: [
-      {
-        when: { eq: 'active' },
-        className: 'bg-success-bg text-success-fg rounded-full px-2 py-0.5 text-sm',
-      },
-      {
-        when: { eq: 'expiring-soon' },
-        className: 'bg-warning-bg text-warning-fg rounded-full px-2 py-0.5 text-sm',
-      },
-      {
-        when: { eq: 'expired' },
-        className: 'bg-error-bg text-error-fg rounded-full px-2 py-0.5 text-sm',
-      },
+      { when: { eq: 'active' }, className: STATUS_PILL.positive },
+      { when: { eq: 'expiring-soon' }, className: STATUS_PILL.caution },
+      { when: { eq: 'expired' }, className: STATUS_PILL.consequence },
+      // A token the provider gave no refresh token for (LinkedIn, Meta): it
+      // lapses and nothing but a new authorization restores it. That is the
+      // one status that is ALWAYS a call to action — `expired` heals itself on
+      // the next call — so it takes the consequence tone, and the row offers
+      // Reconnect (`rowAction === 'reconnect'`).
+      { when: { eq: 'reconnect-needed' }, className: STATUS_PILL.consequence },
     ],
   },
   {
     field: 'tokenCount',
-    label: 'Tokens',
+    label: '$t:admin.connections.col.tokens',
     // Render-only relabel of the raw count. `valueLabels` is a STATIC map, so
     // the 0 / 1 / 2 forms are mapped explicitly and higher counts fall through
     // to the raw number — a known limit of static labels against the bespoke
     // island's dynamic "{n} users" pluralization.
-    valueLabels: { '0': 'No tokens', '1': '1 user', '2': '2 users' },
+    valueLabels: {
+      '0': '$t:admin.connections.tokens.none',
+      '1': '$t:admin.connections.tokens.one',
+      '2': '$t:admin.connections.tokens.two',
+    },
   },
-  { field: 'expiresAt', label: 'Expiration', format: 'datetime' },
-  { field: 'createdAt', label: 'Created', format: 'datetime' },
+  { field: 'expiresAt', label: '$t:admin.connections.col.expiration', format: 'datetime' },
+  { field: 'createdAt', label: '$t:admin.connections.col.created', format: 'datetime' },
   {
     type: 'actions',
-    label: 'Actions',
+    label: '$t:admin.connections.col.actions',
     // ─── THE MAINTENANCE GESTURES RECEDE; THE ONE THAT SETS UP DOES NOT ──────
     //
     // The reference draws this column with `Reconnect` and `Disconnect` quiet
@@ -139,21 +172,21 @@ const CONNECTIONS_COLUMNS = [
     // is the last thing standing between a click and a revoked token.
     actions: [
       {
-        label: 'Connect',
+        label: '$t:admin.connections.action.connect',
         visibleWhen: { field: 'rowAction', eq: 'connect' },
         action: oauthAuthorizeAction,
       },
       {
-        label: 'Reconnect',
+        label: '$t:admin.connections.action.reconnect',
         variant: 'ghost',
         visibleWhen: { field: 'rowAction', eq: 'reconnect' },
         action: oauthAuthorizeAction,
       },
       {
-        label: 'Disconnect',
+        label: '$t:admin.connections.action.disconnect',
         variant: 'ghost',
         visibleWhen: { field: 'rowAction', in: ['disconnect', 'reconnect'] },
-        confirm: 'Revoke this connection’s tokens?',
+        confirm: '$t:admin.connections.action.disconnectConfirm',
         action: {
           type: 'fetch',
           method: 'POST',
@@ -191,16 +224,19 @@ export default withShell(
         // exactly there: `name` matched server-side but was never a column.)
         // The endpoint omits `appliedQuery`, which is precisely the tri-state
         // contract's "this endpoint does not search; filter client-side".
-        search: { enabled: true, placeholder: 'Search connections' },
-        noMatchMessage: 'No connection matches “{query}”',
-        toolbar: { sort: true },
+        search: { enabled: true, placeholder: '$t:admin.connections.search' },
+        noMatchMessage: '$t:admin.connections.noMatch',
+        // No toolbar `sort` button: every column header already sorts, and the
+        // toolbar button's caption is drawn in English by the grid whatever the
+        // console's language — so on this one-screen list it duplicated a
+        // control and broke the French page. Header sort stays.
         // NO `pagination` block, deliberately — one here produced a pager that
         // lied. The endpoint takes no paging parameters and returns every row,
         // while the island sets `manualPagination: true` unconditionally, so the
         // client never slices what it receives: `pageSize: 25` against 30
         // connections rendered all 30 rows under a pager reading "1–25 of 30".
         // One screen is the honest presentation until the endpoint paginates.
-        emptyMessage: 'No connections',
+        emptyMessage: '$t:admin.connections.empty',
       },
     ],
   } as PageConfig,

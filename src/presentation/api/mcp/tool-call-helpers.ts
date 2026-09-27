@@ -117,6 +117,7 @@ const ENVELOPE_SYSTEM_FIELDS: ReadonlySet<string> = new Set([
 /**
  * Field-level system metadata that lives inside the inner `fields` object
  * (snake_case from the database transformer) and is never user-authored.
+ * `deleted_at` is present only on a trashed record; a live one omits it.
  * Stripping these would make trash/soft-delete semantics opaque to the AI
  * client; whitelist mode targets user-authored data, not system bookkeeping.
  */

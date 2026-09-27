@@ -1,9 +1,10 @@
-name: inventory-workspace
-version: 1.0.0
+name: brunel-stock
+version: 2.0.0
 description: >-
-  A self-hosted database workspace for products, stock, and orders — an Airtable
-  alternative you own. Six linked tables behind spreadsheet-style grids with
-  grouping, saved views, filters, footer summaries, and inline editing.
+  A stock workspace for a small distributor: a catalogue grouped by category
+  with its stock on hand and value at cost, a reorder list, a signed stock
+  ledger per warehouse, customer orders by status, suppliers with their lead
+  times, and an assistant that drafts the next purchase order.
 
 auth:
   $ref: ./config/auth.yaml
@@ -17,22 +18,23 @@ tables:
   - $ref: ./config/tables/products.yaml
   - $ref: ./config/tables/stock_movements.yaml
   - $ref: ./config/tables/orders.yaml
-  - $ref: ./config/tables/order_lines.yaml
+  - $ref: ./config/tables/purchase_orders.yaml
 
-# AI agent that can query and edit the catalog (surfaced on /assistant).
-# Requires an AI provider at runtime (AI_PROVIDER, e.g. ollama for a local
-# setup); config validation does not need one.
+# The assistant on /assistant. It needs an AI provider at runtime
+# (`AI_PROVIDER`, see `.env.example`); everything else works without one.
 agents:
   - $ref: ./config/agents/catalog-assistant.yaml
 
-# Automations run server-side with full history in your own database.
-automations:
-  - $ref: ./config/automations/flag-low-stock.yaml
-
+# Listed in the order of the sidebar: Products is the home page.
 pages:
-  - $ref: ./config/pages/sign-in.yaml
   - $ref: ./config/pages/products.yaml
-  - $ref: ./config/pages/orders.yaml
   - $ref: ./config/pages/stock.yaml
+  - $ref: ./config/pages/orders.yaml
   - $ref: ./config/pages/suppliers.yaml
   - $ref: ./config/pages/assistant.yaml
+  - $ref: ./config/pages/sign-in.yaml
+
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over the last row of a grid.
+badge:
+  placement: footer

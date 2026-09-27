@@ -1,3 +1,4 @@
+# The work inside each project: what, who, and when it is due.
 id: 5
 name: project_tasks
 fields:
@@ -10,16 +11,17 @@ fields:
     type: relationship
     relatedTable: projects
     relationType: many-to-one
+    displayField: name
   - id: 3
     name: status
     type: status
     options:
       - value: To do
-        color: '#94A3B8'
+        color: '#6F737A'
       - value: In progress
-        color: '#3B82F6'
+        color: '#6F737A'
       - value: Done
-        color: '#10B981'
+        color: '#187C49'
     default: To do
   - id: 4
     name: assignee
@@ -31,6 +33,31 @@ fields:
   - id: 6
     name: created_at
     type: created-at
+  # The project's name, read through the relationship, so a task card and the
+  # Home list name the project a task belongs to.
+  - id: 7
+    name: project_name
+    type: lookup
+    relationshipField: project
+    relatedField: name
+  # "Overdue" when an open task is past its due date. Computed each time the
+  # task is saved, so finishing it or moving its date clears the flag.
+  - id: 8
+    name: schedule
+    type: formula
+    formula: "CASE WHEN status <> 'Done' AND due_date < CURRENT_DATE THEN 'Overdue' ELSE '' END"
+    resultType: string
+
+aiAccess:
+  description: >-
+    Tasks inside delivery projects. Use this when the user asks what is left to
+    do on a project, who does it, or what is late.
+  operations:
+    - read
+    - list
+    - create
+    - update
+  fieldExposure: permissioned
 
 permissions:
   read: authenticated

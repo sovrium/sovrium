@@ -24,8 +24,11 @@ function readCachedToken(
   return typeof token === 'string' ? token : undefined
 }
 
-/** Read the token off a successful save's response envelope. */
-function readResponseToken(response: unknown): string | undefined {
+/**
+ * Read an `updatedAt` token off a record or a successful save's response —
+ * both carry it top-level, under the wire name the PATCH body expects.
+ */
+export function readResponseToken(response: unknown): string | undefined {
   if (typeof response !== 'object' || response === null) return undefined
   const { updatedAt } = response as { updatedAt?: unknown }
   return typeof updatedAt === 'string' ? updatedAt : undefined

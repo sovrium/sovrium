@@ -27,7 +27,7 @@ import type { ReactElement } from 'react'
  * — a screen reader announcing both would announce the same fact twice, once
  * as a state and once as a triangle.
  */
-function LaneChevron({ expanded }: { readonly expanded: boolean }): ReactElement {
+export function LaneChevron({ expanded }: { readonly expanded: boolean }): ReactElement {
   return (
     <svg
       className={`${computeKanbanSwimlaneChevronClasses()} ${expanded ? 'rotate-90' : ''}`}

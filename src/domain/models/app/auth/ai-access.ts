@@ -37,7 +37,8 @@ export const ToolAnnotationsSchema = Schema.Struct({
   readOnly: Schema.optional(
     Schema.Boolean.pipe(
       Schema.annotate({
-        description: 'Tool only reads data; safe to auto-approve. Maps to MCP readOnlyHint.',
+        description:
+          "Marks the table's tools as read-only for MCP clients (readOnlyHint), which may then run them without asking. Applies only when every exposed operation is read or list; on a table that also exposes create, update or delete, read tools are always read-only and write tools never are, whatever this says.",
       })
     )
   ),

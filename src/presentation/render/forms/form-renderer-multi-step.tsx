@@ -18,7 +18,8 @@
  */
 
 import { FormFieldElement, type PrefillValue } from './form-field-elements'
-import type { resolveAllFields } from './form-field-resolver'
+import { stepItems, type resolveAllFields } from './form-field-resolver'
+import { DescriptionText } from './form-help-text'
 import type { Form } from '@/domain/models/app/forms'
 
 /**
@@ -26,8 +27,15 @@ import type { Form } from '@/domain/models/app/forms'
  * from `form-renderer.tsx`) to avoid a circular module dependency.
  */
 export interface FormBodyShared {
+  /** The form title; `''` when the host draws its own heading (a dialog) — then no title is drawn. */
   readonly title: string
-  readonly description: string
+  /** The form description as sanitized inline HTML (`renderInlineMarkdown`); `''` for none. */
+  readonly descriptionHtml: string
+  /**
+   * Each step's description, translated then rendered as sanitized inline
+   * HTML, keyed by step id. A step missing from it shows no description.
+   */
+  readonly stepDescriptionsHtml?: Readonly<Record<string, string>>
   readonly submitLabel: string
   readonly formAttributes: Readonly<Record<string, string>>
   readonly resolvedFields: ReturnType<typeof resolveAllFields>
@@ -107,6 +115,7 @@ export function FormBodyStep({
   stepFields,
   prefillMap,
   lockPrefill,
+  descriptionHtml,
 }: {
   readonly step: NonNullable<Form['steps']>[number]
   readonly stepIndex: number
@@ -115,6 +124,8 @@ export function FormBodyStep({
   readonly stepFields: ReturnType<typeof resolveAllFields>
   readonly prefillMap: Readonly<Record<string, PrefillValue>>
   readonly lockPrefill: boolean
+  /** The step description, translated and rendered (`renderInlineMarkdown`); `''` for none. */
+  readonly descriptionHtml: string
 }) {
   return (
     <div
@@ -124,7 +135,10 @@ export function FormBodyStep({
       data-step-active="true"
     >
       {step.title && <h2 className="step-title">{step.title}</h2>}
-      {step.description && <p className="step-description">{step.description}</p>}
+      <DescriptionText
+        html={descriptionHtml}
+        className="step-description"
+      />
       {stepFields.map((field) => (
         <FormFieldElement
           key={field.name}
@@ -154,6 +168,7 @@ function MultiStepFormElement({
   lockPrefill,
   activeStep,
   isLast,
+  stepDescriptionsHtml,
 }: MultiStepFormProps) {
   return (
     <form
@@ -166,9 +181,10 @@ function MultiStepFormElement({
         stepIndex={0}
         isFirst={true}
         isLast={isLast}
-        stepFields={resolvedFields.filter((f) => activeStep.fields.includes(f.name))}
+        stepFields={stepItems(resolvedFields, activeStep.fields)}
         prefillMap={prefillMap}
         lockPrefill={lockPrefill}
+        descriptionHtml={stepDescriptionsHtml?.[activeStep.id] ?? ''}
       />
       {/* Submit button stays in markup but hidden until the submitter
           reaches the last step; runtime toggles visibility per step. */}
@@ -185,21 +201,27 @@ function MultiStepFormElement({
 export function FormBodyMultiStep(
   props: FormBodyShared & { readonly steps: NonNullable<Form['steps']> }
 ) {
-  const { title, description, steps, titleAs = 'h1' } = props
+  const { title, descriptionHtml, steps, titleAs = 'h1' } = props
   const TitleTag = titleAs
   const activeStep = steps[0]
   if (activeStep === undefined) {
     return (
       <>
-        <TitleTag className="form-title">{title}</TitleTag>
-        {description && <p className="form-description">{description}</p>}
+        {title !== '' && <TitleTag className="form-title">{title}</TitleTag>}
+        <DescriptionText
+          html={descriptionHtml}
+          className="form-description"
+        />
       </>
     )
   }
   return (
     <>
-      <TitleTag className="form-title">{title}</TitleTag>
-      {description && <p className="form-description">{description}</p>}
+      {title !== '' && <TitleTag className="form-title">{title}</TitleTag>}
+      <DescriptionText
+        html={descriptionHtml}
+        className="form-description"
+      />
       <FormStepProgress totalVisible={steps.length} />
       <MultiStepFormElement
         {...props}

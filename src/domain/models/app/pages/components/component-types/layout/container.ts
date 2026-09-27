@@ -32,7 +32,7 @@ export const ContainerElementSchema = Schema.Literals([
 
 /**
  * Render this container's children once per element of an array the BOUND
- * RECORD already carries ([internal ref] CAP-6).
+ * RECORD already carries ([internal ref] and [internal ref] CAP-6/7).
  *
  * --- WHY A KEY OF ITS OWN, AND NOT A THIRD `dataSource` ARM ----------------
  *
@@ -63,10 +63,11 @@ export const ContainerElementSchema = Schema.Literals([
  * One flat key, because `$record.` walks no path (`substitute-record-vars.ts`
  * -> `RECORD_REFERENCE`). Inside a repeat, `$record.<key>` resolves against THE
  * ELEMENT -- one grammar, re-scoped, exactly as `expandDataSourceChildren`
- * already does per row. Supported in ONE position: a record-bound `drawer`'s
- * `children`. Every other position is refused at decode
- * (`component-rule-validation.ts`), because the array only exists where a
- * record has already been fetched.
+ * already does per row. Supported in TWO positions: a record-bound
+ * `drawer`'s `children`, expanded in the browser once the record arrives, and a
+ * page bound to one record, expanded on the server in the binding pass. Every
+ * other position is refused at decode (`component-rule-validation.ts`), because
+ * the array only exists where a record has already been read.
  *
  * It resolves in CONTENT and in a `data-*` prop, against the same element in
  * both — so `'data-step-index': '$record.index'` states a fact that is true of
@@ -84,12 +85,29 @@ export const ContainerRepeatSchema = Schema.Struct({
    */
   record: Schema.String.annotate({
     description:
-      "Field of the bound record holding a list; the container's children are drawn once per entry.",
+      "Field holding a list, read on the nearest record in scope: the enclosing repeat's entry when there is one, otherwise the bound record. The container's children are drawn once per entry.",
   }).pipe(Schema.check(Schema.isMinLength(1))),
+  /**
+   * A name for the element. With it, `$<as>.<key>` resolves against the element
+   * and `$record.<key>` keeps meaning the bound record, and a repeat may nest
+   * inside this one (two levels at most). Without it, `$record.<key>` means the
+   * element, exactly as before the key existed.
+   *
+   * Which names are refused, and where a `$<as>.` token may appear, is decided
+   * in `component-rule-validation.ts` rather than here: the rules need the
+   * enclosing repeats, which a check on this field cannot see.
+   */
+  as: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Name for the current entry. Inside the repeat, `$<as>.<field>` reads the entry while `$record.<field>` keeps reading the bound record, and a repeat may nest inside this one. Must be a plain identifier that is not a name the page grammar already uses, such as `record` or `param`.',
+      examples: ['step', 'leg'],
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
 }).annotate({
   title: 'Container Repeat',
   description:
-    "Render this container's children once per element of an array already carried by the bound record. Supported inside a record-bound drawer's `children`. Inside the repeat, `$record.<field>` resolves against the ELEMENT.",
+    "Render this container's children once per element of an array a record already carries. Supported inside a record-bound drawer's `children`, and on a page bound to one record (a page-level `dataSource` of `{ system }` or `{ table, mode: 'single' }`), where the copies are drawn on the server. Without `as`, `$record.<field>` inside the repeat resolves against the element; with `as`, `$<as>.<field>` does and `$record.<field>` keeps reading the bound record. An empty or missing list draws no copies.",
 })
 
 export const containerFields = {

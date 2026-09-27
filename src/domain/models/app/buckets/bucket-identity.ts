@@ -10,11 +10,11 @@
  * the storage overview so the two cannot disagree about what a bucket is.
  *
  * A bucket is a DECLARATION (`app.buckets[]`), not a storage backend. The env
- * resolves exactly one backend; declared buckets are path prefixes inside it.
- * An app that declares none still addresses storage through the virtual
- * `default` bucket, which is why the fallback exists — but a fallback for an app
- * that declared nothing is not a fourth bucket alongside three that were
- * declared, so the two cases are exclusive.
+ * resolves exactly one backend, and a stored object records the bucket it was
+ * written through. Every app also carries the built-in `system` bucket, listed
+ * FIRST beside its declarations: it is the store of every attachment field that
+ * names no `bucket:`, and the view of every file linked to a record, whichever
+ * bucket holds it. `system` is a reserved name no app may declare.
  *
  * Buckets have no persisted row, so their ids are derived from their names:
  * stable across restarts (the dashboard's bucket-detail links stay bookmarkable)
@@ -23,17 +23,24 @@
 
 import { createHash } from 'node:crypto'
 
-/** Name of the virtual bucket an app that declares none still uploads through. */
-export const DEFAULT_BUCKET_NAME = 'default'
+/** Name of the built-in bucket every app carries. Reserved: no app may declare it. */
+export const SYSTEM_BUCKET_NAME = 'system'
+
+/** Whether `name` is the built-in system bucket's reserved name. */
+export function isSystemBucketName(name: string): boolean {
+  return name === SYSTEM_BUCKET_NAME
+}
 
 /**
- * Id of the virtual `default` bucket, and the `resource.id` every bucket-domain
- * audit entry carries.
+ * Id of the built-in `system` bucket. It is the `resource.id` of the audit
+ * entries that touch the system bucket itself, and of the aggregate entries
+ * that span every bucket (the bucket list and the overview); an entry about one
+ * declared bucket carries that bucket's own id ({@link bucketIdForName}).
  *
- * Fixed rather than derived: it shipped as this literal, and audit entries
- * already reference it.
+ * Fixed rather than derived: it shipped as this literal (under the bucket's
+ * former name, `default`), and audit entries already reference it.
  */
-export const DEFAULT_BUCKET_ID = '00000000-0000-4000-8000-000000000001'
+export const SYSTEM_BUCKET_ID = '00000000-0000-4000-8000-000000000001'
 
 /**
  * Derive a bucket's stable id from its name.
@@ -43,11 +50,11 @@ export const DEFAULT_BUCKET_ID = '00000000-0000-4000-8000-000000000001'
  * The shape is cosmetic — what matters is that the same declaration always
  * yields the same id and two declarations never collide.
  *
- * The virtual `default` bucket keeps {@link DEFAULT_BUCKET_ID}: it is already
- * published in audit entries and dashboard links.
+ * The built-in `system` bucket keeps {@link SYSTEM_BUCKET_ID}: it is already
+ * published in audit entries.
  */
 export function bucketIdForName(name: string): string {
-  if (name === DEFAULT_BUCKET_NAME) return DEFAULT_BUCKET_ID
+  if (name === SYSTEM_BUCKET_NAME) return SYSTEM_BUCKET_ID
   const hex = createHash('sha256').update(`sovrium:bucket:${name}`).digest('hex')
   return [
     hex.slice(0, 8),
@@ -59,12 +66,11 @@ export function bucketIdForName(name: string): string {
 }
 
 /**
- * The names of the buckets an app exposes: every declaration in `app.buckets[]`,
- * or the single virtual `default` bucket when it declares none.
+ * The names of the buckets an app exposes: the built-in `system` bucket FIRST,
+ * then every declaration in `app.buckets[]` in declaration order.
  */
 export function declaredBucketNames(
   buckets: ReadonlyArray<{ readonly name: string }> | undefined
 ): ReadonlyArray<string> {
-  if (buckets === undefined || buckets.length === 0) return [DEFAULT_BUCKET_NAME]
-  return buckets.map((bucket) => bucket.name)
+  return [SYSTEM_BUCKET_NAME, ...(buckets ?? []).map((bucket) => bucket.name)]
 }

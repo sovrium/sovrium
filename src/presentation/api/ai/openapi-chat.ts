@@ -7,6 +7,10 @@
 
 import { Schema } from 'effect'
 import { chatRequestSchema, chatResponseSchema } from '@/domain/models/api/ai/chat'
+import {
+  transcriptionRequestFieldsSchema,
+  transcriptionResponseSchema,
+} from '@/domain/models/api/ai/transcriptions'
 import { errorResponseSchema } from '@/domain/models/api/combinators/error'
 import {
   effectJsonBody,
@@ -58,6 +62,37 @@ export const aiChatGroup: StaticGroupSpec = {
         400: errorResponse('Invalid request body'),
         401: errorResponse('Not authenticated'),
         404: errorResponse('AI is not enabled'),
+      },
+    },
+    {
+      method: 'post',
+      pathTemplate: '/api/ai/transcriptions',
+      summary: 'Transcribe a recording',
+      description:
+        'Turns a recording into text for chat dictation, on the speech-to-text endpoint the operator configures. The recording is transcribed and discarded, never stored.',
+      operationIdBase: 'postAiTranscription',
+      request: {
+        body: {
+          content: {
+            'multipart/form-data': {
+              schema: effectSchema(
+                Schema.Struct({
+                  file: Schema.String.annotate({
+                    description: 'The recording, an audio file of at most 25 MB',
+                  }),
+                  ...transcriptionRequestFieldsSchema.fields,
+                })
+              ),
+            },
+          },
+        },
+      },
+      responses: {
+        200: effectJsonResponse(transcriptionResponseSchema, 'The transcript'),
+        400: errorResponse('Missing, oversized or non-audio recording, or an invalid field'),
+        404: errorResponse('Not signed in, on an app that declares auth'),
+        429: errorResponse('Rate limit exceeded'),
+        503: errorResponse('No speech-to-text provider is configured'),
       },
     },
   ],

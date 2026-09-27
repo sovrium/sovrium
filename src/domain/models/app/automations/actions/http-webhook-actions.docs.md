@@ -6,18 +6,37 @@
 
 Six operators. The generic `request` takes an explicit `method`; the verb operators are shorthands and accept a `connection` reference for an authenticated call.
 
-| Operator  | Key props                                                             |
-| --------- | --------------------------------------------------------------------- |
-| `request` | `url`, `method`, `headers?`, `body?`, `contentType?`, `timeout?`      |
-| `get`     | `url`, `headers?`, `timeout?`, `connection?`                          |
-| `post`    | `url`, `headers?`, `body?`, `contentType?`, `timeout?`, `connection?` |
-| `put`     | the same as `post`                                                    |
-| `patch`   | the same as `post`                                                    |
-| `delete`  | `url`, `headers?`, `body?`, `timeout?`, `connection?`                 |
+| Operator  | Key props                                                                       |
+| --------- | ------------------------------------------------------------------------------- |
+| `request` | `url`, `method`, `query?`, `headers?`, `body?`, `contentType?`, `timeout?`      |
+| `get`     | `url`, `query?`, `headers?`, `timeout?`, `connection?`                          |
+| `post`    | `url`, `query?`, `headers?`, `body?`, `contentType?`, `timeout?`, `connection?` |
+| `put`     | the same as `post`                                                              |
+| `patch`   | the same as `post`                                                              |
+| `delete`  | `url`, `query?`, `headers?`, `body?`, `timeout?`, `connection?`                 |
 
 <!-- sovrium:options HttpActionSchema -->
 
 `props.timeout` accepts 1000 to 120000 milliseconds and defaults to 15000. `connection` names a stored credential, which is what makes the call authenticated without a secret appearing in the configuration.
+
+### `query`: parameters as values, not text glued into the URL
+
+`url` is a template, and a value interpolated into it is inserted as it is — so `?email={{trigger.data.email}}` sends `claire+test@atelier.fr` as `claire test@atelier.fr`, and a company named `Dupont & Fils` splits into two parameters. Give the parameters as a `query` object instead: each value is resolved first (templates, `$env`), then percent-encoded on its own and appended to the `url`, after any query the `url` already carries.
+
+```yaml
+- name: findLead
+  type: http
+  operator: get
+  props:
+    url: https://api.lemlist.com/api/leads
+    connection: lemlist
+    query:
+      email: '{{trigger.data.email}}'
+      limit: 50
+      status: [interested, contacted]
+```
+
+A string or template is sent percent-encoded, a number or boolean as its literal text, and an array repeats its key once per item, in order (`status=interested&status=contacted`). A nested object has no single encoding across APIs and is refused when the config loads — write the flat key the API expects. On `post`, `put` and `patch` the query goes on the url and the body is sent unchanged. For a value that belongs in the path, `{{urlEncode value}}` encodes it in place.
 
 ### `contentType` has no default
 

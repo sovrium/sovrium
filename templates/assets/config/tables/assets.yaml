@@ -1,14 +1,28 @@
+# Assets — the register: everything the firm owns, one row per thing.
+#
+# An asset has a tag written on its label, a place, and — when someone has it —
+# a holder. The holder is a sign-in account (`assigned_to`), never a name typed
+# into the asset's name: a person changes, the asset does not.
+#
+# The words the register flags an asset with (missing at the last count, due
+# back today, overdue, warranty ending) are computed, never typed. Each reads a
+# fact stored elsewhere — the count, the open check-out, the warranty date — so
+# fixing the fact clears the flag.
 id: 2
 name: assets
 fields:
+  # ── Identity ────────────────────────────────────────────────────────
+  # The tag printed on the label and the QR code: the name people use for
+  # the thing. Two assets may share a model name, never a tag.
+  - id: 11
+    name: asset_tag
+    type: single-line-text
+    required: true
+    unique: true
   - id: 1
     name: name
     type: single-line-text
     required: true
-  - id: 2
-    name: barcode
-    type: barcode
-    format: EAN-13
   - id: 3
     name: category
     type: single-select
@@ -16,46 +30,128 @@ fields:
       - Laptop
       - Monitor
       - Phone
-      - Furniture
       - Vehicle
+      - Furniture
       - Other
+  # Where the asset is in its life. None of these is an outcome, so none
+  # carries a colour: colour is kept for what needs someone's attention.
   - id: 4
     name: status
     type: status
     options:
-      - value: In use
-        color: '#10B981'
       - value: In storage
-        color: '#94A3B8'
+      - value: In use
       - value: In repair
-        color: '#F59E0B'
       - value: Retired
-        color: '#EF4444'
-    default: In use
+    default: In storage
+  - id: 12
+    name: serial
+    type: single-line-text
+  # The number under the label's code. A plain field: type it, or let a
+  # hand-held scanner type it for you. Unique, so the same label cannot be
+  # registered twice.
+  - id: 2
+    name: barcode
+    type: barcode
+    format: EAN-13
+    unique: true
+  - id: 7
+    name: photo
+    type: single-attachment
+
+  # ── Place and holder ────────────────────────────────────────────────
+  - id: 8
+    name: location
+    type: relationship
+    relatedTable: locations
+    relationType: many-to-one
+    displayField: name
+  # The place's name, read through the relationship, for filters and cards.
+  - id: 19
+    name: location_name
+    type: lookup
+    relationshipField: location
+    relatedField: name
+  - id: 9
+    name: assigned_to
+    type: user
+    allowMultiple: false
+  # For kit held by a team rather than a person, such as a support phone that
+  # passes around a rota.
+  - id: 18
+    name: holder_note
+    type: single-line-text
+
+  # ── Money and dates ─────────────────────────────────────────────────
   - id: 5
-    name: purchase_date
+    name: purchased_on
     type: date
   - id: 6
     name: value
     type: currency
     currency: EUR
     precision: 0
-  - id: 7
-    name: photo
-    type: single-attachment
-  - id: 8
-    name: location
+  - id: 13
+    name: warranty_end
+    type: date
+  # The day the warranty starts to need a decision (repair now, or extend):
+  # usually thirty days before it ends. A plain date, so the rule is yours.
+  - id: 20
+    name: warranty_reminder_on
+    type: date
+
+  # ── Counts and check-outs ───────────────────────────────────────────
+  # Ticked when the last count did not find the asset where the register says
+  # it is. Untick it once the asset turns up.
+  - id: 14
+    name: missing_at_last_count
+    type: checkbox
+    default: false
+  - id: 15
+    name: check_outs
     type: relationship
-    relatedTable: locations
-    relationType: many-to-one
-  - id: 9
-    name: assigned_to
-    type: user
-    allowMultiple: false
+    relatedTable: check_outs
+    relationType: one-to-many
+  # The return date of the check-out still open, if there is one: a check-out
+  # closes when its check-in date is filled.
+  - id: 16
+    name: due_back
+    type: rollup
+    relationshipField: check_outs
+    relatedField: due_back
+    aggregation: MAX
+    filters: { field: checked_in_at, operator: isEmpty }
+
+  # ── Flags, computed ─────────────────────────────────────────────────
+  # The one word the register shows beside an asset that needs someone:
+  # missing at the count, overdue or due back today, or a warranty about to
+  # end. An asset with nothing to report shows nothing.
+  - id: 17
+    name: flag
+    type: formula
+    formula: "CASE WHEN missing_at_last_count THEN 'Missing at count' WHEN due_back < CURRENT_DATE THEN 'Overdue' WHEN due_back = CURRENT_DATE THEN 'Due back today' WHEN warranty_end >= CURRENT_DATE AND warranty_reminder_on <= CURRENT_DATE THEN 'Warranty ending' ELSE '' END"
+    resultType: string
+  # 1 for an asset someone has to act on (missing, or away for repair), so the
+  # Register can add them up.
+  - id: 21
+    name: needs_attention
+    type: formula
+    formula: "CASE WHEN missing_at_last_count OR status = 'In repair' THEN 1 ELSE 0 END"
+    resultType: number
+  - id: 22
+    name: warranty_ending
+    type: formula
+    formula: 'CASE WHEN warranty_end >= CURRENT_DATE AND warranty_reminder_on <= CURRENT_DATE THEN 1 ELSE 0 END'
+    resultType: number
+
+  # ── Audit ───────────────────────────────────────────────────────────
   - id: 10
     name: created_at
     type: created-at
 
+# Everyone signed in reads the register, and a member registers and updates
+# assets (hands one over, moves it, marks it counted). Only an admin deletes
+# one: retiring an asset is a status, deleting it erases its history.
 permissions:
   read: authenticated
   create:

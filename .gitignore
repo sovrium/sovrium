@@ -3,7 +3,6 @@ out
 dist
 .sovrium
 .sovrium-wt
-apps/*/public/sovrium-search/
 src/admin/public/sovrium-search/
 website/build
 *.tgz
@@ -21,7 +20,6 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .env.test.local
 .env.production.local
 .env.local
-apps/*/.env.dev
 src/admin/.env.dev
 .types-build
 .eslintcache
@@ -89,11 +87,14 @@ env.txt
 !src/admin/assets/samples/*.mp3
 **/reviews/**/audio.wav
 **/reviews/**/frames/
+docs/user-stories/template-apps/*/parity/*/current-state/
+docs/user-stories/template-apps/*/parity/*/target-state/
+docs/user-stories/template-apps/*/parity/*/diff/
 docs/growth/**/*.wav
 docs/growth/offers/*/ressources/prospection/prive/
-apps/website/public/install
 .repository-analysis/
 tmp/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
 desktop/src-tauri/sovrium-*
+src/skills/*/evals/results/

@@ -547,9 +547,11 @@ const densityDeclarations = (step: DensityStep): string =>
  * even when the author copied the shipped numbers verbatim. `cozy` and `roomy`
  * stay reachable through `[data-density]`.
  *
- * `byZone` is decoded and validated but reaches no DOM attribute yet — the
- * recorded follow-up. Emitting all three steps regardless is what makes that
- * follow-up a wiring change rather than a CSS change.
+ * Which step a page runs at is decided at render, not here: every document
+ * writes `data-density` on `<html>` (`resolveDensityStep`, from the page's zone
+ * in `byZone`, then `density.default`, then compact). That is why all three
+ * steps are emitted regardless of what the config assigns — the stylesheet
+ * serves every page of the app, and each page picks its own step.
  *
  * Deliberately takes NO `selector` parameter, unlike its colour sibling. That
  * one is parameterised because `scoped-theme-layer.ts` genuinely calls it with

@@ -40,7 +40,9 @@ fields:
     helpText: Urgent issues are triaged first
 ```
 
-An attachment column renders a file input automatically.
+An attachment column renders a file input automatically, and a `relationship` column renders a dropdown of the related table's rows — labelled by the column's `displayField`, storing the row id. A visible relationship field whose column declares no `displayField`, and which names no `optionsSource`, is refused at load: there is nothing to label its choices with. A `currency` column renders a number input with the currency's symbol beside it, stepped by the column's `precision` (or the currency's own decimals — a cent for EUR) and opening a decimal keypad on a phone; a `percentage` column renders a number input with `%` after it, bounded by the column's `min` and `max`, and stores the value on its 0 to 100 scale. The symbol is never part of the value sent or stored. A `rating` column renders a radio group of one choice per rank up to its `max`; choosing the chosen rank again clears it, and an unanswered rating stores no value rather than 0. A hosted form draws these exactly as a page `form` component does.
+
+Every required field — required by the field, by its column, or by a `requiredWhen` rule that holds — shows a required mark beside its label and is announced as required to assistive technology.
 
 ## Standalone fields
 
@@ -77,6 +79,27 @@ That empty choice is what makes the two obvious behaviours actually hold:
 
 A value that already resolves — a default, or a prefill arriving from a query parameter — still wins outright and is never asked for twice. A free-text field is unaffected: an empty text box still stores an empty string.
 
+## Choices read from a table
+
+A choice field whose options live in a table — programmes, channels, campuses — names that table with `optionsSource` instead of copying the rows into `options`. It works on a standalone `select`, `multi-select` or `radio` field, in place of `options` (the two are mutually exclusive), and on a `table-field` over a `relationship` column, where it overrides the related table's rows. `displayField` is the column shown and `valueField` (default `id`) the column stored; `filter`, `sort` and `limit` (default 100, at most 1000) narrow the list. The rows are read on the server every time the form is served — on its own page, on each step of a multi-step form, and wherever a page or a dialog embeds it with `formRef` — so a row added to the table is offered on the next load, and the browser never calls the records API for them.
+
+The rows are read with the form's own authority, not the visitor's, so a public form needs no read permission on the table — and should not be given one, since that would open every column through the records API. What the form exposes instead is exactly the `displayField` and `valueField` of the rows its `filter` selects, readable by anyone who can open the form. That exposure is checked at load: a column whose read the table restricts in `permissions.fields` is refused, as is a column of a sensitive type (`email`, `phone-number`, `long-text`, `rich-text`, an attachment, `user`, or a `created-by` / `updated-by` / `deleted-by` stamp), and a `filter` referencing `$currentUser` is refused on a form without `access.require`, because nobody is signed in to resolve it. Unknown tables and columns, and `optionsSource` on an input that offers no choices, are refused too, each naming the form and the field. The refusal follows lookup, rollup and formula columns to the column they read: a lookup or rollup of an email address, of a column the related table restricts, or a formula naming a phone number is refused just as the column itself would be, and the error names both. A table that declares no `permissions.fields` is still held to the engine's built-in read rules — a column they hide from a signed-in `member` or `viewer` is refused as a label or a value (unless the form's `access.require` admits neither role); declaring the table's own `permissions.fields` replaces those rules. A relationship field's default choices (its `relatedTable` and `displayField`) are held to the same checks as an explicit `optionsSource`.
+
+```yaml
+fields:
+  - { kind: table-field, column: programme, required: true }
+  - kind: standalone
+    name: track
+    inputType: select
+    label: Preferred track
+    optionsSource:
+      table: programmes
+      displayField: name
+      valueField: code
+      filter: [{ field: active, operator: eq, value: true }]
+      sort: [{ field: name, direction: asc }]
+```
+
 ## Calculation fields
 
 <!-- sovrium:options CalculationFieldSchema -->
@@ -100,7 +123,19 @@ The formula references other fields by name. The result is read-only and recompu
 
 <!-- sovrium:options SignatureFieldSchema -->
 
-A section carries an optional heading and description plus a whole-section visibility rule, and renders no input of its own.
+A section renders its `heading` as a heading and its `description` as a paragraph beneath it, at the position it is declared, carries an optional whole-section visibility rule, and adds nothing to what the form submits. On a one-question or multi-step form, a section is shown with the field declared after it.
+
+## Help text and descriptions
+
+`helpText`, a form's `description` and a step's `description` accept a small inline subset of markdown — `[label](/path)`, `**bold**`, `_italic_`, `` `code` `` and line breaks — so guidance can link to a page instead of printing its URL. Links always open in a new tab, so following one never loses a half-filled form; relative, `http(s)` and `mailto:` targets are kept and anything else is neutralised. Headings, lists and images are not rendered, raw HTML never reaches the page, and a `$t:` key is translated before it is rendered. The page's meta description keeps the same words without the markup.
+
+```yaml
+fields:
+  - kind: table-field
+    column: source
+    label: Campaign ID
+    helpText: 'Which ID? See [Channels](/channels) — use the **numeric** one.'
+```
 
 ## Defaults and references
 

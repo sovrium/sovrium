@@ -1,3 +1,5 @@
+# The team: one row per person, with their role, team and start date. The
+# directory the People page lists and the time-off requests point at.
 id: 7
 name: employees
 fields:
@@ -15,10 +17,10 @@ fields:
     name: department
     type: single-select
     options:
+      - Operations
       - Engineering
       - Sales
       - Support
-      - Operations
   - id: 5
     name: start_date
     type: date
@@ -26,6 +28,22 @@ fields:
     name: created_at
     type: created-at
 
+views:
+  - id: team_directory
+    name: Team
+    sorts:
+      - { field: start_date, direction: asc }
+
+aiAccess:
+  description: >-
+    The people on the team. Use this when the user asks who does what, who is in
+    which team, or when someone joined.
+  operations:
+    - read
+    - list
+  fieldExposure: permissioned
+
+# Everyone reads the team; only an admin adds, edits or removes a person.
 permissions:
   read: authenticated
   create:

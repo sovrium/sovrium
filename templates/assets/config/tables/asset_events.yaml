@@ -1,0 +1,44 @@
+# Asset events — the history of an asset in plain words: registered, handed
+# over, checked back in, repaired, counted.
+#
+# One line per thing that happened, written the way someone would say it
+# ("Keyboard replaced under warranty"), with the detail beside it. It is what
+# the asset's drawer shows under History.
+id: 4
+name: asset_events
+fields:
+  - id: 1
+    name: asset
+    type: relationship
+    relatedTable: assets
+    relationType: many-to-one
+    displayField: name
+  - id: 2
+    name: happened_on
+    type: date
+    required: true
+  - id: 3
+    name: event
+    type: single-line-text
+    required: true
+  - id: 4
+    name: detail
+    type: single-line-text
+  - id: 5
+    name: created_by
+    type: created-by
+  - id: 6
+    name: created_at
+    type: created-at
+
+# History is added to, not rewritten: a member adds a line, only an admin
+# edits or removes one.
+permissions:
+  read: authenticated
+  create:
+    - admin
+    - member
+  update:
+    - admin
+  delete:
+    - admin

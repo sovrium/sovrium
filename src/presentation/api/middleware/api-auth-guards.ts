@@ -205,6 +205,10 @@ export const applyApiAuthGuards = (
         // [internal ref] must accept JSON body + return 200 + SSE.
         .use('/api/ai/chat/stream', authMiddleware(auth))
         .use('/api/ai/chat/stream', requireAuth())
+        // Chat dictation (`POST /api/ai/transcriptions`). authMiddleware only:
+        // an anonymous caller gets 404 from the handler, not the 401 above,
+        // so the endpoint does not reveal that it exists (S1).
+        .use('/api/ai/transcriptions', authMiddleware(auth))
         // Conversation-history routes (durable AI chat memory,
         // [internal ref]) — list/get/delete a user's
         // conversation threads. Per-user scoping needs

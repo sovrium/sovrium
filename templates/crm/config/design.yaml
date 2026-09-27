@@ -1,64 +1,168 @@
-# CRM Workspace theming.
+# Kestrel CRM — the design system of this app.
 #
-# `baseline: extend` keeps Sovrium's built-in design system — the OKLCH neutral
-# ramp and the self-hosted IBM Plex Sans / JetBrains Mono type that ships with
-# the platform. There is deliberately no `fonts` block: the workhorse and mono
-# families are already self-hosted, and pulling a family from a CDN would leak
-# the operator's IP and Referer to a third party, which
-# `docs/architecture/patterns/fonts.md` forbids outright. Distinctiveness here
-# comes from COLOUR, not from type.
+# `baseline: extend` keeps Sovrium's built-in design system and changes only
+# what is declared here. Type stays on the two faces the platform already
+# self-hosts (IBM Plex Sans and JetBrains Mono): no family is pulled from a
+# font CDN, which would leak every visitor's address to a third party.
 #
-# WHY THESE KEYS AND NOT OTHERS
-#   `design.colors` accepts any kebab-case key, but only the keys in
-#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
-#   the `--sv-*` platform tokens as well as `--color-*`. Those are the ones every
-#   prestyled island already consumes, so declaring them repaints the grid, the
-#   kanban, the buttons and the badges with no class changes anywhere in this
-#   config. A non-role key such as `brand-accent` emits `--color-*` only and
-#   does nothing until something references it — which is why a template that
-#   declares six pretty colours and never cites them still renders achromatic.
-#
-#   Sovrium's own apps under `apps/` may NOT touch these keys without a
-#   BRAND.md permit, because repainting the role tokens there would silently
-#   reinstate the coloured ramp ADR-024 deleted from the Sovrium identity. That
-#   lock is repo-local and deliberately does not extend here: a template exists
-#   to look like the product a customer is building, not like sovrium.com.
-#
-#   The semantic trio is claimed on purpose. A sales pipeline is exactly the
-#   case where colour carries consequence — a Won deal reading green and a Lost
-#   one reading red is the information, not decoration.
+# One accent, a cool indigo at hue 275, and neutrals tinted toward it so the
+# greys belong to this app rather than to every app. Colour otherwise means an
+# outcome: a won deal, a stalled deal, a lost deal, an overdue task.
 baseline: extend
 
+# Follow the operating system's light or dark preference, which is also what
+# happens when `colorScheme` is left out: `darkColors` below is what the dark
+# scheme paints. Declaring it says the choice was made on purpose.
+colorScheme: system
+
+# Role keys repaint the prestyled components (grid, kanban, buttons, badges)
+# with no class changes anywhere else in the config.
+#
+# Every role is spelled out in BOTH schemes. `primary` and friends derive a
+# white `-foreground` companion in the light scheme only, which reads wrong on
+# a pale dark-mode accent — so the dark block names every companion itself.
+# `primary-active` is declared too: left out, a pressed button would fall back
+# to the platform's achromatic default and turn black for a frame.
+#
+# `foreground-subtle` sits a step darker than the neutral ladder would put it,
+# because it paints column headers and counts, and those must clear 4.5:1 on
+# the subtle background they sit on.
 colors:
-  primary: '#4f46e5'
-  ring: '#6366f1'
-  background: '#ffffff'
-  foreground: '#0f172a'
-  card: '#ffffff'
-  popover: '#ffffff'
-  muted: '#f1f5f9'
-  border: '#e2e8f0'
-  success: '#047857'
-  warning: '#b45309'
-  error: '#be123c'
+  primary: oklch(0.52 0.16 275)
+  primary-hover: oklch(0.46 0.15 275)
+  primary-active: oklch(0.42 0.14 275)
+  primary-foreground: oklch(0.985 0.003 275)
+  primary-subtle: oklch(0.95 0.03 275)
+  primary-subtle-foreground: oklch(0.38 0.12 275)
+  ring: oklch(0.6 0.16 275)
+  background: oklch(0.985 0.003 275)
+  background-subtle: oklch(0.967 0.005 275)
+  background-raised: oklch(1 0 0)
+  background-overlay: oklch(1 0 0)
+  background-inset: oklch(0.925 0.008 275)
+  foreground: oklch(0.21 0.008 275)
+  foreground-muted: oklch(0.45 0.012 275)
+  foreground-subtle: oklch(0.51 0.012 275)
+  foreground-disabled: oklch(0.71 0.012 275)
+  foreground-inverse: oklch(0.985 0.003 275)
+  border: oklch(0.925 0.008 275)
+  success: oklch(0.52 0.12 155)
+  warning: oklch(0.55 0.12 70)
+  error: oklch(0.53 0.17 25)
+  destructive-foreground: oklch(0.985 0.003 275)
 
-# Rendered only when the app declares `design.colorScheme` or ships a
-# `theme-toggle`; the stylesheet carries it either way.
 darkColors:
-  primary: '#818cf8'
-  ring: '#6366f1'
-  background: '#0b1120'
-  foreground: '#e2e8f0'
-  card: '#111a2e'
-  popover: '#111a2e'
-  muted: '#1e293b'
-  border: '#243049'
-  success: '#34d399'
-  warning: '#fbbf24'
-  error: '#fb7185'
+  primary: oklch(0.78 0.12 275)
+  primary-hover: oklch(0.83 0.09 275)
+  primary-active: oklch(0.87 0.07 275)
+  primary-foreground: oklch(0.16 0.006 275)
+  primary-subtle: oklch(0.28 0.06 275)
+  primary-subtle-foreground: oklch(0.9 0.06 275)
+  ring: oklch(0.72 0.13 275)
+  background: oklch(0.16 0.006 275)
+  background-subtle: oklch(0.19 0.007 275)
+  background-raised: oklch(0.21 0.008 275)
+  background-overlay: oklch(0.23 0.008 275)
+  background-inset: oklch(0.13 0.005 275)
+  foreground: oklch(0.95 0.005 275)
+  foreground-muted: oklch(0.75 0.01 275)
+  foreground-subtle: oklch(0.68 0.012 275)
+  foreground-disabled: oklch(0.45 0.01 275)
+  foreground-inverse: oklch(0.16 0.006 275)
+  border: oklch(0.3 0.01 275)
+  success: oklch(0.75 0.12 155)
+  warning: oklch(0.8 0.12 75)
+  error: oklch(0.72 0.14 25)
+  destructive-foreground: oklch(0.16 0.006 275)
 
+# What each colour is for. Writing the usage down is what stops the accent from
+# drifting onto statuses, and a status colour from becoming decoration.
+colorRoles:
+  primary:
+    usage: The one accent. Primary action fill, active nav item, focus ring, selected row edge. Never a status, never body text.
+    pairsWith: primary-foreground
+  primary-subtle:
+    usage: Selected and current states on quiet surfaces — the current page in the sidebar, the dragged-over column. Never a badge ground.
+    pairsWith: primary-subtle-foreground
+  success:
+    usage: A deal marked Won, and nothing else. Never a generic confirmation colour.
+    pairsWith: foreground
+  warning:
+    usage: A deal stalled past its expected close date, a task due today. Never decorative.
+    pairsWith: foreground
+  error:
+    usage: A deal marked Lost, an overdue task, a failed save, a destructive action.
+    pairsWith: foreground
+
+# A compact type ladder: a sales screen shows many records at once, so body
+# text runs at 14px and headings stay close to it. Figures and overlines use
+# the monospace face so columns of money line up.
+typeScale:
+  families:
+    sans:
+      family: "'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    mono:
+      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+  steps:
+    display: { size: 2rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.02em }
+    h1: { size: 1.375rem, lineHeight: 1.2, weight: 600, letterSpacing: -0.01em }
+    h2: { size: 1.0625rem, lineHeight: 1.3, weight: 600 }
+    h3: { size: 0.875rem, lineHeight: 1.35, weight: 600 }
+    lead: { size: 0.9375rem, lineHeight: 1.5 }
+    body: { size: 0.875rem, lineHeight: 1.5 }
+    bodySmall: { size: 0.8125rem, lineHeight: 1.45 }
+    caption: { size: 0.75rem, lineHeight: 1.4 }
+    overline: { size: 0.6875rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em, font: mono }
+
+# Standard corners: small enough to keep a dense grid crisp, round enough that
+# a card reads as one object.
 radius:
   sm: 0.25rem
   md: 0.5rem
   lg: 0.75rem
   full: 9999px
+
+# Cards carry a one-pixel lift; overlays float clearly above the page.
+elevation:
+  none: none
+  sm: 0 1px 2px rgb(24 22 48 / 0.06)
+  md: 0 4px 12px rgb(24 22 48 / 0.08)
+  lg: 0 12px 32px rgb(24 22 48 / 0.14)
+
+# A rep scans many rows, so every page runs at the compact step. The three steps
+# are the platform's own values, written out so one number can be tuned.
+density:
+  default: compact
+  steps:
+    compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }
+    cozy: { rowY: 8px, controlH: 40px, buttonH: 32px, gap: 10px, text: 13px }
+    roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
+
+# How the app speaks. Nothing reads these at runtime; they are the brief anyone
+# writing a label, an empty state or an error message for this app follows.
+voice:
+  personality:
+    - brisk
+    - exact
+    - on the rep's side
+  pronoun: you
+  prefer:
+    - 'Lead a button with its verb: Add deal, Log call, Mark as won.'
+    - Name the money and the date; a deal is its value and its close date.
+    - Every empty state names the one next action.
+  avoid:
+    - No exclamation marks, no celebration copy on a won deal.
+    - No sales jargon the rep did not choose (no "crush quota", no "funnel velocity").
+    - Never call a lost deal a failure.
+  tone:
+    empty: Say what this view will hold, then the one action that fills it.
+    loading: Name what is loading — deals, tasks — never a bare spinner.
+    error: State what did not save and the one thing that fixes it. Never blame the rep.
+    success: Confirm the fact in past tense, with the record's name. No praise.
+    destructive: Name the record and whether it comes back from the trash.
+
+principles:
+  - The pipeline is the home page; everything else is one click from a deal.
+  - Colour means an outcome — won, stalled, lost, overdue — or it is not used.
+  - Numbers are money and dates first, in tabular figures, right-aligned.
+  - A rep adds a record without leaving the view they are in.

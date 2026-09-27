@@ -13,6 +13,7 @@ import {
   type TranscribeInput,
 } from '@/application/ports/services/speech-service'
 import {
+  oversizedRecordingRefusal,
   parseSpeechEnv,
   resolveSpeechModel,
   speechPrecedenceRefusal,
@@ -39,17 +40,16 @@ const NOT_CONFIGURED =
 const checkSize = (
   config: SpeechConfig,
   input: TranscribeInput
-): Effect.Effect<void, SpeechInputError> =>
-  input.bytes.length > config.maxFileBytes
-    ? Effect.fail(
-        new SpeechInputError({
-          message: `the recording is ${String(input.bytes.length)} bytes, above the ${String(config.maxFileBytes)}-byte limit (STT_MAX_FILE_BYTES)`,
-        })
-      )
-    : Effect.void
+): Effect.Effect<void, SpeechInputError> => {
+  const refusal = oversizedRecordingRefusal(input.bytes.length, config.maxFileBytes)
+  return refusal === undefined
+    ? Effect.void
+    : Effect.fail(new SpeechInputError({ message: refusal }))
+}
 
 const makeConfigured = (config: SpeechConfig, refusal: string | undefined) =>
   SpeechService.of({
+    maxFileBytes: config.maxFileBytes,
     transcribe: (input) =>
       refusal !== undefined
         ? Effect.fail(new SpeechNotConfiguredError({ message: refusal }))
@@ -65,6 +65,7 @@ const makeConfigured = (config: SpeechConfig, refusal: string | undefined) =>
   })
 
 const inert = SpeechService.of({
+  maxFileBytes: undefined,
   transcribe: () => Effect.fail(new SpeechNotConfiguredError({ message: NOT_CONFIGURED })),
 })
 
@@ -75,6 +76,7 @@ export const SpeechServiceLive = Layer.effect(
     if (!parsed.ok) {
       const message = parsed.error
       return SpeechService.of({
+        maxFileBytes: undefined,
         transcribe: () => Effect.fail(new SpeechNotConfiguredError({ message })),
       })
     }

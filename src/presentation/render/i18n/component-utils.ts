@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
+import { referenceNameOf } from '@/presentation/render/resolve/component-reference'
 import type {
   ComponentReference,
   SimpleComponentReference,
@@ -32,17 +32,15 @@ export function getComponentInfo(
   // holding a whole component, and the key test named its template
   // `[object Object]` — which then won over the node's own `data-testid`,
   // because `buildTestId` prefers a component name.
-  if (!isComponentReferenceNode(section)) {
+  // An EXPANDED reference (inlined by the page pipeline) is still the template
+  // it was placed from, so it is named and counted exactly as the reference was.
+  const componentName = referenceNameOf(section)
+  if (componentName === undefined) {
     return undefined
   }
 
-  const componentName = 'component' in section ? section.component : section.$ref
-
   // Count total occurrences of this component name in all sections
-  const totalOccurrences = sections.filter((s) => {
-    const sName = 'component' in s ? s.component : '$ref' in s ? s.$ref : undefined
-    return sName === componentName
-  }).length
+  const totalOccurrences = sections.filter((s) => referenceNameOf(s) === componentName).length
 
   // Only set instanceIndex if there are multiple instances
   if (totalOccurrences <= 1) {
@@ -50,10 +48,9 @@ export function getComponentInfo(
   }
 
   // Count previous occurrences of the same component name
-  const previousOccurrences = sections.slice(0, index).filter((s) => {
-    const sName = 'component' in s ? s.component : '$ref' in s ? s.$ref : undefined
-    return sName === componentName
-  })
+  const previousOccurrences = sections
+    .slice(0, index)
+    .filter((s) => referenceNameOf(s) === componentName)
 
   return { name: componentName, instanceIndex: previousOccurrences.length }
 }

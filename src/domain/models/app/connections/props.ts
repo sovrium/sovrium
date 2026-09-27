@@ -23,7 +23,7 @@ export const OAuth2PropsSchema = Schema.Struct({
     Schema.String.pipe(
       Schema.annotate({
         description:
-          'Known provider shorthand (e.g., google, github, slack). If set, authorizationUrl/tokenUrl may be inferred.',
+          'Known provider shorthand: airtable, github, google, hubspot, linkedin, microsoft, notion, salesforce or slack. It supplies the authorizationUrl and tokenUrl the connection leaves out; an explicit URL wins. Any other name is refused when the config loads unless both URLs are set.',
       })
     )
   ),
@@ -52,14 +52,15 @@ export const OAuth2PropsSchema = Schema.Struct({
     TemplateStringSchema.pipe(
       Schema.annotate({
         description:
-          'Redirect URI registered with the OAuth2 provider. Required at runtime — auto-generation from app URL is not yet implemented; if omitted, the OAuth call will fail with a provider-side error.',
+          'Redirect URI registered with the OAuth2 provider. Defaults to the callback of the place the flow starts from: <base URL>/api/connections/<name>/callback from the app, <base URL>/api/admin/connections/<name>/callback from the operator console — the base URL being BASE_URL when set, otherwise the address the request arrived on. Register the callback of each place you connect from; set this only to use another address.',
       })
     )
   ),
   grantType: Schema.optional(
     Schema.Literals(['authorizationCode', 'clientCredentials']).pipe(
       Schema.annotate({
-        description: 'OAuth2 grant type (default: authorizationCode)',
+        description:
+          'OAuth2 grant type (default: authorizationCode). clientCredentials is machine-to-machine: the token is requested with the client id and secret on first use, stored encrypted as the shared token, reused until it expires and then requested again — no one authorizes anything.',
       })
     )
   ),
@@ -81,7 +82,7 @@ export const OAuth2PropsSchema = Schema.Struct({
     Schema.Literals(['header', 'body']).pipe(
       Schema.annotate({
         description:
-          'How client credentials are sent on token-endpoint requests. "header" (default) sends them via HTTP Basic auth (RFC 6749 §2.3.1, the prescribed scheme). "body" sends client_id/client_secret as form parameters. Honored by the refresh-token grant (token-refresh.ts); the initial authorization_code exchange currently always uses "body" regardless of this value.',
+          'How client credentials are sent on token-endpoint requests. "header" (default) sends them via HTTP Basic auth (RFC 6749 §2.3.1, the prescribed scheme). "body" sends client_id/client_secret as form parameters. Honored by the refresh-token and client-credentials grants; the initial authorization_code exchange currently always uses "body" regardless of this value.',
       })
     )
   ),
@@ -105,6 +106,55 @@ export const OAuth2PropsSchema = Schema.Struct({
       Schema.annotate({
         description:
           'Connection scope: app (admin-only, shared token) or user (per-user tokens). Default: app',
+      })
+    )
+  ),
+  tokenFields: Schema.optional(
+    Schema.Array(
+      Schema.String.pipe(
+        Schema.annotate({ description: 'Name of a field of the token response' }),
+        Schema.check(Schema.isPattern(/^[a-z_][a-z0-9_]*$/))
+      )
+    ).pipe(
+      Schema.annotate({
+        howTo:
+          "Salesforce returns the org's API root as `instance_url`: keep it with `tokenFields: [instance_url]` and set the connection's `baseUrl: $token.instance_url`.",
+        description:
+          'Fields of the token response to store with the token, readable as $token.NAME in the connection baseUrl. Refreshed with every new token.',
+      })
+    )
+  ),
+  /**
+   * Providers that issue a short-lived token at the code exchange and a
+   * long-lived one only on request — Meta's `fb_exchange_token` — with no
+   * refresh token either way. The exchange runs at the callback, and again on
+   * the first call inside the renewal window, so the stored token keeps
+   * sliding forward while the connection is used.
+   */
+  longLivedToken: Schema.optional(
+    Schema.Struct({
+      style: Schema.Literal('meta').pipe(
+        Schema.annotate({
+          description:
+            "The exchange to perform. 'meta': a GET to the tokenUrl with grant_type=fb_exchange_token, the client id and secret and the current token, answered with a token valid about 60 days.",
+        })
+      ),
+      renewWithinDays: Schema.optional(
+        Schema.Finite.pipe(
+          Schema.annotate({
+            defaultNote: '30',
+            description:
+              'When the stored long-lived token has at most this many days left, the next call exchanges it for a fresh one before using it.',
+          }),
+          Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 59 }))
+        )
+      ),
+    }).pipe(
+      Schema.annotate({
+        howTo:
+          'For a Facebook Page connection set `longLivedToken: { style: meta }`: without it the token from the code exchange stops working within hours.',
+        description:
+          'Exchange the short-lived token of the code exchange for a long-lived one at the callback, and renew it before it lapses.',
       })
     )
   ),
@@ -204,7 +254,10 @@ export type ApiKeyProps = Schema.Schema.Type<typeof ApiKeyPropsSchema>
 
 export const BasicPropsSchema = Schema.Struct({
   username: TemplateStringSchema.pipe(
-    Schema.annotate({ description: 'Username (supports $env.VAR)' })
+    Schema.annotate({
+      description:
+        "Username (supports $env.VAR). May be empty for an API that takes its key as the password with an empty username (Lemlist): the pair is then sent as ':<password>'. A connection whose username and password are both empty fails the step.",
+    })
   ),
   password: TemplateStringSchema.pipe(
     Schema.annotate({ description: 'Password (supports $env.VAR)' })
@@ -238,3 +291,87 @@ export const BearerPropsSchema = Schema.Struct({
 
 /** @public */
 export type BearerProps = Schema.Schema.Type<typeof BearerPropsSchema>
+
+// ─── Token Exchange Props ───────────────────────────────────────────────────
+
+/**
+ * A credential exchanged at a token endpoint for a short-lived bearer: the
+ * shape of APIs that hand out an access token for an API key or a client id
+ * and secret without implementing OAuth2 (Spendesk, a number of French SaaS
+ * back-offices). Sovrium posts `body` to `tokenUrl`, reads the token and its
+ * lifetime from the answer, stores the token encrypted as the connection's
+ * shared token, and asks again once it expires.
+ */
+export const TokenExchangePropsSchema = Schema.Struct({
+  tokenUrl: TemplateStringSchema.pipe(
+    Schema.annotate({
+      description:
+        'Endpoint that answers the credential with a token (an http(s) URL or $env.VAR). It passes the same outbound-address guard as the http actions.',
+      examples: ['https://public-api.spendesk.com/v1/auth/token'],
+    })
+  ),
+  body: Schema.Record(Schema.String, TemplateStringSchema).pipe(
+    Schema.annotate({
+      description:
+        'Fields sent to tokenUrl, values resolved first — typically the key or the client id and secret, each as $env.VAR.',
+      examples: [
+        { client_id: '$env.SPENDESK_CLIENT_ID', client_secret: '$env.SPENDESK_CLIENT_SECRET' },
+      ],
+    })
+  ),
+  bodyType: Schema.optional(
+    Schema.Literals(['json', 'form']).pipe(
+      Schema.annotate({
+        defaultNote: 'json',
+        description:
+          'How body is sent: a JSON object, or application/x-www-form-urlencoded fields.',
+      })
+    )
+  ),
+  tokenPath: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        defaultNote: 'access_token',
+        description: 'Dot path of the token in the JSON answer (for example data.token).',
+      }),
+      Schema.check(Schema.isPattern(/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/))
+    )
+  ),
+  expiresInPath: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        defaultNote: 'expires_in',
+        description:
+          "Dot path of the token's lifetime in seconds in the JSON answer. An answer without it is kept for one hour.",
+      }),
+      Schema.check(Schema.isPattern(/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/))
+    )
+  ),
+  header: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        defaultNote: 'Authorization',
+        description: 'Request header that carries the token on every call.',
+      })
+    )
+  ),
+  prefix: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        defaultNote: 'Bearer',
+        description:
+          "Text before the token in that header, followed by a space. '' sends the token alone.",
+      })
+    )
+  ),
+}).pipe(
+  Schema.annotate({
+    identifier: 'TokenExchangeProps',
+    title: 'Token Exchange Connection Props',
+    description:
+      'Properties for a connection that exchanges a stored credential for a short-lived token',
+  })
+)
+
+/** @public */
+export type TokenExchangeProps = Schema.Schema.Type<typeof TokenExchangePropsSchema>

@@ -82,7 +82,11 @@ export const automationTriggers = defineSection({
       sidebarLabel: 'Webhook & Cron',
       body: triggerWebhookCronBody,
       documents: [WebhookTriggerSchema, CronTriggerSchema],
-      stories: ['US-AUTOMATIONS-TRIGGERS-WEBHOOK'],
+      stories: [
+        'US-AUTOMATIONS-TRIGGERS-WEBHOOK',
+        'US-AUTOMATIONS-TRIGGERS-WEBHOOK-SIGNATURES',
+        'US-AUTOMATIONS-TRIGGERS-WEBHOOK-VERIFICATION',
+      ],
     }),
     defineArticle({
       slug: 'trigger-auth-form',

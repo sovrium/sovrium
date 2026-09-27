@@ -62,8 +62,9 @@ export type { ConditionOperator, VisibleWhen, VisibleWhenCondition }
  * `control` is normally omitted. It becomes REQUIRED when the form is endpoint-
  * bound (`form.endpoint` set, no `dataSource`/`formRef`): there is no table to
  * derive a control from, so each field must name its own input — `text`, `email`,
- * `password`, `number`, `tel`, `url`, `textarea`, or `select` (a dropdown, which
- * also needs `options`).
+ * `password`, `number`, `tel`, `url`, `textarea`, `select` (a dropdown, which
+ * also needs `options`), or `switch` (an on/off switch that submits a JSON
+ * boolean, and takes no `options`).
  */
 export const FormFieldControlSchema = Schema.Literals([
   'text',
@@ -74,10 +75,11 @@ export const FormFieldControlSchema = Schema.Literals([
   'url',
   'textarea',
   'select',
+  'switch',
 ]).annotate({
   title: 'Form Field Control',
   description:
-    'Explicit input control for an endpoint-bound form field (text/email/password/number/tel/url/textarea/select). Omitted for table-bound forms (control derived from the column type).',
+    'Explicit input control for an endpoint-bound form field (text/email/password/number/tel/url/textarea/select/switch). `switch` is an on/off switch that submits a JSON boolean — `true` when on, `false` when off, never omitted — and takes no options. Omitted for table-bound forms (control derived from the column type).',
 })
 
 export const FormFieldConfigSchema = Schema.Struct({
@@ -208,10 +210,15 @@ export const FormFieldConfigSchema = Schema.Struct({
       description: 'If true, field input is disabled',
     })
   ),
-  /** Default value for new records */
+  /**
+   * Default value for new records. A `control: switch` field takes a boolean
+   * (`true` opens it switched on) or a `$session.<field>` reference, filled in
+   * the browser from the caller's own session.
+   */
   defaultValue: Schema.optional(
     Schema.Union([Schema.String, Schema.Finite, Schema.Boolean]).annotate({
-      description: 'Default value for create mode. Supports static values or $variable references.',
+      description:
+        'Default value for create mode. Supports static values or $variable references. A `switch` field takes a boolean or a `$session.<field>` reference.',
     })
   ),
   /** Submit value without rendering input */
@@ -251,10 +258,17 @@ export const FormFieldConfigSchema = Schema.Struct({
       Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
-}).annotate({
-  title: 'Form Field Config',
-  description: 'Per-field configuration for a form component',
 })
+  .annotate({
+    title: 'Form Field Config',
+    description: 'Per-field configuration for a form component',
+  })
+  .check(
+    Schema.makeFilter(
+      (field: { readonly control?: string; readonly options?: unknown }) =>
+        field.control !== 'switch' || field.options === undefined || 'a switch takes no options'
+    )
+  )
 
 // ---------------------------------------------------------------------------
 // Form layout

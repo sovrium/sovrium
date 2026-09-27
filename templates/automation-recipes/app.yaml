@@ -1,13 +1,24 @@
-# The Zapier-replacement showcase. Four small recipes cover the trigger
-# families — webhook, record, cron, and automation-failure — chained through
-# two tables. Every run is stored in YOUR database with infinite history
-# (Zapier caps history by plan), no per-task pricing, and full data control.
-name: automation-recipes
-version: 1.0.0
+# Kerlo Automations — four automations running inside the app they serve.
+#
+# A small studio's lead intake, automated: a webhook writes leads, every new
+# lead emails the team and is logged, a cron sends the evening digest, and a
+# run that fails after its retries is written down while the operators are
+# emailed. Every run leaves a line in the app's own database.
+name: kerlo-automations
+version: 2.0.0
 description: >-
-  Automation recipes — a webhook captures leads, a record trigger notifies and
-  logs, a cron sends the daily digest, and a failure trigger alerts the
-  operator. Infinite run history in your own database.
+  Automations that run in your own app, with every run kept: a webhook that
+  writes leads behind a bearer token, a record trigger that emails the team
+  and logs each lead with retries, a weekday cron digest, and a failure
+  handler — shown on a public page as the configuration that declares them,
+  and on a gated Activity page as a week of runs.
+
+# The token the lead webhook requires. The app refuses to start without it, so
+# the webhook is never open by accident.
+env:
+  - key: LEADS_WEBHOOK_TOKEN
+    description: Bearer token a caller must send to the lead webhook (recipe 1).
+    required: true
 
 auth:
   $ref: ./config/auth.yaml
@@ -19,13 +30,21 @@ tables:
   - $ref: ./config/tables/leads.yaml
   - $ref: ./config/tables/activity_log.yaml
 
+# Listed in the order of the sidebar; the public recipe page comes last there,
+# under its own heading.
 pages:
+  - $ref: ./config/pages/activity.yaml
+  - $ref: ./config/pages/leads.yaml
   - $ref: ./config/pages/home.yaml
   - $ref: ./config/pages/sign-in.yaml
-  - $ref: ./config/pages/activity.yaml
 
 automations:
   - $ref: ./config/automations/capture-lead-from-webhook.yaml
   - $ref: ./config/automations/log-new-lead.yaml
   - $ref: ./config/automations/daily-digest.yaml
   - $ref: ./config/automations/alert-on-failure.yaml
+
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over the last run of the list.
+badge:
+  placement: footer

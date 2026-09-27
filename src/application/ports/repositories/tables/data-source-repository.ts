@@ -19,6 +19,11 @@ export interface DataSourceQueryOptions {
   readonly sort?: readonly DataSort[]
   readonly pageSize?: number
   readonly page?: number
+  /**
+   * Keep only live rows (`deleted_at IS NULL`). Every app table carries the
+   * intrinsic `deleted_at` column, so this is safe on any of them.
+   */
+  readonly liveOnly?: boolean
 }
 
 // ============================================================================
@@ -56,11 +61,14 @@ export class DataSourceRepository extends Context.Service<
       filter?: readonly DataFilter[]
     ) => Effect.Effect<number, DataSourceDatabaseError>
 
+    // eslint-disable-next-line max-params -- positional signature kept for its existing callers; `options` is an optional fifth argument
     readonly fetchSingleRecord: (
       tableName: string,
       paramField: string,
       paramValue: string,
-      fields?: readonly string[]
+      fields?: readonly string[],
+      /** `liveOnly`: a soft-deleted row reads as absent (`deleted_at IS NULL`). */
+      options?: { readonly liveOnly?: boolean }
     ) => Effect.Effect<Record<string, unknown> | undefined, DataSourceDatabaseError>
 
     /**

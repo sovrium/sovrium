@@ -553,6 +553,9 @@
 
     const supportedLanguagesJson = dropdown.getAttribute('data-supported-languages')
     const showFlags = dropdown.getAttribute('data-show-flags') === 'true'
+    // The option chrome is a design-system recipe the SSR markup stamps here,
+    // because this script cannot import it.
+    const optionClass = dropdown.getAttribute('data-option-class')
 
     if (!supportedLanguagesJson) {
       return
@@ -575,6 +578,9 @@
       // Store short code for language selection
       button.setAttribute('data-language-code', lang.code)
       button.setAttribute('type', 'button')
+      if (optionClass) {
+        button.className = optionClass
+      }
 
       const span = document.createElement('span')
       span.setAttribute('data-testid', 'language-option')

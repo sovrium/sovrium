@@ -46,13 +46,13 @@ For a table-bound field the multiplicity is **inferred from the column type**, s
 
 ## Which bucket the files land in
 
-A form field names no bucket, so an upload lands in the bucket **called** `default` — the implicit virtual one, unless you declare a bucket with that name and give it your own rules. There is no `default: true` flag: the name is the mechanism.
+A form field names no bucket of its own. A table-bound field uploads into the bucket its attachment column declares. Otherwise the upload lands in the first bucket the app declares, and, when it declares none, in the built-in `system` bucket every app carries. There is no `default: true` flag.
 
-Per-field bucket overrides are reserved for a later release, so a form needing two destinations today needs two forms.
+Per-field bucket overrides on a standalone field are reserved for a later release, so a form needing two destinations today binds its fields to columns that name them, or uses two forms.
 
 ```yaml
 buckets:
-  - name: default
+  - name: invoices
     maxFileSize: 20971520
     allowedMimeTypes: ['application/pdf', 'image/*']
 
@@ -98,3 +98,17 @@ type FileMetadata = {
 ```
 
 The type is **detected** rather than taken from the upload's own claim, which is what keeps a file renamed to `.pdf` from being stored as one.
+
+## Recording audio in the browser
+
+Add `recordAudio` to an attachment field and the person filling in the form gets a **Record audio** button beside the file picker. They press Record audio, speak, press **Stop recording**, and the recording becomes a file on the field. It is uploaded to the field's bucket, shown as a removable chip, and submitted with the same `{ url, name, size, mimeType }` metadata as a picked file. The picker stays available, so a voice memo recorded on a phone (`.m4a`) can be uploaded instead.
+
+```yaml
+fields:
+  - kind: table-field
+    column: recording
+    accept: 'audio/*'
+    recordAudio: { maxDurationSeconds: 1800 }
+```
+
+`recordAudio.maxDurationSeconds` (1 to 7200, default 7200) stops the recording automatically. The file size is still limited by the field's or the bucket's `maxFileSize`. Browsers record `audio/webm` (Opus), or `audio/mp4` where WebM is unavailable. If microphone access is refused, the field says so and uploading still works. The recorder does not transcribe. To put the text on the record, add a record-created automation with an `ai/transcribe` step followed by `record/update`.

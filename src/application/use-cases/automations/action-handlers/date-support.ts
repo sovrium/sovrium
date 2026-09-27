@@ -42,9 +42,6 @@ export type Resolved<A> =
 const ok = <A>(value: A): Resolved<A> => ({ ok: true, value })
 const bad = <A>(error: string): Resolved<A> => ({ ok: false, error })
 
-/** Zone assumed when `props.timezone` is absent. Matches the cron trigger. */
-export const DEFAULT_TIMEZONE = 'UTC'
-
 /** ISO 8601 rendering of an epoch-millisecond instant. */
 export const isoOf = (epochMillis: number): string => new Date(epochMillis).toISOString()
 
@@ -71,7 +68,9 @@ export const optionalString = (
 }
 
 /**
- * Resolve and VALIDATE `props.timezone`, defaulting to UTC.
+ * Resolve and VALIDATE `props.timezone`, defaulting to `fallback` — the
+ * operator timezone, which the caller reads at the boundary so this helper
+ * stays pure. The same default the cron trigger uses.
  *
  * Uses the same `isValidTimezone` the schemas' `Schema.check` uses, so a zone
  * spelling accepted in declared config is accepted from a code action and vice
@@ -80,10 +79,11 @@ export const optionalString = (
  */
 export const resolveTimezone = (
   props: Readonly<Record<string, unknown>>,
-  operator: string
+  operator: string,
+  fallback: string
 ): Resolved<string> => {
   const raw = optionalString(props, 'timezone')
-  if (raw === undefined) return ok(DEFAULT_TIMEZONE)
+  if (raw === undefined) return ok(fallback)
   return isValidTimezone(raw) ? ok(raw) : bad(`date.${operator}: invalid IANA timezone "${raw}"`)
 }
 

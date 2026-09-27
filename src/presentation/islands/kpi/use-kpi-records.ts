@@ -7,6 +7,8 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createRecordsClient } from '@/presentation/api/client'
+import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
+import type { SharedFilterBindingConfig } from '../hooks/use-shared-filter'
 import type { TableRecord } from '../runtime/types'
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
 
@@ -32,7 +34,7 @@ function buildFilterParam(filters: readonly DataFilter[] | undefined): string | 
   return JSON.stringify({ and: conditions })
 }
 
-export interface KpiRecordsDataSource {
+export interface KpiRecordsDataSource extends SharedFilterBindingConfig {
   readonly table: string
   readonly view?: string
   readonly filter?: readonly DataFilter[]
@@ -49,17 +51,23 @@ export interface KpiFetchResult {
  * default records-API page envelope.
  */
 export function useKpiRecords(dataSource: KpiRecordsDataSource | undefined) {
-  const filterParam = buildFilterParam(dataSource?.filter)
+  // A binding on a filter bar narrows the read to what the bar holds.
+  const shared = useLazySharedFilter(
+    { bindTo: dataSource?.bindTo, sharedFilter: dataSource?.sharedFilter },
+    buildFilterParam(dataSource?.filter)
+  )
+  const { filterParam, extraParams } = shared
 
-  const queryKey = ['kpi-records', dataSource?.table, filterParam]
+  const queryKey = ['kpi-records', dataSource?.table, filterParam, extraParams]
 
   return useQuery({
     queryKey,
-    enabled: Boolean(dataSource?.table),
+    enabled: Boolean(dataSource?.table) && shared.ready,
     queryFn: async (): Promise<KpiFetchResult> => {
       if (!dataSource?.table) return { records: [] }
 
       const query = {
+        ...extraParams,
         page: '1',
         limit: '100',
         ...(filterParam && { filter: filterParam }),

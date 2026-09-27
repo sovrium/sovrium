@@ -181,6 +181,10 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   // written and nothing fails loudly.
   'automation.paused': 'automation',
   'automation.resumed': 'automation',
+  // The platform's own pause, after repeated final failures
+  // (`SOVRIUM_AUTOMATION_AUTOPAUSE`). A distinct action from
+  // `automation.paused`, whose actor is always a person.
+  'automation.auto_paused': 'automation',
   // Admin agent-conversations readbacks. The
   // conversation list + detail endpoints both key on the singular `agent`
   // resource type — a conversation read is a read OF an agent's history, so
@@ -288,6 +292,7 @@ export const AUDIT_ACTIONS = {
   AUTOMATION_RUNS_DETAIL_QUERIED: 'automation.runs.detail.queried',
   AUTOMATION_PAUSED: 'automation.paused',
   AUTOMATION_RESUMED: 'automation.resumed',
+  AUTOMATION_AUTO_PAUSED: 'automation.auto_paused',
   AGENT_LIST_QUERIED: 'agent.list.queried',
   AGENT_CONVERSATION_LIST_QUERIED: 'agent.conversation.list.queried',
   AGENT_CONVERSATION_DETAIL_QUERIED: 'agent.conversation.detail.queried',

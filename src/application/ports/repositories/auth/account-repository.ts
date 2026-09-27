@@ -61,6 +61,13 @@ export interface AccountUserRow {
   /** The account's own interface-language preference, or `null` if never chosen. */
   readonly language: string | null
   readonly emailVerified: boolean
+  /**
+   * The two operator-email preferences. Dialect-native: a Postgres boolean, but
+   * an INTEGER 0/1 on SQLite, since the raw SELECT bypasses Drizzle's boolean
+   * decoding — the use case coerces, exactly as it does `emailVerified`.
+   */
+  readonly notifyAutomationAlerts: boolean | number
+  readonly notifyWeeklyDigest: boolean | number
   readonly role: string | null
   readonly createdAt: Date
   readonly updatedAt: Date

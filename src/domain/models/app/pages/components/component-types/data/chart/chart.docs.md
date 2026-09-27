@@ -34,6 +34,10 @@ pages:
 
 `groupBy` is **required** — it names the field the records are grouped by, which is the chart's categories. `function` is `count`, `sum`, `avg`, `min` or `max`, and `field` is what the function operates on; omit it for `count`. `interval` buckets a date grouping into `day`, `week`, `month`, `quarter` or `year`.
 
+A chart grouped, or a timeline laned, by a `user` or a labelled relationship names its categories by the label.
+
+`order` sets the order of the categories: `option` follows the grouping field's declared options, `label` sorts the category names as they are displayed (an option's label, else its value), and `value-asc` or `value-desc` sort by the aggregated value. When it is omitted, a chart grouped by a `single-select` or `status` field follows the field's options; any other grouping is sorted by name, except on a pie or donut, whose slices run largest first. A chart grouped by a select field also paints each bar and pie or donut slice in the colour its option declares, and a pie or donut with a `legend` lists one entry per slice. A `yAxis` with `format: currency` prints the plotted field's currency and precision, grouped by thousands in the page language; a chart with `series` does so when every series plots a field of the same currency, and keeps a `$` otherwise.
+
 ## Size is the container's business
 
 A chart has no `height` property. It fills the width of whatever holds it — a page column, a grid cell, a card — and the engine derives the height from that width, keeping the plot wider than it is tall at every size. So the lever on a chart's shape is the width of its container: put two charts in a two-column `grid` and each is shorter than one spanning the page.

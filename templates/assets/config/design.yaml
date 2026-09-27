@@ -1,95 +1,167 @@
-# Asset tracker theming — graphite with a steel accent.
+# Arden Assets — the design system of this app.
 #
-# The only template in the gallery that stays cool and near-neutral, and that is
-# the point: an asset register is a ledger of things the company owns, and the
-# demo reads as more trustworthy when the chrome gets out of the way and the
-# status badges are the only saturated thing on screen. Every sibling template
-# claims a hue; this one claims the absence of one, which turns out to be just as
-# recognisable in a gallery of nineteen.
+# `baseline: extend` keeps Sovrium's built-in design system and changes only
+# what is declared here. Type stays on the two faces the platform already
+# self-hosts (IBM Plex Sans and JetBrains Mono): no family is pulled from a
+# font CDN, which would leak every visitor's address to a third party.
 #
-# Graphite is NOT the platform default dressed up. Sovrium's own baseline ramp is
-# achromatic; this palette is deliberately blue-shifted (the neutrals carry a few
-# points of blue), so the surface reads as cool steel rather than as an
-# unthemed app.
-#
-# WHY THESE KEY NAMES AND NOT PRETTIER ONES
-#   `design.colors` accepts any kebab-case key, but only the keys in
-#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
-#   the `--sv-*` platform tokens as well as `--color-*`. Those are the ones every
-#   prestyled island already reads, so declaring them repaints the grid, the
-#   kanban and the gallery with no class changes anywhere in this config. A
-#   non-role key such as `steel-500` would emit `--color-*` only and paint
-#   nothing until something cited it — and this template cites no colour by name,
-#   because it carries no inline styles.
-#
-#   The mapping is NOT identity, which is the part that bites: `ring` →
-#   `focus-ring` and `success` → `success-solid`. `foreground-muted` and
-#   `foreground-subtle` are role keys; `text-secondary` and `text-muted` are not.
-#
-#   TWO KEYS FOR ONE ROLE. `muted` and `background-subtle` both map to
-#   `--sv-bg-subtle`; so do `card`/`background-raised` (→ `--sv-bg-raised`) and
-#   `popover`/`background-overlay` (→ `--sv-bg-overlay`). Declaring both names of
-#   a pair is a silent collision resolved by key order, so this file uses the
-#   `background-*` spelling throughout and never the aliases. That also dodges a
-#   trap: `muted`, `card` and `popover` sit in COLORS_NEEDING_FOREGROUND, which
-#   auto-derives a `#ffffff` companion — invisible on the pale surface it is
-#   meant to sit on, and NOT mirrored into `darkColors`, since it is a guess
-#   made for the light surface only. Name `primary-foreground` explicitly if a
-#   companion is ever genuinely needed.
-#
-# NO `fonts` BLOCK, ON PURPOSE
-#   Only IBM Plex Sans Variable and JetBrains Mono Variable ship self-hosted.
-#   Naming any other family emits `font-family: X, …` with no matching
-#   `@font-face`, which drops the page onto the OS default AND locks the shipped
-#   face out of its own stack.
-#
-#   The status `color:` hexes in config/tables/assets.yaml stay as they are:
-#   those are record data, not chrome, and ADR-024 A7 keeps that channel
-#   coloured on purpose. On a near-monochrome surface they carry more signal,
-#   not less — In repair amber against graphite is impossible to miss.
+# The accent is graphite: a near-grey leaning a little toward blue, so the
+# register reads as cool and careful rather than branded. It is the one accent
+# here that is a value rather than a hue, and it is dark on purpose: at so
+# little colour, a mid-grey fill would read as a disabled button, not as an
+# action. Colour otherwise means a consequence — an asset back in, due back
+# today, missing at a count, retired — and nothing else. Lifecycle stages and
+# categories stay neutral.
 baseline: extend
 
+# Follow the operating system's light or dark preference. `darkColors` below is
+# what the dark scheme paints.
+colorScheme: system
+
+# Role keys repaint the prestyled components (grid, board, gallery, drawer,
+# buttons, badges) with no class changes anywhere else in the config.
+#
+# Every role is spelled out in BOTH schemes. `primary` and friends derive a
+# white `-foreground` companion in the light scheme only, which reads wrong on
+# a pale dark-mode accent, so the dark block names every companion itself.
+# `primary-active` and `destructive-foreground` are declared too: left out, a
+# pressed button would fall back to the platform's default.
 colors:
-  primary: '#41505f'
-  primary-hover: '#2f3b47'
-  primary-subtle: '#e2e8ee'
-  ring: '#6b8199'
-  background: '#fbfcfd'
-  background-subtle: '#eff2f5'
-  foreground: '#131a20'
-  foreground-muted: '#4b5866'
-  foreground-subtle: '#7a8794'
-  background-raised: '#ffffff'
-  border: '#dde3e9'
-  success: '#047857'
-  warning: '#b45309'
-  error: '#be123c'
+  primary: oklch(0.33 0.012 255)
+  primary-hover: oklch(0.27 0.01 255)
+  primary-active: oklch(0.22 0.008 255)
+  primary-foreground: oklch(0.985 0.002 255)
+  primary-subtle: oklch(0.92 0.006 255)
+  primary-subtle-foreground: oklch(0.27 0.01 255)
+  ring: oklch(0.55 0.02 255)
+  background: oklch(0.985 0.002 255)
+  background-subtle: oklch(0.967 0.003 255)
+  background-raised: oklch(1 0 0)
+  background-overlay: oklch(1 0 0)
+  background-inset: oklch(0.925 0.004 255)
+  foreground: oklch(0.21 0.004 255)
+  foreground-muted: oklch(0.45 0.006 255)
+  foreground-subtle: oklch(0.51 0.006 255)
+  foreground-disabled: oklch(0.71 0.006 255)
+  foreground-inverse: oklch(0.985 0.002 255)
+  border: oklch(0.925 0.004 255)
+  success: oklch(0.52 0.12 155)
+  warning: oklch(0.55 0.12 70)
+  error: oklch(0.53 0.17 25)
+  destructive-foreground: oklch(0.985 0.002 255)
 
-# Emitted into the stylesheet unconditionally under
-# `html:is(.dark, [data-theme='dark'])`; it renders once the app declares
-# `design.colorScheme` or ships a `theme-toggle`, neither of which this template
-# does yet. `primary-foreground` is deliberately NOT declared in either block:
-# the light path derives `#ffffff` for text on the fill, and the dark path
-# inherits the platform's dark companion, which is the dark neutral a pale steel
-# fill needs. Declaring white here would put white on `#9db4c9`.
 darkColors:
-  primary: '#9db4c9'
-  primary-hover: '#bccddd'
-  primary-subtle: '#1c262f'
-  ring: '#7d95ac'
-  background: '#0d1114'
-  background-subtle: '#151b21'
-  foreground: '#e7edf2'
-  foreground-muted: '#b0bcc7'
-  foreground-subtle: '#83919d'
-  background-raised: '#141a20'
-  border: '#232c34'
-  success: '#34d399'
-  warning: '#fbbf24'
-  error: '#fb7185'
+  primary: oklch(0.88 0.008 255)
+  primary-hover: oklch(0.93 0.006 255)
+  primary-active: oklch(0.96 0.004 255)
+  primary-foreground: oklch(0.16 0.003 255)
+  primary-subtle: oklch(0.3 0.01 255)
+  primary-subtle-foreground: oklch(0.93 0.006 255)
+  ring: oklch(0.7 0.02 255)
+  background: oklch(0.16 0.003 255)
+  background-subtle: oklch(0.19 0.004 255)
+  background-raised: oklch(0.21 0.004 255)
+  background-overlay: oklch(0.23 0.004 255)
+  background-inset: oklch(0.13 0.003 255)
+  foreground: oklch(0.95 0.003 255)
+  foreground-muted: oklch(0.75 0.005 255)
+  foreground-subtle: oklch(0.68 0.006 255)
+  foreground-disabled: oklch(0.45 0.005 255)
+  foreground-inverse: oklch(0.16 0.003 255)
+  border: oklch(0.3 0.005 255)
+  success: oklch(0.75 0.12 155)
+  warning: oklch(0.8 0.12 75)
+  error: oklch(0.72 0.14 25)
+  destructive-foreground: oklch(0.16 0.003 255)
 
+# What each colour is for. Writing the usage down is what stops the accent from
+# drifting onto a lifecycle stage, and a warning colour from becoming decoration.
+colorRoles:
+  primary:
+    usage: The one accent — graphite. Primary action fill, active nav item, focus ring, selected row edge. Never a lifecycle state.
+    pairsWith: primary-foreground
+  primary-subtle:
+    usage: Selected and current states on quiet surfaces — the current page, the selected asset, the column a card is dragged over.
+    pairsWith: primary-subtle-foreground
+  success:
+    usage: 'An asset checked back in, a count that found everything. Never "In use".'
+    pairsWith: foreground
+  warning:
+    usage: A check-out due back today, a warranty ending within 30 days, a service due.
+    pairsWith: foreground
+  error:
+    usage: An asset overdue, missing at a count, or retired; a failed save; a destructive action.
+    pairsWith: foreground
+
+# A register type ladder: body text at 14px, and the monospace face for tags,
+# serials, dates and money so a column of them lines up.
+typeScale:
+  families:
+    sans:
+      family: "'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    mono:
+      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+  steps:
+    display: { size: 2rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.02em }
+    h1: { size: 1.375rem, lineHeight: 1.2, weight: 600, letterSpacing: -0.01em }
+    h2: { size: 1.0625rem, lineHeight: 1.3, weight: 600 }
+    h3: { size: 0.875rem, lineHeight: 1.35, weight: 600 }
+    lead: { size: 0.9375rem, lineHeight: 1.5 }
+    body: { size: 0.875rem, lineHeight: 1.5 }
+    bodySmall: { size: 0.8125rem, lineHeight: 1.45 }
+    caption: { size: 0.75rem, lineHeight: 1.4 }
+    overline: { size: 0.6875rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em, font: mono }
+
+# Sharp corners: this is a register of equipment, and small radii keep a dense
+# grid crisp.
 radius:
-  sm: 0.25rem
-  md: 0.5rem
-  lg: 0.75rem
+  sm: 0.125rem
+  md: 0.25rem
+  lg: 0.375rem
   full: 9999px
+
+# Cards carry a one-pixel lift; overlays float clearly above the page.
+elevation:
+  none: none
+  sm: 0 1px 2px rgb(24 26 30 / 0.06)
+  md: 0 4px 12px rgb(24 26 30 / 0.08)
+  lg: 0 12px 32px rgb(24 26 30 / 0.14)
+
+# An office manager reads many rows at once, so the grids run compact. The
+# three steps are the platform's own values, written out so one number can be
+# tuned.
+density:
+  default: compact
+  steps:
+    compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }
+    cozy: { rowY: 8px, controlH: 40px, buttonH: 32px, gap: 10px, text: 13px }
+    roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
+
+# How the app speaks. Nothing reads these at runtime; they are the brief anyone
+# writing a label, an empty state or an error message for this app follows.
+voice:
+  personality:
+    - plain
+    - careful
+    - accountable
+  pronoun: you
+  prefer:
+    - 'Lead a button with its verb: Check out, Check in, Register asset.'
+    - 'Name the holder and the date: with Nadia Benali since 10 Aug.'
+    - Every empty state names the one next action.
+  avoid:
+    - No exclamation marks, no blame on a missing asset.
+    - 'No IT jargon the office manager did not choose (no "CMDB", no "CI").'
+    - "Never put a person's name in an asset's name."
+  tone:
+    empty: Say what this view will hold, then the one action that fills it.
+    loading: Name what is loading — assets, check-outs — never a bare spinner.
+    error: State what did not save and the one thing that fixes it.
+    success: 'Confirm the fact in past tense with the asset and the person: MacBook Pro 14" checked out to Tomás Ferreira.'
+    destructive: Name the asset and say whether its history is kept.
+
+principles:
+  - Every asset has a tag, a place and, when out, a holder and a return date.
+  - Colour means a consequence — overdue, missing, ending, back — or it is not used.
+  - The register is the home page; everything else is a view of it.
+  - A label is printable from the asset itself.

@@ -77,4 +77,32 @@ Marking a view `isDefault: true` decides what a consumer gets when it asks for t
 
 <!-- sovrium:options ViewPermissionsSchema -->
 
-A view's permissions narrow what the table already allows; they never widen it. A role that cannot read the table cannot reach a view of it.
+A view's `read` grant decides which signed-in roles may use it; it is checked instead of the table's, not after it. `permissions: { public: true }` is the one shape meant to open a view past the session: visitors with no account can read its definition and its records, served only the columns its `fields` names (minus any the reader's field grants withhold), filtered and sorted on the server. The list of a table's views stays private, writes stay on the table's permissions, a public view must declare `fields`, and a table with `rowLevelPermissions` cannot have one.
+
+```yaml
+tables:
+  - id: 1
+    name: campaigns
+    fields:
+      - { id: 1, name: name, type: single-line-text }
+      - { id: 2, name: status, type: single-line-text }
+      - { id: 3, name: deadline, type: date }
+      - { id: 4, name: owner_email, type: email }
+      - { id: 5, name: disabled, type: checkbox }
+    permissions:
+      read: [admin, member]
+    views:
+      - id: open_campaigns
+        name: Open campaigns
+        fields: [name, status, deadline]
+        filters:
+          and:
+            - { field: disabled, operator: isFalse, value: false }
+        sorts:
+          - { field: deadline, direction: asc }
+        permissions: { public: true }
+```
+
+A visitor reads `GET /api/tables/campaigns/views/open_campaigns/records` and gets the enabled campaigns with their name, status and deadline — never `owner_email`. A `filter` they add only narrows the view's own, and a filter or sort on a column the view does not list is refused. Only `true` opens a view: `read: 'all'`, and a view with no permissions block, still mean every signed-in role, and a visitor asking for one gets the same answer as for a view that does not exist.
+
+The definition a public view serves includes its `filters`, so a filter may name a column its `fields` leaves out, as `disabled` does above. That is the author's own constant, not a record's value, and it is published as written.

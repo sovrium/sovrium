@@ -25,6 +25,7 @@ import {
 import * as lookupViewGenerators from '../lookup/lookup-view-generators'
 import {
   dropObsoleteTables,
+  reconcileViewTopology,
   renameTablesIfNeeded,
   syncForeignKeyConstraints,
 } from '../schema-migration'
@@ -199,10 +200,7 @@ const createMigrateTables = (
     } = config
     /* eslint-disable functional/no-loop-statements */
     for (const table of sortedTables) {
-      const sanitized = sanitizeTableName(table.name)
-      const physicalTableName = lookupViewModule.shouldUseView(table)
-        ? lookupViewModule.getBaseTableName(sanitized)
-        : sanitized
+      const physicalTableName = lookupViewModule.getPhysicalTableName(table)
       const exists = yield* tableExists(tx, physicalTableName)
       logDebug('[schema] create/migrate table', { table: table.name, exists: String(exists) })
       yield* createOrMigrateTableEffect({
@@ -231,7 +229,12 @@ const addCircularFKConstraints = (
     logDebug('[schema] adding FK constraints for circular dependencies')
     /* eslint-disable functional/no-loop-statements */
     for (const table of sortedTables.filter((t) => circularTables.has(t.name))) {
-      yield* syncForeignKeyConstraints(tx, table, tableUsesView)
+      yield* syncForeignKeyConstraints(
+        tx,
+        table,
+        tableUsesView,
+        lookupViewGenerators.getPhysicalTableName(table)
+      )
     }
     /* eslint-enable functional/no-loop-statements */
   })
@@ -334,11 +337,46 @@ const ensureConditionalSystemTables = (
     }
   })
 
+/**
+ * Bring the SET of relations in line with the config, before any table is
+ * created or altered (Steps 3.5, 4 and 5.5, in that order):
+ *
+ *  - 3.5 rename tables whose name changed (same id);
+ *  - 4 drop the tables the config no longer owns — the `_base` table behind a
+ *    view-backed table and every many-to-many junction table ARE owned, and a
+ *    table that still holds rows is refused unless the one-shot
+ *    `sovrium migrate --allow-destructive` consented;
+ *  - 5.5 move rows between `<name>` and `<name>_base` by RENAME when a table
+ *    gains its first or loses its last computed field, and drop every lookup
+ *    view so its base table can change under it (rebuilt in Steps 9-11).
+ */
+const reconcileRelationSet = (
+  tx: TransactionLike,
+  tables: readonly Table[],
+  previousSchema: { readonly tables: readonly object[] } | undefined,
+  options: SchemaInitOptions
+): Effect.Effect<void, SQLExecutionError, never> =>
+  Effect.gen(function* () {
+    yield* renameTablesIfNeeded(tx, tables, previousSchema)
+    yield* dropObsoleteTables(tx, tables, options)
+    yield* reconcileViewTopology(tx, tables)
+  })
+
+/**
+ * What a caller may consent to on this run. The boot passes nothing, so it can
+ * never drop a table that still holds rows; `sovrium migrate
+ * --allow-destructive` is the only caller that sets `allowDestructive`.
+ */
+export interface SchemaInitOptions {
+  readonly allowDestructive?: boolean
+}
+
 /** Execute all migration steps within a transaction */
 const executeMigrationSteps = (
   tx: TransactionLike,
   tables: readonly Table[],
-  app: App
+  app: App,
+  options: SchemaInitOptions
 ): Effect.Effect<void, SQLExecutionError | BetterAuthUsersTableRequired, never> =>
   Effect.gen(function* () {
     // Step 0: Validate stored checksum to detect tampering
@@ -358,11 +396,8 @@ const executeMigrationSteps = (
     const previousSchema = yield* getPreviousSchema(tx)
     const previousSchemaForComparison = normalizePreviousSchemaForComparison(previousSchema, app)
 
-    // Step 3.5: Rename tables that have changed names
-    yield* renameTablesIfNeeded(tx, tables, previousSchema)
-
-    // Step 4: Drop tables that exist in database but not in schema
-    yield* dropObsoleteTables(tx, tables)
+    // Steps 3.5, 4 and 5.5: renames, obsolete tables, view topology
+    yield* reconcileRelationSet(tx, tables, previousSchema, options)
 
     // Step 5: Build view map and detect circular dependencies
     const tableUsesView = buildTableUsesViewMap(tables, lookupViewGenerators)
@@ -496,7 +531,8 @@ const cleanupObsoleteViews = (
   })
 
 const initializeSchemaInternal = (
-  app: App
+  app: App,
+  options: SchemaInitOptions
 ): Effect.Effect<void, SchemaError | Config.ConfigError> =>
   Effect.gen(function* () {
     // Normalize tables to empty array if undefined
@@ -537,7 +573,9 @@ const initializeSchemaInternal = (
     // Execute schema initialization (even if tables is empty - to drop obsolete tables).
     // `executeMigrationSteps` is passed as the per-transaction work callback —
     // the dialect-aware transaction plumbing lives in schema-initializer-execute.ts.
-    yield* executeSchemaInit(dialectConfig, tables, app, executeMigrationSteps)
+    yield* executeSchemaInit(dialectConfig, tables, app, (tx, stepTables, stepApp) =>
+      executeMigrationSteps(tx, stepTables, stepApp, options)
+    )
 
     // AFTER the migration transaction, not inside it: the indexes are built
     // over columns the migration may have just created, and a failure here
@@ -559,12 +597,14 @@ const initializeSchemaInternal = (
  * - SchemaInitializationError: schema creation failed (database likely required)
  *
  * @param app - Application configuration with tables
+ * @param options - consents for this run; the boot passes none (see {@link SchemaInitOptions})
  * @returns Effect that propagates configuration errors but logs optional failures
  */
 export const initializeSchema = (
-  app: App
+  app: App,
+  options: SchemaInitOptions = {}
 ): Effect.Effect<void, AuthConfigRequiredForUserFields | SchemaInitializationError> =>
-  initializeSchemaInternal(app).pipe(
+  initializeSchemaInternal(app, options).pipe(
     Effect.catch(
       (error): Effect.Effect<void, AuthConfigRequiredForUserFields | SchemaInitializationError> => {
         // Re-throw auth config errors - these are fatal configuration issues

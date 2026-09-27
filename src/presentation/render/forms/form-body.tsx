@@ -21,13 +21,16 @@ import {
   computeFormGroupLabelClasses,
   computeFormLayoutClasses,
 } from '@/presentation/design/form-layout-classes'
+import { renderInlineMarkdown } from '@/presentation/render/markdown/inline-markdown'
 import { FormFieldElement, type PrefillValue } from './form-field-elements'
-import { resolveAllFields, resolveText } from './form-field-resolver'
+import { resolveAllFields, resolveText, stepDescriptionsHtml } from './form-field-resolver'
+import { DescriptionText } from './form-help-text'
 import { FormBodyMultiStep, type FormBodyShared } from './form-renderer-multi-step'
 import { FormBodyOneQuestion } from './form-renderer-one-question'
 import { FormRuntimeMount } from './form-runtime'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
+import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
 
 /**
  * Embed-time prefill context resolved by `form-ref-resolver`.
@@ -94,6 +97,7 @@ function buildFormBodyShared({
   prefillContext,
   activeLang,
   titleAs,
+  optionSets,
 }: {
   readonly app: App
   readonly form: Form
@@ -101,15 +105,23 @@ function buildFormBodyShared({
   readonly prefillContext: EmbeddedFormPrefillContext | undefined
   readonly activeLang: string | undefined
   readonly titleAs: 'h1' | 'h2' | 'h3' | undefined
+  readonly optionSets: FormOptionSets | undefined
 }): FormBodyShared {
   const { languages } = app
   const lockPrefill = prefillContext?.lockPrefill === true
+  const prefillMap = prefillContext?.prefill ?? {}
   return {
     title: resolveText(form.title, languages, form.name, activeLang),
-    description: resolveText(form.description, languages, '', activeLang),
+    descriptionHtml: renderInlineMarkdown(resolveText(form.description, languages, '', activeLang)),
+    ...(form.steps !== undefined
+      ? { stepDescriptionsHtml: stepDescriptionsHtml(form.steps, languages, activeLang) }
+      : {}),
     submitLabel: resolveText(form.display?.submitLabel, languages, 'Submit', activeLang),
-    resolvedFields: resolveAllFields(app, form, activeLang),
-    prefillMap: prefillContext?.prefill ?? {},
+    resolvedFields: resolveAllFields(app, form, activeLang, {
+      conditionValues: prefillMap,
+      ...(optionSets !== undefined ? { optionSets } : {}),
+    }),
+    prefillMap,
     lockPrefill,
     titleAs: titleAs ?? 'h1',
     formAttributes: buildFormAttributes(form, embed, lockPrefill),
@@ -119,16 +131,8 @@ function buildFormBodyShared({
   }
 }
 
-export function FormBody({
-  app,
-  form,
-  embed = false,
-  embedded = false,
-  mountRuntime,
-  prefillContext,
-  activeLang,
-  titleAs,
-}: {
+/** What a form body is rendered from. */
+interface FormBodyProps {
   readonly app: App
   readonly form: Form
   readonly embed?: boolean
@@ -159,10 +163,36 @@ export function FormBody({
    * `FormPage` never sets it (the form title is the page's single <h1>).
    */
   readonly titleAs?: 'h1' | 'h2' | 'h3'
-}) {
+  /**
+   * Choices read from tables for this render, keyed by field submit
+   * identifier (`resolveFormOptionSources`). Absent, a table-backed field
+   * offers no choices.
+   */
+  readonly optionSets?: FormOptionSets
+  /**
+   * Draw no form title: the host already heads the form — a dialog shows one
+   * title, its own or the form's (`expandDialogFormRef`).
+   */
+  readonly omitTitle?: boolean
+}
+
+export function FormBody({
+  app,
+  form,
+  embed = false,
+  embedded = false,
+  mountRuntime,
+  prefillContext,
+  activeLang,
+  titleAs,
+  optionSets,
+  omitTitle,
+}: FormBodyProps) {
   const shouldMountRuntime = mountRuntime ?? !embed
   const commonProps: FormBodyShared = {
-    ...buildFormBodyShared({ app, form, embed, prefillContext, activeLang, titleAs }),
+    ...buildFormBodyShared({ app, form, embed, prefillContext, activeLang, titleAs, optionSets }),
+    // `''` draws no title: the host heads the form itself.
+    ...(omitTitle === true ? { title: '' } : {}),
     embedded,
   }
   const isMultiStep = form.layout === 'multi-step' && form.steps && form.steps.length > 0
@@ -296,7 +326,7 @@ function HoneypotInput() {
 
 function FormBodyFlat({
   title,
-  description,
+  descriptionHtml,
   submitLabel,
   formAttributes,
   resolvedFields,
@@ -319,8 +349,11 @@ function FormBodyFlat({
   const submitAlign = embedded ? 'ml-auto' : 'sm:self-start'
   return (
     <>
-      <TitleTag className="form-title">{title}</TitleTag>
-      {description && <p className={descriptionClass}>{description}</p>}
+      {title !== '' && <TitleTag className="form-title">{title}</TitleTag>}
+      <DescriptionText
+        html={descriptionHtml}
+        className={descriptionClass}
+      />
       <form
         className={computeFormLayoutClasses()}
         {...formAttributes}

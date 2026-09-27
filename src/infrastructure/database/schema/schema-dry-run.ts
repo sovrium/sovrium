@@ -41,11 +41,25 @@ import { existsSync } from 'node:fs'
 import { SQL } from 'bun'
 import { Database as BunSqlite } from 'bun:sqlite'
 import { Cause, Effect } from 'effect'
-import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import * as lookupViewGenerators from '../lookup/lookup-view-generators'
-import { generateAlterTableStatements, needsTableRecreation } from '../schema-migration'
+import {
+  findObsoleteTables,
+  generateAlterTableStatements,
+  needsTableRecreation,
+  obsoleteTableDropStatement,
+  planViewTopology,
+  type ObsoleteTable,
+  type ViewTopologyStep,
+} from '../schema-migration'
+import { formatPopulatedDropRefusal } from '../schema-migration/table-classification'
 import { sqliteTransactionLike } from '../sql/dialect-ddl'
-import { executeSQL, getExistingColumns, tableExists } from '../sql/sql-execution'
+import {
+  executeSQL,
+  getExistingColumns,
+  getExistingTableNames,
+  getExistingViews,
+  tableExists,
+} from '../sql/sql-execution'
 import { applySqlitePragmas } from '../sql/sqlite-pragmas'
 import { buildTablePrimaryKeyTypesMap, generateCreateTableSQL } from '../table-operations'
 import {
@@ -54,17 +68,38 @@ import {
   resolveProbeIdColumn,
 } from '../table-operations/type-change-preflight'
 import { applySchemaDefaults } from './apply-schema-defaults'
-import { getPreviousSchema } from './migration-audit-trail'
+import {
+  generateSchemaChecksum,
+  getPreviousSchema,
+  getStoredChecksum,
+} from './migration-audit-trail'
 import { sortTablesByDependencies } from './schema-dependency-sorting'
 import type { TransactionLike } from '../sql/sql-execution'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables'
 import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 
-/** What would happen to one config table. */
+/**
+ * What would happen to one table.
+ *
+ * `drop` is a table the config no longer declares; `view` is the rebuild of a
+ * view-backed table's lookup VIEW, which every full migration performs;
+ * `rename` is a table whose rows change relation because it gains its first, or
+ * loses its last, lookup/rollup/count field (Step 5.5 moves them by RENAME).
+ */
 export interface TableChange {
+  /** The config name (for `drop`, the physical table the config no longer owns). */
   readonly table: string
-  readonly kind: 'create' | 'alter' | 'recreate' | 'unchanged'
+  /**
+   * The relation the statements act on, when it is not the config name: the
+   * `<name>_base` table that stores a view-backed table's rows.
+   */
+  readonly relation?: string
+  /** For `rename`: the relation that holds the rows before the migration. */
+  readonly from?: string
+  /** For `drop`: the rows the drop would delete. */
+  readonly rows?: number
+  readonly kind: 'create' | 'alter' | 'recreate' | 'unchanged' | 'drop' | 'view' | 'rename'
   /** The DDL this change would run. EMPTY when {@link unsimulated} is true. */
   readonly statements: readonly string[]
   /** True when the statement list depends on runtime state and cannot be rendered. */
@@ -87,6 +122,14 @@ interface TablePlanInputs {
   readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
   readonly previousSchema: { readonly tables: readonly object[] } | undefined
   readonly hasAuthConfig: boolean
+  /**
+   * The relation that holds the table's rows TODAY, when Step 5.5 is about to
+   * rename it: the plain `<name>` of a table becoming view-backed, or the
+   * `<name>_base` of one ceasing to be. Its columns are what the column diff
+   * reads — never the view's — and the statements are rendered against the
+   * relation the rows will be in once the rename has run.
+   */
+  readonly introspect?: string
 }
 
 /** The plan for a table that does not exist yet — computable with no connection. */
@@ -96,6 +139,7 @@ const planNewTable = (
   hasAuthConfig: boolean
 ): TableChange => ({
   table: table.name,
+  relation: lookupViewGenerators.getPhysicalTableName(table),
   kind: 'create',
   statements: [
     generateCreateTableSQL(table, {
@@ -156,11 +200,20 @@ const planExistingTable = (params: {
   readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
   readonly hasAuthConfig: boolean
   readonly refusals: readonly string[]
+  readonly physical: string
 }): TableChange => {
-  const { table, existingColumns, previousSchema, tablePrimaryKeyTypes, hasAuthConfig, refusals } =
-    params
+  const {
+    table,
+    existingColumns,
+    previousSchema,
+    tablePrimaryKeyTypes,
+    hasAuthConfig,
+    refusals,
+    physical,
+  } = params
+  const named = { table: table.name, relation: physical, refusals }
   if (needsTableRecreation(table, existingColumns) || refusals.length > 0) {
-    return { table: table.name, kind: 'recreate', statements: [], unsimulated: true, refusals }
+    return { ...named, kind: 'recreate', statements: [], unsimulated: true }
   }
 
   const statements = generateAlterTableStatements({
@@ -169,11 +222,12 @@ const planExistingTable = (params: {
     previousSchema,
     tablePrimaryKeyTypes,
     hasAuthConfig,
+    physicalTableName: physical,
   })
 
   return statements.length === 0
-    ? { table: table.name, kind: 'unchanged', statements: [], unsimulated: false, refusals }
-    : { table: table.name, kind: 'alter', statements, unsimulated: false, refusals }
+    ? { ...named, kind: 'unchanged', statements: [], unsimulated: false }
+    : { ...named, kind: 'alter', statements, unsimulated: false }
 }
 
 /**
@@ -203,18 +257,17 @@ const describePlanRefusal = (cause: Cause.Cause<unknown>): readonly string[] => 
 const planTable = (inputs: TablePlanInputs): Effect.Effect<TableChange, never> =>
   Effect.gen(function* () {
     const { tx, table, tablePrimaryKeyTypes, previousSchema, hasAuthConfig } = inputs
-    const sanitized = sanitizeTableName(table.name)
-    const usesView = lookupViewGenerators.shouldUseView(table)
-    const physical = usesView ? lookupViewGenerators.getBaseTableName(sanitized) : sanitized
+    const physical = lookupViewGenerators.getPhysicalTableName(table)
+    const source = inputs.introspect ?? physical
 
-    const exists = yield* tableExists(tx, physical)
+    const exists = yield* tableExists(tx, source)
     if (!exists) return planNewTable(table, tablePrimaryKeyTypes, hasAuthConfig)
 
-    const existingColumns = yield* getExistingColumns(tx, physical)
+    const existingColumns = yield* getExistingColumns(tx, source)
     const refusals = yield* planRefusals({
       tx,
       table,
-      physical,
+      physical: source,
       existingColumns,
       previousSchema,
     })
@@ -226,6 +279,7 @@ const planTable = (inputs: TablePlanInputs): Effect.Effect<TableChange, never> =
       tablePrimaryKeyTypes,
       hasAuthConfig,
       refusals,
+      physical,
     })
   }).pipe(
     // A table whose plan cannot be computed is reported as unsimulated rather
@@ -240,6 +294,7 @@ const planTable = (inputs: TablePlanInputs): Effect.Effect<TableChange, never> =
     Effect.catchCause((cause) =>
       Effect.succeed({
         table: inputs.table.name,
+        relation: lookupViewGenerators.getPhysicalTableName(inputs.table),
         kind: 'recreate' as const,
         statements: [],
         unsimulated: true,
@@ -284,6 +339,164 @@ const withReadOnlyTx = <A>(
         (client) => Effect.sync(() => client.close())
       )
 
+/** Options that change what the planned migration would be allowed to do. */
+export interface PlanOptions {
+  /**
+   * The one-shot consent of `sovrium migrate --allow-destructive`: a drop of a
+   * table that still holds rows is planned without a refusal.
+   */
+  readonly allowDestructive?: boolean
+}
+
+/** A `drop` change for one obsolete table, refused when it holds rows and was not consented to. */
+const planDrop = (entry: ObsoleteTable, options: PlanOptions): TableChange => ({
+  table: entry.table,
+  rows: entry.rows,
+  kind: 'drop',
+  statements: [obsoleteTableDropStatement(entry.table)],
+  unsimulated: false,
+  refusals:
+    entry.rows > 0 && options.allowDestructive !== true
+      ? [formatPopulatedDropRefusal(entry.table, entry.rows)]
+      : [],
+})
+
+/**
+ * The drops Step 4 would run. The same read the apply path makes
+ * (`findObsoleteTables`), so the plan names exactly the drop the migration would
+ * run — or refuse.
+ *
+ * A failure to LIST the tables is reported as a refusal rather than as an empty
+ * list: "nothing would be dropped" is a claim, and a planner that could not look
+ * cannot make it.
+ */
+const planDrops = (
+  tx: TransactionLike,
+  tables: readonly Table[],
+  options: PlanOptions
+): Effect.Effect<readonly TableChange[], never> =>
+  findObsoleteTables(tx, tables).pipe(
+    Effect.map((obsolete) =>
+      obsolete.filter((entry) => !entry.engineManaged).map((entry) => planDrop(entry, options))
+    ),
+    Effect.catch((error) =>
+      Effect.succeed([
+        {
+          table: '(tables no longer in the config)',
+          kind: 'drop' as const,
+          statements: [],
+          unsimulated: true,
+          refusals: [`Could not list the tables the config no longer declares: ${error.message}`],
+        },
+      ])
+    )
+  )
+
+/**
+ * The lookup VIEWs a full migration would rebuild — every view-backed table's,
+ * because Step 5.5 drops them all before the base tables change.
+ *
+ * Empty when the migration would take the checksum fast path (the stored
+ * checksum equals this config's), because nothing is rebuilt then. A stored
+ * checksum that cannot be read counts as "differs": the apply path would run
+ * the full migration in that case too.
+ */
+const planViewRebuilds = (
+  tx: TransactionLike,
+  app: App,
+  tables: readonly Table[]
+): Effect.Effect<readonly TableChange[], never> =>
+  Effect.gen(function* () {
+    const stored = yield* getStoredChecksum(tx).pipe(
+      // effect-swallow: an unreadable stored checksum is the pre-upgrade state (the checksum table does not exist yet), and the apply path reads it the same way — as "run the full migration" — so "differs" is the faithful answer, not a hidden failure.
+      Effect.orElseSucceed(() => undefined)
+    )
+    if (stored === generateSchemaChecksum(app)) return []
+    return tables
+      .filter((table) => lookupViewGenerators.shouldUseView(table))
+      .map((table): TableChange => ({
+        table: table.name,
+        kind: 'view',
+        statements: [
+          `DROP VIEW IF EXISTS ${table.name}`,
+          lookupViewGenerators.generateLookupViewSQL(table, tables),
+        ],
+        unsimulated: false,
+        refusals: [],
+      }))
+  })
+
+/** A `rename` change for one Step 5.5 topology step that moves a table's rows. */
+const planRename = (
+  step: ViewTopologyStep & { readonly rename: NonNullable<ViewTopologyStep['rename']> }
+): TableChange => ({
+  table: step.table,
+  from: step.rename.from,
+  relation: step.rename.to,
+  kind: 'rename',
+  statements: step.statements,
+  unsimulated: false,
+  refusals: [],
+})
+
+/**
+ * The Step 5.5 topology steps this migration would run, from the SAME pure
+ * decision the apply path executes (`planViewTopology`), over the same live
+ * table and view names — so the plan cannot name a rename the migration would
+ * not run, or miss one it would.
+ *
+ * A failure to read the catalog is reported as a refusal rather than as "no
+ * rename": the planner that could not look cannot claim the rows stay put.
+ */
+const planTopology = (
+  tx: TransactionLike,
+  tables: readonly Table[]
+): Effect.Effect<
+  { readonly steps: readonly ViewTopologyStep[]; readonly failure: readonly TableChange[] },
+  never
+> =>
+  Effect.gen(function* () {
+    const existingTables = new Set(yield* getExistingTableNames(tx))
+    const existingViews = new Set(yield* getExistingViews(tx))
+    return {
+      steps: planViewTopology(tables, { tables: existingTables, views: existingViews }),
+      failure: [],
+    }
+  }).pipe(
+    Effect.catch((error) =>
+      Effect.succeed({
+        steps: [],
+        failure: [
+          {
+            table: '(tables with lookup, rollup or count fields)',
+            kind: 'rename' as const,
+            statements: [],
+            unsimulated: true,
+            refusals: [`Could not read which relation holds each table's rows: ${error.message}`],
+          },
+        ],
+      })
+    )
+  )
+
+/**
+ * Plan one config table: the rename that moves its rows first, when Step 5.5
+ * would run one, then its column changes against the relation it will have.
+ */
+const planTableWithTopology = (
+  inputs: Omit<TablePlanInputs, 'introspect'>,
+  steps: readonly ViewTopologyStep[]
+): Effect.Effect<readonly TableChange[], never> => {
+  const step = steps.find((candidate) => candidate.table === inputs.table.name)
+  const rename = step?.rename
+  if (step === undefined || rename === undefined) {
+    return planTable(inputs).pipe(Effect.map((change) => [change]))
+  }
+  return planTable({ ...inputs, introspect: rename.from }).pipe(
+    Effect.map((change) => [planRename({ ...step, rename }), change])
+  )
+}
+
 /**
  * Plan every config table.
  *
@@ -294,7 +507,8 @@ const withReadOnlyTx = <A>(
  */
 export const planConfigTableChanges = (
   app: App,
-  config: DatabaseDialectConfig
+  config: DatabaseDialectConfig,
+  options: PlanOptions = {}
 ): Effect.Effect<readonly TableChange[], never> => {
   const tables = applySchemaDefaults(sortTablesByDependencies(app.tables ?? []), app)
   const tablePrimaryKeyTypes = buildTablePrimaryKeyTypesMap(tables)
@@ -332,9 +546,16 @@ export const planConfigTableChanges = (
         Effect.orElseSucceed(() => undefined)
       )
 
-      return yield* Effect.forEach(tables, (table) =>
-        planTable({ tx, table, tablePrimaryKeyTypes, previousSchema, hasAuthConfig: !!app.auth })
+      const drops = yield* planDrops(tx, tables, options)
+      const topology = yield* planTopology(tx, tables)
+      const tableChanges = yield* Effect.forEach(tables, (table) =>
+        planTableWithTopology(
+          { tx, table, tablePrimaryKeyTypes, previousSchema, hasAuthConfig: !!app.auth },
+          topology.steps
+        )
       )
+      const views = yield* planViewRebuilds(tx, app, tables)
+      return [...drops, ...topology.failure, ...tableChanges.flat(), ...views]
     })
   )
 }

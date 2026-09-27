@@ -71,12 +71,8 @@ function toLandmarkRuns(groups: readonly SidebarGroup[]): readonly LandmarkRun[]
  * `headingLevel` cannot reach that branch — a label-less group carrying one is
  * refused at boot rather than rendering an empty heading.
  */
-function renderGroupBody(
-  group: SidebarGroup,
-  i18n: SidebarI18n,
-  trackNavigation: boolean,
-  rail: SidebarRailBreakpoint | undefined
-): ReactElement {
+function renderGroupBody(group: SidebarGroup, ctx: RunContext): ReactElement {
+  const { i18n, trackNavigation, rail, drawer } = ctx
   const label =
     group.label === undefined
       ? undefined
@@ -86,9 +82,9 @@ function renderGroupBody(
     <>
       {label !== undefined &&
         (Heading === undefined ? (
-          <p className={computeSidebarGroupLabelClasses(rail)}>{label}</p>
+          <p className={computeSidebarGroupLabelClasses(rail, drawer)}>{label}</p>
         ) : (
-          <Heading className={computeSidebarGroupLabelClasses(rail)}>{label}</Heading>
+          <Heading className={computeSidebarGroupLabelClasses(rail, drawer)}>{label}</Heading>
         ))}
       {group.items !== undefined && group.items.length > 0 && (
         <ul className={computeSidebarGroupListClasses()}>
@@ -141,8 +137,16 @@ function renderGroupBody(
 export function renderSidebarGroups(
   groups: readonly SidebarGroup[],
   i18n: SidebarI18n,
-  trackNavigation = false,
-  rail: SidebarRailBreakpoint | undefined = undefined
+  {
+    trackNavigation = false,
+    rail,
+    drawer,
+  }: {
+    readonly trackNavigation?: boolean
+    readonly rail?: SidebarRailBreakpoint | undefined
+    /** A drawer declared beside the rail, which narrows the rail to the range above it. */
+    readonly drawer?: SidebarRailBreakpoint | undefined
+  } = {}
 ): ReactElement {
   return (
     // The `key` is load-bearing, not decoration: `sidebar` in
@@ -159,7 +163,7 @@ export function renderSidebarGroups(
     <div
       key="sidebar-groups"
       className={`${computeSidebarNavClasses()}${
-        rail === undefined ? '' : ` ${computeSidebarRailNavClasses(rail)}`
+        rail === undefined ? '' : ` ${computeSidebarRailNavClasses(rail, drawer)}`
       }`}
       data-sidebar-root=""
     >
@@ -170,7 +174,7 @@ export function renderSidebarGroups(
         />
       )}
       {toLandmarkRuns(groups).map((run, index) =>
-        renderLandmarkRun(run, index, { i18n, trackNavigation, rail })
+        renderLandmarkRun(run, index, { i18n, trackNavigation, rail, drawer })
       )}
     </div>
   )
@@ -213,10 +217,12 @@ interface RunContext {
   readonly i18n: SidebarI18n
   readonly trackNavigation: boolean
   readonly rail: SidebarRailBreakpoint | undefined
+  /** The drawer declared beside a rail, which narrows the rail to the range above it. */
+  readonly drawer: SidebarRailBreakpoint | undefined
 }
 
 const renderBody = (group: SidebarGroup, ctx: RunContext): ReactElement =>
-  renderGroupBody(group, ctx.i18n, ctx.trackNavigation, ctx.rail)
+  renderGroupBody(group, ctx)
 
 /**
  * A run that HAS a name: a declared `landmark`, or a lone group named by its

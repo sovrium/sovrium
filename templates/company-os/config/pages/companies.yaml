@@ -1,0 +1,101 @@
+# The clients, and each one seen from every module. Opening a client lists its
+# deals, its projects and its tickets in one drawer — the one record the rest
+# of the app is organised around.
+name: companies
+path: /companies
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Companies · Orrin OS
+  description: Every client with its account manager, and its deals, projects and tickets in one place.
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Companies
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: table
+                dataSource:
+                  table: companies
+                  view: client_directory
+                columns:
+                  - { field: name, label: Client, sortable: true }
+                  - { field: industry, label: Sector, filterable: true }
+                  - { field: account_manager, label: Account manager }
+                  - { field: status, label: Status }
+                  - { field: website, label: Website }
+                search:
+                  enabled: true
+                  placeholder: Search clients
+                toolbar:
+                  search: true
+                  filters: true
+                  export: true
+                pagination:
+                  pageSize: 25
+                onRowClick:
+                  action: openDrawer
+                  component: client-detail
+                emptyMessage: Your clients appear here. Add the first one, then a deal for it.
+              # One client from every module. `/companies?record=<id>` opens it
+              # directly, so a client can be linked to from anywhere.
+              - type: drawer
+                id: client-detail
+                drawerSide: right
+                drawerSize: md
+                canEdit: false
+                dataSource:
+                  table: companies
+                props:
+                  title: Client
+                recordFields:
+                  - { name: name, type: single-line-text, label: Client }
+                  - { name: industry, type: single-select, label: Sector }
+                  - { name: account_manager, type: user, label: Account owner }
+                  - { name: website, type: url, label: Website }
+                related:
+                  - label: Deals
+                    table: deals
+                    field: company
+                    columns:
+                      - { field: name, label: Deal }
+                      - { field: stage, label: Stage }
+                      - { field: close_date, label: Closes }
+                    sort:
+                      - { field: close_date, direction: asc }
+                    emptyMessage: No deal with this client yet.
+                  - label: Projects
+                    table: projects
+                    field: client
+                    columns:
+                      - { field: name, label: Project }
+                      - { field: status, label: Status }
+                      - { field: start_date, label: Starts }
+                    emptyMessage: No project for this client yet.
+                  - label: Tickets
+                    table: tickets
+                    field: company
+                    columns:
+                      - { field: subject, label: Ticket }
+                      - { field: status, label: Status }
+                      - { field: priority, label: Priority }
+                    emptyMessage: No ticket from this client.

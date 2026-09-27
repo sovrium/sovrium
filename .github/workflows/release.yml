@@ -480,8 +480,31 @@ jobs:
             rust-target: aarch64-apple-darwin
             bundles: app,dmg
             updater-platform: darwin-aarch64
+          # An INTEL runner, unlike every other macOS lane here, and the reason is
+          # the SIDECAR rather than the shell. `macos-14` is Apple Silicon, so an
+          # x86_64 bundle runs there under Rosetta 2 — which emulates SSE4.2 but
+          # NOT AVX. Bun's darwin-x64 build uses AVX unconditionally, so the engine
+          # aborts the moment it is executed:
+          #
+          #   CPU: sse42 popcnt / Features: jsc no_avx2 no_avx
+          #   CPU lacks AVX support. Please consider upgrading to a newer CPU.
+          #   panic(main thread): Illegal instruction
+          #
+          # That is v0.28.0's macOS x64 lane verbatim: the Tauri shell started fine
+          # under Rosetta and `sovrium init` killed the sidecar. Smoke-testing on
+          # Intel is therefore not a preference — it is the only machine on which
+          # the artefact this lane produces can execute at all.
+          #
+          # It also closes a real coverage hole: darwin-x64 is cross-compiled on
+          # the arm64 runner in build-binary-macos and was, until this lane moved,
+          # never executed anywhere in CI. Every Intel Mac that can run macOS 12+
+          # has AVX, so the engine was almost certainly fine — but "almost
+          # certainly" was the whole of the evidence.
+          #
+          # `macos-15-intel` is a STANDARD GitHub-hosted runner rather than a
+          # "larger" one, so on this public repository it costs nothing.
           - label: macOS x64
-            runner: macos-14
+            runner: macos-15-intel
             slug: mac-x64
             engine-artifact: engine-darwin
             engine-file: sovrium-darwin-x64
@@ -804,10 +827,37 @@ jobs:
             || { echo "FAIL: no sidecar at $ROOT/usr/bin/sovrium"; ls -la "$ROOT/usr/bin"; exit 1; }
           # The sidecar is the anchor; the shell is whatever else is in there.
           # Its name comes from Tauri's `mainBinaryName` (the crate name today),
-          # which is not ours to depend on.
+          # which is not ours to depend on. Asserted, then NOT launched — see
+          # below for why AppRun is what actually gets run.
           EXE=$(find "$ROOT/usr/bin" -maxdepth 1 -type f ! -name 'sovrium' | head -n 1)
           test -n "$EXE" || { echo "FAIL: no shell executable beside the sidecar in $ROOT/usr/bin"; ls -la "$ROOT/usr/bin"; exit 1; }
-          xvfb-run -a bun run scripts/build/smoke-desktop-app.ts --exe "$EXE"
+          # ── Launch AppRun, never the shell binary directly ──
+          #
+          # An extracted AppImage is not a directory of runnable binaries; it is a
+          # payload that its AppRun sets up. v0.28.0's lane launched
+          # `usr/bin/sovrium-desktop` itself and died with:
+          #
+          #   Unable to spawn a new child process: Failed to spawn child process
+          #   "././/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess"
+          #   (No such file or directory)
+          #
+          # That path is a RELATIVE one, and it is relative on purpose. WebKitGTK
+          # hard-codes the absolute location of its helper processes into
+          # libwebkit2gtk, so AppImage builders binary-patch the string in place —
+          # `/usr` (four bytes) becomes `././` (four bytes), which is why the
+          # result reads as it does. Tauri copies the helpers to
+          # `$APPDIR/usr/lib/<triple>/webkit2gtk-4.1/` (linuxdeploy.rs) and relies
+          # on AppImageKit's AppRun doing `chdir("$APPDIR/usr")` before exec
+          # (AppRun.c) so that `./lib/...` lands on them. It also sets
+          # LD_LIBRARY_PATH, PATH and XDG_DATA_DIRS, and the linuxdeploy wrapper
+          # around it sources `apprun-hooks/` — the GTK plugin's GSettings, GIO
+          # and typelib paths live there.
+          #
+          # None of that happens when the binary is invoked directly, so the lane
+          # was testing something no user ever runs. AppRun resolves $APPDIR from
+          # /proc/self/exe, so an absolute path is fine and no cwd is needed.
+          test -x "$ROOT/AppRun" || { echo "FAIL: the extracted AppImage has no AppRun at $ROOT/AppRun"; ls -la "$ROOT"; exit 1; }
+          xvfb-run -a bun run scripts/build/smoke-desktop-app.ts --exe "$ROOT/AppRun"
 
       # ── Name the assets ─────────────────────────────────────
       # Tauri names its output after the product and the Rust arch
@@ -939,7 +989,7 @@ jobs:
   assemble-updater-manifest:
     name: Assemble Updater Manifest
     needs: [build-desktop]
-    if: always() && needs.build-desktop.result == 'success'
+    if: ${{ !cancelled() && needs.build-desktop.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Detect the updater signing key
@@ -1033,11 +1083,11 @@ jobs:
   aggregate-checksums:
     name: Aggregate Checksums
     needs: [build-binary-macos, build-binary-linux, build-binary-windows, build-desktop]
-    # `always()` so a red desktop lane still produces the combined checksums for
+    # `!cancelled()` so a red desktop lane still produces the combined checksums for
     # the five binaries. The per-target downloads below are already `|| true`,
     # so a missing desktop file shortens the list rather than failing the job —
     # which is the right trade for a convenience artefact that nothing gates on.
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Read version from tag
@@ -1099,9 +1149,50 @@ jobs:
   # binary's .sha256 over plain HTTPS, and GitHub serves 404 on public
   # download URLs while a release is still a draft. By the time we run,
   # publish-release has flipped --draft=false so the URLs are servable.
+  #
+  # ── Why every distribution job below carries an explicit `if:` ──
+  #
+  # A job with no `if:` defaults to `success()`, and that condition is evaluated
+  # over the WHOLE ancestor chain, not just the direct `needs`. GitHub states it
+  # plainly: "If a run contains a series of jobs that need each other, a failure
+  # or skip applies to all jobs in the dependency chain from the point of failure
+  # or skip onwards."
+  # — https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-jobs
+  #
+  # `publish-release` needs `build-desktop`, so on v0.28.0 — where the release
+  # published fine with five engines and three desktop lanes went red — the
+  # failure propagated straight past a SUCCESSFUL `publish-release` and skipped
+  # the Homebrew tap, the Scoop bucket, the template mirrors and the demo fleet.
+  # `brew install sovrium` was still serving 0.25.0 afterwards, and nothing in
+  # the run said so: the jobs were grey, not red.
+  #
+  # A status function breaks that propagation, and the explicit result check
+  # restores the only dependency that was ever meant: this job needs the RELEASE
+  # to be published, and does not care what the installers did. The engine is
+  # what every existing install and every `brew upgrade` depends on, and a
+  # broken desktop lane must never hold it back. `publish-release` itself only
+  # runs once the three CLI binary lanes succeeded, so "publish-release is
+  # success" already means "the engines shipped".
+  #
+  # `!cancelled()` rather than `always()`: `always()` also fires on a CANCELLED
+  # run, so cancelling a release after the un-draft would still push the taps
+  # and deploy the demo fleet. `!cancelled()` breaks the failure propagation
+  # the same way and stops on a cancel.
+  #
+  # The run still ends RED when a desktop lane fails: the failed job is part of
+  # the run, and a run's conclusion is failure when any job failed. Only the
+  # distribution jobs stop being SKIPPED by it.
+  #
+  # `build-docker` is not in this chain on purpose: it needs only `release` and
+  # builds its own Linux binaries, so no desktop lane is among its ancestors.
+  #
+  # If one of these jobs fails for its OWN reason, the repair is its manual
+  # companion workflow, never a re-run of this one — `update-taps-manual.yml`,
+  # `publish-templates-manual.yml`, `deploy-demos-manual.yml`.
   update-homebrew:
     name: Update Homebrew Formula
     needs: [publish-release]
+    if: ${{ !cancelled() && needs.publish-release.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
@@ -1164,6 +1255,8 @@ jobs:
   update-scoop:
     name: Update Scoop Manifest
     needs: [publish-release]
+    # See update-homebrew for why this is not the implicit `success()`.
+    if: ${{ !cancelled() && needs.publish-release.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
@@ -1233,6 +1326,8 @@ jobs:
   publish-templates:
     name: Publish template repositories
     needs: [publish-release]
+    # See update-homebrew for why this is not the implicit `success()`.
+    if: ${{ !cancelled() && needs.publish-release.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
@@ -1276,6 +1371,9 @@ jobs:
   verify-mirrors:
     name: Verify template mirrors
     needs: [publish-templates]
+    # Same reason as update-homebrew: without `!cancelled()` this job inherits
+    # `build-desktop`'s failure through the chain, three jobs away.
+    if: ${{ !cancelled() && needs.publish-templates.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
@@ -1330,6 +1428,8 @@ jobs:
   deploy-demos:
     name: Deploy demo fleet
     needs: [verify-mirrors]
+    # See verify-mirrors. The mirror check remains a hard gate on the deploy.
+    if: ${{ !cancelled() && needs.verify-mirrors.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
@@ -1435,7 +1535,11 @@ jobs:
   # verifies all 5 platform archives uploaded, then flips the draft to
   # published. If any archive is missing it exits without publishing,
   # leaving a recoverable draft. Homebrew/Scoop are best-effort tap pushes
-  # and must NOT gate publication — hence `if: always()`.
+  # and must NOT gate publication. The `if:` states the real contract: the
+  # three CLI binary lanes must have SUCCEEDED (a red engine lane leaves the
+  # draft alone, and that lane already turns the run red), while the desktop
+  # lanes and the checksum aggregate may have failed — `!cancelled()` stops
+  # their failure from propagating, as for the distribution jobs below.
   publish-release:
     name: Publish GitHub Release
     # Runs as soon as all binary archives + the aggregate checksums file
@@ -1449,7 +1553,11 @@ jobs:
       - aggregate-checksums
       - build-desktop
       - assemble-updater-manifest
-    if: always()
+    if: >-
+      ${{ !cancelled()
+      && needs.build-binary-macos.result == 'success'
+      && needs.build-binary-linux.result == 'success'
+      && needs.build-binary-windows.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Verify all binary assets present

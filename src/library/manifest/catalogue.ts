@@ -1,0 +1,150 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+/**
+ * The library catalogue — the ONE module outside `src/library/` may import, and
+ * only lazily, from the `library` commands and the docs renderer.
+ *
+ * ─── ONE LITERAL SPECIFIER PER ENTRY ────────────────────────────────────────
+ *
+ * Each loader below is a literal `import()`. A computed specifier — a template
+ * literal over the slug, or a directory listing — is not followed by the
+ * bundler, so the entry would be missing from the compiled binary and nothing
+ * would fail until a user asked for it. The length of this list is therefore
+ * the entry count, and it grows by exactly one line per entry.
+ *
+ * Loading is lazy even here: nothing is imported until `loadCatalogue` runs, so
+ * a caller that imports this module to name the type pays for no entry.
+ */
+
+import type { LibraryEntry } from './define'
+
+// The vocabulary a caller needs beside the entries, re-exported so that the one
+// lazy `import()` of this module hands over everything: a caller that imported
+// `define.ts` statically for these would put the tree on its boot path.
+export { LIBRARY_KINDS, LIBRARY_TARGET_KEY, expectedTables, libraryEntryId } from './define'
+
+const LOADERS: ReadonlyArray<() => Promise<LibraryEntry>> = [
+  async () => import('../block/alert-inline').then(({ entry }) => entry),
+  async () => import('../block/alert-validation-summary').then(({ entry }) => entry),
+  async () => import('../block/app-navbar-command').then(({ entry }) => entry),
+  async () => import('../block/app-navbar-search').then(({ entry }) => entry),
+  async () => import('../block/banner-top').then(({ entry }) => entry),
+  async () => import('../block/bento-feature-stack').then(({ entry }) => entry),
+  async () => import('../block/blog-cards').then(({ entry }) => entry),
+  async () => import('../block/blog-list').then(({ entry }) => entry),
+  async () => import('../block/breadcrumb-chevron').then(({ entry }) => entry),
+  async () => import('../block/breadcrumb-slash').then(({ entry }) => entry),
+  async () => import('../block/calendar-month').then(({ entry }) => entry),
+  async () => import('../block/calendar-week').then(({ entry }) => entry),
+  async () => import('../block/card-heading').then(({ entry }) => entry),
+  async () => import('../block/comments-feed').then(({ entry }) => entry),
+  async () => import('../block/contact-centered').then(({ entry }) => entry),
+  async () => import('../block/contact-split').then(({ entry }) => entry),
+  async () => import('../block/content-prose').then(({ entry }) => entry),
+  async () => import('../block/content-with-toc').then(({ entry }) => entry),
+  async () => import('../block/cta-banner').then(({ entry }) => entry),
+  async () => import('../block/cta-split').then(({ entry }) => entry),
+  async () => import('../block/dl-rows').then(({ entry }) => entry),
+  async () => import('../block/dl-stacked').then(({ entry }) => entry),
+  async () => import('../block/drawer-form').then(({ entry }) => entry),
+  async () => import('../block/drawer-record').then(({ entry }) => entry),
+  async () => import('../block/empty-basic').then(({ entry }) => entry),
+  async () => import('../block/empty-with-starters').then(({ entry }) => entry),
+  async () => import('../block/faq-accordion').then(({ entry }) => entry),
+  async () => import('../block/faq-two-column').then(({ entry }) => entry),
+  async () => import('../block/feature-alternating').then(({ entry }) => entry),
+  async () => import('../block/feature-grid').then(({ entry }) => entry),
+  async () => import('../block/feature-list-icons').then(({ entry }) => entry),
+  async () => import('../block/footer-columns').then(({ entry }) => entry),
+  async () => import('../block/footer-simple').then(({ entry }) => entry),
+  async () => import('../block/gallery-cards').then(({ entry }) => entry),
+  async () => import('../block/header-centered').then(({ entry }) => entry),
+  async () => import('../block/header-with-links').then(({ entry }) => entry),
+  async () => import('../block/hero-centered').then(({ entry }) => entry),
+  async () => import('../block/hero-split-image').then(({ entry }) => entry),
+  async () => import('../block/hero-with-screenshot').then(({ entry }) => entry),
+  async () => import('../block/kpi-row-trend').then(({ entry }) => entry),
+  async () => import('../block/kpi-sparkline').then(({ entry }) => entry),
+  async () => import('../block/list-avatars').then(({ entry }) => entry),
+  async () => import('../block/logos-grid').then(({ entry }) => entry),
+  async () => import('../block/logos-marquee').then(({ entry }) => entry),
+  async () => import('../block/modal-confirm-destructive').then(({ entry }) => entry),
+  async () => import('../block/modal-form').then(({ entry }) => entry),
+  async () => import('../block/navbar-flyout').then(({ entry }) => entry),
+  async () => import('../block/navbar-simple').then(({ entry }) => entry),
+  async () => import('../block/newsletter-centered').then(({ entry }) => entry),
+  async () => import('../block/newsletter-inline').then(({ entry }) => entry),
+  async () => import('../block/not-found-centered').then(({ entry }) => entry),
+  async () => import('../block/not-found-with-links').then(({ entry }) => entry),
+  async () => import('../block/page-heading-actions').then(({ entry }) => entry),
+  async () => import('../block/pagination-numbered').then(({ entry }) => entry),
+  async () => import('../block/pagination-simple').then(({ entry }) => entry),
+  async () => import('../block/pricing-comparison').then(({ entry }) => entry),
+  async () => import('../block/pricing-three-tier').then(({ entry }) => entry),
+  async () => import('../block/pricing-toggle').then(({ entry }) => entry),
+  async () => import('../block/progress-bar').then(({ entry }) => entry),
+  async () => import('../block/record-form-two-column').then(({ entry }) => entry),
+  async () => import('../block/section-heading-tabs').then(({ entry }) => entry),
+  async () => import('../block/settings-form').then(({ entry }) => entry),
+  async () => import('../block/shell-sidebar').then(({ entry }) => entry),
+  async () => import('../block/shell-stacked').then(({ entry }) => entry),
+  async () => import('../block/stats-from-table').then(({ entry }) => entry),
+  async () => import('../block/stats-row').then(({ entry }) => entry),
+  async () => import('../block/steps-horizontal').then(({ entry }) => entry),
+  async () => import('../block/table-with-actions').then(({ entry }) => entry),
+  async () => import('../block/table-with-filters').then(({ entry }) => entry),
+  async () => import('../block/tabs-segmented').then(({ entry }) => entry),
+  async () => import('../block/tabs-underline').then(({ entry }) => entry),
+  async () => import('../block/team-grid').then(({ entry }) => entry),
+  async () => import('../block/team-list').then(({ entry }) => entry),
+  async () => import('../block/testimonial-grid').then(({ entry }) => entry),
+  async () => import('../block/testimonial-single').then(({ entry }) => entry),
+  async () => import('../block/timeline-activity').then(({ entry }) => entry),
+  async () => import('../block/toast-confirm').then(({ entry }) => entry),
+  async () => import('../block/vertical-nav-grouped').then(({ entry }) => entry),
+  async () => import('../block/vertical-nav-settings').then(({ entry }) => entry),
+  async () => import('../connection/aircall').then(({ entry }) => entry),
+  async () => import('../connection/airtable').then(({ entry }) => entry),
+  async () => import('../connection/brevo').then(({ entry }) => entry),
+  async () => import('../connection/circle').then(({ entry }) => entry),
+  async () => import('../connection/contentsquare').then(({ entry }) => entry),
+  async () => import('../connection/facebook').then(({ entry }) => entry),
+  async () => import('../connection/google').then(({ entry }) => entry),
+  async () => import('../connection/hubspot').then(({ entry }) => entry),
+  async () => import('../connection/lemlist').then(({ entry }) => entry),
+  async () => import('../connection/linkedin').then(({ entry }) => entry),
+  async () => import('../connection/lucca').then(({ entry }) => entry),
+  async () => import('../connection/microsoft-365').then(({ entry }) => entry),
+  async () => import('../connection/mistral').then(({ entry }) => entry),
+  async () => import('../connection/notion').then(({ entry }) => entry),
+  async () => import('../connection/pennylane').then(({ entry }) => entry),
+  async () => import('../connection/qonto').then(({ entry }) => entry),
+  async () => import('../connection/salesforce').then(({ entry }) => entry),
+  async () => import('../connection/sellsy').then(({ entry }) => entry),
+  async () => import('../connection/slack').then(({ entry }) => entry),
+  async () => import('../connection/stripe').then(({ entry }) => entry),
+  async () => import('../connection/whatsapp').then(({ entry }) => entry),
+  async () => import('../recipe/form-to-brevo').then(({ entry }) => entry),
+  async () => import('../recipe/form-to-circle-member').then(({ entry }) => entry),
+  async () => import('../recipe/form-to-google-sheets').then(({ entry }) => entry),
+  async () => import('../recipe/form-to-hubspot').then(({ entry }) => entry),
+  async () => import('../recipe/form-to-salesforce-lead').then(({ entry }) => entry),
+  async () => import('../recipe/meta-lead-ads-to-table').then(({ entry }) => entry),
+  async () => import('../recipe/pennylane-invoices-to-table').then(({ entry }) => entry),
+  async () => import('../recipe/qonto-transactions-to-table').then(({ entry }) => entry),
+  async () => import('../recipe/record-to-facebook-post').then(({ entry }) => entry),
+  async () => import('../recipe/record-to-linkedin-post').then(({ entry }) => entry),
+  async () => import('../recipe/record-to-mistral-summary').then(({ entry }) => entry),
+  async () => import('../recipe/record-to-salesforce-contact').then(({ entry }) => entry),
+  async () => import('../recipe/record-to-slack').then(({ entry }) => entry),
+  async () => import('../recipe/record-to-whatsapp-template').then(({ entry }) => entry),
+]
+
+/** Every shipped entry, in catalogue order (kind, then slug). */
+export const loadCatalogue = async (): Promise<readonly LibraryEntry[]> =>
+  Promise.all(LOADERS.map(async (load) => load()))

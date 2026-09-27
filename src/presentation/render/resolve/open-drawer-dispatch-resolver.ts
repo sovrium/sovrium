@@ -39,6 +39,29 @@ function isOpenDrawerAction(value: unknown): value is OpenDrawerOnRowClick {
   return record['action'] === 'openDrawer' && typeof record['component'] === 'string'
 }
 
+/**
+ * The drawer ids a drawer's `related.onRowClick` opens ([internal ref]
+ * CAP-8). Collected apart from the grid references: a drawer reached ONLY this
+ * way is secondary on its page, and must not self-open on the page's
+ * `?record=` deep link (see {@link tagDrawerIfDispatched}).
+ */
+function collectRelatedRowTargets(component: Component | string): readonly string[] {
+  if (typeof component === 'string') return []
+  const { type, related, children } = component as unknown as Record<string, unknown>
+  const own =
+    type === 'drawer' && Array.isArray(related)
+      ? related.flatMap((entry: unknown) => {
+          const onRowClick = (entry as Record<string, unknown> | null)?.['onRowClick']
+          return isOpenDrawerAction(onRowClick) ? [onRowClick.component] : []
+        })
+      : []
+  if (!Array.isArray(children)) return own
+  return [
+    ...own,
+    ...(children as readonly (Component | string)[]).flatMap(collectRelatedRowTargets),
+  ]
+}
+
 /** Recursively collect every drawer-id referenced by `onRowClick: { action: 'openDrawer', component }` in the subtree rooted at `component`. */
 function collectIdsFromComponent(component: Component | string): readonly string[] {
   if (typeof component === 'string') return []
@@ -54,31 +77,45 @@ function collectDispatchedDrawerIds(components: readonly Component[]): ReadonlyS
   return new Set(components.flatMap(collectIdsFromComponent))
 }
 
-/** Tag a drawer (if matched) with the render-time `_openDrawerDispatchedById` prop. */
-function tagDrawerIfDispatched(
-  component: Component,
-  dispatchedIds: ReadonlySet<string>
-): Component {
+/** The two kinds of dispatch a drawer can be the target of. */
+interface DispatchTargets {
+  /** Ids a grid's `onRowClick: openDrawer` names. */
+  readonly grid: ReadonlySet<string>
+  /** Ids a drawer's `related[].onRowClick: openDrawer` names. */
+  readonly relatedRow: ReadonlySet<string>
+}
+
+/**
+ * Tag a drawer (if matched) with the render-time `_openDrawerDispatchedById`
+ * prop, and — when a related row is the ONLY thing that opens it — with
+ * `_relatedRowTargetOnly`, which keeps it from self-opening on the page's
+ * `?record=` deep link: that id belongs to the page's own table, and opening
+ * a contact drawer on a company's id shows the wrong record.
+ */
+function tagDrawerIfDispatched(component: Component, targets: DispatchTargets): Component {
   const { type, id, props } = component as unknown as Record<string, unknown>
-  if (type !== 'drawer') return component
-  if (typeof id !== 'string' || !dispatchedIds.has(id)) return component
+  if (type !== 'drawer' || typeof id !== 'string') return component
+  const fromGrid = targets.grid.has(id)
+  const fromRelatedRow = targets.relatedRow.has(id)
+  if (!fromGrid && !fromRelatedRow) return component
   const existingProps = (props as Record<string, unknown> | undefined) ?? {}
   return {
     ...component,
-    props: { ...existingProps, _openDrawerDispatchedById: id },
+    props: {
+      ...existingProps,
+      _openDrawerDispatchedById: id,
+      ...(fromGrid ? {} : { _relatedRowTargetOnly: true }),
+    },
   } as Component
 }
 
 /** Recursively map components, tagging dispatched drawers and recursing into children. */
-function mapTree(
-  components: readonly Component[],
-  dispatchedIds: ReadonlySet<string>
-): Component[] {
+function mapTree(components: readonly Component[], targets: DispatchTargets): Component[] {
   return components.map((component) => {
-    const tagged = tagDrawerIfDispatched(component, dispatchedIds)
+    const tagged = tagDrawerIfDispatched(component, targets)
     const { children } = tagged as unknown as Record<string, unknown>
     if (!Array.isArray(children)) return tagged
-    const mappedChildren = mapTree(children as readonly Component[], dispatchedIds)
+    const mappedChildren = mapTree(children as readonly Component[], targets)
     return { ...tagged, children: mappedChildren } as Component
   })
 }
@@ -91,7 +128,8 @@ function mapTree(
 export function resolveOpenDrawerDispatches(
   components: readonly Component[]
 ): readonly Component[] {
-  const dispatchedIds = collectDispatchedDrawerIds(components)
-  if (dispatchedIds.size === 0) return components
-  return mapTree(components, dispatchedIds)
+  const grid = collectDispatchedDrawerIds(components)
+  const relatedRow = new Set(components.flatMap(collectRelatedRowTargets))
+  if (grid.size === 0 && relatedRow.size === 0) return components
+  return mapTree(components, { grid, relatedRow })
 }

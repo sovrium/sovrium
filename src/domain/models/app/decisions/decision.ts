@@ -61,7 +61,7 @@ const ISO_CALENDAR_DAY = /^\d{4}-\d{2}-\d{2}$/
  *
  * ─── `id` IS FREE-FORM, AND UNIQUE ─────────────────────────────────────────
  *
- * Deliberately not pattern-pinned. `[internal ref]`, `[internal ref]`, `GD-092` and `RFC-12`
+ * Deliberately not pattern-pinned. `[internal ref]`, `[internal ref]`, `[internal ref]` and `RFC-12`
  * are all conventions teams actually use, and a schema that refused three of
  * them would be refusing a register for its house style. Uniqueness is the only
  * property the register needs from an id, because it is the property the

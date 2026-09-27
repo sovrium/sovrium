@@ -44,12 +44,20 @@
  * carrying markup renders as the characters the user typed (security rule S2).
  */
 
-/** The signed-in caller's OWN session identity (the `{ user }` envelope subset). */
+/**
+ * The signed-in caller's OWN session user (the `{ user }` envelope
+ * `GET /api/auth/get-session` returns). The named fields are the ones pages use
+ * most; any other field on the envelope — `language`, the two notification
+ * preferences — resolves the same way, read dynamically by `resolveField`.
+ */
 export interface SessionUser {
   readonly email?: string
   readonly name?: string
   readonly role?: string
   readonly id?: string
+  readonly language?: string | null
+  readonly notifyAutomationAlerts?: boolean
+  readonly notifyWeeklyDigest?: boolean
 }
 
 /**

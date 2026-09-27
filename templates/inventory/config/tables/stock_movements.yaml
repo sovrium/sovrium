@@ -1,8 +1,13 @@
-# Stock movements — the append-only ledger behind every stock figure.
+# Stock movements — the ledger every stock figure is computed from.
 #
-# `products.movement_count` counts these rows and `products.units_moved` rolls
-# up their `quantity`, so this table is what makes those two computed columns
-# mean something.
+# One row per quantity that moved, SIGNED: a receipt is positive, a pick is
+# negative, a transfer is two rows (out of one warehouse, into another) and a
+# count writes the difference it found. `products.stock_on_hand` is the sum of
+# these rows, so correcting stock means recording a movement, never typing a
+# new figure over the old one.
+#
+# The first row of each product in each warehouse is its opening balance: the
+# quantity it held when the ledger started.
 id: 4
 name: stock_movements
 fields:
@@ -22,29 +27,35 @@ fields:
     relatedTable: warehouses
     relationType: many-to-one
     displayField: name
+  # The warehouse's name, read through the relationship, for lists that show
+  # a movement away from its warehouse (a product's drawer).
+  - id: 11
+    name: warehouse_name
+    type: lookup
+    relationshipField: warehouse
+    relatedField: name
   - id: 4
-    name: direction
+    name: type
     type: single-select
     options:
-      - Inbound
-      - Outbound
-      - Adjustment
-    default: Inbound
+      - Received
+      - Picked
+      - Transfer in
+      - Transfer out
+      - Count
+      - Opening balance
+    default: Received
   - id: 5
     name: quantity
     type: integer
-    default: 0
-  - id: 6
-    name: unit_cost
-    type: currency
-    currency: EUR
-    precision: 2
+    required: true
   - id: 7
-    name: moved_on
+    name: moved_at
     type: date
+    required: true
   - id: 8
     name: note
-    type: long-text
+    type: single-line-text
   - id: 9
     name: created_at
     type: created-at
@@ -54,14 +65,17 @@ fields:
 
 aiAccess:
   description: >-
-    Stock in and out. Use this when the user asks about receipts, shipments,
-    adjustments, or stock history for a product.
+    Stock in and out, signed: positive for a receipt or a transfer in, negative
+    for a pick or a transfer out. Use this when the user asks about receipts,
+    picks, transfers, counts or the stock history of a product.
   operations:
     - read
     - list
     - create
   fieldExposure: permissioned
 
+# The operator records movements; only the stock manager may correct or remove
+# one, because every stock figure is computed from this table.
 permissions:
   read: authenticated
   create:

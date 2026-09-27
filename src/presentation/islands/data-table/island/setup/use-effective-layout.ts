@@ -22,8 +22,11 @@ export type EffectiveLayout = ReturnType<typeof useEffectiveLayout>
  * density the moment they opened a view that never set one.
  */
 export function useEffectiveLayout(ctx: SetupContext) {
-  const prefs = useTablePreferences(ctx.tableKey)
-  const savedViews = useSavedViews(ctx.tableKey)
+  // A view-bound grid keeps no per-user state: the empty key short-circuits
+  // both reads, which a visitor on a public view would only be refused.
+  const personalKey = ctx.isViewBound ? '' : ctx.tableKey
+  const prefs = useTablePreferences(personalKey)
+  const savedViews = useSavedViews(personalKey)
 
   const effectiveRowDensity = ctx.ui.activeViewRowDensity ?? prefs.preferences.rowDensity
   const effectiveColumnWidths = ctx.ui.activeViewColumnWidths ?? prefs.preferences.columnWidths

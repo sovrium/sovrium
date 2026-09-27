@@ -37,6 +37,7 @@ export * from './schema-sqlite/auth-oauth-resource-tables'
 
 // System / application tables (sqlite-core mirrors)
 export * from './schema-sqlite/activity-log'
+export * from './schema-sqlite/admin-digest'
 export * from './schema-sqlite/admin-search'
 export * from './schema-sqlite/audit-log'
 export * from './schema-sqlite/boot-ledger'

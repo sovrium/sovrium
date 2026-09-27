@@ -6,6 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
+import type { App } from '@/domain/models/app'
 import type { Effect } from 'effect'
 
 /**
@@ -57,6 +58,8 @@ export class AdminBucketFilesDatabaseError extends Data.TaggedError(
 export interface AdminBucketFileRow {
   readonly id: string
   readonly key: string
+  /** The bucket the object is recorded under, or `null` when unattributed. */
+  readonly bucket: string | null
   readonly filename: string
   readonly mimeType: string
   readonly size: number
@@ -102,6 +105,8 @@ export interface AdminBucketUploadRow {
  *   case can compute `hasMore` / `nextCursor`.
  */
 export interface AdminBucketFilesListFilters {
+  /** Which rows belong to the listed bucket — see {@link AdminBucketFilesScope}. */
+  readonly scope: AdminBucketFilesScope
   readonly sort: 'filename' | 'mimeType' | 'size' | 'createdAt'
   readonly order: 'asc' | 'desc'
   readonly typePrefix?: string | undefined
@@ -109,6 +114,32 @@ export interface AdminBucketFilesListFilters {
   readonly q?: string | undefined
   readonly cursor?: { readonly value: string; readonly id: string } | undefined
   readonly limit: number
+}
+
+/**
+ * The rows one bucket listing covers: every object recorded under `bucket`,
+ * plus — for the built-in `system` bucket — every object whose key is in
+ * `alsoKeys`, whichever bucket holds it (the files linked to a record).
+ */
+export interface AdminBucketFilesScope {
+  readonly bucket: string
+  readonly alsoKeys?: readonly string[] | undefined
+}
+
+/** One stored file referenced by one attachment cell of one live record. */
+export interface AdminRecordAttachmentLink {
+  readonly key: string
+  readonly bucket: string
+  readonly table: string
+  readonly recordId: string
+  readonly field: string
+}
+
+/** How many objects one bucket records, and how many bytes they occupy. */
+export interface AdminBucketUsageRow {
+  readonly bucket: string | null
+  readonly fileCount: number
+  readonly totalBytes: number
 }
 
 export class AdminBucketFilesRepository extends Context.Service<
@@ -125,11 +156,31 @@ export class AdminBucketFilesRepository extends Context.Service<
     ) => Effect.Effect<readonly AdminBucketFileRow[], AdminBucketFilesDatabaseError>
 
     /**
-     * `SUM(size)` across every file-metadata row in the bucket. Invariant
+     * `SUM(size)` across every file-metadata row in the scope. Invariant
      * across the `type` filter and pagination — backs the file browser's quota
      * bar (`totalBytes`).
      */
-    readonly sumTotalBytes: Effect.Effect<number, AdminBucketFilesDatabaseError>
+    readonly sumTotalBytes: (
+      scope: AdminBucketFilesScope
+    ) => Effect.Effect<number, AdminBucketFilesDatabaseError>
+
+    /**
+     * Object count and byte total per recorded bucket — the per-bucket usage the
+     * admin bucket list reports on each item.
+     */
+    readonly usageByBucket: Effect.Effect<
+      readonly AdminBucketUsageRow[],
+      AdminBucketFilesDatabaseError
+    >
+
+    /**
+     * Every stored file an attachment cell of a live (not soft-deleted) record
+     * references, across every attachment column `app` declares — the files the
+     * built-in `system` bucket lists beside its own.
+     */
+    readonly listRecordAttachmentLinks: (
+      app: App
+    ) => Effect.Effect<readonly AdminRecordAttachmentLink[], AdminBucketFilesDatabaseError>
 
     /**
      * The `{ size, createdAt }` pairs for every file stored on/after `since`.
@@ -147,5 +198,18 @@ export class AdminBucketFilesRepository extends Context.Service<
     readonly listUploadsSince: (
       since: Date
     ) => Effect.Effect<readonly AdminBucketUploadRow[], AdminBucketFilesDatabaseError>
+
+    /**
+     * How many files, and how many bytes, were stored in `[from, to)` — one
+     * aggregate over the storage catalog, the weekly summary's upload line.
+     * Like {@link listUploadsSince}, a file deleted since no longer counts.
+     */
+    readonly summariseUploadsBetween: (input: {
+      readonly from: Date
+      readonly to: Date
+    }) => Effect.Effect<
+      { readonly files: number; readonly bytes: number },
+      AdminBucketFilesDatabaseError
+    >
   }
 >()('AdminBucketFilesRepository') {}

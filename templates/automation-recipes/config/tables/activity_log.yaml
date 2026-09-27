@@ -1,17 +1,66 @@
+# One line per run: which recipe ran, how it ended, how many attempts it took,
+# and one line of why. This is the table the Activity page reads.
+#
+# The recipes write it themselves — recipes 1 and 2 add a line when they
+# succeed, and recipe 4 adds the line of a run that failed after its last
+# retry — so the history lives in the app's own database, next to the leads.
+# The platform keeps its own, fuller record of every run in the admin
+# console; this table is the part an operator reads every day.
 id: 2
 name: activity_log
 fields:
   - id: 1
-    name: event
-    type: single-line-text
+    name: logged_at
+    type: datetime
     required: true
   - id: 2
-    name: details
-    type: long-text
+    name: recipe
+    type: single-select
+    required: true
+    options:
+      - capture-lead-from-webhook
+      - log-new-lead
+      - daily-digest
+      - alert-on-failure
+  # Three outcomes, and colour is spent on them and on nothing else: the
+  # light-scheme success, warning and error of config/design.yaml.
   - id: 3
-    name: created_at
-    type: created-at
+    name: outcome
+    type: single-select
+    required: true
+    options:
+      - value: Succeeded
+        color: '#0C7B60'
+      - value: Retried
+        color: '#9D6300'
+      - value: Failed
+        color: '#BA3535'
+  - id: 4
+    name: attempts
+    type: integer
+  - id: 5
+    name: duration_ms
+    type: integer
+  # The run id, as the admin console prints it, so a line can be traced there.
+  - id: 6
+    name: reference
+    type: single-line-text
+  # One line of why: what the run wrote, or what stopped it.
+  - id: 7
+    name: detail
+    type: single-line-text
+  # The message the failing step returned, word for word.
+  - id: 8
+    name: error
+    type: single-line-text
+  - id: 9
+    name: lead
+    type: relationship
+    relatedTable: leads
+    relationType: many-to-one
+    displayField: name
 
+# Members read the history; the recipes write it. Only an admin deletes a line.
 permissions:
   read: authenticated
   create:

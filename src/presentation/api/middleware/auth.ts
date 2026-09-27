@@ -5,10 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { GUEST_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { isOpenToEveryone, toPermissionValue } from '@/domain/models/app/auth/permission-evaluation'
+import { isSessionBindingValid } from '@/domain/models/app/auth/session-binding-validation'
 import { logError, logWarning } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getRequestTrustedClientIp } from './client-ip'
+import { isPublicViewRead } from './public-view-read'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AdminRoleResolvable } from '@/domain/models/app'
 import type { Context, Next } from 'hono'
@@ -40,42 +43,6 @@ export type ContextWithSession = Context & {
 }
 
 /**
- * Validate session binding to original IP and User-Agent
- *
- * When strict mode is enabled, sessions are bound to the IP address and
- * User-Agent that created them. This prevents session hijacking attacks.
- *
- * A session that recorded neither value is accepted: each check below can
- * only reject on a binding the session actually carries, so there is nothing
- * to compare against. Better Auth stores `''` rather than omitting the field
- * when it cannot determine the client IP (no forwarding header in production)
- * or the request carries no User-Agent, so this is a reachable state and not
- * merely a legacy one.
- *
- * @param session - Session object from database
- * @param currentIP - Current request IP address
- * @param currentUserAgent - Current request User-Agent
- * @returns true if session is valid, false if binding validation fails
- */
-function validateSessionBinding(
-  session: UserSession,
-  currentIP: string | undefined,
-  currentUserAgent: string | undefined
-): boolean {
-  // If session has IP binding, validate it matches
-  if (session.ipAddress && currentIP && session.ipAddress !== currentIP) {
-    return false
-  }
-
-  // If session has User-Agent binding, validate it matches
-  if (session.userAgent && currentUserAgent && session.userAgent !== currentUserAgent) {
-    return false
-  }
-
-  return true
-}
-
-/**
  * Process session result and attach to context if valid
  *
  * Validates session binding and logs security warnings for failed validations.
@@ -92,12 +59,17 @@ function processSessionResult(
   // was written by Better Auth from its OWN header detection, so the two values
   // are only comparable when both come from a forwarding header. Feeding the
   // peer in here makes every session look relocated on any deployment where
-  // Better Auth recorded something else, and `validateSessionBinding` then
+  // Better Auth recorded something else, and `isSessionBindingValid` then
   // rejects valid sessions.
   const currentIP = getRequestTrustedClientIp(c)
   const currentUserAgent = c.req.header('user-agent')
 
-  if (validateSessionBinding(sessionResult.session as UserSession, currentIP, currentUserAgent)) {
+  if (
+    isSessionBindingValid(sessionResult.session as UserSession, {
+      ipAddress: currentIP,
+      userAgent: currentUserAgent,
+    })
+  ) {
     c.set('session', sessionResult.session as UserSession)
   } else {
     // Session binding validation failed - log for security monitoring
@@ -214,7 +186,7 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
 /**
  * Anonymous carve-outs for the otherwise-auth-gated `/api/tables/*` surface.
  *
- * Two opt-in exemptions let unauthenticated traffic reach a table handler; every
+ * Three opt-in exemptions let unauthenticated traffic reach a table handler; every
  * other path under `/api/tables/*` still gets the normal 401:
  *
  * 1. **PG-02 guest comments** — `GET`/`POST /api/tables/:t/records/:r/comments`
@@ -229,7 +201,11 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
  *    anti-enumeration preserved). The read handler already grants `read: 'all'`
  *    via `hasReadPermission`; the middleware was the only gate out of step.
  *
- * Both branches inject the same minimal synthetic `guest` principal so
+ * 3. **Public view read** — an anonymous `GET` on the definition or the records
+ *    of a view declaring `permissions: { public: true }`, and nothing else
+ *    under `/views` (the catalogue stays 401). See `public-view-read.ts`.
+ *
+ * Every branch injects the same minimal synthetic `guest` principal so
  * downstream middleware (`enrichUserRole`, `validateTable`) and the handlers
  * read consistent context — field-level and row-level read permissions then
  * apply to the anonymous caller exactly as to any role.
@@ -249,7 +225,9 @@ export function requireAuthOrGuestComment(
     }
     const app = resolveApp()
     const isGuestComment = isGuestCommentCreateRequest(c) && hasGuestCommentsEnabled(c, app)
-    const isPublicRead = isPublicTableRecordReadRequest(c) && hasPublicReadEnabled(c, app)
+    const isPublicRead =
+      (isPublicTableRecordReadRequest(c) && hasPublicReadEnabled(c, app)) ||
+      isPublicViewRead(c, app)
     if (isGuestComment || isPublicRead) {
       injectGuestPrincipal(c)
       await next()
@@ -276,7 +254,7 @@ export function requireAuthOrGuestComment(
  */
 function injectGuestPrincipal(c: ContextWithSession): void {
   const guestSession: UserSession = {
-    userId: 'guest',
+    userId: GUEST_USER_ID,
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     token: '',
     // eslint-disable-next-line unicorn/no-null -- Session.ipAddress is `string | null`
@@ -331,7 +309,9 @@ function hasGuestCommentsEnabled(
  *   `GET /api/tables/:t/records/:id`     (single record)
  * The single-record shape anchors to one trailing segment so deeper subroutes
  * (`/comments`, `/comments/:id`, `/history`) do NOT match — they stay 401'd.
- * Writes, `/trash`, `/subscribe`, `/export`, `/views/*` are excluded by shape.
+ * Writes, `/trash`, `/subscribe`, `/export` are excluded by shape. `/views/*`
+ * is excluded here too: a public VIEW is admitted by its own carve-out
+ * (`public-view-read.ts`), which asks of the view rather than of the table.
  */
 const PUBLIC_READ_LIST_PATH = /^\/api\/tables\/[^/]+\/records\/?$/
 const PUBLIC_READ_SINGLE_PATH = /^\/api\/tables\/[^/]+\/records\/[^/]+\/?$/

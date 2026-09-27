@@ -24,6 +24,12 @@ import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/
 import type { QueryClient } from '@tanstack/react-query'
 
 export interface IslandSetupParams {
+  /**
+   * The grid reads through one of its table's views (`dataSource.view`): the
+   * records come from the view's route, and nothing is written, saved or
+   * subscribed to — see `SetupContext.isViewBound`.
+   */
+  readonly isViewBound?: boolean
   readonly dataSource: {
     /** Bound DB table name — ABSENT for a system-source binding. */
     readonly table?: string
@@ -117,6 +123,14 @@ export interface SetupContext {
    * editing are all skipped for it.
    */
   readonly isSystemSource: boolean
+  /**
+   * The grid reads through a view: read-only like a system source, but backed
+   * by a DB table, so it still pages, sorts and filters through the records
+   * API — the view's records route. Preferences, saved views and realtime are
+   * skipped: each is keyed on the TABLE, whose grants a visitor on a public
+   * view does not hold.
+   */
+  readonly isViewBound: boolean
   /**
    * The bound DB table, or the empty string for a system source. The prefs and
    * saved-views hooks short-circuit their network reads on an empty key, so no

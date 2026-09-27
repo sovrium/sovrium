@@ -217,7 +217,7 @@ const OPERATOR_ALIASES: Readonly<Record<string, string>> = {
 }
 
 /** Fold an author-supplied operator onto the canonical vocabulary. */
-function canonicalizeOperator(operator: string): string {
+export function canonicalizeOperator(operator: string): string {
   return OPERATOR_ALIASES[operator] ?? operator
 }
 

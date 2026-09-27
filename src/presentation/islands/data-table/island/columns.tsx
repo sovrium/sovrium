@@ -159,6 +159,7 @@ export function buildColumns(options: BuildColumnsOptions): DataTableColumnDef[]
   // When no explicit columns: prefer tableFields (user-defined fields) over record keys
   // (which may include system fields like id, created_at)
   const autoOptions = {
+    locale,
     editable: autoColumnsEditable,
     fieldMeta,
     tableName,

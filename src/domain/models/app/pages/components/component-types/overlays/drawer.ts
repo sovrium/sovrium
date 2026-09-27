@@ -14,6 +14,7 @@ import { visibilityFields } from '../modules/visibility'
 import {
   RecordDrawerActionSchema,
   RecordDrawerFieldSchema,
+  RecordDrawerRelatedSchema,
   RecordDrawerRoleSchema,
 } from './record-drawer'
 
@@ -108,4 +109,16 @@ export const drawerFields = {
    * `props.title`) to keep the default `dialog "Détail de l'enregistrement"`.
    */
   role: Schema.optional(RecordDrawerRoleSchema),
+  /**
+   * Related sections (CAP-8). Each entry lists the rows of another table whose
+   * relationship column points at the opened record, read when the drawer
+   * opens. Additive — a drawer without `related` renders exactly as before.
+   * The cross-table rules live in `drawer-related-validation.ts`.
+   */
+  related: Schema.optional(
+    Schema.Array(RecordDrawerRelatedSchema).annotate({
+      description:
+        "Lists of records from other tables that point at the record the drawer opened, each drawn as its own section below the record's fields.",
+    })
+  ),
 } as const

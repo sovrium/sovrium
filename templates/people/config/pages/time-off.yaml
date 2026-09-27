@@ -1,79 +1,186 @@
+# Time off: who is away, by name, and what waits on a decision. Approved
+# absences sit on the calendar in green, requests waiting on an
+# admin in amber; a rejected request is not an absence and is not drawn.
 name: time-off
 path: /time-off
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Time off
-  description: Who's away, on a month view
+  title: Time off · Meridian People
+  description: Who is away this month, and the requests waiting on a decision.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: Time off
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Approved and pending absences across the team.
-
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: border rounded-lg p-5 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: Request time off
-          - type: text
-            element: p
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Time off
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Request time off
+                props:
+                  data-testid: request-time-off
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: request-time-off-dialog
+          # The form asks for the type and the dates, never for the person:
+          # the server stamps whoever is signed in as the requester, and the
+          # approval automation matches them to their row in the directory.
+          - type: dialog
             props:
-              className: text-sm mb-4
-            content: New requests start Pending. An approval automation emails the admins — the request flips to Approved the moment one of them signs off.
-          - type: form
+              id: request-time-off-dialog
+              title: Request time off
+              description: An admin decides, and the request shows on the calendar in amber until then. Days are counted in calendar days.
+            children:
+              - type: form
+                dataSource:
+                  table: time_off_requests
+                fields:
+                  - { field: type, label: Type }
+                  - { field: start_date, label: From }
+                  - { field: end_date, label: To }
+                  - { field: note, label: Note for the approver }
+                action:
+                  type: crud
+                  operation: create
+                  table: time_off_requests
+                  submitLabel: Send request
+                  onSuccess:
+                    navigate: /time-off
+                    toast:
+                      message: Request sent — an admin decides
+                      variant: success
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              # Four figures, each counted from the requests on every visit.
+              - type: grid
+                props:
+                  className: grid grid-cols-2 gap-3 lg:grid-cols-4 max-md:[&_[data-role=kpi-value]]:text-2xl
+                children:
+                  - type: kpi
+                    label: Waiting on a decision
+                    dataSource:
+                      table: time_off_requests
+                      filter:
+                        - { field: status, operator: eq, value: Pending }
+                    kpiAggregate: { function: count }
+                    kpiFormat: { type: number }
+                  - type: kpi
+                    label: Approved
+                    dataSource:
+                      table: time_off_requests
+                      filter:
+                        - { field: status, operator: eq, value: Approved }
+                    kpiAggregate: { function: count }
+                    kpiFormat: { type: number }
+                  - type: kpi
+                    label: Calendar days approved
+                    dataSource:
+                      table: time_off_requests
+                      filter:
+                        - { field: status, operator: eq, value: Approved }
+                    kpiAggregate: { function: sum, field: days }
+                    kpiFormat: { type: number }
+                  - type: kpi
+                    label: Rejected
+                    dataSource:
+                      table: time_off_requests
+                      filter:
+                        - { field: status, operator: eq, value: Rejected }
+                    kpiAggregate: { function: count }
+                    kpiFormat: { type: number }
+              - type: text
+                element: p
+                props:
+                  className: text-xs text-foreground-muted
+                content: Approved absences in green, requests waiting on a decision in amber. A rejected request is not an absence and is not drawn.
+              - type: container
+                props:
+                  className: flex items-start gap-4 max-lg:flex-col
+                children:
+                  - type: container
+                    props:
+                      className: min-w-0 flex-1 max-lg:w-full
+                    children:
+                      - type: calendar
+                        dataSource:
+                          table: time_off_requests
+                          filter:
+                            - { field: status, operator: in, value: [Pending, Approved] }
+                        dateField: start_date
+                        endDateField: end_date
+                        labelField: employee_name
+                        colorField: status
+                        defaultView: month
+                        calendarEvent:
+                          onEventClick:
+                            action: openDrawer
+                            component: request-detail
+                  - type: container
+                    element: section
+                    props:
+                      className: flex w-[290px] flex-none flex-col gap-2 max-lg:w-full
+                      aria-label: Waiting on a decision
+                    children:
+                      - type: text
+                        element: h2
+                        props:
+                          className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+                        content: Waiting on a decision
+                      - type: list
+                        props:
+                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
+                        dataSource:
+                          table: time_off_requests
+                          filter:
+                            - { field: status, operator: eq, value: Pending }
+                          sort:
+                            - { field: start_date, direction: asc }
+                        listDisplay:
+                          emptyMessage: No request waits on a decision. New ones appear here until an admin decides.
+                          itemTemplate:
+                            title: $record.employee_name
+                            badge: Pending
+                            metadata:
+                              - { field: type, format: text }
+                              - { field: start_date, format: short-date }
+                              - { field: end_date, format: short-date }
+          # One request, opened from the calendar or from `/time-off?record=<id>`:
+          # whose it is, the dates, and where the decision stands.
+          - type: drawer
+            id: request-detail
+            drawerSide: right
+            drawerSize: md
+            canEdit: false
             dataSource:
               table: time_off_requests
-            fields:
-              - field: employee
-              - field: type
-              - field: start_date
-              - field: end_date
-              - field: notes
-            action:
-              type: crud
-              operation: create
-              table: time_off_requests
-              onSuccess:
-                navigate: /time-off
-                toast:
-                  message: Request submitted — an admin has been asked to approve it
-                  variant: success
-
-      # `labelField` and `endDateField` are NOT optional in practice here, they
-      # just look it. Without `labelField` the event label falls back to the
-      # table's first field, which for `time_off_requests` is `employee` — a
-      # relationship, which renders as an empty string, so every event on the
-      # month view came out as a blank coloured block. `type` is the useful
-      # label: what kind of leave this is. Without `endDateField` a five-day
-      # holiday draws as a single pip on its start date, which is the opposite
-      # of what a time-off calendar is for.
-      #
-      # `colorField: status` paints each event with the option colour declared
-      # on the `status` field, so Pending / Approved / Rejected are legible at a
-      # glance without opening anything.
-      - type: calendar
-        dataSource:
-          table: time_off_requests
-        dateField: start_date
-        endDateField: end_date
-        labelField: type
-        colorField: status
-        defaultView: month
+            props:
+              title: Time-off request
+            recordFields:
+              - { name: employee_name, type: single-line-text, label: Person }
+              - { name: status, type: status, label: Decision }
+              - { name: type, type: single-select, label: Type }
+              - { name: start_date, type: date, label: From }
+              - { name: end_date, type: date, label: To }
+              - { name: days, type: integer, label: Calendar days }
+              - { name: note, type: long-text, label: Note for the approver · visible to admins }
+              - { name: decision_note, type: long-text, label: Reason for the decision }

@@ -68,6 +68,7 @@ import {
 import { instanceFactsResponseSchema } from '@/domain/models/api/admin/instance'
 import { mcpToolCategorySchema, mcpToolsResponseSchema } from '@/domain/models/api/admin/mcp'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { conditionalRead } from '@/presentation/api/runtime/conditional-read'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -166,7 +167,8 @@ export function handleGetMcpTools(c: Context, app: App): Response {
 export function handleGetConfigReflection(c: Context, app: App): Response {
   const parsed = decodeSafe(configReflectionResponseSchema)(buildConfigReflection(app, process.env))
   if (!parsed.success) return encodeFailure(c, 'config reflection response')
-  noStore(c)
+  // Cache headers come from `conditionalRead()` on the route, whose tag leaves
+  // out the per-request `generatedAt`.
   return c.json(parsed.data, 200)
 }
 
@@ -210,6 +212,8 @@ export function chainAdminDeveloperReadRoutes<T extends Hono>(
   return honoApp
     .get('/api/admin/instance', (c) => handleGetInstanceFacts(c, resolveApp(), resolveOrigin(c)))
     .get('/api/admin/mcp/tools', (c) => handleGetMcpTools(c, resolveApp()))
-    .get('/api/admin/config/reflection', (c) => handleGetConfigReflection(c, resolveApp()))
+    .get('/api/admin/config/reflection', conditionalRead({ ignoreKeys: ['generatedAt'] }), (c) =>
+      handleGetConfigReflection(c, resolveApp())
+    )
     .get('/api/admin/config/declarations', (c) => handleGetConfigDeclarations(c, resolveApp())) as T
 }

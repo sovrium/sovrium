@@ -93,9 +93,9 @@ const badRequest = (c: Context, error: string) =>
  * It used to answer `undefined` for an app with no declared bucket, and the
  * upload then 404'd. That deliberately avoided minting a URL nothing would
  * serve; the fallback removes the premise instead, by making the download route
- * serve that URL. Still NOT the implicit `default` bucket: the minted URL names
- * `avatars` literally, and `default` carries other apps' objects and other
- * apps' rules.
+ * serve that URL. Still NOT the built-in `system` bucket: the minted URL names
+ * `avatars` literally, and `system` carries record attachments and their own
+ * rules.
  */
 const resolveAvatarBucketFor = (app: App) => resolveAvatarBucket(app.buckets)
 

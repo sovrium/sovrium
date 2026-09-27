@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
+import { appendQueryObject } from '@/domain/kernel/url/query-string'
 import { validateOutboundUrl } from '@/infrastructure/egress/validate-outbound-url'
 import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import { resolveConnectionHeaders } from './auth-headers'
@@ -89,7 +90,7 @@ const timeoutMsOf = (props: Readonly<Record<string, unknown>>): number => {
 export const handleHttpRequest: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
-    const url = stringProp(props, 'url')
+    const url = appendQueryObject(stringProp(props, 'url'), props['query'])
     if (!url) return { status: 'failure', error: 'http.request requires a url' } as const
 
     const method = String(props['method'] ?? 'GET')
@@ -285,7 +286,7 @@ const performHttpWithResponseOutput = async (input: {
 export const handleHttpGet: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
-    const url = stringProp(props, 'url')
+    const url = appendQueryObject(stringProp(props, 'url'), props['query'])
     if (!url) return { status: 'failure', error: 'http.get requires a url' } as const
 
     const baseHeaders = (props['headers'] as Record<string, string> | undefined) ?? {}
@@ -453,7 +454,7 @@ const makeHttpBodyVerbHandler =
   (action, app, automation) =>
     Effect.gen(function* () {
       const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
-      const url = stringProp(props, 'url')
+      const url = appendQueryObject(stringProp(props, 'url'), props['query'])
       if (!url)
         return { status: 'failure', error: `http.${method.toLowerCase()} requires a url` } as const
 
@@ -510,7 +511,7 @@ export const handleHttpPatch: ActionHandler = makeHttpBodyVerbHandler('PATCH')
 export const handleHttpDelete: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
-    const url = stringProp(props, 'url')
+    const url = appendQueryObject(stringProp(props, 'url'), props['query'])
     if (!url) return { status: 'failure', error: 'http.delete requires a url' } as const
 
     const baseHeaders = (props['headers'] as Record<string, string> | undefined) ?? {}

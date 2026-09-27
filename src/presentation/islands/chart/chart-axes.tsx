@@ -150,10 +150,12 @@ function ValueTickLabels({
   ticks,
   scale,
   format,
+  currency,
 }: {
   readonly ticks: readonly number[]
   readonly scale: ChartValueScale
   readonly format: ChartAxisDisplay['format']
+  readonly currency: ChartAxisDisplay['currency']
 }): ReactElement {
   return (
     <g>
@@ -167,7 +169,7 @@ function ValueTickLabels({
           textAnchor="end"
           dominantBaseline="central"
         >
-          {formatAxisValue(t, format)}
+          {formatAxisValue(t, format, currency)}
         </text>
       ))}
     </g>
@@ -229,6 +231,7 @@ function ValueAxisLayer({
         ticks={ticks}
         scale={valueScale}
         format={valueAxis?.format}
+        currency={valueAxis?.currency}
       />
       {valueAxis?.label === undefined ? undefined : (
         <ValueAxisTitle

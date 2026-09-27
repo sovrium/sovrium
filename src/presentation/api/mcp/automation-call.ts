@@ -79,15 +79,14 @@ export const resolveAutomationTool = (app: App, toolName: string): Automation | 
 }
 
 /**
- * Map the MCP caller's bearer-token-derived role into the role string
- * that `runManualAutomation` matches against the trigger's `requiredRole`.
- *
- * The MCP caller role vocabulary (`admin | member | viewer`) is a strict
- * subset of the auth.users.role vocabulary, so the mapping is a no-op
- * pass-through. Centralized here so a future expansion (e.g. custom roles
- * exposed via OAuth) has a single seam to extend.
+ * The role `runManualAutomation` matches against the trigger's `requiredRole`:
+ * the owner's account role exactly as the records API's button route passes
+ * it, not the three-tier MCP view. `caller.role` collapses a custom role to
+ * `member`, which refused a custom role the trigger names and handed a role
+ * ranked below `member` the `member` answer. The static-token caller carries
+ * no account role and falls back to its configured tier.
  */
-const callerRoleForManualTrigger = (caller: McpCaller): string => caller.role
+const callerRoleForManualTrigger = (caller: McpCaller): string => caller.accountRole ?? caller.role
 
 /**
  * Translate a `runManualAutomation` failure into the appropriate JSON-RPC

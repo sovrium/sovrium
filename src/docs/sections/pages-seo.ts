@@ -15,6 +15,7 @@ import {
   StructuredDataSchema,
   TwitterCardSchema,
 } from '@/domain/models/app/pages/meta'
+import seoCrawlersBody from '@/domain/models/app/pages/seo-crawlers.docs.md' with { type: 'file' }
 import seoMetaBody from '@/domain/models/app/pages/seo-meta.docs.md' with { type: 'file' }
 import seoStructuredDataBody from '@/domain/models/app/pages/seo-structured-data.docs.md' with { type: 'file' }
 import { defineArticle, defineSection } from './define'
@@ -28,6 +29,12 @@ import { defineArticle, defineSection } from './define'
  * 434. The split follows the reading anyway — everything here is about what
  * a machine makes of the page rather than what a visitor does with it — and
  * the fragments stay beside `pages/`, because that is where the schema is.
+ *
+ * The third article, `seo-crawlers`, documents no `meta` key: it covers the
+ * files every app serves beside its pages (`/sitemap.xml`, `/robots.txt`,
+ * `/feed.xml`, the `.md` twins) and cites no story, because the stories behind
+ * those routes are already cited by the `pages` articles that document the
+ * options driving them, and a story renders in exactly one article.
  *
  * `MetaSchema` at depth 1 is the whole `meta` surface, so the three articles'
  * directives overlap by design: the overview table names every key, and the
@@ -108,6 +115,29 @@ export const section = defineSection({
         'US-PAGES-META-FAVICONS',
         'US-PAGES-META-PERFORMANCE-HINTS-RESOURCE-HINTS',
       ],
+    }),
+    defineArticle({
+      slug: 'seo-crawlers',
+      title: 'Crawlers, Sitemaps & Feeds',
+      description:
+        "The machine-readable files every app serves — `/sitemap.xml`, `/robots.txt`, `/feed.xml` and each article's Markdown twin — what decides their contents, and what `sovrium build` writes.",
+      keywords: [
+        'sovrium',
+        'sitemap',
+        'robots.txt',
+        'RSS feed',
+        'hreflang',
+        'BASE_URL',
+        'markdown',
+        'AI crawlers',
+        'GPTBot',
+        'static build',
+      ],
+      order: 3028,
+      sidebarLabel: 'Crawlers & Sitemaps',
+      body: seoCrawlersBody,
+      documents: [],
+      stories: [],
     }),
   ],
 })

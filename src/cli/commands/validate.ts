@@ -235,7 +235,7 @@ export const runPostDecodeChecks = async (
  * The verdict on one already-parsed config: the shared pipeline plus the CLI's
  * own sweeps that need the `$ref` source map.
  */
-interface ValidationOutcome {
+export interface ValidationOutcome {
   readonly valid: boolean
   readonly name: string
   readonly errors: readonly string[]
@@ -274,8 +274,12 @@ interface ValidationOutcome {
  * below: the excess-property reporter uses it to name which `$ref` partial an
  * unrecognised key came from, and that attribution is available here and only
  * here, because only a file-backed config has partials to attribute to.
+ *
+ * Exported because `sovrium library add` owes the identical verdict, twice: on
+ * the config before it touches it, and on the candidate graph before it writes.
+ * A second copy would let `library add` accept a config `validate` refuses.
  */
-const validateParsedConfig = async (
+export const validateParsedConfig = async (
   parsed: unknown,
   refSources: ReadonlyMap<string, string>
 ): Promise<ValidationOutcome> => {
@@ -306,58 +310,6 @@ const validateParsedConfig = async (
     findings: postDecodeErrors.map((error) => messageAsConfigFinding(error)),
     notices: decoded.notices,
   }
-}
-
-/**
- * Validate a config file against AppSchema WITHOUT exiting the process.
- *
- * Same parsing ($ref resolution), same pipeline and same post-decode sweeps as
- * `handleValidateCommand`, but collects errors and returns them instead of
- * calling `process.exit`. Used by the progress pipeline's app-config sweep so a
- * single invalid `app.yaml` can fail the gate without tearing down the run.
- *
- * @returns `{ valid: true, name }` on success, or `{ valid: false, errors }` with a
- *   flat list of human-readable validation messages.
- */
-export const validateAppConfig = async (
-  filePath: string
-): Promise<
-  | { readonly valid: true; readonly name: string }
-  | { readonly valid: false; readonly errors: readonly string[] }
-> => {
-  const format = detectFormat(filePath)
-  if (format === 'unsupported') {
-    return {
-      valid: false,
-      errors: [`Unsupported file format (expected .json, .yaml, .yml, or .ts)`],
-    }
-  }
-
-  const { loadSchemaFromFile: loadFromFile, collectRefSources } = await lazyImportSchema()
-
-  // Parse + collect $ref sources without exiting the process on parse failure.
-  const parseResult = await parseConfigWithRefSources(
-    filePath,
-    format,
-    loadFromFile,
-    collectRefSources
-  ).then(
-    (result) => ({ ok: true as const, ...result }),
-    (error: unknown) => ({ ok: false as const, error })
-  )
-  if (!parseResult.ok) {
-    return {
-      valid: false,
-      errors: [
-        `Failed to parse file: ${parseResult.error instanceof Error ? parseResult.error.message : String(parseResult.error)}`,
-      ],
-    }
-  }
-
-  const outcome = await validateParsedConfig(parseResult.parsed, parseResult.refSources)
-  return outcome.valid
-    ? { valid: true, name: outcome.name }
-    : { valid: false, errors: outcome.errors }
 }
 
 /**

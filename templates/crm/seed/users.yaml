@@ -1,0 +1,12 @@
+# The two people of the demo sales team, created as sign-in accounts before any
+# table is filled, so the records below can name them as owners.
+#
+# No password is written here: both accounts take `SOVRIUM_SEED_PASSWORD` from
+# the environment, so a password never lands in a file you might commit.
+users:
+  - email: ines.moreau@kestrel.example
+    name: Inès Moreau
+    role: admin
+  - email: tom.achebe@kestrel.example
+    name: Tom Achebe
+    role: member

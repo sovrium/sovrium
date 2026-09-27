@@ -13,6 +13,7 @@ import {
 } from '@/presentation/design/kanban-default-classes'
 import { renderCardChild } from './card-template'
 import { renderFooterItem } from './footer-formatters'
+import { useKanbanFormat } from './use-kanban-format'
 import type { TableRecord } from '../runtime/types'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { ReactElement } from 'react'
@@ -36,6 +37,7 @@ export function KanbanCardBody({
   readonly record: TableRecord
   readonly coverImageSrc: string | undefined
 }): ReactElement {
+  const format = useKanbanFormat()
   return (
     <>
       {coverImageSrc && (
@@ -56,7 +58,7 @@ export function KanbanCardBody({
       {card.footer && card.footer.length > 0 && (
         <div className={computeKanbanCardFooterClasses()}>
           {card.footer.map((item, index) => {
-            const node = renderFooterItem(item, record)
+            const node = renderFooterItem(item, record, format)
             return node ? <span key={`footer-${String(index)}`}>{node}</span> : undefined
           })}
         </div>

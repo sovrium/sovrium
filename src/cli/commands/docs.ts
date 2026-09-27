@@ -51,16 +51,12 @@
  *    receive the table of contents and be left assuming their address was empty.
  */
 
-import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname } from 'node:path'
 import { Effect, Console } from 'effect'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { exportDocs } from './docs-export'
-import { renderDocsRequest, type DocsFormat } from './docs-render'
+import { renderDocsRequest } from './docs-render'
+import { resolveDocumentFormat, writeDocument } from './document-output'
 import { getCurrentVersion } from './update'
-
-/** The formats this command emits, and the spellings it accepts for them. */
-const MARKDOWN_FORMATS: ReadonlySet<string> = new Set(['md', 'markdown'])
 
 /** The one locale the in-binary manual carries. */
 const SUPPORTED_LANG = 'en'
@@ -87,28 +83,6 @@ export interface DocsCommandOptions {
 }
 
 /**
- * Normalise `--format`, refusing anything else by name.
- *
- * The accepted set is printed in the refusal because a caller who typed `yaml`
- * needs to learn what to type instead, not merely that they were wrong.
- */
-const resolveFormat = (raw: string | undefined): DocsFormat => {
-  if (raw === undefined) return 'md'
-  const normalized = raw.trim().toLowerCase()
-  if (MARKDOWN_FORMATS.has(normalized)) return 'md'
-  if (normalized === 'json') return 'json'
-  if (normalized === 'llms') return 'llms'
-
-  printStderr(
-    `Error: Unsupported --format "${raw}".\n\n` +
-      `  Accepted values: md (or markdown), json, llms.\n\n` +
-      `  Omitting --format prints the markdown manual, which is what an agent reads.`
-  )
-  // eslint-disable-next-line functional/no-expression-statements
-  process.exit(1)
-}
-
-/**
  * Refuse a locale the binary does not carry, BY NAME.
  *
  * Serving English to a reader who asked for French is the failure the flag
@@ -125,27 +99,6 @@ const resolveLang = (raw: string | undefined): void => {
   )
   // eslint-disable-next-line functional/no-expression-statements
   process.exit(1)
-}
-
-/**
- * Send the rendered document to its single destination.
- *
- * ONE destination per run: with `--output` the manual does NOT also go to
- * stdout, so a shell redirect cannot silently duplicate it into two places.
- * Parent directories are created, matching `sovrium schema --output` and
- * `sovrium design-system --output` — a sibling that did not would be a
- * gratuitous difference.
- */
-const emit = async (content: string, outputPath: string | undefined): Promise<void> => {
-  if (outputPath === undefined) {
-    // eslint-disable-next-line functional/no-expression-statements
-    process.stdout.write(content)
-    return
-  }
-  // eslint-disable-next-line functional/no-expression-statements
-  await mkdir(dirname(outputPath), { recursive: true })
-  await writeFile(outputPath, content)
-  Effect.runSync(Console.log(`Manual written to ${outputPath}.`))
 }
 
 /** Stop with a refusal on stderr and exit 1. */
@@ -223,7 +176,11 @@ export const handleDocsCommand = async (options: DocsCommandOptions): Promise<vo
   // after the manual has been assembled.
   resolveLang(options.lang)
   if (options.exportRequested === true) return handleExport(options)
-  const format = resolveFormat(options.format)
+  const format = resolveDocumentFormat(
+    options.format,
+    ['json', 'llms'],
+    'the markdown manual, which is what an agent reads.'
+  )
 
   const rendered = await renderDocsRequest({
     args: options.args,
@@ -239,5 +196,5 @@ export const handleDocsCommand = async (options: DocsCommandOptions): Promise<vo
     process.exit(1)
   }
 
-  await emit(rendered.content, options.outputPath)
+  await writeDocument(rendered.content, options.outputPath, 'Manual')
 }

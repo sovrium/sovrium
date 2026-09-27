@@ -31,6 +31,8 @@ permissions:
 
 Declaring **any** operation turns the table into a gated one, and every operation left out is then denied to non-admins. A table with no `permissions` block at all — or one that sets only `fields`, `inherit` or `override` — declares no operation and stays open to every non-viewer role. That asymmetry is deliberate: a half-written permissions block should fail closed.
 
+A grid bound to the table offers its create controls — the New record button, Import, and the add-row line — only to a caller the `create` grant admits, wherever the grid sits on the page. A caller it does not admit is shown none of them, rather than a control the server would refuse.
+
 ### Restore and permanent delete have no grant of their own
 
 **Restore shares the `delete` grant.** Restoring is the inverse of soft-deleting, so both directions pass through one door: whoever may soft-delete a record may restore it. A separate grant would let the two drift apart, leaving one of them a weaker door onto the same operation.
@@ -54,6 +56,8 @@ permissions:
 A field a role cannot read is also not **queryable** by that role: `filter`, `groupBy` and `aggregate` on it answer `404`. A hidden column would otherwise leak its values through the result set — `groupBy` returns its distinct values and `aggregate` its minimum and maximum, so hiding the column while leaving it queryable hides almost nothing.
 
 The rule holds at any nesting depth, so a restricted field inside an `and` or `or` group is refused exactly like a top-level one, and it covers **CSV export**: `?filterField=` on an export request is checked against the same field-read permissions. Leaving export out would leak the column through which _rows_ come back, one answer per request, even though the column itself is absent from the file.
+
+The same rule holds on pages. A field a role cannot read is never rendered into a page for that role — not in a `$record.*` substitution, not in a form's prefilled values — and a record-bound page for a row or table the role cannot read answers 404. A page's own `access` does not widen this: a public page over a table whose `read` is `authenticated` shows a visitor who is not signed in none of its records.
 
 ## Row-level permissions
 

@@ -27,12 +27,17 @@ export interface SeedRef {
   readonly key: string
 }
 
-/** A planned field value: literal data, one link, a link list, or a binary. */
+/**
+ * A planned field value: literal data, one link, a link list, a binary, or
+ * one or more sign-in accounts named by email.
+ */
 export type SeedValue =
   | { readonly kind: 'literal'; readonly value: unknown }
   | { readonly kind: 'ref'; readonly ref: SeedRef }
   | { readonly kind: 'refs'; readonly refs: readonly SeedRef[] }
   | { readonly kind: 'asset'; readonly filename: string }
+  | { readonly kind: 'user'; readonly email: string }
+  | { readonly kind: 'users'; readonly emails: readonly string[] }
 
 /** Either a planned value or the reason it cannot be planned. */
 export type SeedValueOutcome =
@@ -63,6 +68,7 @@ const planString = (raw: string, runAt: Readonly<Date>): SeedValueOutcome => {
   if (token.kind === 'record') return { ok: true, value: { kind: 'ref', ref: token.reference } }
   if (token.kind === 'asset')
     return { ok: true, value: { kind: 'asset', filename: token.filename } }
+  if (token.kind === 'user') return { ok: true, value: { kind: 'user', email: token.email } }
   if (token.kind === 'invalid') return { ok: false, reason: token.reason }
 
   const expanded = expandSeedStringValue(raw, runAt)
@@ -105,6 +111,10 @@ export const planSeedValue = (raw: unknown, runAt: Readonly<Date>): SeedValueOut
   if (refs.length > 0 && refs.length === planned.values.length) {
     return { ok: true, value: { kind: 'refs', refs } }
   }
+  const emails = planned.values.flatMap((value) => (value.kind === 'user' ? [value.email] : []))
+  if (emails.length > 0 && emails.length === planned.values.length) {
+    return { ok: true, value: { kind: 'users', emails } }
+  }
   return {
     ok: true,
     value: {
@@ -117,3 +127,7 @@ export const planSeedValue = (raw: unknown, runAt: Readonly<Date>): SeedValueOut
 /** Every reference a planned value points at (one, many, or none). */
 export const referencesOf = (value: SeedValue): readonly SeedRef[] =>
   value.kind === 'ref' ? [value.ref] : value.kind === 'refs' ? value.refs : []
+
+/** Every account email a planned value names (one, many, or none). */
+export const accountEmailsOf = (value: SeedValue): readonly string[] =>
+  value.kind === 'user' ? [value.email] : value.kind === 'users' ? value.emails : []

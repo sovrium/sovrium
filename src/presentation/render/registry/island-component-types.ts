@@ -116,6 +116,17 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   'checkbox',
   'switch',
   'radio-group',
+  // `toggle` / `toggle-group` press and select only once hydrated; the SSR
+  // placeholder is a disabled skeleton. `scroll-area` mounts its scrolling
+  // surface, `navigation-menu` opens its submenus and `menubar` its menus on
+  // the client alone. Each is registered in `island-registry.ts` and has its
+  // SSR host in `island-form-components.tsx`; without the entry here a page
+  // holding one of them and no other island is served the skeleton for good.
+  'toggle',
+  'toggle-group',
+  'scroll-area',
+  'navigation-menu',
+  'menubar',
   // `date-picker` mounts a popover trigger + react-day-picker grid; the
   // calendar dialog only appears after the trigger is clicked.
   'date-picker',

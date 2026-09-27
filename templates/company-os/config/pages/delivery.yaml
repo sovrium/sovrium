@@ -1,97 +1,136 @@
+# Delivery: every project, for whom and by whom — the client by name, never by
+# a number — then the tasks of the projects, by status. A project opened by a
+# won deal is at the top of the grid.
 name: delivery
 path: /delivery
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Delivery
-  description: Projects and their tasks — including the ones sales just won
+  title: Projects · Orrin OS
+  description: Every project with its client, owner, dates and progress, and the tasks by status.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: Delivery
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Every project, including the ones the won-deal automation just opened.
-
-      - type: table
-        dataSource:
-          table: projects
-          sort:
-            - field: created_at
-              direction: desc
-        columns:
-          - field: name
-            label: Project
-            sortable: true
-          - field: client
-            label: Client
-          - field: status
-            label: Status
-            sortable: true
-            filterable: true
-          - field: owner
-            label: Owner
-          - field: start_date
-            label: Start
-            format: short-date
-          - field: end_date
-            label: End
-            format: short-date
-        pagination:
-          pageSize: 10
-        emptyMessage: No projects yet — win a deal on the Sales board, or add one below.
-
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: border rounded-lg p-5 mt-8 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: Add a task
-          - type: form
-            dataSource:
-              table: project_tasks
-            fields:
-              - field: title
-              - field: project
-              - field: status
-              - field: due_date
-            action:
-              type: crud
-              operation: create
-              table: project_tasks
-              onSuccess:
-                navigate: /delivery
-                toast:
-                  message: Task created
-                  variant: success
-
-      - type: kanban
-        dataSource:
-          table: project_tasks
-        kanbanGroupBy:
-          field: status
-        emptyColumnMessage: Nothing here.
-        card:
-          children:
-            - type: text
-              element: h3
-              props:
-                className: text-md font-medium
-              content: $record.title
-          footer:
-            - field: due_date
-              format: relative-date
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Projects
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Add task
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-task-dialog
+          # Inline in the dialog, so an optional field left empty (no assignee
+          # yet) is simply left out of the new task.
+          - type: dialog
+            props:
+              id: add-task-dialog
+              title: Add task
+              description: The task lands on the board as To do.
+            children:
+              - type: form
+                dataSource:
+                  table: project_tasks
+                fields:
+                  - { field: title, label: Task }
+                  - { field: project, label: Project }
+                  - { field: assignee, label: Assignee }
+                  - { field: due_date, label: Due }
+                action:
+                  type: crud
+                  operation: create
+                  table: project_tasks
+                  submitLabel: Add task
+                  onSuccess:
+                    navigate: /delivery
+                    toast:
+                      message: Task added
+                      variant: success
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: filter-bar
+                publishes:
+                  bindTo: delivery-filter
+                fields:
+                  - name: status
+                    label: Status
+                    kind: select
+                    options:
+                      - { value: Planned, label: Planned }
+                      - { value: Active, label: Active }
+                      - { value: On hold, label: On hold }
+                      - { value: Done, label: Done }
+                  - { name: start_date, label: Start, kind: date }
+              - type: table
+                dataSource:
+                  table: projects
+                  view: delivery_portfolio
+                  bindTo: delivery-filter
+                  sharedFilter: {}
+                columns:
+                  - { field: name, label: Project, sortable: true }
+                  - { field: client, label: Client }
+                  - { field: status, label: Status, sortable: true }
+                  - { field: owner, label: Owner }
+                  - { field: start_date, label: Start, format: short-date, sortable: true }
+                  - { field: end_date, label: End, format: short-date, sortable: true }
+                  - { field: progress, label: Progress }
+                emptyMessage: A project opens here by itself when a deal is won in Sales.
+              - type: text
+                element: h2
+                props:
+                  className: pt-2 font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+                content: Tasks
+              - type: kanban
+                props:
+                  className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1'
+                dataSource:
+                  table: project_tasks
+                  sort:
+                    - { field: due_date, direction: asc }
+                kanbanGroupBy:
+                  field: status
+                drag:
+                  enabled: true
+                  persistAction:
+                    type: crud
+                    operation: update
+                    table: project_tasks
+                emptyColumnMessage: No tasks here.
+                card:
+                  children:
+                    - type: text
+                      element: h3
+                      props:
+                        className: text-[13px] font-medium leading-snug text-foreground
+                      content: $record.title
+                    - type: text
+                      element: p
+                      props:
+                        className: text-xs text-foreground-muted
+                      content: $record.project_name
+                  footer:
+                    - { field: schedule, format: badge }
+                    - { field: due_date, format: short-date }
+                    - { field: assignee, format: avatar }

@@ -18,8 +18,8 @@
  *
  * Source story: [internal ref]
  *
- * **Why a list endpoint when Sovrium today has one default bucket** (the
- * "default" bucket served by `/api/buckets/default/files`): Phase 0 already
+ * **Why a list endpoint** (every app has at least the built-in `system`
+ * bucket, served by `/api/buckets/system/files`): Phase 0 already
  * supports the three storage providers (`s3` | `local` | `bytea`) via env
  * vars and the bucket-naming layer is the seam where multi-bucket support
  * lands in Phase 1. Authoring the list endpoint now (a) locks the admin
@@ -58,7 +58,7 @@ export const bucketProviderSchema = Schema.Literals(['s3', 'local', 'bytea']).an
  * Public-grade bucket schema. This is what a non-admin reader would
  * theoretically see if Sovrium ever exposed a public `/api/buckets` listing
  * endpoint (none exists today — buckets are accessed via slug-by-slug
- * routes such as `/api/buckets/default/files`). Defining it here as the
+ * routes such as `/api/buckets/system/files`). Defining it here as the
  * "public superset" base lets us extend it with `_admin` per design §6.2.
  *
  * Field selection follows the principle of least surprise: an operator

@@ -16,13 +16,16 @@
 
 import { Duration, Effect, Schedule } from 'effect'
 import type { ActionHandler, ActionKey, ActionOutcome, AutomationContext } from '../action-handlers'
+import type { StepLogEntry } from '../action-handlers/shared'
 import type { TriggerData } from '../resolve-trigger-data'
 import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
 import type { AutomationDigestRepository } from '@/application/ports/repositories/automations/automation-digest-repository'
+import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { AutomationRepository } from '@/application/ports/repositories/automations/automation-repository'
+import type { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
 import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { AutomationStateRepository } from '@/application/ports/repositories/automations/automation-state-repository'
 import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
@@ -69,6 +72,8 @@ export interface ExecutedStep {
   readonly error?: string
   readonly props?: Record<string, unknown>
   readonly output?: Record<string, unknown>
+  /** Redacted `context.log` entries of a code step, in call order. */
+  readonly logs?: readonly StepLogEntry[]
 }
 
 /**
@@ -225,6 +230,10 @@ export type RunRequirements =
   | TableRepository
   | AutomationRepository
   | AutomationRunRepository
+  // The failure history the post-run alert and the automatic pause read, and
+  // the pause the latter writes.
+  | AutomationRunOutcomeRepository
+  | AutomationPauseRepository
   | AutomationStateRepository
   | AutomationDigestRepository
   | AutomationApprovalRepository

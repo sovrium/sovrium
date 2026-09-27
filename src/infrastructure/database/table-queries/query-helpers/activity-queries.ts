@@ -16,6 +16,7 @@ import {
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { castToInt } from './aggregation-helpers'
 import { extractUserFromRow } from './user-join-helpers'
 import type { ActivityHistoryEntry } from '@/application/ports/repositories/analytics/activity-repository'
@@ -35,7 +36,7 @@ const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
  * silently shorten visible history.
  */
 function buildActivityWhereCondition(tableName: string, recordId: string) {
-  const oneYearAgo = activityLogRetentionCutoff(new Date())
+  const oneYearAgo = activityLogRetentionCutoff(new Date(), resolveOperatorTimezone())
   return and(
     eq(activityLogs.tableName, tableName),
     eq(activityLogs.recordId, recordId),

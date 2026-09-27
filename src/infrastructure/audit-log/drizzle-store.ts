@@ -31,7 +31,7 @@
  *     stray audit entry never crashes the host process.
  */
 
-import { eq, and, desc, type Column } from 'drizzle-orm'
+import { eq, and, asc, desc, gte, inArray, lt, sql, type Column } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
 import { auditLog } from '@/infrastructure/database/drizzle/schema/audit-log'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
@@ -191,6 +191,24 @@ function eqWhenSet(column: Readonly<Column>, value: string | undefined) {
 }
 
 /**
+ * A membership predicate for one optional list filter, or `undefined` when the
+ * caller did not supply it. An EMPTY list is a predicate that matches nothing
+ * (`1 = 0`) rather than an absent filter: a caller asking for "entries whose
+ * severity is one of none" means none, and `IN ()` is not valid SQL.
+ */
+function sinceWhenSet(since: Readonly<Date> | undefined) {
+  return since === undefined ? undefined : gte(auditLog.createdAt, since as Date)
+}
+
+/**
+ * A membership predicate for one optional list filter — see {@link inWhenSet}.
+ */
+function inWhenSet(column: Readonly<Column>, values: readonly string[] | undefined) {
+  if (values === undefined) return undefined
+  return values.length === 0 ? sql`1 = 0` : inArray(column, [...values])
+}
+
+/**
  * Return entries matching the optional filter, newest first.
  *
  * Conjunctive filter semantics (every supplied field must match) match the
@@ -206,12 +224,16 @@ function eqWhenSet(column: Readonly<Column>, value: string | undefined) {
  * `resourceType` is an equality match on the indexed `resource_type` column, not
  * a prefix match: `form` must exclude the dotted compound `form.submission`.
  */
-function buildAuditWhere(filter?: AuditListFilter) {
+function buildAuditWhere(filter: AuditListFilter = {}) {
   const conditions = [
-    eqWhenSet(auditLog.actorId, filter?.actorId),
-    eqWhenSet(auditLog.action, filter?.action),
-    eqWhenSet(auditLog.transport, filter?.transport),
-    eqWhenSet(auditLog.resourceType, filter?.resourceType),
+    eqWhenSet(auditLog.actorId, filter.actorId),
+    eqWhenSet(auditLog.action, filter.action),
+    eqWhenSet(auditLog.transport, filter.transport),
+    eqWhenSet(auditLog.resourceType, filter.resourceType),
+    eqWhenSet(auditLog.resourceId, filter.resourceId),
+    inWhenSet(auditLog.severity, filter.severities),
+    inWhenSet(auditLog.action, filter.actions),
+    sinceWhenSet(filter.since),
   ].filter((c): c is NonNullable<typeof c> => c !== undefined)
   if (conditions.length === 0) return undefined
   return conditions.length === 1 ? conditions[0] : and(...conditions)
@@ -233,6 +255,49 @@ export async function listAuditEntriesFromDb(
     // Same boot-path tolerance as the writer — return an empty list rather
     // than crash the read endpoint when the table is missing.
     logError('[audit-log] failed to read entries', error)
+    return []
+  }
+}
+
+/** One action's count, as {@link countAuditEntriesByAction} answers it. */
+export interface AuditActionCount {
+  readonly action: string
+  readonly count: number
+}
+
+/**
+ * Count the audit entries of `severities` created in `[since, until)`, grouped
+ * by action, most first (ties by action name), at most `limit` — grouped in
+ * the database, so a noisy week costs one row per action rather than one per
+ * entry. Backs the weekly summary's error line.
+ *
+ * Same boot-path tolerance as the reader: a missing table answers `[]`.
+ */
+export async function countAuditEntriesByAction(input: {
+  readonly since: Readonly<Date>
+  readonly until: Readonly<Date>
+  readonly severities: readonly string[]
+  readonly limit: number
+}): Promise<readonly AuditActionCount[]> {
+  if (input.severities.length === 0) return []
+  try {
+    const total = sql<unknown>`count(*)`
+    const rows = await db
+      .select({ action: auditLog.action, count: total })
+      .from(auditLog)
+      .where(
+        and(
+          inArray(auditLog.severity, [...input.severities]),
+          gte(auditLog.createdAt, input.since as Date),
+          lt(auditLog.createdAt, input.until as Date)
+        )
+      )
+      .groupBy(auditLog.action)
+      .orderBy(desc(total), asc(auditLog.action))
+      .limit(input.limit)
+    return rows.map((row) => ({ action: row.action, count: Number(row.count) || 0 }))
+  } catch (error) {
+    logError('[audit-log] failed to count entries by action', error)
     return []
   }
 }

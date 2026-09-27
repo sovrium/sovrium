@@ -1,10 +1,19 @@
-# The approval showcase. A new request PAUSES this run at the approval step —
-# admins get an email and the run waits. On approve, the run resumes and the
-# record.update flips the request to Approved. On reject (or the 7-day
-# timeout), the run terminates and the request stays Pending for follow-up.
+# A new time-off request, from the person's own account to an admin's
+# decision.
+#
+# 1. The request is matched to the requester's row in the directory, and its
+#    length is counted in calendar days, so the calendar and the lists can name
+#    whose absence it is from the moment it is filed.
+# 2. The run then PAUSES on the approval step. An admin finds it on the
+#    Requests page (or by email, when SMTP is configured) and approves or
+#    rejects it; the person who asked cannot resolve it.
+# 3. On approval the request is marked Approved — unless an admin already
+#    decided it from the Requests grid in the meantime. A rejection, or seven
+#    days without an answer, ends the run; the request keeps its status until
+#    an admin writes the decision on the Requests page.
 name: approve-time-off
-label: Time off — request approval
-description: Ask an admin to approve each new time-off request, then stamp the outcome.
+label: Time off — ask an admin to decide
+description: Match a new time-off request to its person, then ask an admin to approve it and mark it Approved.
 enabled: true
 trigger:
   type: record
@@ -12,18 +21,18 @@ trigger:
   events:
     - create
 actions:
-  - name: askAdmins
-    type: approval
-    operator: request
+  - name: findEmployee
+    type: record
+    operator: list
     props:
-      approvers: all-admins
-      message: >-
-        Time-off request {{trigger.data.record.type}} from
-        {{trigger.data.record.start_date}} to {{trigger.data.record.end_date}}.
-        Approve?
-      timeout: 7d
-      onTimeout: reject
-  - name: markApproved
+      table: employees
+      filter:
+        conditions:
+          - field: account
+            operator: equals
+            value: '{{trigger.data.record.requester}}'
+      limit: 1
+  - name: fillRequest
     type: record
     operator: update
     props:
@@ -33,5 +42,33 @@ actions:
           - field: id
             operator: equals
             value: '{{trigger.data.record.id}}'
+      data:
+        employee: '{{findEmployee.result.record.id}}'
+        days: '{{add (dateDiff trigger.data.record.end_date trigger.data.record.start_date) 1}}'
+  - name: askAdmins
+    type: approval
+    operator: request
+    props:
+      approvers: all-admins
+      message: >-
+        {{findEmployee.result.record.name}} asks for {{trigger.data.record.type}}
+        from {{trigger.data.record.start_date}} to
+        {{trigger.data.record.end_date}}. Approve?
+      timeout: 7d
+      onTimeout: reject
+  - name: markApproved
+    type: record
+    operator: update
+    props:
+      table: time_off_requests
+      filter:
+        logic: and
+        conditions:
+          - field: id
+            operator: equals
+            value: '{{trigger.data.record.id}}'
+          - field: status
+            operator: equals
+            value: Pending
       data:
         status: Approved

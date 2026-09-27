@@ -13,6 +13,8 @@ Only `user` is bound to the account table. It emits a foreign key to Better Auth
 | `updated-by` | Auto-set to the user who last modified the record. Read-only.         |
 | `deleted-by` | Auto-set to the user who soft-deleted the record. `NULL` when active. |
 
+Wherever a `user` field is shown as text — a grid cell, a card, a drawer, a list or gallery item — it reads as the account's name, or its email when the account has no name; links, filters and editors keep using the stored id. The same goes for the three authorship fields.
+
 ## `user`
 
 An editable reference to one or more accounts — an assignee, a reviewer, a watcher list.
@@ -45,4 +47,4 @@ The column name is yours. The engine finds these fields by `type` rather than by
 
 **The audit TIMESTAMPS do not work this way**, and the difference catches people. `created-at`, `updated-at` and `deleted-at` are matched by NAME, so renaming one of those leaves the engine using its own automatic column beside yours — see **Date & Time Fields**.
 
-An unauthenticated write leaves an authorship field null rather than failing. That is deliberate: a public form submission is a legitimate record with no account behind it, and refusing it would make authorship fields unusable on exactly the tables that most need a submission trail.
+A write with no account behind it does not fail on an authorship field. A public form submission is a legitimate record, and refusing it would make authorship fields unusable on exactly the tables that most need a submission trail, so the engine authors it as the system actor: every `created-by` field reads `system`, the same value an automation-authored record carries. A report filtering on `system` therefore counts every unattended write together, whether a visitor or an automation made it.

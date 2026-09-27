@@ -42,7 +42,7 @@ import { AppSchema } from '@/domain/models/app'
 import {
   collectDecodeFindings,
   formatDecodeReport,
-  messageAsConfigFinding,
+  messageLinesAsConfigFindings,
   toConfigFindings,
 } from '@/domain/models/app/app-excess-property-report'
 import { validatePreviewOptionPaths } from '@/domain/models/app/design/preview-option-validation'
@@ -53,6 +53,8 @@ import {
   validateDataTableFieldReferences,
   validateRowColorFields,
 } from '@/domain/models/app/pages/components/component-types/data/table/schema'
+import { validateDrawerRelatedReferences } from '@/domain/models/app/pages/components/component-types/overlays/drawer-related-validation'
+import { validateDataSourceViewReferences } from '@/domain/models/app/pages/data-source-view-validation'
 import { validateTableNameReferences } from '@/domain/models/app/pages/table-name-references'
 import { collectImplicitFieldIdNotices } from '@/domain/models/app/tables/implicit-field-id-validation'
 import type { App } from '@/domain/models/app'
@@ -188,7 +190,7 @@ const refusalFromMessages = (
   errors: readonly string[]
 ): { readonly errors: readonly string[]; readonly findings: readonly ConfigFinding[] } => ({
   errors,
-  findings: errors.map((message) => messageAsConfigFinding(message)),
+  findings: messageLinesAsConfigFindings(errors),
 })
 
 /**
@@ -246,8 +248,17 @@ const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[]
     // does not resolve is skipped there, so until this ran the deferral pointed
     // at a rule that only ever visited a `table`. See `table-name-references.ts`.
     ...validateTableNameReferences(normalized),
+    // A `dataSource.view`, against the views its table declares — and refused
+    // wherever no view can be read (a system source, any non-`table`
+    // component). See `data-source-view-validation.ts`.
+    ...validateDataSourceViewReferences(normalized),
     ...validateComponentFieldReferences(normalized),
     ...validateRowColorFields(normalized),
+    // A drawer's `related` sections, against the tables they name and the
+    // drawer's own table. Here for the same reason as the sweeps above: each
+    // verdict needs `tables[]`, which no drawer schema node can see. See
+    // `drawer-related-validation.ts`.
+    ...validateDrawerRelatedReferences(normalized),
     // Mutually-exclusive component keys. Here rather than in the schema
     // because `buildComponentUnion` has no per-branch refinement hook, so a
     // rule relating an INJECTED key (`children`) to a declared one cannot be

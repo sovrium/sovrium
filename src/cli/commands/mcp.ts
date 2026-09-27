@@ -72,6 +72,7 @@ import {
   type ConfigToolsProvider,
   type ConfigValidatePayload,
 } from '@/application/use-cases/config/config-mcp-tools'
+import { registerSkillPrompts } from '@/cli/commands/mcp-prompts'
 import { formatDiscoveredConfigNotice } from '@/domain/kernel/config-parsing/default-config-files'
 import { messageAsConfigFinding } from '@/domain/models/app/app-excess-property-report'
 import { parseConfigFileName } from '@/domain/models/process-env/desktop'
@@ -470,8 +471,11 @@ class DrainingStdioTransport implements Transport {
 const buildStdioServer = (provider: ConfigToolsProvider, version: string): Server => {
   const server = new Server(
     { name: 'sovrium', version },
-    { capabilities: { tools: { listChanged: false } } }
+    // `prompts` are the binary's agent skills, fixed by the binary rather than
+    // live, and served here only — the HTTP mount declares none.
+    { capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } } }
   )
+  registerSkillPrompts(server)
   // ONE gate, read once: the provider carries the write operations only where
   // A8 authorised them, so compiling from the same fact is what keeps
   // `tools/list` and the dispatcher below from disagreeing about which tools

@@ -1,4 +1,7 @@
 # Warehouses — the places stock physically sits.
+#
+# A warehouse holds no stock figure of its own: what it holds is the sum of the
+# movements recorded against it, so the number can never drift from the ledger.
 id: 2
 name: warehouses
 fields:
@@ -9,13 +12,9 @@ fields:
   - id: 2
     name: code
     type: single-line-text
-  - id: 3
-    name: coordinates
-    type: geolocation
-  - id: 4
-    name: capacity_pallets
-    type: integer
-    min: 0
+  - id: 7
+    name: city
+    type: single-line-text
   - id: 5
     name: is_active
     type: checkbox
@@ -26,8 +25,7 @@ fields:
 
 aiAccess:
   description: >-
-    Storage locations. Use this when the user asks where stock is held or about
-    warehouse capacity.
+    Storage locations. Use this when the user asks where stock is held.
   operations:
     - read
     - list

@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
+import { HttpQuerySchema } from './query'
 
 /**
  * HTTP Action (type: http, operator: request)
@@ -43,6 +44,7 @@ export const HttpRequestActionSchema = Schema.Struct({
         Schema.check(Schema.makeFilter((s) => s.includes('{{') || s.includes('$env')))
       ),
     ]).pipe(Schema.annotate({ description: 'HTTP method (literal or template string)' })),
+    query: Schema.optional(HttpQuerySchema),
     headers: Schema.optional(
       Schema.Record(Schema.String, TemplateStringSchema).pipe(
         Schema.annotate({

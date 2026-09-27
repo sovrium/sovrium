@@ -26,6 +26,12 @@ import {
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
 import { desugarSystemSourceRef } from './data-source-contracts'
 import {
+  expandRepeat,
+  isRepeating,
+  pageScopeReads,
+  type RecordScope,
+} from './record-repeat-expansion'
+import {
   injectRecordFieldValue,
   substituteRecordInComponent,
   substituteRecordInContent,
@@ -61,7 +67,8 @@ import type { Component } from '@/domain/models/app/pages/components'
 export function substituteRecordInCollectionTemplate(
   component: Component,
   record: Record<string, unknown>,
-  tableName?: string
+  tableName?: string,
+  scope?: RecordScope
 ): Component {
   // A `record-field` needs the bound record's raw value injected, exactly as it
   // does under a component-level single-mode dataSource. Without this branch the
@@ -72,12 +79,16 @@ export function substituteRecordInCollectionTemplate(
     return injectRecordFieldValue(component, record, tableName)
   }
 
-  const resolvedContent = substituteRecordInContent(component.content, record)
+  // `scope` is the PAGE binding's: what `$record.` may print there,
+  // plus the two things only a page bound to one record does — expand a
+  // `repeat`, and print a lone object token in a `code` node as JSON.
+  const { printable, json } = pageScopeReads(component, record, scope)
+  const resolvedContent = substituteRecordInContent(component.content, printable)
   const baseProps = withPlainTextPin(
-    component.props ? substituteRecordInProps(component.props, record) : component.props,
+    component.props ? substituteRecordInProps(component.props, printable) : component.props,
     resolvedContent.forcePlainText
   )
-  const baseContent = resolvedContent.content
+  const baseContent = json ?? resolvedContent.content
   const templatePatch = buildRecordTemplatePatch(component, record)
 
   if (component.dataSource) {
@@ -91,18 +102,18 @@ export function substituteRecordInCollectionTemplate(
     }
   }
 
+  const own = { ...component, props: baseProps, content: baseContent, ...templatePatch }
+  if (scope !== undefined && isRepeating(component)) return expandRepeat(own, scope)
+
   return {
-    ...component,
-    props: baseProps,
-    content: baseContent,
-    ...templatePatch,
+    ...own,
     // String children render as React children (escaped) — see the note in
     // `substituteRecordInComponent`. No escaping here, or they double-escape.
     children: filterChildrenForRecord(component.children ?? [], record).map(
       (child: Component | string) =>
         typeof child === 'string'
-          ? substituteRecordVars(child, record)
-          : substituteRecordInCollectionTemplate(child, record, tableName)
+          ? substituteRecordVars(child, printable)
+          : substituteRecordInCollectionTemplate(child, record, tableName, scope)
     ),
   }
 }
@@ -308,7 +319,9 @@ export function resolveIslandShortCircuit(
  * data-bound component that resolves SERVER-side keeps byte-for-byte the
  * behaviour it had before, and server-side resolution of nested bindings stays
  * the top-level-only concern it has always been. Only the dispatch decision,
- * which is pure, descends.
+ * which is pure, descends. The one exception is a record-bound
+ * (`mode: 'single'`) node, which has no island to fetch for it: the resolver
+ * resolves it after this walk, wherever it sits (`resolveNestedSingleRecords`).
  *
  * A data-bound node's OWN children are left untouched: they are per-row
  * templates expanded once per record by `expandDataSourceChildren`, not
@@ -384,4 +397,35 @@ function stampNestedChild(
   // desugaring nor the route binding above applied, so a nested server-resolved
   // binding passes through this walk exactly as it did before it existed.
   return resolveIslandShortCircuit(bound, ctx.routeParams) ?? child
+}
+
+/**
+ * Stamps the island props of every data-bound node declared inside an
+ * `app.components` TEMPLATE, so a list placed by `{ component: 'name' }` mounts
+ * exactly as the same list written inline does.
+ *
+ * WHY the templates and not the reference: a reference is expanded by the
+ * RENDERER, from the template list it is handed, long after the page walk above
+ * has run — and that walk deliberately returns a reference untouched, because it
+ * names a template rather than being a component. So the page-side stamp never
+ * reached the list inside the template, and a `list` — the one data type whose
+ * island-ness is decided here rather than by its type — fell through to a bare
+ * `<ul>` with no `data-island`. Stamping the templates once per render, beside
+ * the code-highlight pass that already does the same for `code`, puts the stamp
+ * where the renderer reads, whether the reference sits at the top level or
+ * inside a container, and whether the list is the template itself or nested
+ * within it.
+ *
+ * Identity-preserving: a template list with nothing to stamp comes back by
+ * reference, so an app with no data-bound template pays nothing downstream.
+ */
+export function stampTemplateIslands(
+  components: App['components'],
+  ctx: { readonly app: App; readonly routeParams: Readonly<Record<string, string>> }
+): App['components'] {
+  if (components === undefined || components.length === 0) return components
+  const stamped = components.map((template) => stampNestedChild(template as Component, ctx))
+  return stamped.some((template, index) => template !== components[index])
+    ? (stamped as unknown as App['components'])
+    : components
 }

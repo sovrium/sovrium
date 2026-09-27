@@ -28,6 +28,7 @@ export {
   validateFieldWritePermissions,
   validateFieldFormats,
   validateAttachmentConstraints,
+  validateAttachmentReferences,
 } from './field-rules'
 
 export {

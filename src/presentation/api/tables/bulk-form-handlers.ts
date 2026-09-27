@@ -163,7 +163,13 @@ async function resolveBulkUpdateFields(input: {
   const forbiddenError = validateUpdateForbiddenFields(forbiddenFields, c)
   if (forbiddenError) return { refusal: forbiddenError }
 
-  const valueError = await validateUpdateFieldValues(app, tableName, userRole, allowedData)
+  const valueError = await validateUpdateFieldValues({
+    c,
+    app,
+    tableName,
+    userRole,
+    fields: allowedData,
+  })
   if (valueError) return { refusal: formatValidationError(valueError, c) }
 
   // `rich-text` columns are HTML-sanitized last, on the map that survived the

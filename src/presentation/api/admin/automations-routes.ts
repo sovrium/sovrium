@@ -372,7 +372,9 @@ async function handlePauseMutation(
   const { name } = parsedParams.data
 
   const program =
-    mutation === 'pause' ? PauseAutomation(app, name, session.userId) : ResumeAutomation(app, name)
+    mutation === 'pause'
+      ? PauseAutomation(app, name, session.userId)
+      : ResumeAutomation(app, name, session.userId)
   const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
 
   if (result._tag === 'Failure') {

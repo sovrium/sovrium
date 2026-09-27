@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import changelogBody from '@/cli/commands/changelog.docs.md' with { type: 'file' }
 import cliAdminBody from '@/cli/commands/cli-admin.docs.md' with { type: 'file' }
 import cliFlagsBody from '@/cli/commands/cli-flags.docs.md' with { type: 'file' }
 import cliLifecycleBody from '@/cli/commands/cli-lifecycle.docs.md' with { type: 'file' }
@@ -15,6 +16,8 @@ import cliValidateBody from '@/cli/commands/cli-validate.docs.md' with { type: '
 import cliBody from '@/cli/commands/cli.docs.md' with { type: 'file' }
 import configSnapshotHistoryBody from '@/cli/commands/config-snapshot-history.docs.md' with { type: 'file' }
 import docsBody from '@/cli/commands/docs.docs.md' with { type: 'file' }
+import libraryBody from '@/cli/commands/library.docs.md' with { type: 'file' }
+import skillsBody from '@/cli/commands/skills.docs.md' with { type: 'file' }
 import { defineArticle, defineSection } from './define'
 
 /**
@@ -310,6 +313,70 @@ export const section = defineSection({
       body: docsBody,
       documents: [],
       stories: ['US-CLI-DOCS-COMMAND'],
+    }),
+    defineArticle({
+      slug: 'cli-skills',
+      title: 'Agent Skills',
+      description:
+        'Write the agent skills that match your Sovrium version into a project, refresh them after an upgrade without touching what you edited, and check them in CI.',
+      keywords: [
+        'sovrium skills',
+        'agent skills',
+        'SKILL.md',
+        '.claude/skills',
+        '.agents/skills',
+        '.sovrium-skills.json',
+        'Claude Code',
+        'Cursor',
+        'Codex',
+        'MCP prompts',
+      ],
+      order: 1495,
+      sidebarLabel: 'Agent Skills',
+      body: skillsBody,
+      documents: [],
+      stories: ['US-CLI-COMMANDS-SKILLS'],
+    }),
+    defineArticle({
+      slug: 'cli-changelog',
+      title: 'Release Notes',
+      description:
+        'Read what changed in the version you run, in any earlier version, or since the version you upgraded from — breaking changes first, from the binary, with no network.',
+      keywords: [
+        'sovrium changelog',
+        'release notes',
+        'changelog',
+        'what changed',
+        'breaking changes',
+        'upgrade',
+        '--since',
+        '--list',
+      ],
+      order: 1497,
+      sidebarLabel: 'Release Notes',
+      body: changelogBody,
+      documents: [],
+      stories: ['US-CLI-COMMANDS-CHANGELOG'],
+    }),
+    defineArticle({
+      slug: 'cli-library',
+      title: 'The Library of Ready-Made Pieces',
+      description:
+        '`sovrium library` ships blocks, connections and automation recipes inside the binary, and copies the one you pick into your config as a file you own.',
+      keywords: [
+        'sovrium library',
+        'library add',
+        'ready-made blocks',
+        'connection presets',
+        'automation recipes',
+        'copy-in',
+        '$ref',
+      ],
+      order: 1500,
+      sidebarLabel: 'Library',
+      body: libraryBody,
+      documents: [],
+      stories: ['US-CLI-COMMANDS-LIBRARY', 'US-CLI-LIBRARY-CATALOGUE'],
     }),
   ],
 })

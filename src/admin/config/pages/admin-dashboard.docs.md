@@ -34,7 +34,7 @@ Three things follow from the console owning the whole `/_admin` subtree:
 - **Every admitted role gets the same access.** The tier names are an admission vocabulary, not a permission ladder: config is code-only, so there is nothing for an editor to edit that a viewer may not, and the historical split is collapsed.
 - **Anonymous → 404.** Unauthenticated or non-admin requests get a `404` envelope, never a `401` or `403` — the surface's existence is unobservable (anti-enumeration; see **Security Hardening**).
 - **No config editing.** There is no schema, JSON or YAML editor, no draft-then-publish, no version ledger — those were removed when Sovrium went config-code-only. The dashboard reflects state; it never mutates configuration.
-- **English-only.** The console renders its own chrome in English — sign-in, sidebar, headings, table columns, empty states, confirmations, toasts. It pins that language rather than negotiating it, so an operator on a French-locale browser still gets a consistent console instead of a half-translated one. This is the console's own interface only: **your app is unaffected** and still renders in whatever language its `languages` config declares.
+- **English by default, French on request.** The console renders its own chrome — sign-in, sidebar, headings, table columns, empty states, confirmations, toasts — in English, and it does not follow the browser's locale, so a French-locale browser still gets one consistent language. An operator who picks **Français** on their profile gets the console in French on every machine they sign in on. This is the console's own interface only: **your app is unaffected** and still renders in whatever language its `languages` config declares.
 
 ### Signing in
 
@@ -73,42 +73,44 @@ Here the instance really holds 1,284 records and 12 users, while the submissions
 
 The console's whole surface, in sidebar order. A page whose address ends in a parameter is the detail view of the list above it, and is reached from it. The design-system section has seven pages of its own; they are **Design System Console**.
 
-| Route                       | What it is                                                                                     |
-| --------------------------- | ---------------------------------------------------------------------------------------------- |
-| `/_admin`                   | Dashboard overview — KPI tiles and the shared activity trend.                                  |
-| `/_admin/tables`            | Records: every table's rows, with counts, soft-delete counts and write series.                 |
-| `/_admin/tables/:table`     | One table's records — sort, filter, open a row in a detail drawer.                             |
-| `/_admin/forms`             | The configured forms, with submission counts and completion rates.                             |
-| `/_admin/forms/:form`       | One form: its submissions inbox and, on a second tab, its analytics.                           |
-| `/_admin/buckets`           | Storage buckets, with usage over the shared period preset.                                     |
-| `/_admin/buckets/:bucket`   | The files inside one bucket, with size and MIME type.                                          |
-| `/_admin/automations`       | Automation-engine health, and run history with status, duration and a per-step trace.          |
-| `/_admin/agents`            | The app's conversation-source agents.                                                          |
-| `/_admin/agents/default`    | The default agent's conversation history.                                                      |
-| `/_admin/agents/:agent`     | One agent's conversations and their messages.                                                  |
-| `/_admin/links`             | Every short link the instance serves, and which ones this operator may change.                 |
-| `/_admin/links/:slug`       | One link: its traffic split across targets, and the mint, re-point and kill controls.          |
-| `/_admin/connections`       | Outbound credentials this app presents to third parties, with token and expiry status.         |
-| `/_admin/users`             | The account directory and role distribution, with an invite affordance and per-user role edit. |
-| `/_admin/users/invitations` | Outstanding invitations — issue, resend, revoke.                                               |
-| `/_admin/users/:email`      | One account.                                                                                   |
-| `/_admin/organisation`      | The access graph: who reaches what, resolved in one read.                                      |
-| `/_admin/pages`             | Privacy-friendly page analytics.                                                               |
-| `/_admin/footprint`         | What serving that audience consumed.                                                           |
-| `/_admin/env`               | Which declared environment variables this instance actually resolved.                          |
-| `/_admin/decisions`         | The decision register this config declares.                                                    |
-| `/_admin/decisions/:id`     | One decision.                                                                                  |
-| `/_admin/api`               | The Scalar-rendered OpenAPI reference, and API-key management on a second tab.                 |
-| `/_admin/mcp`               | How to connect an AI client over the Model Context Protocol.                                   |
-| `/_admin/changelog`         | What this instance has booted, release by release.                                             |
-| `/_admin/changelog/:hash`   | What changed between two boots.                                                                |
-| `/_admin/design-system`     | The design-system section — see **Design System Console**.                                     |
-| `/_admin/api-keys`          | The signed-in operator's own long-lived credentials: mint, copy once, revoke.                  |
-| `/_admin/profile`           | The signed-in operator's own account.                                                          |
-| `/_admin/gdpr`              | The signed-in user's own data export and account erasure.                                      |
-| `/_admin/login`             | The public sign-in card.                                                                       |
-| `/_admin/forgot-password`   | Request a recovery mail.                                                                       |
-| `/_admin/reset-password`    | Set a new password from a recovery link.                                                       |
+| Route                          | What it is                                                                                     |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `/_admin`                      | Dashboard overview — KPI tiles and the shared activity trend.                                  |
+| `/_admin/tables`               | Records: every table's rows, with counts, soft-delete counts and write series.                 |
+| `/_admin/tables/:table`        | One table's records — sort, filter, open a row in a detail drawer.                             |
+| `/_admin/forms`                | The configured forms, with submission counts and completion rates.                             |
+| `/_admin/forms/:form`          | One form: its submissions inbox and, on a second tab, its analytics.                           |
+| `/_admin/buckets`              | Storage buckets, with usage over the shared period preset.                                     |
+| `/_admin/buckets/system`       | The built-in bucket: every file a record attaches, with its bucket, table, record and field.   |
+| `/_admin/buckets/:bucket`      | The files inside one bucket, with its own size beside the total of every bucket.               |
+| `/_admin/automations`          | Automation-engine health, and run history with status, duration and a link to each run.        |
+| `/_admin/automations/runs/:id` | One run: what it was given, each step's data in and out, what each step logged, and a Retry.   |
+| `/_admin/agents`               | The app's conversation-source agents; opens on the System Agent.                               |
+| `/_admin/agents/system`        | The built-in System Agent's conversation history.                                              |
+| `/_admin/agents/:agent`        | One agent's conversations and their messages.                                                  |
+| `/_admin/links`                | Every short link the instance serves, and which ones this operator may change.                 |
+| `/_admin/links/:slug`          | One link: its traffic split across targets, and the mint, re-point and kill controls.          |
+| `/_admin/connections`          | Outbound credentials this app presents to third parties, with token and expiry status.         |
+| `/_admin/users`                | The account directory and role distribution, with an invite affordance and per-user role edit. |
+| `/_admin/users/invitations`    | Outstanding invitations — issue, resend, revoke.                                               |
+| `/_admin/users/:email`         | One account.                                                                                   |
+| `/_admin/organisation`         | The access graph: who reaches what, resolved in one read.                                      |
+| `/_admin/pages`                | Privacy-friendly page analytics.                                                               |
+| `/_admin/footprint`            | What serving that audience consumed.                                                           |
+| `/_admin/env`                  | Which declared environment variables this instance actually resolved.                          |
+| `/_admin/decisions`            | The decision register this config declares.                                                    |
+| `/_admin/decisions/:id`        | One decision.                                                                                  |
+| `/_admin/api`                  | The Scalar-rendered OpenAPI reference, and API-key management on a second tab.                 |
+| `/_admin/mcp`                  | How to connect an AI client over the Model Context Protocol.                                   |
+| `/_admin/changelog`            | What this instance has booted, release by release.                                             |
+| `/_admin/changelog/:hash`      | What changed between two boots.                                                                |
+| `/_admin/design-system`        | The design-system section — see **Design System Console**.                                     |
+| `/_admin/api-keys`             | The signed-in operator's own long-lived credentials: mint, copy once, revoke.                  |
+| `/_admin/profile`              | The signed-in operator's own account, including which operator emails it receives.             |
+| `/_admin/gdpr`                 | The signed-in user's own data export and account erasure.                                      |
+| `/_admin/login`                | The public sign-in card.                                                                       |
+| `/_admin/forgot-password`      | Request a recovery mail.                                                                       |
+| `/_admin/reset-password`       | Set a new password from a recovery link.                                                       |
 
 ![The Records surface — a tickets table with sortable columns, status badges, and a records toolbar](/docs/screenshots/admin/records.avif)
 
@@ -125,6 +127,16 @@ A **⌘K search** is available from anywhere in the console: a global, indexed c
 ![The ⌘K command palette open over the console — a "Search all your data" input](/docs/screenshots/admin/search.avif)
 
 The console also drops pages your instance has no use for. An API-keys page on an instance where `auth.apiKeys` is off is a nav entry leading somewhere empty, so it is not served at all: it `404`s and appears in no listing.
+
+### Notification preferences
+
+The profile's **Language** row saves the language on your account. It offers the console's own languages, English and French, and it saves them even when your app declares only English or no `languages` at all: your app keeps serving its own languages, and only the console follows the choice. An address under `/_admin` that names no page is answered in that language too.
+
+The profile's **Notifications** row carries two switches, each saved with its own button: **Automation alerts**, the emails sent when an automation fails, times out, is interrupted by a restart, or is paused or resumed — including the hourly summary of repeated failures — and **Weekly summary**. Both are on for every account until its owner switches them off, and both belong to the account: switching one off silences that email for you alone. They are part of your account export.
+
+Only admin-tier accounts receive these emails, so only they can change the switches; any other account asking to write them is refused. Every operator email links back to this page, which is where it is turned off. The instance-wide settings — extra recipients, and switching either email off for everyone — are environment variables: `SOVRIUM_NOTIFY_TO`, `SOVRIUM_NOTIFY_AUTOMATIONS` and `SOVRIUM_NOTIFY_DIGEST`.
+
+The **Weekly summary** switch governs one email a week — Mondays at 08:00 in the operator timezone unless `SOVRIUM_NOTIFY_DIGEST_CRON` says otherwise — that counts what the automations, the data and the instance did over the week, compared with the week before, and what is waiting on an operator. It carries counts, table and automation names only: never a record value, an account's email or its name. **Operator Notifications** describes both emails in full.
 
 ## The read API
 

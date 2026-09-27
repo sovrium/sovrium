@@ -97,7 +97,9 @@ function buildLeadingProps(props: DataTableViewProps, derived: ViewDerived): Lea
 
 function buildQueryProps(props: DataTableViewProps, derived: ViewDerived): QueryControlsProps {
   return {
-    readOnly: derived.readOnly,
+    // Import writes records, so it rides the create gate exactly as the
+    // toolbar button and the add-row line do.
+    canImport: props.canCreate && !derived.readOnly,
     onOpenImportDialog: props.ui.onOpenImportDialog,
     filtersEnabled: derived.flags.filters,
     onOpenFilterOverlay: props.ui.onOpenFilterOverlay,

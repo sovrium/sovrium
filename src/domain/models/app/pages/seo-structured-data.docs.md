@@ -27,11 +27,17 @@ pages:
 
 **Raw JSON-LD is passed through unvalidated.** Unlike the rest of `meta`, a hand-written block's contents are not schema-checked — a malformed `@type` or a misspelled property ships silently. Validate the emitted block with a rich-results testing tool rather than relying on `sovrium validate`.
 
-### Auto-synthesised article schema
+### The shorthand form
 
 <!-- sovrium:options StructuredDataSchema depth=1 -->
 
-A content directory can generate JSON-LD per article from frontmatter instead. Supply the object form and the synthesiser takes over: `enabled` must be exactly `true`, `type` chooses between `TechArticle` and `Article`, `breadcrumbs` emits a breadcrumb list alongside the article, and `organization` becomes the article's publisher.
+Instead of one raw object, `structuredData` (or its newer name `schema`) can take a keyed object whose keys are the Schema.org types it emits: `organization`, `person`, `localBusiness`, `product`, `article`, `breadcrumb`, `faqPage` and `educationEvent`. Each key's value is emitted verbatim as its own JSON-LD block, so it carries its own `@context` and `@type`, and each type has its own option table in the reference. The same caveat applies: the object is not decoded against these tables at `sovrium validate` time, and the key names are not checked either, so a mistake reaches the page unchanged.
+
+**Valid markup is not the same as a rich result.** Google retired the FAQ rich result on 7 May 2026 and the HowTo rich result in 2023. A `faqPage` block, or a raw `HowTo` object, is still valid Schema.org and is still read by other consumers, but it no longer earns a special search listing. Emit it when the questions are visible on the page; do not add it to win a listing that no longer exists.
+
+### Auto-synthesised article schema
+
+A content directory can generate JSON-LD per article from frontmatter instead. Supply the object form and the synthesiser takes over: `enabled` must be exactly `true`, `type` chooses between `TechArticle` and `Article`, `breadcrumbs` emits a breadcrumb list alongside the article, and `organization` becomes the article's publisher. These four keys are part of the published schema, so an editor completes them, and `sovrium validate` refuses a mistake: a `type` other than `TechArticle` or `Article`, a `breadcrumbs` that is not a boolean, or an `organization` that is not a string. `structuredData` stays the older name of `schema` for hand-written JSON-LD — an object carrying `enabled` is read as this toggle, anything else as JSON-LD.
 
 ```yaml
 name: my-docs
@@ -50,8 +56,6 @@ pages:
 ```
 
 Headline, description and publication date come from each file's frontmatter, so one declaration covers every article in the directory.
-
-The synthesiser also carries typed schemas for the other Schema.org objects a site commonly emits — an organization, a person, a product, a local business, an FAQ page, an education event and a breadcrumb list — each with its own option table in the reference.
 
 ## `favicons`
 

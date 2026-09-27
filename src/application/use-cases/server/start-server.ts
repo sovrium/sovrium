@@ -7,17 +7,24 @@
 
 import { Cause, Data, Effect } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
+import { InvalidNotificationEnvError } from '@/application/errors/invalid-notification-env-error'
+import { InvalidOperatorTimezoneError } from '@/application/errors/invalid-operator-timezone-error'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
 import { ServerFactory } from '@/application/ports/services/server-factory'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { validateAiConfiguration } from '@/application/use-cases/ai/validate-ai-configuration'
 import { validateEcoAiRouting } from '@/application/use-cases/ai/validate-eco-ai-routing'
-import { bootstrapAdmin } from '@/application/use-cases/auth/bootstrap-admin'
+import {
+  BootstrapDatabaseError,
+  bootstrapAdmin,
+  describeBootstrapDatabaseError,
+} from '@/application/use-cases/auth/bootstrap-admin'
 import {
   generateBootstrapTokenIfNeeded,
   type BootstrapTokenBootContext,
 } from '@/application/use-cases/auth/bootstrap-token'
+import { reapInterruptedRuns } from '@/application/use-cases/automations/reap-interrupted-runs'
 import { decodeAppConfigObject } from '@/application/use-cases/config/decode-app-config'
 import { validateRequiredEnvVars } from '@/application/use-cases/env/validate-required-env-vars'
 import {
@@ -27,15 +34,26 @@ import {
 import { prebuildSearchIndex } from '@/application/use-cases/server/prebuild-search-index'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { prunePagesByRequirements } from '@/domain/models/app/pages/page-requires'
+import { parseSovriumAutomationDefaultTimeoutMs } from '@/domain/models/process-env/automations'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import {
+  parseSovriumAutomationAutopause,
+  parseSovriumNotifyAutomations,
+  parseSovriumNotifyDigest,
+  parseSovriumNotifyDigestCron,
+  parseSovriumNotifyTo,
+} from '@/domain/models/process-env/notifications'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
 import { TypeScriptValidator } from '@/infrastructure/automations/typescript-validator'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { Logger } from '@/infrastructure/logging/logger'
+import { publishServerBootInstant } from '@/infrastructure/process/server-boot-instant'
 import { getSovriumVersion } from '@/infrastructure/process/version'
 import { activateTelemetry } from '@/infrastructure/telemetry/telemetry-sink'
 import type { MissingRequiredEnvVarError } from '@/application/errors/missing-required-env-var-error'
 import type { BootstrapTokenRepository } from '@/application/ports/repositories/auth/bootstrap-token-repository'
+import type { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
 import type { CSSCompiler } from '@/application/ports/services/css-compiler'
 import type { DatabaseStartupReport } from '@/application/ports/services/server-factory'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
@@ -215,6 +233,49 @@ const validateCodeActionsAtStartup = (
   })
 
 /**
+ * The boot-time environment gates that need nothing but the environment and the
+ * decoded config: every `required` app env var is present, and the operator
+ * timezone names a real zone.
+ *
+ * The timezone gate is here because every boundary re-reads `SOVRIUM_TIMEZONE`
+ * (cron registration, formatters, retention sweeps): an unknown zone must stop
+ * the boot before the port binds, naming the variable and the value, rather
+ * than surface later inside a scheduler or a response.
+ *
+ * The operator-email variables are here for the same reason: a mistyped
+ * kill switch or recipient would otherwise be discovered only when an alert
+ * failed to arrive. So is the default run timeout of an automation, which would
+ * otherwise be discovered only when a run was stopped.
+ */
+/** What {@link validateBootEnvironment} refuses a boot with. */
+type BootEnvironmentError =
+  MissingRequiredEnvVarError | InvalidOperatorTimezoneError | InvalidNotificationEnvError
+
+const validateBootEnvironment = (validatedApp: App): Effect.Effect<void, BootEnvironmentError> =>
+  validateRequiredEnvVars(validatedApp.env, process.env).pipe(
+    Effect.andThen(
+      Effect.try({
+        try: () => parseSovriumTimezone(process.env),
+        catch: (error) => new InvalidOperatorTimezoneError(error),
+      })
+    ),
+    Effect.andThen(
+      Effect.try({
+        try: () => [
+          parseSovriumNotifyAutomations(process.env),
+          parseSovriumNotifyTo(process.env),
+          parseSovriumAutomationAutopause(process.env),
+          parseSovriumNotifyDigest(process.env),
+          parseSovriumNotifyDigestCron(process.env),
+          parseSovriumAutomationDefaultTimeoutMs(process.env),
+        ],
+        catch: (error) => new InvalidNotificationEnvError(error),
+      })
+    ),
+    Effect.asVoid
+  )
+
+/**
  * Run the raw config through the shared decode pipeline.
  *
  * Boot decodes the config exactly the way `sovrium validate` and `sovrium
@@ -238,14 +299,8 @@ const decodeAndValidateApp = (app: unknown): Effect.Effect<App, AppValidationErr
  * carries the real failure on `.cause`; the tagged error's own `.message`
  * is empty — surface the cause so a bootstrap failure stays diagnosable.
  */
-const formatBootstrapError = (
-  error: Readonly<{ readonly _tag?: string; readonly message: string; readonly cause?: unknown }>
-): string =>
-  '_tag' in error && error._tag === 'BootstrapDatabaseError'
-    ? error.cause instanceof Error
-      ? error.cause.message
-      : String(error.cause)
-    : error.message
+const formatBootstrapError = (error: Readonly<{ readonly message: string }>): string =>
+  error instanceof BootstrapDatabaseError ? describeBootstrapDatabaseError(error) : error.message
 
 /**
  * Run migrations and bootstrap the admin (env-var or no-config-token).
@@ -265,12 +320,48 @@ const runBootSequenceAndBootstrap = (
 ): Effect.Effect<
   string | undefined,
   MigrationError | DatabaseConnectionError,
-  AuthRepository | BootstrapTokenRepository | Auth | Logger
+  AuthRepository | AutomationRunOutcomeRepository | BootstrapTokenRepository | Auth | Logger
 > =>
   Effect.gen(function* () {
+    // The instant every run of THIS server postdates, published before anything
+    // can start a run, so the sweep below and its on-demand trigger route read
+    // the same boundary.
+    const bootedAt = publishServerBootInstant()
     yield* runMigrations(parseDatabaseDialectConfig())
-    return yield* bootstrapAdminAndToken(validatedApp, logger)
+    const bootstrapToken = yield* bootstrapAdminAndToken(validatedApp, logger)
+    // After the admin bootstrap, so a first boot's admin is already a recipient
+    // of the interrupted-run alerts this may send.
+    yield* sweepInterruptedRuns(validatedApp, logger, bootedAt)
+    return bootstrapToken
   })
+
+/**
+ * Close the automation runs a previous server left `running` or `queued` —
+ * rows that started before this boot, which nothing will ever finish because
+ * the queues they waited in died with that server — and alert each one.
+ *
+ * Best-effort: a sweep that cannot run costs the operator a stale "running" row
+ * in the console, never the boot. The failure is logged with its cause.
+ */
+const sweepInterruptedRuns = (
+  validatedApp: App,
+  logger: Context.Service.Shape<typeof Logger>,
+  bootedAt: Readonly<Date>
+): Effect.Effect<void, never, AuthRepository | AutomationRunOutcomeRepository> =>
+  reapInterruptedRuns(validatedApp, bootedAt).pipe(
+    Effect.flatMap((closed) =>
+      closed.length === 0
+        ? Effect.void
+        : logger.warn(
+            `Closed ${closed.length} automation run(s) interrupted when the server last stopped`
+          )
+    ),
+    Effect.tapCause((cause) =>
+      logger.warn(`Interrupted-run sweep skipped: ${Cause.pretty(cause)}`)
+    ),
+    // effect-swallow: see the doc comment — a failed sweep never fails the boot.
+    Effect.ignoreCause
+  )
 
 /**
  * Bootstrap the admin account and (when applicable) generate a no-config
@@ -491,29 +582,19 @@ const createServerInstance = (
     renderNotFoundPage: deps.pageRenderer.renderNotFound,
     renderErrorPage: deps.pageRenderer.renderError,
     renderRssFeed: deps.pageRenderer.renderRssFeed,
+    fetchSitemapRecords: deps.pageRenderer.fetchSitemapRecords,
     bootstrapToken: deps.bootstrapToken,
   })
 }
 
-export const startServer = (
-  app: unknown,
-  options: StartOptions = {}
-): Effect.Effect<
-  ServerInstance,
-  | AppValidationError
-  | MissingRequiredEnvVarError
-  | TelemetryConfigurationError
-  | ServerCreationError
-  | CSSCompilationError
-  | AuthConfigRequiredForUserFields
-  | SchemaInitializationError
-  | TransformPresetError
-  | TSValidationError
-  | Error,
+/** What `startServer` reads from its context; `createAppLayer` provides all of it. */
+type StartServerRequirements =
   | ServerFactory
   | PageRenderer
   | Auth
   | AuthRepository
+  // The boot sweep of automation runs a previous server left behind.
+  | AutomationRunOutcomeRepository
   // Boot-time first-admin bootstrap. Both reads used to bind their own layer
   // here; `createAppLayer` carries them, so `startServer` names them instead.
   | BootstrapTokenRepository
@@ -525,6 +606,23 @@ export const startServer = (
   // `prebuild-search-index.ts` for why that is not a coincidence.
   | CSSCompiler
   | StaticSiteGenerator
+
+export const startServer = (
+  app: unknown,
+  options: StartOptions = {}
+): Effect.Effect<
+  ServerInstance,
+  | AppValidationError
+  | BootEnvironmentError
+  | TelemetryConfigurationError
+  | ServerCreationError
+  | CSSCompilationError
+  | AuthConfigRequiredForUserFields
+  | SchemaInitializationError
+  | TransformPresetError
+  | TSValidationError
+  | Error,
+  StartServerRequirements
 > =>
   Effect.gen(function* () {
     // G4: a page whose `requires` the app does not meet is dropped HERE, before
@@ -533,7 +631,7 @@ export const startServer = (
     // later would deliver the 404 and none of the rest, leaving the app
     // advertising URLs it refuses to serve.
     const validatedApp = prunePagesByRequirements(yield* decodeAndValidateApp(app))
-    yield* validateRequiredEnvVars(validatedApp.env, process.env)
+    yield* validateBootEnvironment(validatedApp)
     // No encryption-key gate here any more. A server used to refuse to boot
     // without `SOVRIUM_ENCRYPTION_KEY`; it now runs on a key it provisions for
     // itself (`infrastructure/crypto/root-secret.ts`), resolved at the composition

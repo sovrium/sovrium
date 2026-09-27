@@ -26,14 +26,16 @@ export const AgentScheduleSchema = Schema.Struct({
     Schema.check(Schema.isMinLength(1))
   ),
 
-  /** IANA timezone identifier (defaults to UTC) */
+  /** IANA timezone identifier (defaults to the operator timezone) */
   timezone: Schema.optional(
     Schema.String.pipe(
       Schema.annotate({
         howTo:
           'Set it whenever the schedule means something to a person. `0 9 * * MON` in UTC fires at 10 a.m. in Paris for half the year and 11 a.m. for the other half; a named zone follows daylight saving, an offset baked into the expression does not.',
-        defaultNote: 'UTC',
-        description: 'IANA timezone identifier (defaults to UTC)',
+        defaultNote:
+          'The operator timezone: `SOVRIUM_TIMEZONE` when the server sets it, UTC otherwise.',
+        description:
+          'IANA timezone identifier (defaults to the operator timezone, SOVRIUM_TIMEZONE, UTC when unset)',
         examples: ['UTC', 'Europe/Paris', 'America/New_York'],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -62,13 +64,21 @@ export const AgentScheduleSchema = Schema.Struct({
         // step expressions are rejected, and IANA timezones are validated via
         // `DateTime.zoneMakeNamedUnsafe`. Wrapped in `Either.try` so the filter
         // body stays expression-only (functional/no-let).
-        const tz = timezone ?? 'UTC'
-        const zone = Result.try({
-          try: () => DateTime.zoneMakeNamedUnsafe(tz),
-          catch: () => undefined,
-        })
-        if (Result.isFailure(zone)) return `Invalid IANA timezone: ${tz}`
-        const parsed = Cron.parse(cron, zone.success)
+        //
+        // An omitted zone is resolved only at runtime (the operator timezone,
+        // which the domain never reads), so the expression is then validated
+        // zone-free: its field ranges do not depend on the zone.
+        const zone =
+          timezone === undefined
+            ? undefined
+            : Result.try({
+                try: () => DateTime.zoneMakeNamedUnsafe(timezone),
+                catch: () => undefined,
+              })
+        if (zone !== undefined && Result.isFailure(zone)) {
+          return `Invalid IANA timezone: ${timezone}`
+        }
+        const parsed = Cron.parse(cron, zone?.success)
         if (Result.isFailure(parsed)) {
           const cause = parsed.failure as unknown as { readonly message?: string }
           const detail = cause.message ?? String(parsed.failure)

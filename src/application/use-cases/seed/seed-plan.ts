@@ -31,7 +31,6 @@ import {
   checkDuplicateKeys,
   checkReferenceTargets,
   checkRequestedTables,
-  checkSelfReferences,
   checkUndeclaredFields,
   checkUnknownTables,
   checkUpsertManyToMany,
@@ -149,7 +148,7 @@ const resolveUpsertMergeKeys = (
   }
 }
 
-/** Refusals that need the planned values: buckets, links, self-links. */
+/** Refusals that need the planned values: buckets and links. */
 const semanticErrors = (
   planned: readonly PlannedSeedTable[],
   tables: readonly SeedTableConfig[],
@@ -158,7 +157,6 @@ const semanticErrors = (
   ...checkAttachmentBuckets(planned, tables),
   ...(mode === 'upsert' ? checkUpsertManyToMany(planned) : []),
   ...checkReferenceTargets(planned),
-  ...checkSelfReferences(planned),
 ]
 
 /** The dependency order, or the cycle that makes one impossible. */

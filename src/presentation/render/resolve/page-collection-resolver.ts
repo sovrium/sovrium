@@ -41,6 +41,7 @@ import {
   fetchCollectionAdjacency,
   substituteCollectionInMeta,
   substituteCollectionInPageComponents,
+  type CollectionAdjacencyGate,
 } from '@/presentation/render/resolve/page-collection-prevnext'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -189,29 +190,55 @@ function substituteRecordInMeta(meta: Page['meta'], record: Record<string, unkno
   return substituteRecordDeep(meta, record) as Page['meta']
 }
 
+/** The loose binding shape the nested-record walk reads off a component. */
+interface NestedBinding {
+  readonly table?: string
+  readonly mode?: string
+}
+
 /**
- * PG-04: walks the substituted
- * component subtree and stamps the resolved collection record onto every
- * descendant component that declares a single-mode dataSource against the
- * SAME table (matching the collection's table). Mirrors the
- * `applySingleRecordToComponent` injection that runs only for top-level
- * components with their own dataSource — required so a nested table-bound
- * `form` inside a tabs panel renders pre-filled inputs and the synthesized
- * CRUD update action carries the record id in its API path.
+ * Returns true when a `form` INHERITS the page's record rather than naming
+ * one of its own: it is bound to the page's table, declares no `mode`, and
+ * is not a `crud` create form — nor a `crud` form writing to another table.
  *
- * Stops traversal at any component declaring its OWN dataSource — those are
- * resolved separately later by the general data-source resolver and could
- * be bound to a different table or list rows that would receive their own
- * per-row record.
+ * A form on a page bound to one record is, by default, a form ABOUT that
+ * record — the post editor nested two containers down is the ordinary case.
+ * Requiring the author to restate `mode: 'single', param: 'id'` on it, which
+ * the page already said, is how it came to open blank and save nowhere. The
+ * conditions keep the inheritance to exactly that case: a form bound to
+ * ANOTHER table is about another table, a create form is about a record that
+ * does not exist yet, and a crud action naming another table would address
+ * this record's id in a table it does not belong to.
+ *
+ * The inherited record carries every column; the caller's read plan trims it
+ * later, where the session is known (`gateInheritedRecord`).
  */
+function inheritsPageRecord(component: Component, tableName: string): boolean {
+  if (component.type !== 'form') return false
+  const ds = component.dataSource as NestedBinding | undefined
+  if (ds === undefined || ds.mode !== undefined || ds.table !== tableName) return false
+  const { action } = component as {
+    readonly action?: {
+      readonly type?: string
+      readonly operation?: string
+      readonly table?: string
+    }
+  }
+  if (action?.type !== 'crud') return true
+  return action.operation !== 'create' && (action.table ?? tableName) === tableName
+}
+
 /**
- * Returns true when the component declares a `dataSource: { mode: 'single',
- * table: <tableName> }` and does not already carry a `_record` prop —
- * indicating it should receive the collection record injection.
+ * Returns true when the component should receive the page record: either it
+ * declares `dataSource: { mode: 'single', table: <tableName> }`, or it is a
+ * form that inherits the page's record ({@link inheritsPageRecord}) — and it
+ * does not already carry a `_record` prop.
  */
 function shouldInjectCollectionRecord(component: Component, tableName: string): boolean {
-  const ds = component.dataSource as { readonly table?: string; readonly mode?: string } | undefined
-  if (ds?.mode !== 'single' || ds.table !== tableName) return false
+  const ds = component.dataSource as NestedBinding | undefined
+  const bound =
+    (ds?.mode === 'single' && ds.table === tableName) || inheritsPageRecord(component, tableName)
+  if (!bound) return false
   const existing = (component.props as { _record?: unknown } | undefined)?._record
   return existing === undefined
 }
@@ -222,16 +249,38 @@ function shouldInjectCollectionRecord(component: Component, tableName: string): 
  * or because the component carries no children at all.
  */
 function shouldStopRecursion(component: Component, tableName: string): boolean {
-  const ds = component.dataSource as { readonly table?: string; readonly mode?: string } | undefined
+  const ds = component.dataSource as NestedBinding | undefined
   if (!component.children) return true
   if (ds === undefined) return false
-  // Recurse only when this is the matching single-mode case (parent
-  // collection record is the right scope); other dataSources own their
+  // Recurse only when this node is bound to the page's own record (the
+  // single-mode case, or a form inheriting it); other dataSources own their
   // children's per-row substitution.
-  return !(ds.mode === 'single' && ds.table === tableName)
+  return !(
+    (ds.mode === 'single' && ds.table === tableName) ||
+    inheritsPageRecord(component, tableName)
+  )
 }
 
-function injectRecordIntoNestedSingleMode(
+/**
+ * PG-04: walks the substituted
+ * component subtree and stamps the resolved collection record onto every
+ * descendant component that declares a single-mode dataSource against the
+ * SAME table (matching the collection's table). Mirrors the
+ * `applySingleRecordToComponent` injection that runs only for top-level
+ * components with their own dataSource — required so a nested table-bound
+ * `form` inside a tabs panel renders pre-filled inputs and the synthesized
+ * CRUD update action carries the record id in its API path.
+ *
+ * A mode-less `form` bound to the same table inherits the record too
+ * ({@link inheritsPageRecord}). Exported because the page-level
+ * `dataSource` binding runs the same pass (`page-system-record-binding.ts`).
+ *
+ * Stops traversal at any component declaring its OWN dataSource — those are
+ * resolved separately later by the general data-source resolver and could
+ * be bound to a different table or list rows that would receive their own
+ * per-row record.
+ */
+export function injectRecordIntoNestedSingleMode(
   component: Component,
   record: Record<string, unknown>,
   tableName: string
@@ -376,8 +425,18 @@ async function resolveCollectionRecord(
 > {
   const slugValue = routeParams[collection.slugField]
   if (slugValue === undefined) return { kind: 'not-found' }
+  // The visitor may not read this table's rows at all: the page names nothing
+  // for them, exactly as an unknown slug does (S1).
+  if (options?.refuseRecord === true) return { kind: 'not-found' }
 
-  const record = await db.fetchSingleRecord(collection.table, collection.slugField, slugValue)
+  // A soft-deleted record is gone from its page, the way an unknown slug is.
+  const record = await db.fetchSingleRecord(
+    collection.table,
+    collection.slugField,
+    slugValue,
+    undefined,
+    { liveOnly: true }
+  )
   if (record === undefined) return { kind: 'not-found' }
 
   if (options?.bypassFilter !== true && !recordMatchesAllFilters(record, collection.filter)) {
@@ -388,12 +447,33 @@ async function resolveCollectionRecord(
   // the row is confirmed to exist (so a genuinely missing record still 404s
   // — S1 anti-enumeration preserved) and AFTER the collection.filter
   // (status/draft/etc. exclusions take precedence over per-user perms).
-  if (options?.rowLevelReadCheck !== undefined) {
-    const allowed = await options.rowLevelReadCheck(record)
-    if (!allowed) return { kind: 'permission-blocked' }
-  }
+  if (!(await passesRowLevelRead(record, options))) return { kind: 'permission-blocked' }
 
   return { kind: 'continue', record }
+}
+
+/** The row-level read predicate, when the caller supplied one; admits every row otherwise. */
+async function passesRowLevelRead(
+  record: Readonly<Record<string, unknown>>,
+  options: ResolveCollectionOptions | undefined
+): Promise<boolean> {
+  const check = options?.rowLevelReadCheck
+  return check === undefined ? true : check(record)
+}
+
+/**
+ * The gates each `$collection.previous` / `.next` neighbour answers: the same
+ * row-level check and field projection as the record itself — a hidden row is
+ * skipped rather than linked, and a shown one is projected.
+ */
+function adjacencyGateOf(options: ResolveCollectionOptions | undefined): CollectionAdjacencyGate {
+  const { rowLevelReadCheck, projectRecord } = options ?? {}
+  return {
+    ...(rowLevelReadCheck !== undefined
+      ? { isVisible: async (row) => rowLevelReadCheck(row) }
+      : {}),
+    ...(projectRecord !== undefined ? { project: projectRecord } : {}),
+  }
 }
 
 interface ResolveCollectionOptions {
@@ -413,6 +493,25 @@ interface ResolveCollectionOptions {
   readonly rowLevelReadCheck?: (
     record: Readonly<Record<string, unknown>>
   ) => boolean | Promise<boolean>
+  /**
+   * The visitor's field-level read projection, applied to the record once it
+   * has passed every gate and BEFORE any `$record.*` token is substituted —
+   * into the components, into `meta` (a title may read `$record.*` too), or
+   * into the record handed on to the page's forms. A column the visitor may
+   * not read then resolves to nothing, exactly as it is absent from the
+   * records API's answer. Omitted: the record is used whole.
+   */
+  readonly projectRecord?: (
+    record: Readonly<Record<string, unknown>>
+  ) => Readonly<Record<string, unknown>>
+  /**
+   * The visitor may read no row of the collection's table — its read
+   * permission refuses them, or its rows are scoped to a user and there is no
+   * user. Every slug then answers `not-found`, the answer a slug naming no row
+   * gets, so the page can be used neither to read a row nor to learn which
+   * slugs exist.
+   */
+  readonly refuseRecord?: boolean
 }
 
 export async function resolveCollectionPage(
@@ -426,7 +525,7 @@ export async function resolveCollectionPage(
 
   const resolved = await resolveCollectionRecord(collection, routeParams, db, options)
   if (resolved.kind !== 'continue') return resolved
-  const { record } = resolved
+  const record = options?.projectRecord?.(resolved.record) ?? resolved.record
 
   const substitutedMeta = substituteRecordInMeta(page.meta, record)
   const substitutedComponents = substituteRecordInPageComponents(
@@ -450,7 +549,14 @@ export async function resolveCollectionPage(
   // records (first/last) get `undefined` neighbours; the substitution pass
   // drops any component referencing a null side so prev/next links don't
   // emit empty anchors at the edges of the collection.
-  const adjacency = await fetchCollectionAdjacency(collection, record, db)
+  // The neighbours are located from the WHOLE record: the ordering column is
+  // a navigation key, not something this page prints.
+  const adjacency = await fetchCollectionAdjacency(
+    collection,
+    resolved.record,
+    db,
+    adjacencyGateOf(options)
+  )
   const adjMeta = substituteCollectionInMeta(substitutedMeta, adjacency)
   const adjComponents = substituteCollectionInPageComponents(autoBoundComponents, adjacency)
 

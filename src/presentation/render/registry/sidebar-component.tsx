@@ -1,0 +1,110 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { type ReactElement } from 'react'
+import { resolveClasses } from '../../design/resolve-classes'
+import {
+  computeSidebarRailBoxClasses,
+  type SidebarRailBreakpoint,
+} from '../../design/sidebar-default-classes'
+import * as Renderers from '../elements'
+import { resolveChildTranslation } from '../i18n/translation-handler'
+import { SIDEBAR_DRAWER_ROOT_ATTRIBUTE, SidebarDrawerFrame } from './sidebar-drawer'
+import { renderSidebarGroups } from './sidebar-groups'
+import type { ComponentRenderer } from './component-dispatch-config'
+import type { SidebarGroup } from '@/domain/models/app/pages/components/component-types/layout/sidebar'
+
+/** The sidebar keys this renderer reads off the component, all optional. */
+interface SidebarKeys {
+  readonly groups?: readonly SidebarGroup[]
+  readonly trackNavigation?: boolean
+  readonly rail?: { readonly below?: SidebarRailBreakpoint }
+  readonly drawer?: { readonly below?: SidebarRailBreakpoint; readonly label?: string }
+}
+
+/**
+ * The box's props: the author's, plus the rail's width and the drawer's root
+ * marker when either is declared.
+ *
+ * The rail's WIDTH is the only thing that belongs on the box — everything else
+ * it does is a rule on the navigation root inside. The props object is returned
+ * untouched when neither a rail nor a drawer is declared, so a sidebar that
+ * declares neither renders the attributes it has always rendered, byte for byte.
+ */
+function sidebarBoxProps(
+  elementProps: Record<string, unknown>,
+  rail: SidebarRailBreakpoint | undefined,
+  drawer: SidebarRailBreakpoint | undefined
+): Record<string, unknown> {
+  const railBox = computeSidebarRailBoxClasses(rail, drawer)
+  const withRail =
+    railBox === ''
+      ? elementProps
+      : {
+          ...elementProps,
+          className: resolveClasses(
+            railBox,
+            undefined,
+            elementProps['className'] as string | undefined
+          ),
+        }
+  return drawer === undefined ? withRail : { ...withRail, [SIDEBAR_DRAWER_ROOT_ATTRIBUTE]: '' }
+}
+
+/**
+ * `sidebar` — a layout box, plus (when declared) the `groups` navigation
+ * landmark. The groups render BEFORE any authored children so a sidebar that
+ * carries both reads top-down as navigation first, then whatever the author
+ * put underneath.
+ *
+ * A declared `drawer` keeps the sidebar's OWN slot: the menu button renders
+ * where the sidebar was, so a page with no header still has somewhere to open
+ * it from, and the whole content — groups and authored children alike — is
+ * what folds into the drawer.
+ */
+export const renderSidebarComponent: ComponentRenderer = ({
+  elementProps,
+  content,
+  renderedChildren,
+  interactions,
+  component,
+  currentLang,
+  languages,
+}): ReactElement | null => {
+  const { groups, trackNavigation, rail, drawer } = (component ?? {}) as SidebarKeys
+  const railBelow = rail?.below
+  const drawerBelow = drawer?.below
+  const children =
+    groups !== undefined && groups.length > 0
+      ? [
+          renderSidebarGroups(
+            groups,
+            { currentLang, languages },
+            { trackNavigation: trackNavigation === true, rail: railBelow, drawer: drawerBelow }
+          ),
+          ...renderedChildren,
+        ]
+      : renderedChildren
+  return Renderers.renderHTMLElement({
+    type: 'div',
+    props: sidebarBoxProps(elementProps, railBelow, drawerBelow),
+    content: content,
+    children:
+      drawerBelow === undefined
+        ? children
+        : [
+            <SidebarDrawerFrame
+              key="sidebar-drawer"
+              below={drawerBelow}
+              label={resolveChildTranslation(drawer?.label ?? 'Menu', currentLang, languages)}
+            >
+              {children}
+            </SidebarDrawerFrame>,
+          ],
+    interactions: interactions,
+  })
+}

@@ -15,6 +15,8 @@ A page's `path` is the URL it answers. It is matched literally unless it contain
 | Catch-all | `/docs/:rest*`      | The remainder of the path, captured as `rest` — must be the last segment. |
 | Wildcard  | `/files/*`          | Anything below `/files/`, captured under no name.                         |
 
+**The home page is yours once you declare it.** An app that declares no `/` page is served a built-in placeholder there, naming the app. An app that declares one never falls back to it: when the declared home page cannot render for a visitor — because its record-bound data source is not readable by them — `/` answers the ordinary `404`, like any other record-bound page. An embedded app mounted under a base path never shows the placeholder either.
+
 A path starts with `/` and allows **only lowercase letters**. `/users/:userId` is rejected — write `/users/:userid`, or better, `/users/:id`.
 
 **A path with no `:` and no `*` is compared as an exact string.** There is no prefix matching: `/about` is not the same route as `/about/`. A request carrying a trailing slash is not lost, though — it is normalized away with a `301` and resolved again, so `/about/` reaches `/about`.
@@ -66,6 +68,12 @@ pages:
 ```
 
 A request whose parameter matches no record returns a `404`.
+
+A page-level `dataSource` may also name a platform endpoint through `system` instead of a table. That record is read on the server, before the page is sent, **as the visitor**: someone who cannot read the record gets the page's `404`, never a page with empty placeholders. The read is addressed to the running server's own listener over loopback, not to the address the request arrived on, so it behaves identically behind a reverse proxy, a load balancer or a custom domain, whatever `BASE_URL` says.
+
+A page bound to one record — either arm — may also draw a list the record carries with a `container` `repeat`: the copies are drawn on the server, so they arrive in the first response like every other `$record.` value on the page. The contract is the drawer's (see **Overlays**), with one difference in position: a `repeat` inside a component that reads rows of its own (a `dataSource` row template) is refused, because there `$record.` is the row and not the page's record.
+
+A `code` component whose **whole** `content` is exactly one token — `$record.fare`, or a named repeat's `$leg.stops` — prints an object or an array as JSON indented by two spaces, keys in alphabetical order. It is always printed as text. Anywhere else, including a lone token in a `text` component or a token mixed with other text in a `code` component, an object-valued token is left as its literal `$record.<key>` rather than printed as `[object Object]`.
 
 **`$id` is not a path syntax.** `$` is not a legal character in a `path`, so `/tasks/$id` fails validation. The dynamic-segment marker is `:` everywhere; `$record.*` is a _content_ reference, not a route one.
 

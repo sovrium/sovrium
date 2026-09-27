@@ -6,23 +6,21 @@
  */
 
 import { Schema } from 'effect'
+import { MAX_PAGE_SIZE } from '@/domain/kernel/sql/page-window'
 import { coercedNumber } from '@/domain/models/api/combinators/coerce'
 import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
 import { withDefault } from './schema-defaults'
 
 /**
- * The widest page any list endpoint will serve.
+ * The widest page any list endpoint will serve — defined in the kernel
+ * (`domain/kernel/sql/page-window.ts`) so page validation and the browser-side
+ * pager read the same number, and re-exported here for the API schemas.
  *
- * Exported because this number has to hold in TWO places, and having it in
- * only one of them WAS a defect. {@link paginationSchema} caps `limit` on the
- * RESPONSE, so a request naming a wider page produced a response the
- * endpoint's own contract rejected — reaching the caller as `500 Internal
- * Server Error` for what is plainly a bad request. The request side now reads
- * the same constant (`validatePaginationParams` in
- * `presentation/api/routes/tables/validation/pagination-validation.ts`), so
- * the two cannot drift: moving the ceiling here moves it for both.
+ * {@link paginationSchema} caps `limit` on the RESPONSE and the request side
+ * (`validatePaginationParams`) reads the same constant, so the two cannot drift:
+ * moving the ceiling moves it everywhere.
  */
-export const MAX_PAGE_SIZE = 100
+export { MAX_PAGE_SIZE }
 
 /**
  * Pagination metadata schema

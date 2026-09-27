@@ -15,7 +15,7 @@ All it needs is the connection: `DATABASE_URL` for PostgreSQL, or nothing at all
 ## Three modes
 
 - **`sovrium migrate [config]`** — bring this database forward. Exit `0` applied, `1` failed.
-- **`sovrium migrate --dry-run`** — what _would_ change? Exit `0` unless refused.
+- **`sovrium migrate --dry-run`** — what _would_ change? Exit `0` unless the plan would be refused.
 - **`sovrium migrate --check`** — is this database safe to upgrade? Exit `0` safe, `1` unsafe.
 
 `--dry-run` and `--check` both write nothing, and cannot be combined: they ask different questions, and running them together would blur which answer you got.
@@ -68,21 +68,48 @@ Names every pending migration and every statement it would run against your own 
   Re-run without --dry-run to apply this plan.
 ```
 
+The plan names the object that will really change. A table carrying a `lookup`, `rollup` or `count` field is stored as `<name>_base` behind a `<name>` view, so a new column is reported as `would alter table <name>_base (N statement(s))`. A computed field is never planned as a stored column, and an edit to another table plans nothing against `<name>_base`.
+
+Every full migration rebuilds the view of **every** table with lookup, rollup or count fields, whichever table the change touched, so a `would rebuild view <name>` line appears for each of them whenever the tables in your config have changed since the last migration. Pending migrations alone do not rebuild them. It changes no rows. The line summarises the rebuild (`DROP VIEW IF EXISTS <name>`, then `CREATE VIEW <name>` over its computed fields) rather than printing the view's full definition.
+
+Adding a table's first lookup, rollup or count field, or removing its last one, changes which object holds its rows. The migration does this by renaming the table, so the rows, the id sequence and the foreign keys pointing at it move with it, and nothing is copied or created empty. The plan says so: `would rename table <name> to <name>_base (rows kept)`, with the view rebuilt afterwards, or, in the other direction, `would rename table <name>_base to <name> (rows kept)`, whose statements first drop the view that holds the name.
+
 A few changes rebuild a table and copy its rows across. The exact statements for those depend on the state of the table at the moment they run, so they cannot be rendered in advance. They are **named and labelled as unsimulated rather than left out** — a preview that quietly under-reports is worse than none, because you use it to decide whether the change needs a maintenance window.
 
 ## Pre-flight with `--check`
 
 Reports where the database stands — which engine, which migration folder, how much of the journal it has applied — then gives a verdict. On a database already at the current schema the verdict reads `No pending migrations. This database is at the current schema.`, also exit `0`.
 
-Exit `1` means the upgrade would abort part-way through, for one of three reasons:
+Exit `1` means the upgrade would abort part-way through, or would not start, for one of four reasons:
 
 - **Duplicate account identities** — two authentication rows a later migration's uniqueness constraint cannot both keep.
 - **Duplicate OAuth client ids** — the same collision on the OAuth server's clients.
 - **A rewritten released migration** — a migration file whose stored checksum no longer matches the file this build ships.
+- **A table that would be dropped with its rows** — a table your config no longer declares, reported with its row count.
 
 Each is reported with the offending rows named. Nothing is repaired automatically: deleting one of two colliding authentication rows would sever somebody's login, so the command names them and stops, and you decide which one survives.
 
 **`--check` is a pre-flight, not a guarantee.** It reports the conditions it can prove would block the upgrade. A clean report means none of those were found — not that the migration will succeed.
+
+## Destructive changes
+
+When your config no longer declares a table that still holds rows, applying it would delete those rows. Sovrium does not do that on its own.
+
+- `sovrium migrate --dry-run` prints the drop it would run, with the row count (`would drop table archived_campaigns (3 rows)` and its `DROP TABLE` statement), and exits `1`.
+- `sovrium migrate --check` exits `1` and names the table and its rows.
+- `sovrium migrate` and `sovrium start` refuse before writing anything, and name the command that would apply the drop.
+
+Starting the app never drops a populated table. A removed table has no config entry left to carry a setting, and a setting on the whole app would keep consenting to every later edit. The consent is one-shot: read the plan, then run
+
+```bash
+sovrium migrate app.yaml --allow-destructive
+```
+
+It applies the drops the plan named, and nothing else. An empty table removed from the config is still dropped without asking. Tables the engine creates for you, meaning the `<name>_base` table behind a table with lookup, rollup or count fields and the junction table behind a many-to-many relationship, belong to your config and are never dropped as leftovers.
+
+`--allow-destructive` is a different consent from a table's `allowDestructive: true`. The table setting lets a migration drop a **column** the config no longer declares on a table that is still there. The command-line flag lets one run drop a whole **table** the config no longer declares. Neither implies the other.
+
+Renaming a table with lookup, rollup or count fields currently leaves its old `<old>_base` behind, and the migration reports it as a table the config no longer declares, with its rows. Do not apply that drop with `--allow-destructive`, because it would delete the renamed table's rows. Revert the rename in the config instead.
 
 ## In a deploy pipeline
 

@@ -24,8 +24,9 @@
  */
 
 import { Schema } from 'effect'
-import { ActionSchema } from '../../action'
+import { ActionSchema, NavigateActionSchema, OpenDrawerActionSchema } from '../../action'
 import { ConfirmGateSchema } from '../../confirm-gate'
+import { DataSortSchema } from '../../data-source'
 import { ButtonVariantSchema } from '../../shared-schemas'
 
 /**
@@ -226,4 +227,102 @@ export const RecordDrawerRoleSchema = Schema.Literals(['dialog', 'region']).anno
   title: 'Record Drawer Role',
   description:
     'Accessible role of the drawer surface: dialog (default) or region. Its accessible name comes from props.title.',
+})
+
+/**
+ * One column of a related section ([internal ref] CAP-8): a field of the
+ * related table, and the header it is shown under.
+ */
+export const RecordDrawerRelatedColumnSchema = Schema.Struct({
+  field: Schema.String.annotate({
+    description: 'Field of the related table this column shows.',
+  }),
+  label: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          "Header of the column. When omitted, the header is the field's own label, then its name.",
+      }),
+      Schema.check(Schema.isNonEmpty({ message: 'label must not be empty' }))
+    )
+  ),
+}).annotate({
+  title: 'Record Drawer Related Column',
+  description: 'One column of a related section: a field of the related table and its header',
+})
+
+/**
+ * What a click on a related row does (CAP-8). The two variants a `table`'s
+ * `onRowClick` honours, and no others: `openDrawer` names another drawer on the
+ * page bound to the related table, which opens on the clicked row in place of
+ * this one; `navigate` follows a path with `$record.*` read from the row.
+ *
+ * Deliberately NOT `RowClickActionSchema` itself: that node carries an
+ * identifier and a description written for a grid, and the option needs its
+ * own words. The two variants are the same schemas, so the vocabulary is one.
+ */
+export const RecordDrawerRelatedRowClickSchema = Schema.Union([
+  NavigateActionSchema,
+  OpenDrawerActionSchema,
+]).annotate({
+  description:
+    'What a click on a listed record does: `openDrawer` opens that record in another drawer on the page, bound to `table`, in place of this one; `navigate` follows a path, with `$record.*` read from the clicked record.',
+})
+
+/**
+ * One related section of a record-bound drawer ([internal ref] CAP-8):
+ * the rows of another table whose relationship column points at the record the
+ * drawer opened, read when the drawer opens.
+ *
+ * The cross-table rules — `table` exists, `field` is a relationship on it that
+ * points at the drawer's own table, `columns` / `sort` name real fields, an
+ * `openDrawer` target is a drawer bound to `table` — need the whole config and
+ * live in `drawer-related-validation.ts`, never as a `Schema.check` here.
+ */
+export const RecordDrawerRelatedSchema = Schema.Struct({
+  label: Schema.String.pipe(
+    Schema.annotate({
+      description: 'Heading of the section, and the accessible name of the region that holds it.',
+    }),
+    Schema.check(Schema.isNonEmpty({ message: 'label must not be empty' }))
+  ),
+  table: Schema.String.annotate({
+    description: 'Table whose records the section lists.',
+  }),
+  field: Schema.String.annotate({
+    description:
+      "Relationship column on `table` that points at the drawer's own table; the section lists the records whose value in this column is the opened record.",
+  }),
+  columns: Schema.optional(
+    Schema.Array(RecordDrawerRelatedColumnSchema).annotate({
+      description:
+        'Columns the section shows, in order, each naming a field of `table` and an optional header label. When omitted, the section shows every field of `table` except `field` itself.',
+    })
+  ),
+  sort: Schema.optional(
+    Schema.Array(DataSortSchema).annotate({
+      description:
+        'Order of the listed records, as field and direction pairs applied in turn. When omitted, records keep the order the table returns them in.',
+    })
+  ),
+  limit: Schema.optional(
+    Schema.Finite.pipe(
+      Schema.annotate({
+        description:
+          'Maximum number of records the section lists. When omitted, it lists the first 10.',
+        examples: [5, 10, 25],
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(100))
+    )
+  ),
+  emptyMessage: Schema.optional(
+    Schema.String.annotate({
+      description: 'Text shown in the section when no record points at the opened one.',
+    })
+  ),
+  onRowClick: Schema.optional(RecordDrawerRelatedRowClickSchema),
+}).annotate({
+  title: 'Record Drawer Related',
+  description:
+    'One section listing the records of another table that point at the record the drawer opened',
 })

@@ -9,7 +9,8 @@
  * RSS feed renderer.
  *
  * Mirrors the `render-page.tsx` orchestration layer for `/feed.xml`:
- *   1. Find the first page in `app.pages` that opts in via `page.rss`.
+ *   1. Find the first PUBLIC page in `app.pages` that opts in via `page.rss`
+ *      (`findRssPage` — a gated page never builds the feed).
  *   2. Pull the published collection records from the database, applying
  *      `collection.filter` and the rss limit.
  *   3. Hand off to the pure `buildRssFeedXml` builder.

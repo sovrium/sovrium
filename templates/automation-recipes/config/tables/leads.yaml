@@ -1,3 +1,6 @@
+# The leads the recipes capture. A lead arrives by the webhook (recipe 1), by
+# an import, or is typed in by hand; every new row, whatever its source, runs
+# recipe 2.
 id: 1
 name: leads
 fields:
@@ -9,27 +12,23 @@ fields:
     name: email
     type: email
   - id: 3
+    name: company
+    type: single-line-text
+  - id: 4
     name: source
     type: single-select
     options:
-      - Website
       - Webhook
-      - Referral
       - Import
+      - Referral
     default: Webhook
-  - id: 4
-    name: status
-    type: single-select
-    options:
-      - New
-      - Contacted
-      - Qualified
-      - Dropped
-    default: New
+  # When the lead reached the app. A seeded lead carries the moment it came in;
+  # a lead the webhook writes takes the time of the request.
   - id: 5
-    name: created_at
-    type: created-at
+    name: captured_at
+    type: datetime
 
+# Members read and add leads; only an admin deletes one.
 permissions:
   read: authenticated
   create:

@@ -25,6 +25,10 @@
  *   - `expiring-soon` — an expiry in the future but within
  *     `CONNECTION_EXPIRING_SOON_WINDOW_MS` (7 days).
  *   - `expired`       — an expiry already in the past.
+ *   - `reconnect-needed` — a token the provider issued no refresh token for,
+ *     whose expiry is past or within the same 7-day window: nothing renews it,
+ *     so only a new authorization restores it. Takes precedence over the two
+ *     above, which describe tokens the runtime can refresh on its own.
  */
 
 import {
@@ -73,6 +77,46 @@ export const deriveConnectionStatus = (
   return 'active'
 }
 
+/** One token's expiry and whether a refresh token was stored beside it. */
+export interface TokenHealthInput {
+  readonly expiresAt: Readonly<Date> | string | null | undefined
+  readonly hasRefreshToken: boolean
+}
+
+/**
+ * True when a token will need a new authorization: no refresh token was
+ * stored, and its expiry is past or within the expiring-soon window. A token
+ * with no recorded expiry never needs one.
+ */
+export const needsReconnect = (token: TokenHealthInput, now: number = Date.now()): boolean => {
+  if (token.hasRefreshToken) return false
+  const expiry = toEpochMs(token.expiresAt)
+  return expiry !== null && expiry - now <= CONNECTION_EXPIRING_SOON_WINDOW_MS
+}
+
+/**
+ * Derive one token's health, `reconnect-needed` included — the per-token
+ * counterpart of {@link deriveConnectionStatus}.
+ */
+export const deriveTokenStatus = (
+  token: TokenHealthInput,
+  now: number = Date.now()
+): ConnectionStatus =>
+  needsReconnect(token, now) ? 'reconnect-needed' : deriveConnectionStatus(token.expiresAt, now)
+
+/**
+ * Derive a connection's health from all its tokens: `reconnect-needed` when
+ * any of them needs a new authorization, otherwise the status of the soonest
+ * expiry.
+ */
+export const deriveConnectionHealth = (
+  tokens: readonly TokenHealthInput[],
+  now: number = Date.now()
+): ConnectionStatus =>
+  tokens.some((token) => needsReconnect(token, now))
+    ? 'reconnect-needed'
+    : deriveConnectionStatus(soonestExpiryMs(tokens.map((token) => token.expiresAt)), now)
+
 /**
  * Compute the SOONEST expiry across a connection's token rows as an epoch-
  * millisecond timestamp, or `null` when there are no token rows OR no token
@@ -99,7 +143,7 @@ export const soonestExpiryMs = (
  *   - non-oauth2 (apiKey / basic / bearer) → `none` (a static secret has nothing
  *     to connect);
  *   - oauth2 with no tokens (`tokenCount === 0`)        → `connect`;
- *   - oauth2 with `expiring-soon` / `expired` tokens    → `reconnect`;
+ *   - oauth2 with `expiring-soon` / `expired` / `reconnect-needed` tokens → `reconnect`;
  *   - oauth2 with healthy (`active`) tokens             → `disconnect`.
  */
 export const deriveConnectionRowAction = (
@@ -109,6 +153,8 @@ export const deriveConnectionRowAction = (
 ): ConnectionRowAction => {
   if (type !== 'oauth2') return 'none'
   if (tokenCount === 0) return 'connect'
-  if (status === 'expired' || status === 'expiring-soon') return 'reconnect'
+  if (status === 'expired' || status === 'expiring-soon' || status === 'reconnect-needed') {
+    return 'reconnect'
+  }
   return 'disconnect'
 }

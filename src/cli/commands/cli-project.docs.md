@@ -10,7 +10,7 @@ Five commands operate on a project rather than on a running server. Each answers
 Usage: sovrium init [dir] [options]
 ```
 
-Scaffold a new project into the given directory, or into the current one when none is passed. Every scaffold writes a config file, a `CLAUDE.md` written for that template's domain, an `app-editor` subagent under `.claude/agents/`, an `.env.example`, a `.gitignore`, and a `public/` directory for static assets. The bare `hello-world` default gets the same set.
+Scaffold a new project into the given directory, or into the current one when none is passed. Every scaffold writes a config file, a `CLAUDE.md` written for that template's domain, Sovrium's agent skills under `.claude/skills/` (as `sovrium skills` writes them — see **Agent Skills**), an `.env.example`, a `.gitignore`, and a `public/` directory for static assets. The bare `hello-world` default gets the same set.
 
 ```bash
 sovrium init ./my-app                          # blank starter
@@ -132,6 +132,10 @@ SOVRIUM_OUTPUT_DIR=./out \
 ```
 
 Build options come from `SOVRIUM_` environment variables rather than flags, because they are deployment facts rather than per-invocation choices. Output goes to `SOVRIUM_OUTPUT_DIR` when set; otherwise to a `dist/` directory beside the config file.
+
+With `SOVRIUM_GENERATE_SITEMAP=true` the build also reads the database it runs against (`DATABASE_URL`) for the records of each collection page an anonymous visitor could open, lists them in `sitemap.xml` exactly as the running server's `/sitemap.xml` does, and writes each listed record's page as its own HTML file — `blog/pricing-change.html` for `/blog/pricing-change` — so a static host answers every address the sitemap advertises. Past 5 000 addresses it writes `sitemap-1.xml`, `sitemap-2.xml`, … beside an index. The rules that decide which records are listed are in **SEO & Crawlers**.
+
+Every script a built page loads is written beside the pages, under the name the page asks for — `assets/client.js`, `assets/scroll-animation.js` and so on — so a static host answers each `<script src>` in the output. A build carries no development tooling: the live-reload client that `sovrium start` adds to its pages in local development is neither loaded by a built page nor written to the output, whatever `NODE_ENV` is set to.
 
 ## `sovrium schema`
 

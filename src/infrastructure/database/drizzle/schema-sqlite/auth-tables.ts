@@ -26,6 +26,12 @@ export const users = authTable('user', {
   // The account's own interface language — see the Postgres twin in
   // `auth/better-auth/schema-tables.ts` for why it is engine-owned and nullable.
   language: text('language'),
+  // The account's own email preferences — see the Postgres twin for why they are
+  // NOT NULL DEFAULT true where `language` is nullable.
+  notifyAutomationAlerts: integer('notify_automation_alerts', { mode: 'boolean' })
+    .notNull()
+    .default(true),
+  notifyWeeklyDigest: integer('notify_weekly_digest', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .$defaultFn(() => new Date()),

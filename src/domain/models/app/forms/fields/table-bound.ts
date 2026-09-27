@@ -6,7 +6,8 @@
  */
 
 import { Schema } from 'effect'
-import { commonFieldProps } from '../form-field-props'
+import { SelectOptionSourceSchema } from '../../table-option-source'
+import { commonFieldProps, FormRecordAudioSchema } from '../form-field-props'
 
 /**
  * Table-bound field — references a column on the form's `submitTo.table`.
@@ -30,6 +31,18 @@ export const TableBoundFieldSchema = Schema.Struct({
   column: Schema.String.annotate({
     description: "Name of the column on the form's target table that this field reads and writes.",
   }).pipe(Schema.check(Schema.isMinLength(1))),
+  /**
+   * Override for the choices a `relationship` column offers. Without one, the
+   * field lists the related table's rows labelled by the column's
+   * `displayField` and stores the row id; refused on any other column type
+   * (`form-option-source-validation.ts`).
+   */
+  optionsSource: Schema.optional(
+    SelectOptionSourceSchema.annotate({
+      description:
+        "Overrides the choices a `relationship` column offers (by default its related table's rows, labelled by the column's `displayField`). Reads this field's choices from a table's rows each time the form is served: `displayField` is shown, `valueField` (default `id`) is stored. Resolved on the server with the form's own authority, so a public form needs no read permission on the table; only those two columns reach the page. Mutually exclusive with `options`.",
+    })
+  ),
   /** Comma-separated MIME types or extensions for attachment inputs. */
   accept: Schema.optional(
     Schema.String.annotate({
@@ -57,6 +70,8 @@ export const TableBoundFieldSchema = Schema.Struct({
   dropZone: Schema.optional(
     Schema.Boolean.annotate({ description: 'Shows a drag-and-drop area next to the file picker.' })
   ),
+  /** In-browser microphone recorder for attachment fields. */
+  recordAudio: Schema.optional(FormRecordAudioSchema),
   ...commonFieldProps,
 }).annotate({
   identifier: 'TableBoundField',

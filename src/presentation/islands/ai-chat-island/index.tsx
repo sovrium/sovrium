@@ -64,14 +64,14 @@ export default function AiChatIsland(props: AiChatIslandProps): ReactElement {
           role="alert"
           className={`${computeAiChatErrorClasses()} flex items-center gap-2`}
         >
-          <span>The assistant is unavailable. Please try again.</span>
+          <span>{props.labels?.failure ?? 'The assistant is unavailable.'}</span>
           <button
             type="button"
             data-testid="chat-retry"
             onClick={handleRetry}
             className={RETRY_BUTTON}
           >
-            Retry
+            {props.labels?.retry ?? 'Retry'}
           </button>
         </div>
       )}
@@ -82,6 +82,7 @@ export default function AiChatIsland(props: AiChatIslandProps): ReactElement {
         allowAttachments={props.allowAttachments === true}
         initialDraft={props.initialValues?.message ?? ''}
         suggestions={props.suggestions}
+        voiceInput={props.voiceInput}
         onSend={send}
       />
     </div>

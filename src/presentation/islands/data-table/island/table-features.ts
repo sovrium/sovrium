@@ -63,6 +63,8 @@ export interface DataTableColumnMeta {
    * column a hard 150px and destroy the auto layout the grid is built on.
    */
   readonly authoredWidth?: number
+  /** The column's authored text alignment; absent means the default, left. */
+  readonly align?: 'left' | 'center' | 'right'
   /**
    * Marks the generated action cluster column, whose cells are BUTTONS.
    *

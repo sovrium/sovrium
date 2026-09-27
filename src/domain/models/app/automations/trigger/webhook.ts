@@ -74,6 +74,33 @@ const WebhookAuthSchema = Schema.Struct({
   prefix: Schema.optional(
     Schema.String.pipe(Schema.annotate({ description: 'Bearer token prefix (default: Bearer)' }))
   ),
+
+  /**
+   * How an `hmac` signature is written. `hex` and `base64` sign the raw body
+   * and read the digest from `header` (after `prefix`); the three named
+   * schemes sign a timestamped string and fix their own headers.
+   */
+  scheme: Schema.optional(
+    Schema.Literals(['hex', 'base64', 'stripe', 'slack', 'svix']).pipe(
+      Schema.annotate({
+        defaultNote: 'hex',
+        description:
+          "How an hmac signature is written. 'hex' or 'base64': a digest of the raw body in `header`, after `prefix` (Shopify signs base64). 'stripe': the Stripe-Signature header (t=, v1=). 'slack': X-Slack-Signature (v0=) over v0:<timestamp>:<body>. 'svix': svix-id, svix-timestamp and svix-signature, with a whsec_ secret (Clerk, Resend and other Svix senders). The three named schemes are always SHA-256 and fix their own headers.",
+      })
+    )
+  ),
+
+  /** Maximum age of a signed timestamp, for the timestamped schemes */
+  tolerance: Schema.optional(
+    Schema.Finite.pipe(
+      Schema.annotate({
+        defaultNote: '300',
+        description:
+          'Seconds a signed timestamp may differ from the server clock before the request is refused as a replay. Only for the stripe, slack and svix schemes.',
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
+    )
+  ),
 }).pipe(
   Schema.annotate({
     // Distinct from the OUTGOING webhook auth union's `WebhookAuth` identifier
@@ -163,6 +190,38 @@ const WebhookRateLimitSchema = Schema.Struct({
   })
 )
 
+/**
+ * Subscription handshake a provider performs before it delivers events.
+ *
+ * Meta (Facebook Pages, Lead Ads, Instagram, WhatsApp Cloud) verifies a
+ * webhook with a GET carrying `hub.mode=subscribe`, `hub.verify_token` and
+ * `hub.challenge`, and only subscribes an endpoint that answers the challenge
+ * back. The handshake is answered before authentication and creates no run:
+ * the verify token IS its credential.
+ */
+const WebhookVerificationSchema = Schema.Struct({
+  style: Schema.Literal('meta').pipe(
+    Schema.annotate({
+      description:
+        "The handshake to answer. 'meta': a GET with hub.mode=subscribe, hub.verify_token and hub.challenge, answered with the challenge when the token matches.",
+    })
+  ),
+  verifyToken: TemplateStringSchema.pipe(
+    Schema.annotate({
+      description:
+        'The token entered in the provider console when subscribing the webhook (use $env.VAR). A handshake presenting another token is answered 404.',
+      examples: ['$env.META_VERIFY_TOKEN'],
+    })
+  ),
+}).pipe(
+  Schema.annotate({
+    identifier: 'WebhookVerification',
+    title: 'Webhook Verification Handshake',
+    description:
+      'Answer the verification request a provider sends before delivering events, without running the automation.',
+  })
+)
+
 export const WebhookTriggerSchema = Schema.Struct({
   type: Schema.Literal('webhook').pipe(
     Schema.annotate({
@@ -206,6 +265,9 @@ export const WebhookTriggerSchema = Schema.Struct({
 
   /** Authentication configuration for incoming requests */
   auth: Schema.optional(WebhookAuthSchema),
+
+  /** Subscription handshake answered before events are delivered */
+  verification: Schema.optional(WebhookVerificationSchema),
 
   /** Custom response configuration */
   response: Schema.optional(WebhookResponseSchema),

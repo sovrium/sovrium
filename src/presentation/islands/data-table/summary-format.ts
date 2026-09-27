@@ -19,8 +19,9 @@
  * once let a cell and the total beneath it disagree about a currency symbol.
  */
 
+import { resolveCurrencyOptions } from '@/domain/kernel/format/currency-format'
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
-import { resolveCurrencyOptions } from './formatting'
+import { resolvePageTimezone } from '../runtime/page-timezone'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type {
   DataTableColumn,
@@ -58,12 +59,10 @@ export function formatSummaryValue(
   )
   if (!column?.format) return String(value)
 
-  return formatCellValue(
-    value,
-    column.format,
-    context.locale,
-    resolveCurrencyOptions(context.fieldMeta?.[item.field])
-  )
+  return formatCellValue(value, column.format, context.locale, {
+    currency: resolveCurrencyOptions(context.fieldMeta?.[item.field]),
+    timeZone: resolvePageTimezone(),
+  })
 }
 
 /** `"Label: 42"`, or just `"42"` when the author declared no label. */

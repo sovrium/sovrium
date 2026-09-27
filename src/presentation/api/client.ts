@@ -8,6 +8,7 @@
 import { hc } from 'hono/client'
 import type { chainRecordRoutesMethods } from '@/presentation/api/tables/record-routes'
 import type { chainTableRoutesMethods } from '@/presentation/api/tables/table-routes'
+import type { chainViewRoutesMethods } from '@/presentation/api/tables/view-routes'
 
 /**
  * Narrowed RPC type for table record operations only.
@@ -22,6 +23,11 @@ type RecordRoutesType = ReturnType<typeof chainRecordRoutesMethods>
  * Narrowed RPC type for table-level operations (list, get, permissions).
  */
 type TableRoutesType = ReturnType<typeof chainTableRoutesMethods>
+
+/**
+ * Narrowed RPC type for the declared-view routes (definition and records).
+ */
+type ViewRoutesType = ReturnType<typeof chainViewRoutesMethods>
 
 /**
  * Create a typed RPC client for table record operations.
@@ -50,3 +56,17 @@ export const createRecordsClient = (baseUrl: string) => hc<RecordRoutesType>(bas
  * ```
  */
 export const createTableClient = (baseUrl: string) => hc<TableRoutesType>(baseUrl)
+
+/**
+ * Create a typed RPC client for reading through a table's declared views.
+ *
+ * @example
+ * ```typescript
+ * const client = createViewRecordsClient(window.location.origin)
+ * const res = await client.api.tables[':tableId'].views[':viewId'].records.$get({
+ *   param: { tableId: 'campaigns', viewId: 'open_campaigns' },
+ *   query: { page: '1', limit: '25' },
+ * })
+ * ```
+ */
+export const createViewRecordsClient = (baseUrl: string) => hc<ViewRoutesType>(baseUrl)

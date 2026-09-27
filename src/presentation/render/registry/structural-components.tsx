@@ -22,19 +22,13 @@ import {
   computeDividerLabelWrapperClasses,
   computeDividerRuleClasses,
 } from '../../design/layout-default-classes'
-import { resolveClasses } from '../../design/resolve-classes'
-import {
-  computeSidebarRailBoxClasses,
-  type SidebarRailBreakpoint,
-} from '../../design/sidebar-default-classes'
 import * as Renderers from '../elements'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import { DESIGN_SCOPE_ATTRIBUTE } from './design-components'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import { recordBoundTimelineComponent } from './island-data-components'
-import { renderSidebarGroups } from './sidebar-groups'
+import { renderSidebarComponent } from './sidebar-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
-import type { SidebarGroup } from '@/domain/models/app/pages/components/component-types/layout/sidebar'
 
 /**
  * Structural HTML components (section, header, footer, main, etc.)
@@ -54,7 +48,15 @@ import type { SidebarGroup } from '@/domain/models/app/pages/components/componen
 const REPEAT_ATTRIBUTE = 'data-repeat-record'
 
 /**
- * The field a container asked to iterate, or `undefined` for the 30-odd
+ * The name a repeat gave its element (`repeat.as`, [internal ref]), carried beside the
+ * field so the island knows which namespace a copy's `$<as>.` tokens read.
+ * Absent when the repeat is unnamed, so a CAP-6 container renders exactly as it
+ * did before names existed. Spelled on both sides for the reason above.
+ */
+const REPEAT_AS_ATTRIBUTE = 'data-repeat-as'
+
+/**
+ * The markers of a container that asked to iterate, or `undefined` for the 30-odd
  * containers on a page that asked for nothing.
  *
  * Emitting the marker only where `repeat` was authored is what keeps the key
@@ -62,14 +64,18 @@ const REPEAT_ATTRIBUTE = 'data-repeat-record'
  * this attribute existed, which is the control `-REPEAT-003` pins.
  *
  * WHERE a `repeat` may legally stand is not decided here. `repeatPlacementViolations`
- * refuses one outside a record-bound drawer's slot at DECODE, so by the time this
- * renderer runs the only surviving markers are inside a slot the island owns.
+ * refuses one outside a record-bound drawer's slot or a page bound to one record
+ * at DECODE, and the page binding pass expands (and drops) the page's own before
+ * render, so the only surviving markers are inside a slot the island owns.
  */
-function containerRepeatField(component: unknown): string | undefined {
+function containerRepeatMarkers(component: unknown): Record<string, string> | undefined {
   const repeat = (component as Record<string, unknown> | undefined)?.['repeat']
   if (typeof repeat !== 'object' || repeat === null) return undefined
-  const field = (repeat as Record<string, unknown>)['record']
-  return typeof field === 'string' && field.length > 0 ? field : undefined
+  const { record: field, as } = repeat as Record<string, unknown>
+  if (typeof field !== 'string' || field.length === 0) return undefined
+  return typeof as === 'string' && as.length > 0
+    ? { [REPEAT_ATTRIBUTE]: field, [REPEAT_AS_ATTRIBUTE]: as }
+    : { [REPEAT_ATTRIBUTE]: field }
 }
 
 export const structuralComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
@@ -85,13 +91,13 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
         | 'footer'
         | 'article'
         | undefined) ?? 'div'
-    const repeatField = containerRepeatField(component)
+    const repeatMarkers = containerRepeatMarkers(component)
     return Renderers.renderHTMLElement({
       type: element,
       props:
-        repeatField === undefined
+        repeatMarkers === undefined
           ? elementPropsWithSpacing
-          : { ...elementPropsWithSpacing, [REPEAT_ATTRIBUTE]: repeatField },
+          : { ...elementPropsWithSpacing, ...repeatMarkers },
       content: content,
       children: renderedChildren,
       interactions: interactions,
@@ -265,59 +271,8 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
     }),
 
   // `sidebar` — a layout box, plus (when declared) the `groups` navigation
-  // landmark. The groups render BEFORE any authored children so a sidebar that
-  // carries both reads top-down as navigation first, then whatever the author
-  // put underneath.
-  sidebar: ({
-    elementProps,
-    content,
-    renderedChildren,
-    interactions,
-    component,
-    currentLang,
-    languages,
-  }) => {
-    const { groups, trackNavigation, rail } = (component ?? {}) as {
-      groups?: readonly SidebarGroup[]
-      trackNavigation?: boolean
-      rail?: { below?: SidebarRailBreakpoint }
-    }
-    const below = rail?.below
-    const children =
-      groups !== undefined && groups.length > 0
-        ? [
-            renderSidebarGroups(
-              groups,
-              { currentLang, languages },
-              trackNavigation === true,
-              below
-            ),
-            ...renderedChildren,
-          ]
-        : renderedChildren
-    // The rail's WIDTH is the only thing that belongs on the box — everything
-    // else it does is a rule on the navigation root inside. The props object is
-    // left untouched when no rail is declared, so a sidebar that declares none
-    // renders the attributes it has always rendered, byte for byte.
-    const railBox = computeSidebarRailBoxClasses(below)
-    return Renderers.renderHTMLElement({
-      type: 'div',
-      props:
-        railBox === ''
-          ? elementProps
-          : {
-              ...elementProps,
-              className: resolveClasses(
-                railBox,
-                undefined,
-                elementProps['className'] as string | undefined
-              ),
-            },
-      content: content,
-      children: children,
-      interactions: interactions,
-    })
-  },
+  // landmark, a rail and a drawer. Its own module: `sidebar-component.tsx`.
+  sidebar: renderSidebarComponent,
 
   toast: ({ elementProps, content, renderedChildren, interactions }) =>
     Renderers.renderHTMLElement({

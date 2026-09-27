@@ -40,19 +40,16 @@
  *    exactly what `sovrium validate` and `sovrium start` refuse.
  */
 
-import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname } from 'node:path'
-import { Effect, Console } from 'effect'
 import {
   formatConfigCandidatesLine,
   formatDiscoveredConfigNotice,
 } from '@/domain/kernel/config-parsing/default-config-files'
 import { printStderr } from '@/infrastructure/logging/cli-output'
+import { resolveDocumentFormat, writeDocument } from './document-output'
 import { lazyImportSchema } from './utils'
 import { loadConfigForValidationWithSources } from './validate'
 
-/** The formats this command emits, and the spellings it accepts for them. */
-const MARKDOWN_FORMATS: ReadonlySet<string> = new Set(['md', 'markdown'])
+/** The one format this command emits besides its markdown default. */
 const JSON_FORMAT = 'json'
 
 /** Options as parsed from argv. */
@@ -90,27 +87,6 @@ const discoverDesignSystemConfig = async (): Promise<string> => {
 }
 
 /**
- * Normalise `--format`, refusing anything else by name.
- *
- * The accepted set is printed in the refusal because an operator who typed
- * `yaml` needs to learn what to type instead, not merely that they were wrong.
- */
-const resolveFormat = (raw: string | undefined): 'md' | 'json' => {
-  if (raw === undefined) return 'md'
-  const normalized = raw.trim().toLowerCase()
-  if (MARKDOWN_FORMATS.has(normalized)) return 'md'
-  if (normalized === JSON_FORMAT) return JSON_FORMAT
-
-  printStderr(
-    `Error: Unsupported --format "${raw}".\n\n` +
-      `  Accepted values: md (or markdown), json.\n\n` +
-      `  Omitting --format prints the markdown brief, which is what an agent reads.`
-  )
-  // eslint-disable-next-line functional/no-expression-statements
-  process.exit(1)
-}
-
-/**
  * Decode the config, refusing with the decoder's own message.
  *
  * The message is the decoder's verbatim so an operator sees the SAME text
@@ -139,26 +115,6 @@ const decodeForExport = async (configPath: string) => {
 }
 
 /**
- * Send the rendered export to its single destination.
- *
- * ONE destination per run: with `--output` the document does NOT also go to
- * stdout, so a shell redirect cannot silently duplicate it into two places.
- * Parent directories are created, matching `sovrium schema --output` — a
- * sibling command that did not would be a gratuitous difference.
- */
-const emit = async (content: string, outputPath: string | undefined): Promise<void> => {
-  if (outputPath === undefined) {
-    // eslint-disable-next-line functional/no-expression-statements
-    process.stdout.write(content)
-    return
-  }
-  // eslint-disable-next-line functional/no-expression-statements
-  await mkdir(dirname(outputPath), { recursive: true })
-  await writeFile(outputPath, content)
-  Effect.runSync(Console.log(`Design system written to ${outputPath}.`))
-}
-
-/**
  * Handle the `design-system` command.
  *
  * @param options - The parsed positional config path and flag values.
@@ -168,7 +124,11 @@ export const handleDesignSystemCommand = async (
 ): Promise<void> => {
   // Format is resolved FIRST, before any file is read: an operator who mistyped
   // the format learns it immediately rather than after a config decode.
-  const format = resolveFormat(options.format)
+  const format = resolveDocumentFormat(
+    options.format,
+    [JSON_FORMAT],
+    'the markdown brief, which is what an agent reads.'
+  )
   const configPath = options.configFile ?? (await discoverDesignSystemConfig())
   const app = await decodeForExport(configPath)
 
@@ -176,12 +136,19 @@ export const handleDesignSystemCommand = async (
   const document = buildDesignSystem(app)
 
   if (format === JSON_FORMAT) {
-    // eslint-disable-next-line unicorn/no-null -- CLI output is the side-effect; JSON.stringify requires null as replacer
-    await emit(JSON.stringify(document, null, 2) + '\n', options.outputPath)
+    await writeDocument(
+      `${JSON.stringify(document, undefined, 2)}\n`,
+      options.outputPath,
+      'Design system'
+    )
     return
   }
 
   const { renderDesignSystemMarkdown } =
     await import('@/application/use-cases/admin/design-system-markdown')
-  await emit(renderDesignSystemMarkdown(document, app.name), options.outputPath)
+  await writeDocument(
+    renderDesignSystemMarkdown(document, app.name),
+    options.outputPath,
+    'Design system'
+  )
 }

@@ -69,6 +69,16 @@ export const accountExportProfileSchema = Schema.Struct({
           "The user's interface-language preference (a code or locale the app declares), or null",
       })
     ),
+    // The two operator-email preferences — engine-owned `auth.user` columns,
+    // `NOT NULL DEFAULT true`, exported for the reason `language` is: this
+    // section IS the caller's row. Required, because `buildExportPayload`
+    // always writes them.
+    notifyAutomationAlerts: Schema.Boolean.annotate({
+      description: 'Whether this account receives automation-failure emails',
+    }),
+    notifyWeeklyDigest: Schema.Boolean.annotate({
+      description: 'Whether this account receives the weekly summary email',
+    }),
   }).fields,
   ...timestampSchema.fields,
 }).annotate({ identifier: 'AccountExportProfile' })

@@ -53,5 +53,44 @@ export function OpenGraphMeta({
     { key: 'audio', value: openGraph.audio },
   ]
 
-  return renderMetaTags({ fields, prefix: 'og', attributeType: 'property' })
+  const alternates = resolveLocaleAlternates(languages, lang, openGraph.locale)
+  return (
+    <>
+      {renderMetaTags({ fields, prefix: 'og', attributeType: 'property' })}
+      {alternates.map((locale) => (
+        <meta
+          key={`locale:alternate:${locale}`}
+          property="og:locale:alternate"
+          content={locale}
+        />
+      ))}
+    </>
+  )
+}
+
+/** `fr-FR` → `fr_FR`, or `undefined` when the tag carries no territory. */
+const toOpenGraphLocale = (tag: string | undefined): string | undefined => {
+  const match = tag === undefined ? undefined : /^([a-z]{2})[-_]([A-Z]{2})$/.exec(tag)
+  return match === null || match === undefined ? undefined : `${match[1]}_${match[2]}`
+}
+
+/**
+ * The `og:locale:alternate` values of a page in a multi-language app: every
+ * OTHER declared language, in the `language_TERRITORY` form Open Graph uses,
+ * so a platform can serve the share in the reader's language. The page's own
+ * language — the one it renders in, or its explicit `openGraph.locale` — is
+ * never repeated, and a language declared without a territory has no Open
+ * Graph form and is left out.
+ */
+const resolveLocaleAlternates = (
+  languages: Languages | undefined,
+  lang: string | undefined,
+  ownLocale: string | undefined
+): readonly string[] => {
+  if (languages === undefined || languages.supported.length <= 1) return []
+  const own = new Set([ownLocale, toOpenGraphLocale(lang)])
+  return languages.supported
+    .filter((language) => language.code !== lang && language.locale !== lang)
+    .map((language) => toOpenGraphLocale(language.locale ?? language.code))
+    .filter((locale): locale is string => locale !== undefined && !own.has(locale))
 }

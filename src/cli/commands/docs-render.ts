@@ -141,24 +141,59 @@ const loadLookups = async () => {
 }
 
 /**
+ * The `library` section, projected from the catalogue that `sovrium library`
+ * installs from — one article per entry.
+ *
+ * The catalogue is reached HERE, lazily, and nowhere else in the manual: no
+ * section manifest names it, because a manifest is imported by every reader of
+ * the registry and the catalogue grows with every entry. Its articles are
+ * projections of the entries themselves (`library-docs.ts`), so the manual can
+ * never describe an entry the binary does not ship.
+ */
+const loadLibrary = async () => {
+  const [catalogueModule, buildLibraryManual, operationSets] = await Promise.all([
+    import('@/library/manifest/catalogue'),
+    import('./library-docs').then(({ buildLibraryManual: build }) => build),
+    import('./library-operations').then(async ({ loadAllOperationSets, loadOperationsModule }) =>
+      loadAllOperationSets(await loadOperationsModule())
+    ),
+  ])
+  const { LIBRARY_KINDS, LIBRARY_TARGET_KEY, libraryEntryId, loadCatalogue } = catalogueModule
+  return buildLibraryManual(
+    { LIBRARY_KINDS, LIBRARY_TARGET_KEY, libraryEntryId },
+    await loadCatalogue(),
+    operationSets
+  )
+}
+
+/**
  * Everything the manual is made of, loaded on demand.
  *
  * One `Promise.all` rather than a chain of awaits: the three are independent,
  * and a sequential load would make the command's latency their sum for no gain.
  */
 const loadManual = async () => {
-  const [registry, projection, lookups] = await Promise.all([
+  const [registry, projection, lookups, library] = await Promise.all([
     import('@/docs/sections'),
     loadProjection(),
     loadLookups(),
+    loadLibrary(),
   ])
   const { SECTIONS } = registry
-  return { SECTIONS, ...projection, ...lookups }
+  return {
+    SECTIONS: [...SECTIONS, library.section],
+    librarySlug: library.section.slug,
+    libraryIndex: library.index,
+    libraryBodies: library.bodies,
+    ...projection,
+    ...lookups,
+  }
 }
 
 type Manual = Readonly<Awaited<ReturnType<typeof loadManual>>>
 
 const readBody = async (manual: Manual, article: ManualArticle): Promise<string> =>
+  manual.libraryBodies.get(article.body) ??
   manual.readEmbeddedDoc(manual.embeddedDocKey(article.body))
 
 /** Every article with its prose — the input the scanning answers need. */
@@ -421,7 +456,9 @@ const answerAddress = async (manual: Manual, address: string, format: DocsFormat
     return ok(
       format === 'json'
         ? await jsonDocument(manual, [section], false)
-        : manual.renderSectionIndex(section)
+        : section.slug === manual.librarySlug
+          ? manual.libraryIndex
+          : manual.renderSectionIndex(section)
     )
 
   const located = manual.findArticle(manual.SECTIONS, address)

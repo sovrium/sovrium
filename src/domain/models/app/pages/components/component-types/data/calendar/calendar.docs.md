@@ -37,3 +37,7 @@ A calendar reads `colorField` at the top level — the record-view colour rules 
 In month view a calendar renders a timed event as a small dot by default. A dot is mostly empty space, so a colour applied to it is close to invisible. An event that carries a colour therefore renders as a filled **block** instead; an event with no colour keeps the default dot.
 
 Expect that as a visible layout change on any month-view calendar that sets `colorField` — day cells that used to hold lines of dots now hold bands of filled blocks.
+
+## Controls follow the page's language
+
+A calendar writes four words itself: the button that returns to the current period and the month, week and day switches. They follow the page's language (`meta.lang`): an English page reads Today, Month, Week, Day; a French page reads Aujourd’hui, Mois, Semaine, Jour. A language the calendar has no captions for keeps the English ones. The period title is a date and follows the page's language too, so a French month view is titled with the French month name.

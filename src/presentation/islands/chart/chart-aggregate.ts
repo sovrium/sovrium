@@ -6,6 +6,7 @@
  */
 
 import { type AggregateFunction, reduceAggregate } from '../runtime/aggregate-functions'
+import { readDisplayText } from '../runtime/record-display-label'
 import type { TableRecord } from '../runtime/types'
 
 /**
@@ -20,16 +21,35 @@ import type { TableRecord } from '../runtime/types'
 
 export type DateInterval = 'day' | 'week' | 'month' | 'quarter' | 'year'
 
+/** How the categories are ordered along the axis, or around the pie. */
+export type CategoryOrder = 'option' | 'label' | 'value-asc' | 'value-desc'
+
 export interface ChartAggregateConfig {
   readonly function: AggregateFunction
   readonly field?: string
   readonly groupBy: string
   readonly interval?: DateInterval
+  readonly order?: CategoryOrder
+}
+
+/**
+ * One declared option of the grouping field, resolved server-side from
+ * `app.tables` and forwarded in declared order. Present only when the chart
+ * groups by a `single-select` or `status` field.
+ */
+export interface ChartCategoryOption {
+  readonly value: string
+  readonly label: string
+  readonly color?: string
 }
 
 export interface AggregatedDatum {
   readonly key: string
   readonly value: number
+  /** Display name of the category — the option's label when it declares one. */
+  readonly label?: string
+  /** Paint of the category — the option's declared colour, when it has one. */
+  readonly color?: string
 }
 
 /**
@@ -76,7 +96,9 @@ function groupKey(record: TableRecord, config: ChartAggregateConfig): string | u
  */
 export function aggregateRecords(
   records: readonly TableRecord[],
-  config: ChartAggregateConfig
+  config: ChartAggregateConfig,
+  options?: readonly ChartCategoryOption[],
+  fallback: CategoryOrder = 'label'
 ): readonly AggregatedDatum[] {
   // Group raw numeric values (or `1`s for count) by their X-axis key.
   const buckets = records.reduce<Readonly<Record<string, readonly number[]>>>((acc, record) => {
@@ -93,7 +115,101 @@ export function aggregateRecords(
     return { ...acc, [key]: [...(acc[key] ?? []), numeric] }
   }, {})
 
-  return Object.keys(buckets)
-    .toSorted((a, b) => a.localeCompare(b))
-    .map((key) => ({ key, value: reduceAggregate(config.function, buckets[key] ?? []) }))
+  const labels = categoryLabels(records, config)
+  const data = Object.keys(buckets).map((key) => {
+    const label = labels[key]
+    return {
+      key,
+      value: reduceAggregate(config.function, buckets[key] ?? []),
+      ...(label === undefined ? {} : { label }),
+    }
+  })
+  return orderCategories(data, config.order, options, fallback)
+}
+
+/**
+ * The name each category is shown under when the grouping field stores a key
+ * the records API labelled — a `user` column's account, a relationship's
+ * related row (`_display`). The stored value stays the category's key, so two
+ * accounts sharing a name are still two bars. Empty for a date-bucketed or an
+ * unlabelled grouping.
+ */
+function categoryLabels(
+  records: readonly TableRecord[],
+  config: ChartAggregateConfig
+): Readonly<Record<string, string>> {
+  if (config.interval) return {}
+  return records.reduce<Readonly<Record<string, string>>>((acc, record) => {
+    const key = groupKey(record, config)
+    if (key === undefined || acc[key] !== undefined) return acc
+    const label = readDisplayText(record, config.groupBy)
+    return label === undefined ? acc : { ...acc, [key]: label }
+  }, {})
+}
+
+/** Position of a category in the declared options; undeclared ones sort last. */
+const optionRank = (key: string, options: readonly ChartCategoryOption[]): number => {
+  const index = options.findIndex((option) => option.value === key)
+  return index === -1 ? options.length : index
+}
+
+/**
+ * The name a category is SHOWN under: its option's label when the grouping
+ * field declares one, else the label the records API resolved for its key,
+ * else its value. `label` order sorts this, so the chart
+ * reads alphabetically to the person looking at it rather than by stored values
+ * they never see.
+ */
+const displayName = (
+  datum: AggregatedDatum,
+  options: readonly ChartCategoryOption[] | undefined
+): string =>
+  options?.find((option) => option.value === datum.key)?.label ?? datum.label ?? datum.key
+
+/**
+ * Orders the categories. With no declared `order`, a chart grouped by a select
+ * field follows its options and any other grouping sorts by name; `fallback`
+ * replaces that last default (a pie ranks its slices largest first). A category
+ * the options do not declare goes after the declared ones, by name; ties on a
+ * value order break by name too, so a redraw never reshuffles equal bars.
+ * Names compare by the label shown, with the stored value as the tie-break.
+ */
+export function orderCategories<D extends AggregatedDatum>(
+  data: readonly D[],
+  order: CategoryOrder | undefined,
+  options: readonly ChartCategoryOption[] | undefined,
+  fallback: CategoryOrder = 'label'
+): readonly D[] {
+  const effective = order ?? (options && options.length > 0 ? 'option' : fallback)
+  const byName = (a: D, b: D): number =>
+    displayName(a, options).localeCompare(displayName(b, options)) || a.key.localeCompare(b.key)
+  if (effective === 'value-asc') return data.toSorted((a, b) => a.value - b.value || byName(a, b))
+  if (effective === 'value-desc') return data.toSorted((a, b) => b.value - a.value || byName(a, b))
+  if (effective === 'option' && options) {
+    return data.toSorted(
+      (a, b) => optionRank(a.key, options) - optionRank(b.key, options) || byName(a, b)
+    )
+  }
+  return data.toSorted(byName)
+}
+
+/**
+ * Gives each category its option's label and colour, so every mark and the
+ * legend read the same declaration. Categories without an option are returned
+ * unchanged, and so is the whole series when the field declares none.
+ */
+export function decorateCategories<D extends AggregatedDatum>(
+  data: readonly D[],
+  options: readonly ChartCategoryOption[] | undefined
+): readonly D[] {
+  if (!options || options.length === 0) return data
+  return data.map((datum) => {
+    const option = options.find((candidate) => candidate.value === datum.key)
+    if (!option) return datum
+    return {
+      ...datum,
+      label: option.label,
+      ...(option.color === undefined ? {} : { color: option.color }),
+    }
+  })
 }

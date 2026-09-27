@@ -10,9 +10,11 @@ import { buildKanbanDragHandler } from './build-drag-handler'
 import { buildKanbanGrid, type KanbanGrid } from './group-lanes'
 import { groupRecords } from './group-records'
 import { KanbanBoard } from './kanban-board'
+import { KanbanFormatProvider } from './kanban-format-context'
 import { KanbanError, KanbanLoading, KanbanMissingGroupBy } from './kanban-states'
 import { useDragPermission } from './use-drag-permission'
 import { useKanbanRecords } from './use-kanban-records'
+import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { TableRecord } from '../runtime/types'
 import type {
   KanbanCard,
@@ -86,6 +88,12 @@ interface KanbanIslandProps {
    * never invented a hue of its own ([internal ref] A7 ruling 5).
    */
   readonly colorFieldColors?: Readonly<Record<string, string>>
+  /**
+   * Declared display properties of the columns the card footer names, resolved
+   * server-side from `app.tables` — what lets a `currency` footer item print
+   * the column's own currency, precision and separators.
+   */
+  readonly fieldMeta?: FieldMetaMap
 }
 
 /**
@@ -259,6 +267,7 @@ export default function KanbanIsland({
   columnColors,
   swimlaneOptions,
   colorFieldColors,
+  fieldMeta,
 }: KanbanIslandProps): ReactElement {
   const { boardRecords, localRecords, setLocalRecords, isLoading, isError, error } =
     useBoardRecords(dataSource, records)
@@ -291,15 +300,18 @@ export default function KanbanIsland({
   })
 
   return (
-    <KanbanBoard
-      columns={columns}
-      grid={grid}
-      swimlanes={swimlanes}
-      card={card}
-      emptyColumnMessage={emptyColumnMessage}
-      draggableEnabled={gate.draggableEnabled}
-      onDragEnd={handleDragEnd}
-      colorFieldColors={colorFieldColors}
-    />
+    <KanbanFormatProvider fieldMeta={fieldMeta}>
+      <KanbanBoard
+        columns={columns}
+        grid={grid}
+        swimlanes={swimlanes}
+        collapsedColumns={kanbanGroupBy?.collapsed}
+        card={card}
+        emptyColumnMessage={emptyColumnMessage}
+        draggableEnabled={gate.draggableEnabled}
+        onDragEnd={handleDragEnd}
+        colorFieldColors={colorFieldColors}
+      />
+    </KanbanFormatProvider>
   )
 }

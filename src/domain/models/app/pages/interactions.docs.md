@@ -111,6 +111,20 @@ One case is left alone deliberately: a server-rendered region whose own rows con
 - **The toast's `message` is required and is not displayed.** `message` is a required part of every success handler, so `reload` cannot make it optional without re-shaping the handler for the endpoint form and the file upload too. It stays as the config's own record of what succeeded. If the confirmation has to survive, you want `status` on a page that does not reload.
 - **It belongs to the success branch only.** A failed request does not reload, so the error toast stays on screen and readable.
 
+### Opening an address in a new tab
+
+`openInNewTab: true` on a navigate action — a row click, or a `fetch` action in `mode: navigate` — opens the address in a new tab that gets no handle on the page, and an address that is not a same-origin path or an `http(s)` URL is not followed.
+
+The address is built from the row (`$record.<field>`), and a row holds whatever was imported, so every navigation checks it first — a new tab or not. On a `fetch` action the key is refused at config load in any mode other than `navigate`, since a request opens no page.
+
+```yaml
+action:
+  type: fetch
+  mode: navigate
+  url: 'https://docs.google.com/spreadsheets/d/$record.sheet_id'
+  openInNewTab: true
+```
+
 ## Auto-save
 
 Data components support inline-edit auto-save through the `autoSave` module, most often on `table`.

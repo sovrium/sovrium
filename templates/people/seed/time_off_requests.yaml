@@ -1,115 +1,104 @@
-# Sample time-off requests, linked to employees by their file-local key.
+# Eleven requests, dated relative to the day the seed runs: four wait on a
+# decision, five are approved (Aiko's parental leave among them) and two were
+# rejected with a reason.
 #
-# Dates straddle `{{today}}` deliberately: the calendar on /time-off keys off
-# `start_date`, so a data set that sits entirely in the future renders an empty
-# month for anyone who opens the page today. Several requests overlap, which is
-# the situation the calendar exists to make visible.
-#
-# All three statuses appear, and Pending outnumbers the rest — the approval
-# automation pauses waiting on an admin, so a queue with nothing pending has
-# nothing to demonstrate.
+# `sovrium seed` writes rows and runs no automation, so these pending
+# requests have no approval run behind them: an admin decides them from the
+# Requests grid. A request filed in the app starts its approval run as well.
 records:
-  - key: priya-summer
-    fields:
-      employee: '@employees.priya'
-      type: Vacation
-      start_date: '{{today+26d}}'
-      end_date: '{{today+40d}}'
-      status: Pending
-      notes: Two weeks away. Tomás covers on-call.
-
-  - key: tomas-remote-lisbon
+  - key: r1
     fields:
       employee: '@employees.tomas'
       type: Remote work
       start_date: '{{today+5d}}'
       end_date: '{{today+19d}}'
+      days: 15
       status: Pending
-      notes: Working from Lisbon, same hours.
-
-  - key: hannah-conference
-    fields:
-      employee: '@employees.hannah'
-      type: Other
-      start_date: '{{today+12d}}'
-      end_date: '{{today+14d}}'
-      status: Pending
-      notes: Industry conference — three days, expenses filed separately.
-
-  - key: samuel-moving
+      note: Working from Lisbon, same hours.
+  - key: r2
     fields:
       employee: '@employees.samuel'
       type: Other
       start_date: '{{today+3d}}'
       end_date: '{{today+3d}}'
+      days: 1
       status: Pending
-      notes: Moving flat, single day.
-
-  - key: ines-easter
+      note: Moving flat, single day.
+  - key: r3
+    fields:
+      employee: '@employees.hannah'
+      type: Other
+      start_date: '{{today+12d}}'
+      end_date: '{{today+14d}}'
+      days: 3
+      status: Pending
+      note: Industry conference.
+  - key: r4
+    fields:
+      employee: '@employees.priya'
+      type: Vacation
+      start_date: '{{today+26d}}'
+      end_date: '{{today+40d}}'
+      days: 15
+      status: Pending
+      note: Two weeks away. Tomás covers on-call.
+  - key: r5
     fields:
       employee: '@employees.ines'
       type: Vacation
       start_date: '{{today-2d}}'
       end_date: '{{today+4d}}'
+      days: 7
       status: Approved
-      notes: Booked in January.
-
-  - key: fatima-remote
+      note: Booked in January.
+  - key: r6
     fields:
       employee: '@employees.fatima'
       type: Remote work
       start_date: '{{today-9d}}'
       end_date: '{{today+2d}}'
+      days: 12
       status: Approved
-
-  - key: liam-flu
-    fields:
-      employee: '@employees.liam'
-      type: Sick leave
-      start_date: '{{today-6d}}'
-      end_date: '{{today-4d}}'
-      status: Approved
-      notes: Doctor's note on file.
-
-  - key: aiko-parental
-    fields:
-      employee: '@employees.aiko'
-      type: Other
-      start_date: '{{today-31d}}'
-      end_date: '{{today+59d}}'
-      status: Approved
-      notes: Parental leave. Marcus covers the content calendar.
-
-  - key: sofia-yearend
-    fields:
-      employee: '@employees.sofia'
-      type: Vacation
-      start_date: '{{today-54d}}'
-      end_date: '{{today-47d}}'
-      status: Approved
-
-  - key: dmitri-quarter-close
-    fields:
-      employee: '@employees.dmitri'
-      type: Vacation
-      start_date: '{{today+7d}}'
-      end_date: '{{today+21d}}'
-      status: Rejected
-      notes: Overlaps quarter close. Asked to rebook after the 30th.
-
-  - key: marcus-launch-week
-    fields:
-      employee: '@employees.marcus'
-      type: Vacation
-      start_date: '{{today-17d}}'
-      end_date: '{{today-12d}}'
-      status: Rejected
-      notes: Clashed with the campaign launch.
-
-  - key: noor-remote-friday
+  - key: r7
     fields:
       employee: '@employees.noor'
       type: Remote work
       start_date: '{{today+1d}}'
       end_date: '{{today+1d}}'
+      days: 1
       status: Approved
+  - key: r8
+    fields:
+      employee: '@employees.liam'
+      type: Sick leave
+      start_date: '{{today-6d}}'
+      end_date: '{{today-4d}}'
+      days: 3
+      status: Approved
+  - key: r9
+    fields:
+      employee: '@employees.aiko'
+      type: Parental leave
+      start_date: '{{today-31d}}'
+      end_date: '{{today+59d}}'
+      days: 91
+      status: Approved
+      note: Marcus covers the content calendar.
+  - key: r10
+    fields:
+      employee: '@employees.dmitri'
+      type: Vacation
+      start_date: '{{today+7d}}'
+      end_date: '{{today+21d}}'
+      days: 15
+      status: Rejected
+      decision_note: Overlaps quarter close — rebook after the 30th.
+  - key: r11
+    fields:
+      employee: '@employees.marcus'
+      type: Vacation
+      start_date: '{{today-17d}}'
+      end_date: '{{today-12d}}'
+      days: 6
+      status: Rejected
+      decision_note: Clashed with the campaign launch.

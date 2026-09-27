@@ -1,105 +1,38 @@
-# Inventory workspace
+# brunel-stock
 
-A self-hosted database workspace for products, stock, and orders — an Airtable
-alternative you own. Six linked tables behind spreadsheet-style grids.
+Brunel Stock — the stock workspace of a small distributor. Products is the home page: the
+catalogue grouped by category with its stock on hand and value at cost, and a Reorder list
+tab; a product opens in a drawer with every movement that made its stock. Stock is the signed
+ledger per warehouse, Orders the customer orders by status, Suppliers the lead times, and the
+Assistant answers from all of it.
 
 ## This app at a glance
 
-- **Tables** (6): suppliers, warehouses, products, stock_movements, orders, order_lines
-- **Pages** (6): sign-in, products, orders, stock, suppliers, assistant
-- **Automations** (1): flag-low-stock — emails purchasing when stock hits zero
-- **AI agents** (1): catalog-assistant — reads and edits records with the member role
+- **Tables** (6): suppliers, warehouses, products, stock_movements, orders, purchase_orders
+- **Pages** (6): products (`/`), stock, orders, suppliers, assistant, sign-in
+- **AI agents** (1): catalog-assistant — reads the tables and drafts purchase orders, with
+  the member role
 - **Singletons**: auth, design
+- **Seed data**: `seed/` — two sign-in accounts, eleven products, three warehouses, five
+  suppliers, the stock ledger, eight orders and three purchase orders, dated relative to
+  the day you seed
 - **Static assets**: `public/` (served at the site root)
 
 Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
-Shared page chrome (the table tabs) lives once in `config/pages/_nav.yaml` and is `$ref`'d
-into every page — when you add a page, add its tab there too.
 
-## Structure
+## How stock works here
 
-```
-app.yaml                          entry point — scalars inline, everything else $ref'd
-config/
-  auth.yaml                       email + password; first user becomes admin
-  design.yaml                     extends the Sovrium design system
-  tables/
-    suppliers.yaml                vendors + the AI-derived columns
-    warehouses.yaml               storage locations
-    products.yaml                 the flagship catalog table
-    stock_movements.yaml          append-only stock ledger
-    orders.yaml                   customer orders
-    order_lines.yaml              one row per product on an order
-  pages/
-    _nav.yaml                     the table tabs, $ref'd into every page
-    sign-in.yaml                  /sign-in
-    products.yaml                 /          the main grid + expand-record panel
-    orders.yaml                   /orders    orders + order lines
-    stock.yaml                    /stock     movements + warehouses
-    suppliers.yaml                /suppliers
-    assistant.yaml                /assistant AI chat over every table
-  agents/
-    catalog-assistant.yaml        reads and edits records with the member role
-  automations/
-    flag-low-stock.yaml           emails purchasing when stock hits zero
-public/                           static files served at the root
-```
+Stock on hand is never typed. `products.stock_on_hand` is a rollup that sums the product's
+signed `stock_movements.quantity` (positive in, negative out), `value_at_cost` multiplies it
+by `unit_cost`, and `stock_state` compares it with `reorder_at`. To change stock, record a
+movement; a count that finds a difference records it as a `Count` movement.
 
-## The data model
+## Working on this app with an AI assistant
 
-```
-suppliers ──< products >── stock_movements >── warehouses
-                  │                                 │
-                  └──< order_lines >── orders ───────┘
-```
-
-`products.movement_count` counts its `stock_movements`, `products.units_moved`
-rolls up their quantity, and `products.stock_value` multiplies price by stock —
-all computed in the database, so they cannot drift from the source rows.
-
-## Rules the validator enforces
-
-- **Field names are snake_case and cannot be SQL keywords.** `order` is
-  rejected, which is why the join field here is `sales_order`.
-- **A rollup aggregates stored numeric columns only** — integer, decimal,
-  currency, percentage, duration. `SUM` over a `formula` column is rejected, so
-  `orders` rolls up `quantity` rather than `line_total`.
-- **`computeOn` is required** on `ai-categorize`, `ai-extract`, `ai-tag`, and
-  `ai-translate` (optional on `ai-generate`, `ai-sentiment`, `ai-summary`).
-
-## Things to know
-
-Verified live on this config. These are platform behaviours, not config mistakes
-— do not "fix" them by rewriting this config.
-
-- **The expand-record drawer renders exactly the fields you list in
-  `recordFields`.** It does not derive them from the table, so omitting the list
-  opens an empty panel with a save button. Its labels are the raw field names —
-  `RecordDrawerField` has `name`, `type` and `renderAs`, but no `label`.
-- **An `array` field read back on SQLite returns the JSON string** (`'["a"]'`)
-  rather than an array. `multi-select` is unaffected.
-- **A `formula` over money must DECLARE its currency** — see `stock_value`,
-  which carries `currency: EUR` beside its `format: currency`. Nothing is
-  inherited from the fields the expression multiplies: a formula may touch
-  several fields or none, so any inheritance rule would have to guess. Omit the
-  code and the amount renders in the USD default.
-
-Everything this file previously listed here — grouped grids refusing to edit,
-`status` colours going unpainted, `currency` ignoring its code, `showRowNumbers`
-and `duration.displayFormat` doing nothing, delete silently failing on a table
-with a rollup, batch create rejecting multi-select, a `formula` having no
-`currency` property to declare — is fixed. If you are reading this in a fork
-whose engine predates that, those notes are in the git history.
-
-## Your Claude Code setup
-
-This project ships one agent: `.claude/agents/app-editor.md`. It knows the Sovrium
-config conventions and is the right agent for extending this app — adding tables and
-fields, pages and views, automations, forms, and permissions.
-
-It is a **starting point, not a fixed set**. Add your own agents under `.claude/agents/`
-as your app grows (a data-modeling agent, a content agent, a deployment agent — whatever
-your workflow needs).
+Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+design system is in `config/design.yaml`: read its comments before changing a colour, and
+keep colour for stock outcomes (under the reorder point, out of stock, shipped, cancelled).
 
 ---
 
@@ -109,21 +42,50 @@ YAML config files (a single `app.yaml` to start, split via `$ref` as the app gro
 served by the `sovrium` runtime. There is no hand-written
 server or UI code to maintain.
 
-## The manual ships inside the binary — do not search the web
+## Documentation
 
-The complete Sovrium manual is printed by the binary you are running, so it can never
-describe a different version. Read it there rather than from a web page:
+The Sovrium manual ships inside the binary. Where you read it depends on whether you can
+run commands.
+
+**With a shell** (Claude Code, Cursor, Codex, a terminal), `sovrium docs` is the manual for
+the version you run, so it can never describe a different one. Start there:
 
 ```bash
-sovrium docs search <topic>    # Find the article covering a topic
+sovrium docs                   # The table of contents
+sovrium docs search <words>    # Find the article covering a topic
 sovrium docs <section>/<slug>  # Read it
 sovrium docs config <path>     # Look one option up (e.g. tables[].fields[].type)
 sovrium docs env <NAME>        # Look one environment variable up
 sovrium docs cli <verb>        # Look one command up
+sovrium schema                 # The full JSON Schema of this binary
 ```
 
-The docs describe THIS binary — check `sovrium --version`. Pretrained knowledge of
-Sovrium may describe a different one; where the two disagree, the binary wins.
+**Agent skills.** `.claude/skills/` holds the skills written by `sovrium skills` for the
+version in this project: start from `sovrium-app` for any change to the config. After
+upgrading Sovrium, run `sovrium skills` again to refresh them — a file you edited is kept
+unless you pass `--force`. For Codex, Copilot, Gemini CLI or OpenCode, run
+`sovrium skills --target agents` to write them to `.agents/skills/` as well.
+
+**If your client cannot run commands** (for example Claude Desktop connected through
+`sovrium mcp`, whose tools edit the config but serve no documentation), read the published
+copy instead:
+
+- **Start at the index:** `https://sovrium.com/llms.txt` — a plain-text list of every published
+  page, one titled line each with a short description. Pick a page from there instead of
+  guessing a slug.
+- **Fetch that page with `.md` appended.** Every docs page has a raw-markdown twin:
+  `https://sovrium.com/en/docs/configuration-refs.md` is about 3.8 KB against 121 KB for the
+  same page as HTML. Always take the `.md`.
+- **Never fetch `https://sovrium.com/llms-full.txt`** — the entire corpus in one file, roughly
+  3 MB; a single call floods the context window. Use the index, one page at a time.
+- The index carries English and French — prefer `/en/…`, switch to `/fr/…` for a French user.
+
+That copy describes the latest release, which may not be the one in this project. Compare
+with `sovrium --version`, or with the version the MCP server reports when it connects.
+
+Where sources disagree, the binary wins: `sovrium docs` and `sovrium schema` describe the one
+you are actually running, the website describes the latest release, and pretrained knowledge
+of Sovrium may describe an older one.
 
 ## How to work in this project (read first)
 
@@ -298,21 +260,3 @@ the zero-config SQLite database (`database.db`), the server lock file, and local
 storage. Set `DATABASE_URL` to use PostgreSQL instead. Relocate the whole folder with
 the `SOVRIUM_DATA_DIR` env var. Operator settings live in **environment variables**, not
 in `app.yaml`.
-
-## Documentation
-
-`sovrium schema` is the local contract — it prints the JSON Schema of the binary sitting in
-this project. When the published docs and `sovrium schema` disagree, the schema wins: the
-website describes some released version, the schema describes the one you are actually running.
-
-- **Start at the index:** `https://sovrium.com/llms.txt` — a plain-text list of every published
-  page, one titled line each with a short description. Pick a page from there instead of
-  guessing a slug.
-- **Fetch that page with `.md` appended.** Every docs page has a raw-markdown twin:
-  `https://sovrium.com/en/docs/configuration-refs.md` is about 3.8 KB against 121 KB for the
-  same page as HTML. Always take the `.md`.
-- **Never fetch `https://sovrium.com/llms-full.txt`** — the entire corpus in one file, roughly
-  3 MB; a single call floods the context window. Use the index, one page at a time.
-- The index carries English and French — prefer `/en/…`, switch to `/fr/…` for a French user.
-- Docs home: https://sovrium.com/docs
-- Local schema reference: `sovrium schema`

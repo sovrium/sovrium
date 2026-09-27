@@ -326,12 +326,47 @@ function headingLevelViolations(
   })
 }
 
+/** The breakpoint ladder `rail.below` and `drawer.below` both name, narrowest first. */
+const BREAKPOINT_ORDER: readonly string[] = ['sm', 'md', 'lg', 'xl', '2xl']
+
+const belowOf = (value: unknown): number =>
+  isRecord(value) && typeof value['below'] === 'string'
+    ? BREAKPOINT_ORDER.indexOf(value['below'])
+    : -1
+
+/**
+ * A drawer and a rail compose, and the drawer must own the NARROWER range.
+ *
+ * Below `drawer.below` the sidebar leaves the layout; below `rail.below` it
+ * narrows to its icons. A drawer at or above the rail's breakpoint therefore
+ * takes every width the rail was declared for, and the rail can never render —
+ * a declaration that silently does nothing is refused rather than ignored.
+ */
+function drawerRailOrderViolations(
+  nodes: readonly Readonly<Record<string, unknown>>[],
+  label: string
+): readonly string[] {
+  return nodes
+    .filter((node) => node['type'] === 'sidebar')
+    .flatMap((node) => {
+      const drawer = belowOf(node['drawer'])
+      const rail = belowOf(node['rail'])
+      if (drawer < 0 || rail < 0 || drawer < rail) return []
+      const drawerBelow = BREAKPOINT_ORDER[drawer] ?? ''
+      const railBelow = BREAKPOINT_ORDER[rail] ?? ''
+      return [
+        `${label} declares a sidebar drawer.below "${drawerBelow}" that is not narrower than its rail.below "${railBelow}" — the drawer would own every width the rail was declared for, so the rail could never render. Name a narrower breakpoint for the drawer, or drop the rail`,
+      ]
+    })
+}
+
 export function sidebarNavigationViolations(
   nodes: readonly Readonly<Record<string, unknown>>[],
   label: string
 ): readonly string[] {
   const groups = groupsOf(nodes)
   return [
+    ...drawerRailOrderViolations(nodes, label),
     ...headingLevelViolations(groups, label),
     ...landmarkContiguityViolations(groups, label),
     ...landmarkNameCollisionViolations(groups, label),

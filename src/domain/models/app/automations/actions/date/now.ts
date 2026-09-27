@@ -62,13 +62,13 @@ export const DateNowActionSchema = Schema.Struct({
       )
     ),
 
-    /** IANA timezone the current instant is rendered in. Default UTC. */
+    /** IANA timezone the current instant is rendered in. Default: the operator timezone. */
     timezone: Schema.optional(
       TimezoneProp.pipe(
         Schema.annotate({
           description:
-            'IANA timezone the current instant is rendered in (e.g. "Europe/Paris"). Default ' +
-            '"UTC". Only affects `formatted`; `instant` is always UTC.',
+            'IANA timezone the current instant is rendered in (e.g. "Europe/Paris"). ' +
+            'Default: the operator timezone (SOVRIUM_TIMEZONE, UTC when unset). Only affects `formatted`; `instant` is always UTC.',
         })
       )
     ),

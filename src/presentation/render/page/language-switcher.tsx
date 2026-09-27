@@ -8,6 +8,7 @@
 import { type ReactElement } from 'react'
 import {
   computeLanguageSwitcherDropdownClasses,
+  computeLanguageSwitcherOptionClasses,
   computeLanguageSwitcherTriggerClasses,
 } from '@/presentation/design/specialty-ssr-default-classes'
 import type { Languages } from '@/domain/models/app/languages'
@@ -115,6 +116,7 @@ export function LanguageSwitcher({
       data-testid="language-switcher"
       className="relative"
       data-variant={variant}
+      data-fallback-language={languages.fallback}
     >
       <LanguageSwitcherButton
         activeLanguage={activeLanguage}
@@ -129,17 +131,8 @@ export function LanguageSwitcher({
         style={HIDDEN_STYLE}
         data-supported-languages={JSON.stringify(languages.supported)}
         data-show-flags={showFlags}
+        data-option-class={computeLanguageSwitcherOptionClasses()}
       />
-
-      {/* Fallback indicator - shows when fallback is configured */}
-      {languages.fallback && (
-        <div
-          data-testid="fallback-handled"
-          aria-label={`Fallback language: ${languages.fallback}`}
-        >
-          Fallback: {languages.fallback}
-        </div>
-      )}
     </div>
   )
 }

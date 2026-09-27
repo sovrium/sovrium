@@ -154,12 +154,14 @@ export const DesignDarkColorsSchema = guardedKeyRecord(ColorValueSchema, {
   keyHint: COLOR_NAME_HINT,
   keyTitle: 'Color Name',
   keyExamples: ['primary', 'surface'],
-  description: 'Dark-scheme overrides for `design.colors`, keyed identically.',
+  description:
+    "Dark-scheme overrides for `design.colors`, keyed identically. Declared with no `colorScheme`, the app follows the visitor's system scheme.",
 }).pipe(
   Schema.annotate({
     identifier: 'DesignDarkColors',
     title: 'Dark Colour Palette',
-    description: 'Dark-scheme overrides for `design.colors`, keyed identically.',
+    description:
+      "Dark-scheme overrides for `design.colors`, keyed identically. Declared with no `colorScheme`, the app follows the visitor's system scheme.",
     examples: [{ primary: '#748ffc' }],
   })
 )

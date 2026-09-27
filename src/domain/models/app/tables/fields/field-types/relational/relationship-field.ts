@@ -77,7 +77,8 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
     displayField: Schema.optional(
       Schema.String.pipe(
         Schema.annotate({
-          description: 'Field from related table to display in UI',
+          description:
+            'Field of the related table shown as the label of a linked record, beside its stored key. The label is sent only to a reader allowed to read that field of the related table; anyone else receives the key alone. A grid column that sets its own displayField, or a request naming the field in ?labels=, takes precedence over this one for that column or that response.',
         }),
         Schema.check(Schema.isNonEmpty({ message: 'displayField is required' }))
       )

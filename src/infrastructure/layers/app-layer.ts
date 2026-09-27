@@ -7,11 +7,13 @@
 
 import { Effect, Layer } from 'effect'
 import { AiLive } from '@/infrastructure/ai/layer'
+import { SpeechServiceLive } from '@/infrastructure/ai/speech/speech-service-live'
 import { NoAuthLayer } from '@/infrastructure/auth/better-auth/auth-service'
 import { TypeScriptValidatorLive } from '@/infrastructure/automations/typescript-validator'
 import { OAuthStateStoreLive } from '@/infrastructure/connections/oauth-state-store-live'
 import { CSSCompilerLive } from '@/infrastructure/css/css-compiler-live'
 import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
+import { AdminDigestSnapshotRepositoryLive } from '@/infrastructure/database/repositories/admin/admin-digest-snapshot-repository-live'
 import { BootLedgerRepositoryLive } from '@/infrastructure/database/repositories/admin/boot-ledger-repository-live'
 import { AdminAgentConversationsRepositoryLive } from '@/infrastructure/database/repositories/agents/admin-agent-conversations-repository-live'
 import { ActivityLogRepositoryLive } from '@/infrastructure/database/repositories/analytics/activity-log-repository-live'
@@ -24,12 +26,14 @@ import { OAuthServerRepositoryLive } from '@/infrastructure/database/repositorie
 import { OrganizationTeamRepositoryLive } from '@/infrastructure/database/repositories/auth/organization-team-repository-live'
 import { AdminAutomationsRepositoryLive } from '@/infrastructure/database/repositories/automations/admin-automations-repository-live'
 import { AutomationPauseRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-pause-repository-live'
+import { AutomationRunOutcomeRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-outcome-repository-live'
 import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-repository-live'
 import { AdminBucketFilesRepositoryLive } from '@/infrastructure/database/repositories/buckets/admin-bucket-files-repository-live'
 import { CommandSearchRepositoryLive } from '@/infrastructure/database/repositories/command-search-repository-live'
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 import { DesignSystemShareRepositoryLive } from '@/infrastructure/database/repositories/design-system/design-system-share-repository-live'
+import { StorageFootprintRepositoryLive } from '@/infrastructure/database/repositories/footprint/storage-footprint-repository-live'
 import { AdminFormsRepositoryLive } from '@/infrastructure/database/repositories/forms/admin-forms-repository-live'
 import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links/link-repository-live'
 import { McpAuditRepositoryLive } from '@/infrastructure/database/repositories/mcp/mcp-audit-repository-live'
@@ -120,7 +124,9 @@ const authLayerFor = (authConfig?: AuthConfig): Layer.Layer<Auth> =>
 // Hoisted out of `createAppLayer`: neither this nor `DatabaseBackedRepositories`
 // below reads `authConfig`, so rebuilding them per call bought nothing and cost
 // a stable layer reference for Effect to memoise on.
-const PageRendererWithDeps = PageRendererLive.pipe(Layer.provide(DataSourceRepositoryLive))
+const PageRendererWithDeps = PageRendererLive.pipe(
+  Layer.provide(Layer.mergeAll(DataSourceRepositoryLive, AuthRepositoryLive))
+)
 
 // Ports whose live implementation READS the `Database` service rather than
 // opening its own handle (`Layer.effect` + `yield* Database`, as against the
@@ -175,6 +181,10 @@ export const createAppLayer = (authConfig?: AuthConfig) =>
     // Each W3b..n folder adds its ports here the same way, and retires its own
     // runner once that runner's LAST caller has moved.
     AnalyticsRepositoryLive,
+    // `SpeechService` — chat dictation (`POST /api/ai/transcriptions`). The
+    // automation runtime binds the same layer for `ai/transcribe` steps; the
+    // body reads `STT_*` once and does no I/O, so naming it twice costs nothing.
+    SpeechServiceLive,
     // W3b onward — one port set per route folder, each added when that folder's
     // handlers moved to `provideDomain` and its runner was retired.
     AccountRepositoryLive,
@@ -195,6 +205,10 @@ export const createAppLayer = (authConfig?: AuthConfig) =>
     AdminAutomationsRepositoryLive,
     AutomationPauseRepositoryLive,
     AutomationRunRepositoryLive,
+    // `AutomationRunOutcomeRepository` — the boot sweep of runs a stopped server
+    // left behind, and the internal trigger routes for that sweep and the
+    // hourly failure roll-up.
+    AutomationRunOutcomeRepositoryLive,
     // ─── W5b: the ports that unblocked `route-setup/` ──────────────────────
     //
     // Six layers, one wave, one reason: each retired a live `db` handle from a
@@ -231,6 +245,12 @@ export const createAppLayer = (authConfig?: AuthConfig) =>
     // has two callers on two paths: the admin reads, through `provideDomain`,
     // and the boot capture, which is no request at all (`startup-database.ts`).
     BootLedgerRepositoryLive,
+    // `AdminDigestSnapshotRepository` and `StorageFootprintRepository` — the
+    // weekly summary email, which has three callers on three paths: its cron
+    // tick, its boot catch-up and its token-gated trigger route. Both are
+    // `Layer.succeed`, so naming them here costs the boot nothing.
+    AdminDigestSnapshotRepositoryLive,
+    StorageFootprintRepositoryLive,
     // `ContentDirReader` — the filesystem half of `infrastructure/markdown/`.
     // The markdown RENDERER needs no port (it is pure, and
     // `presentation-rendering` reaches it directly); the `stat` does.

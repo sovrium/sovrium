@@ -195,6 +195,37 @@ export function isFetchAction(action: unknown): action is FetchAction {
   return (action as { type?: string })?.type === 'fetch'
 }
 
+/** A pure notification action: shows a toast, with no request and no navigation. */
+export type ToastButtonAction = {
+  readonly type: 'toast'
+  readonly message: string
+  readonly variant?: string
+  readonly duration?: number
+}
+
+/**
+ * Returns true if the given action is a toast action
+ */
+export function isToastAction(action: unknown): action is ToastButtonAction {
+  return (action as { type?: string })?.type === 'toast'
+}
+
+/**
+ * The toast a button shows on click, carried on the button so the client
+ * runtime can raise it with nothing to fetch. The whole action rides in one
+ * JSON attribute, like the fetch action beside it.
+ */
+export function buildToastDataAttributes(action: ToastButtonAction): Record<string, string> {
+  return {
+    'data-action-type': 'toast',
+    'data-action-config': JSON.stringify({
+      message: action.message,
+      ...(action.variant !== undefined && { variant: action.variant }),
+      ...(action.duration !== undefined && { duration: action.duration }),
+    }),
+  }
+}
+
 /**
  * Build the confirm-gate data attribute(s) overlaid onto a button's element
  * props from the schema's top-level `confirm` field. A STRING confirm rides on

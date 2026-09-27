@@ -1,3 +1,6 @@
+# The people at each client. A ticket names the contact who raised it, and the
+# contact belongs to a client, so support reaches the client list without a
+# second copy of it.
 id: 2
 name: contacts
 fields:
@@ -16,14 +19,17 @@ fields:
     type: relationship
     relatedTable: companies
     relationType: many-to-one
+    # What a human should see instead of the foreign key, and what the picker
+    # searches on.
+    displayField: name
   - id: 5
     name: created_at
     type: created-at
 
 aiAccess:
   description: >-
-    People at customer accounts. Use this when the user asks who to contact
-    at a company or wants contact details.
+    People at client companies. Use this when the user asks who to contact at a
+    client or wants a contact's details.
   operations:
     - read
     - list

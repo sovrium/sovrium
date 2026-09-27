@@ -60,6 +60,10 @@ const DISPLAY_META_KEYS = [
   'symbolPosition',
   'negativeFormat',
   'thousandsSeparator',
+  // formula — the declared result kind, so a formula its author declared as
+  // `text` keeps printing an ISO-shaped string verbatim instead of having it
+  // read as a date
+  'resultType',
 ] as const
 
 /**

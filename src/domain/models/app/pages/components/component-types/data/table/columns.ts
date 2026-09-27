@@ -414,6 +414,14 @@ export const FieldColumnSchema = Schema.Struct({
     })
   ),
   /**
+   * Field of the related table a relationship column shows instead of the
+   * stored key. Render-only: filtering, sorting and editing keep the key, and
+   * the label reaches only readers allowed to read that field.
+   */
+  displayField: optStr(
+    'Field of the related table shown in this column instead of the stored key, for a relationship column whose field declares no displayField — or to show a different one here. Filtering, sorting and editing keep using the key. The label is shown only to readers allowed to read that field; otherwise the key stays.'
+  ),
+  /**
    * Display-label map for known raw cell values: raw value (key) -> friendly
    * label (value). Render-only — the underlying record value and the API / read
    * endpoint contract are unchanged; only the rendered cell text is substituted.

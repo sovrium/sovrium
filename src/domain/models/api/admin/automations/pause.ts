@@ -52,6 +52,25 @@ export const automationOperationalStateSchema = Schema.Literals([
 export type AutomationOperationalStateResponse = typeof automationOperationalStateSchema.Type
 
 /**
+ * Why a paused automation is paused.
+ *
+ * `null` is a pause an operator set from the console. `'consecutive-failures'`
+ * is a pause the platform set itself, after the automation's last N final
+ * failures in a row (`SOVRIUM_AUTOMATION_AUTOPAUSE=<n>`).
+ *
+ * A separate field rather than a null `pausedBy`: `pausedBy` is already null
+ * when the operator who paused it has since been deleted, so it cannot also
+ * mean "nobody paused it".
+ */
+const automationPauseReasonSchema = Schema.NullOr(Schema.Literal('consecutive-failures')).annotate({
+  description:
+    "Why the automation is paused: null for a pause set by an operator, 'consecutive-failures' for a pause the platform set after repeated final failures. Absent unless state is paused.",
+})
+
+/** @public */
+export type AutomationPauseReason = typeof automationPauseReasonSchema.Type
+
+/**
  * One row of the automations catalog.
  *
  * `pausedBy` / `pausedAt` are present ONLY when `state === 'paused'`. They are
@@ -87,6 +106,7 @@ export const automationCatalogItemSchema = Schema.Struct({
       description: 'ISO 8601 timestamp of the pause. Absent unless state is paused.',
     })
   ),
+  reason: optionalField(automationPauseReasonSchema),
 }).annotate({ identifier: 'AutomationCatalogItem' })
 
 /** @public */

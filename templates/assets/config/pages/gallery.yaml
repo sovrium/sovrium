@@ -1,55 +1,94 @@
+# The register as cards, to walk the floor with: each asset in service with its
+# category, its tag, its place and who has it. Pick a location to see only what
+# should be there. Retired assets are left out.
 name: gallery
 path: /gallery
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Gallery
-  description: The register as photo cards
+  title: Gallery · Arden Assets
+  description: The assets in service as cards, by location.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
         props:
-          className: text-3xl font-bold mb-1
-        content: Gallery
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: The same register, as photo cards — handy on a phone while walking the floor.
-
-      - type: gallery
-        dataSource:
-          table: assets
-          sort:
-            - field: name
-              direction: asc
-        gridColumns:
-          mobile: 1
-          sm: 2
-          md: 3
-          lg: 4
-        galleryCard:
-          coverImage: $record.photo
-          children:
-            - type: text
-              element: h3
-              props:
-                className: text-md font-semibold
-              content: $record.name
-            - type: text
-              element: p
-              props:
-                className: text-sm
-              content: $record.category
-            - type: text
-              element: p
-              props:
-                className: text-sm
-              content: $record.status
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Gallery
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Register asset
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: register-asset-dialog
+          - $ref: ./_register-asset.yaml
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: filter-bar
+                publishes:
+                  bindTo: gallery-filter
+                fields:
+                  - { name: name, label: Asset, kind: text }
+                  - name: location_name
+                    label: Location
+                    kind: select
+                    options:
+                      - { value: Paris HQ, label: Paris HQ }
+                      - { value: Lyon office, label: Lyon office }
+                      - { value: Storeroom, label: Storeroom }
+                      - { value: Remote, label: Remote }
+                      - { value: Ateliers Rémi, label: Ateliers Rémi }
+              - type: gallery
+                dataSource:
+                  table: assets
+                  bindTo: gallery-filter
+                  sharedFilter: {}
+                  filter:
+                    - { field: status, operator: neq, value: Retired }
+                  sort:
+                    - { field: asset_tag, direction: asc }
+                gridColumns: { mobile: 1, sm: 2, lg: 4 }
+                galleryCard:
+                  children:
+                    - type: text
+                      element: p
+                      props:
+                        className: font-mono text-xs uppercase tracking-wide text-foreground-muted
+                      content: $record.category
+                    # h2: the page's h1 is Gallery, and each card is a section of it.
+                    - type: text
+                      element: h2
+                      props:
+                        className: text-[13px] font-medium leading-snug text-foreground
+                      content: $record.name
+                    - type: text
+                      element: p
+                      props:
+                        className: text-xs text-foreground-muted
+                      content: $record.asset_tag · $record.location_name
+                    - type: text
+                      element: p
+                      props:
+                        className: text-xs text-foreground
+                      content: $record.flag
+                emptyMessage: Cards appear here for every asset at the chosen location. Pick another location, or register an asset here.

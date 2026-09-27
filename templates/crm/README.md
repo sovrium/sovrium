@@ -1,6 +1,6 @@
-# Sovrium CRM
+# Kestrel CRM
 
-> A sales CRM — pipeline kanban, grids, calendar.
+> A sales CRM for a small team: pipeline board, contacts, tasks, assistant.
 
 Built with [Sovrium](https://sovrium.com) — a configuration-as-code interpreter: one config
 file in, a complete self-hosted web application out.
@@ -19,7 +19,16 @@ sovrium init my-crm --template crm
 
 ## What's inside
 
-Companies, Contacts, Deals, and Tasks managed through grids, a pipeline kanban, and a calendar — plus a records assistant AI agent and a deal-won automation.
+A sales CRM for a team of two to ten, built around the pipeline:
+
+- **Pipeline** (`/`) — open deals by stage, with value, close date and owner on every card, and
+  four figures above the board: open pipeline, weighted forecast, won and stalled deals.
+  Won and Lost are folded columns; drag a card to move a deal on.
+- **Contacts** and **Companies** — grids that open a record in a drawer, with the person's
+  deals and tasks (or the company's people and deals) listed beneath.
+- **Tasks** — every follow-up on a month calendar, with your own open tasks beside it.
+- **Assistant** — a records assistant that reads and edits the four tables.
+- A deal-won email to the sales inbox, and sign-up closed: an admin adds each account.
 
 Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
 no application code. Edit the config, restart, done.
@@ -34,9 +43,28 @@ Zero-config: embedded SQLite, local file storage, no env vars required to boot. 
 [`.env.example`](./.env.example) for the optional variables (database, auth bootstrap,
 email, AI).
 
-> The built-in AI assistant needs an AI provider (`AI_PROVIDER` + `AI_API_KEY`, or a local
+## What to try
+
+Load the demo data first. It creates two accounts and a month of sales work, dated
+relative to today:
+
+```bash
+SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+sovrium start app.yaml
+```
+
+Sign in as **ines.moreau@kestrel.example** (admin) or **tom.achebe@kestrel.example**
+(member), with the password you chose. Then:
+
+1. On the **Pipeline**, read the four figures, open the folded Won column, and drag a deal
+   into the next stage.
+2. Open **Contacts**, select Aisha Nwosu, and see her open deal and her next task.
+3. Open **Tasks**: two are overdue and one is due today.
+4. Sign in as Tom: a member moves and edits deals, but only an admin deletes one.
+
+> The assistant needs an AI provider (`AI_PROVIDER` + `AI_API_KEY`, or a local
 > [Ollama](https://ollama.com) via `AI_BASE_URL`). Without one, deploy anyway — the rest of
-> the app works and the assistant stays off.
+> the app works and the Assistant page says what to set.
 
 ## Deploy
 

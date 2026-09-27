@@ -32,7 +32,7 @@ import { DateTime, Result, Schema } from 'effect'
 export const TimezoneProp = Schema.String.pipe(
   Schema.annotate({
     description:
-      'IANA timezone for the calculation (e.g. "Europe/Paris"). Default: "UTC". ' +
+      'IANA timezone for the calculation (e.g. "Europe/Paris"). Default: the operator timezone (SOVRIUM_TIMEZONE, UTC when unset). ' +
       'An instant carries no zone of its own — this is what the instant is READ in. ' +
       'A fixed offset ("+02:00") is also accepted but cannot express DST, so prefer a ' +
       'named zone for anywhere that observes it.',

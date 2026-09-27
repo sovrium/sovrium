@@ -25,8 +25,11 @@
  */
 
 import { Effect } from 'effect'
+import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
+import { deliverAutomationNotice } from '@/application/use-cases/automations/automation-notice'
 import { resolveAutomationOperationalState } from '@/domain/models/app/automations/automation-operational-state'
+import { logError } from '@/infrastructure/logging/logger'
 import type {
   AutomationPauseDatabaseError,
   AutomationPauseRow,
@@ -76,7 +79,9 @@ const buildItem = (
     ...(automation.label === undefined ? {} : { label: automation.label }),
     trigger: automation.trigger.type,
     state,
-    ...(pause === undefined ? {} : { pausedBy: pause.pausedBy, pausedAt: toIso(pause.pausedAt) }),
+    ...(pause === undefined
+      ? {}
+      : { pausedBy: pause.pausedBy, pausedAt: toIso(pause.pausedAt), reason: pause.reason }),
   }
 }
 
@@ -117,20 +122,29 @@ export type AutomationPauseOutcome =
   | { readonly _tag: 'Conflict' }
   | { readonly _tag: 'Ok'; readonly body: AutomationPauseResponse }
 
+/** What one mutation did: `true` when the state actually changed. */
+type PauseMutation = (
+  repository: Context.Service.Shape<typeof AutomationPauseRepository>
+) => Effect.Effect<boolean, AutomationPauseDatabaseError>
+
 /**
  * Resolve `:name` against config and reject the two refusal cases, then run
  * `mutate` and read the resulting state back.
  *
  * The read-back is what makes the response honest: it reports the state the
  * NEXT trigger will see, rather than the state the handler intended to write.
+ * `changed` says whether the mutation moved the state, so a repeated pause or
+ * a resume of an active automation is not announced to anyone.
  */
 const runMutation = (
   app: App,
   name: string,
-  mutate: (
-    repository: Context.Service.Shape<typeof AutomationPauseRepository>
-  ) => Effect.Effect<void, AutomationPauseDatabaseError>
-): Effect.Effect<AutomationPauseOutcome, AutomationPauseDatabaseError, AutomationPauseRepository> =>
+  mutate: PauseMutation
+): Effect.Effect<
+  { readonly outcome: AutomationPauseOutcome; readonly changed: boolean },
+  AutomationPauseDatabaseError,
+  AutomationPauseRepository
+> =>
   Effect.gen(function* () {
     const automation = (app.automations ?? []).find((candidate) => candidate.name === name)
     if (automation === undefined) {
@@ -138,17 +152,76 @@ const runMutation = (
       // NO foreign key, so an unvalidated handler would happily insert a pause
       // for an automation that does not exist — a row that gates nothing and
       // appears in no catalog. This guard is the only thing preventing that.
-      return { _tag: 'NotFound' } as const
+      return { outcome: { _tag: 'NotFound' }, changed: false } as const
     }
     if (automation.enabled === false) {
-      return { _tag: 'Conflict' } as const
+      return { outcome: { _tag: 'Conflict' }, changed: false } as const
     }
 
     const repository = yield* AutomationPauseRepository
-    yield* mutate(repository)
+    const changed = yield* mutate(repository)
 
     const pauses = indexPauses(yield* repository.listPauses)
-    return { _tag: 'Ok', body: buildItem(automation, pauses) } as const
+    return { outcome: { _tag: 'Ok', body: buildItem(automation, pauses) }, changed } as const
+  })
+
+/**
+ * Tell the other automation-alert recipients that `actorUserId` paused or
+ * resumed `name` (D-i), naming them. The actor is left off the list — they
+ * know what they just did. Best-effort: the mutation is already recorded, and
+ * a notice that cannot be sent is logged, never turned into a failed request.
+ */
+const announcePauseChange = (
+  app: App,
+  name: string,
+  mutation: 'paused' | 'resumed',
+  actorUserId: string | undefined
+): Effect.Effect<void, never, AuthRepository> =>
+  Effect.gen(function* () {
+    const actor =
+      actorUserId === undefined
+        ? undefined
+        : yield* (yield* AuthRepository).findUserContactById(actorUserId)
+    const who = actor === undefined ? 'an operator' : actor.name.trim() || actor.email
+    const verb = mutation === 'paused' ? 'Automation paused' : 'Automation resumed'
+    const consequence =
+      mutation === 'paused'
+        ? 'It will not run again until it is resumed.'
+        : 'It runs again on its next trigger.'
+    yield* deliverAutomationNotice({
+      app,
+      exclude: actor?.email,
+      content: {
+        title: `${verb}: ${name}`,
+        intro: `The automation "${name}" was ${mutation} by ${who} from the console. ${consequence}`,
+        sections: [{ lines: [`Automation: ${name}`] }],
+      },
+    })
+  }).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => logError('[automations-catalog] pause notice failed', cause))
+    ),
+    // effect-swallow: the pause is already recorded; see the doc comment.
+    Effect.ignoreCause
+  )
+
+/** Run a mutation, then announce it when it changed the state. */
+const mutateAndAnnounce = (
+  app: App,
+  name: string,
+  change: { readonly mutation: 'paused' | 'resumed'; readonly actorUserId: string | undefined },
+  mutate: PauseMutation
+): Effect.Effect<
+  AutomationPauseOutcome,
+  AutomationPauseDatabaseError,
+  AutomationPauseRepository | AuthRepository
+> =>
+  Effect.gen(function* () {
+    const { outcome, changed } = yield* runMutation(app, name, mutate)
+    if (outcome._tag === 'Ok' && changed) {
+      yield* announcePauseChange(app, name, change.mutation, change.actorUserId)
+    }
+    return outcome
   })
 
 /** Stop new runs of `name`. Idempotent; a second pause keeps the first's `pausedAt`. */
@@ -156,16 +229,28 @@ export const PauseAutomation = (
   app: App,
   name: string,
   pausedByUserId: string | undefined
-): Effect.Effect<AutomationPauseOutcome, AutomationPauseDatabaseError, AutomationPauseRepository> =>
-  runMutation(app, name, (repository) =>
+): Effect.Effect<
+  AutomationPauseOutcome,
+  AutomationPauseDatabaseError,
+  AutomationPauseRepository | AuthRepository
+> =>
+  mutateAndAnnounce(app, name, { mutation: 'paused', actorUserId: pausedByUserId }, (repository) =>
     repository.pause({ automationName: name, pausedByUserId })
   ).pipe(Effect.withSpan('admin.pause-automation'))
 
 /** Allow new runs of `name` again. Idempotent; resuming an active automation succeeds. */
 export const ResumeAutomation = (
   app: App,
-  name: string
-): Effect.Effect<AutomationPauseOutcome, AutomationPauseDatabaseError, AutomationPauseRepository> =>
-  runMutation(app, name, (repository) => repository.resume(name)).pipe(
-    Effect.withSpan('admin.resume-automation')
-  )
+  name: string,
+  resumedByUserId: string | undefined
+): Effect.Effect<
+  AutomationPauseOutcome,
+  AutomationPauseDatabaseError,
+  AutomationPauseRepository | AuthRepository
+> =>
+  mutateAndAnnounce(
+    app,
+    name,
+    { mutation: 'resumed', actorUserId: resumedByUserId },
+    (repository) => repository.resume(name)
+  ).pipe(Effect.withSpan('admin.resume-automation'))

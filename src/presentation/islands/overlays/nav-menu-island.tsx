@@ -47,7 +47,6 @@ interface NavMenuIslandProps {
   readonly triggerClassName?: string
   readonly className?: string
   readonly id?: string
-  readonly 'data-testid'?: string
 }
 
 /**
@@ -160,6 +159,10 @@ function NavDropdown({
  * host marker, and the standard header composition embeds the component in
  * an authored `<nav>` — a nested `<nav>` here would double the navigation
  * landmark count. Menus carry their own ARIA roles.
+ *
+ * The root does NOT repeat the authored `data-testid`: the SSR host already
+ * carries it, and this root renders INSIDE that host, so echoing it here made
+ * one authored component answer to its test id twice once hydrated.
  */
 export default function NavMenuIsland({
   navItems = [],
@@ -167,13 +170,11 @@ export default function NavMenuIsland({
   triggerClassName,
   className,
   id,
-  'data-testid': testId,
 }: NavMenuIslandProps): ReactElement {
   return (
     <div
       className={resolveClasses('flex items-center gap-1', className)}
       id={id}
-      data-testid={testId}
     >
       {navItems.map((item, index) =>
         item.children && item.children.length > 0 ? (

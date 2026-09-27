@@ -6,11 +6,11 @@
  */
 
 import { QueryClientProvider } from '@tanstack/react-query'
-import { Suspense, useEffect, useState, type ReactElement } from 'react'
+import { Suspense, useEffect, type ReactElement } from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import { ISLANDS, PRIORITY_ISLAND_LOADERS } from './island-registry'
-import { createIslandQueryClient } from './runtime/query-client'
+import { clearPageQueryClient, getPageQueryClient } from './runtime/query-client'
 
 /**
  * Priority islands whose loader has already resolved, keyed by island type.
@@ -101,6 +101,30 @@ export async function preloadIslandsWithin(root: ParentNode = document.body): Pr
  */
 const islandRoots = new WeakMap<HTMLElement, Root>()
 
+/** The Suspense fallback's wrapper lays out as if absent — see {@link ssrFallback}. */
+const FALLBACK_WRAPPER_STYLE = { display: 'contents' } as const
+
+/**
+ * The SSR skeleton kept on screen while an island's chunk loads.
+ *
+ * The wrapper takes no box of its own (`display: contents`), so the SSR
+ * children keep laying out against the host — a host that stacks its items
+ * (`flex-col`) still stacks them while the chunk loads, instead of reflowing
+ * them inline under an unstyled wrapper.
+ *
+ * SECURITY: safe use of `dangerouslySetInnerHTML` — the markup is the host's own
+ * server-rendered content, not user input.
+ */
+function ssrFallback(html: string): ReactElement {
+  return (
+    <div
+      style={FALLBACK_WRAPPER_STYLE}
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time Suspense fallback constructed during island mount; never re-renders
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  )
+}
+
 /**
  * Island Client Entry Point
  *
@@ -111,7 +135,8 @@ const islandRoots = new WeakMap<HTMLElement, Root>()
  * - Server renders `<div data-island="table" data-island-props='{...}'>` with a loading skeleton
  * - This script discovers those markers and mounts React into each
  * - Uses createRoot() (not hydrateRoot) — no hydration mismatch risk
- * - Each island gets its own QueryClient for cache isolation
+ * - Every island shares the page's one QueryClient, so identical reads are sent
+ *   once and a write made through one island refreshes the others showing it
  * - React.lazy + Suspense ensures island code is loaded on demand
  */
 
@@ -149,7 +174,8 @@ function IslandReadySignal({ host }: { readonly host: HTMLElement }): null {
 }
 
 /**
- * Wraps an island component with providers (QueryClient, Suspense)
+ * Wraps an island component with providers (the page's shared QueryClient,
+ * Suspense)
  */
 export function IslandWrapper({
   Component,
@@ -162,10 +188,8 @@ export function IslandWrapper({
   readonly fallback: ReactElement
   readonly host: HTMLElement
 }): ReactElement {
-  const [queryClient] = useState(() => createIslandQueryClient())
-
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={getPageQueryClient()}>
       <Suspense fallback={fallback}>
         <Component {...props} />
         <IslandReadySignal host={host} />
@@ -295,7 +319,7 @@ const PENDING_FILE_REPLAY_TIMEOUT_MS = 30_000
  * that deliberately empty input as a second chance to replay.
  */
 function replayPendingFiles(el: HTMLElement, pending: readonly PendingFileSelection[]): void {
-  const apply = () => {
+  whenIslandReady(el, () => {
     pending.forEach(({ name, files }) => {
       const input = el.querySelector<HTMLInputElement>(
         `input[type="file"][name="${CSS.escape(name)}"]`
@@ -307,13 +331,22 @@ function replayPendingFiles(el: HTMLElement, pending: readonly PendingFileSelect
       input.files = files
       input.dispatchEvent(new Event('change', { bubbles: true }))
     })
-  }
+  })
+}
 
+/**
+ * Run `apply` exactly once, when the island on `el` has mounted its REAL
+ * component — the `data-island-ready` signal {@link IslandReadySignal} sets.
+ * Anything earlier would act on the Suspense fallback, inert server-rendered
+ * HTML the real component is about to replace. Gives up after
+ * {@link PENDING_FILE_REPLAY_TIMEOUT_MS}, so a chunk that never loads leaves no
+ * observer behind.
+ */
+function whenIslandReady(el: HTMLElement, apply: () => void): void {
   if (el.dataset.islandReady === 'true') {
     apply()
     return
   }
-
   const observer = new MutationObserver(() => {
     if (el.dataset.islandReady !== 'true') return
     observer.disconnect()
@@ -321,6 +354,78 @@ function replayPendingFiles(el: HTMLElement, pending: readonly PendingFileSelect
   })
   observer.observe(el, { attributes: true, attributeFilter: ['data-island-ready'] })
   setTimeout(() => observer.disconnect(), PENDING_FILE_REPLAY_TIMEOUT_MS)
+}
+
+/** The skeleton control that had the keyboard when the mount began. */
+interface PendingFocus {
+  readonly selector: string
+  readonly selection?: { readonly start: number; readonly end: number }
+}
+
+type NamedControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+
+const isNamedControl = (node: Element | null): node is NamedControl =>
+  (node instanceof HTMLInputElement ||
+    node instanceof HTMLTextAreaElement ||
+    node instanceof HTMLSelectElement) &&
+  node.name !== ''
+
+/**
+ * Note which control inside `el` has the keyboard, and where its caret is.
+ *
+ * `createRoot` discards the server-rendered subtree, and the focused input goes
+ * with it: the browser moves focus to `<body>`. The input's VALUE survives
+ * (it rides across as `initialValues`), but everything typed after that point
+ * goes nowhere — someone who started typing into a drawer's form while its
+ * code was still loading keeps typing into nothing, and a save sends only
+ * what reached the field before the swap. The caret is kept too: a selection
+ * the user was about to type over must still be one, or their next keystroke
+ * appends to the old text instead of replacing it.
+ */
+function capturePendingFocus(el: HTMLElement): PendingFocus | undefined {
+  const active = document.activeElement
+  if (!isNamedControl(active) || !el.contains(active)) return undefined
+  const selection = selectionOf(active)
+  return selection
+    ? { selector: controlSelector(active), selection }
+    : { selector: controlSelector(active) }
+}
+
+/** A selector finding the mounted twin of `control`: same tag, same name (and value, in a group). */
+function controlSelector(control: NamedControl): string {
+  const byName = `${control.tagName.toLowerCase()}[name="${CSS.escape(control.name)}"]`
+  const inGroup =
+    control instanceof HTMLInputElement && (control.type === 'radio' || control.type === 'checkbox')
+  return inGroup ? `${byName}[value="${CSS.escape(control.value)}"]` : byName
+}
+
+/** The caret or selection of `control`, when its type has one (not email, number or a select). */
+function selectionOf(control: NamedControl): PendingFocus['selection'] {
+  if (control instanceof HTMLSelectElement) return undefined
+  const { selectionStart: start, selectionEnd: end } = control
+  return start !== null && end !== null ? { start, end } : undefined
+}
+
+/**
+ * Give the keyboard back to the control the mount took it from, caret and
+ * all — but only while focus is still where the swap dropped it. A user who has
+ * since clicked somewhere else has moved on, and is not pulled back.
+ */
+function restorePendingFocus(el: HTMLElement, pending: PendingFocus): void {
+  whenIslandReady(el, () => {
+    const current = document.activeElement
+    if (current !== null && current !== document.body) return
+    const control = el.querySelector<NamedControl>(pending.selector)
+    if (!control) return
+    control.focus()
+    if (pending.selection && !(control instanceof HTMLSelectElement)) {
+      try {
+        control.setSelectionRange(pending.selection.start, pending.selection.end)
+      } catch {
+        // The mounted control is a type without a text selection — focus alone is right.
+      }
+    }
+  })
 }
 
 /**
@@ -423,13 +528,10 @@ export function mountIslandsWithin(root: ParentNode = document.body): void {
     if (!props) return
 
     const { mergedProps, pendingFiles } = capturePreMountInput(el, props)
+    const pendingFocus = capturePendingFocus(el)
 
     // Preserve the SSR skeleton as Suspense fallback
-    // SECURITY: Safe use of dangerouslySetInnerHTML — fallbackHtml is server-rendered SSR content,
-    // not user input. It preserves the skeleton UI while React hydrates the island.
-    const fallbackHtml = el.innerHTML
-    // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- one-time Suspense fallback constructed during island mount; never re-renders
-    const fallback = <div dangerouslySetInnerHTML={{ __html: fallbackHtml }} />
+    const fallback = ssrFallback(el.innerHTML)
 
     const root = createRoot(el)
     // Track the root so `unmountIslandsWithin` can tear it down on an SPA swap.
@@ -459,6 +561,7 @@ export function mountIslandsWithin(root: ParentNode = document.body): void {
     // …which is also the signal the file replay waits for, so it must be armed
     // after the render that can set it.
     if (pendingFiles.length > 0) replayPendingFiles(el, pendingFiles)
+    if (pendingFocus) restorePendingFocus(el, pendingFocus)
   })
 }
 
@@ -477,8 +580,29 @@ export function mountIslandsWithin(root: ParentNode = document.body): void {
  */
 // eslint-disable-next-line react-refresh/only-export-components -- island bootstrap entry, not a fast-refresh component module; this is the shared island unmounter
 export function unmountIslandsWithin(root: ParentNode = document.body): void {
-  const markers = root.querySelectorAll<HTMLElement>('[data-island]')
-  markers.forEach((el) => {
+  unmountIslandHosts(root.querySelectorAll<HTMLElement>('[data-island]'))
+}
+
+/**
+ * Drop the page's shared query cache. Called by a client-side navigation right
+ * after it unmounts the outgoing surface, so the incoming surface reads fresh
+ * rather than from answers cached for the page it replaced.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- island bootstrap entry, not a fast-refresh component module
+export function clearPageQueryCache(): void {
+  clearPageQueryClient()
+}
+
+/**
+ * Unmounts the island mounted on each of `hosts`, if any, and clears its
+ * `data-island-mounted` flag. The per-host half of {@link unmountIslandsWithin},
+ * for a caller holding hosts that are no longer under any root it could scan —
+ * a tab panel Base UI removed from the document leaves its islands' roots alive
+ * on the detached nodes, and only the hosts themselves still name them.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- island bootstrap entry, not a fast-refresh component module; this is the shared island unmounter
+export function unmountIslandHosts(hosts: Iterable<HTMLElement>): void {
+  Array.from(hosts).forEach((el) => {
     const mounted = islandRoots.get(el)
     if (mounted) {
       mounted.unmount()

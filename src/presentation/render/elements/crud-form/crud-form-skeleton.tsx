@@ -8,13 +8,24 @@
 import { type ReactElement } from 'react'
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
 import { fieldDescribedBy } from '@/presentation/design/field-display'
-import { fieldWidgetOf, type FieldWidget } from '@/presentation/design/field-type-behavior'
+import {
+  fieldWidgetOf,
+  skeletonValueText,
+  type FieldWidget,
+} from '@/presentation/design/field-type-behavior'
 import { CrudFieldShell } from './crud-field-shell'
 import { attachmentFilenames } from './crud-form-attachment-names'
 import { renderButtonSkeleton } from './crud-form-button-skeleton'
+import {
+  inputTypeOf,
+  inputValueOf,
+  typedInputAttributes,
+  withAdornment,
+} from './crud-form-typed-input'
 import type { FieldType } from '@/domain/models/app/tables/fields'
+import type { TypedColumnConfig } from '@/presentation/design/field-control-attributes'
 
-export type SkeletonFieldDef = {
+export type SkeletonFieldDef = TypedColumnConfig & {
   readonly name: string
   /** Narrowed to the domain field-type union so the render dispatch is total. */
   readonly type: FieldType
@@ -39,20 +50,6 @@ export type SkeletonFieldDef = {
   readonly maxFiles?: number
   /** Present only on `type: 'button'` fields — the label the skeleton shows. */
   readonly button?: { readonly label?: string }
-}
-
-/**
- * Native `<input type>` for the plain-input widgets. Every other widget has
- * its own renderer, so this map is keyed by widget — not by field type — and
- * is exhaustive over the widgets that reach `renderDefaultSkeleton`.
- */
-const INPUT_TYPE_BY_WIDGET: Partial<Record<FieldWidget, string>> = {
-  email: 'email',
-  url: 'url',
-}
-
-function inputTypeOf(field: SkeletonFieldDef): string {
-  return INPUT_TYPE_BY_WIDGET[fieldWidgetOf(field.type)] ?? 'text'
 }
 
 function renderCodeSkeleton(field: SkeletonFieldDef): ReactElement {
@@ -208,18 +205,22 @@ function renderDefaultSkeleton(field: SkeletonFieldDef): ReactElement {
       key={field.name}
       field={field}
     >
-      <input
-        type={inputType}
-        name={field.name}
-        {...(field.required && { required: true, 'data-required': 'true' })}
-        {...(field.placeholder && { placeholder: field.placeholder })}
-        {...(field.readOnly && { readOnly: true })}
-        {...(field.disabled && { disabled: true })}
-        {...(field.defaultValue !== undefined && {
-          defaultValue: String(field.defaultValue),
-        })}
-        {...fieldDescribedBy(field)}
-      />
+      {withAdornment(
+        field,
+        <input
+          type={inputType}
+          name={field.name}
+          {...typedInputAttributes(field)}
+          {...(field.required && { required: true, 'data-required': 'true' })}
+          {...(field.placeholder && { placeholder: field.placeholder })}
+          {...(field.readOnly && { readOnly: true })}
+          {...(field.disabled && { disabled: true })}
+          {...(field.defaultValue !== undefined && {
+            defaultValue: inputValueOf(field, String(field.defaultValue)),
+          })}
+          {...fieldDescribedBy(field)}
+        />
+      )}
     </CrudFieldShell>
   )
 }
@@ -249,7 +250,8 @@ const SKELETON_RENDERERS: Record<FieldWidget, (field: SkeletonFieldDef) => React
   email: renderDefaultSkeleton,
   url: renderDefaultSkeleton,
   // The remaining widgets have no bespoke skeleton: the placeholder is a plain
-  // input either way, and the island swaps in the real control on hydration.
+  // input either way — typed as the island's control is (`number`, `date`,
+  // `datetime-local`) — and the island swaps in the real control on hydration.
   // Listed one per line rather than collapsed into a shared default, so adding
   // a widget still forces a decision here instead of inheriting someone else's.
   number: renderDefaultSkeleton,
@@ -327,16 +329,20 @@ function renderUpdateInputSkeleton(field: SkeletonFieldDef, currentValue: string
       key={field.name}
       field={field}
     >
-      <input
-        type={inputType}
-        name={field.name}
-        defaultValue={currentValue}
-        {...(field.required && { required: true, 'data-required': 'true' })}
-        {...(field.placeholder && { placeholder: field.placeholder })}
-        {...(field.readOnly && { readOnly: true })}
-        {...(field.disabled && { disabled: true })}
-        {...fieldDescribedBy(field)}
-      />
+      {withAdornment(
+        field,
+        <input
+          type={inputType}
+          name={field.name}
+          defaultValue={inputValueOf(field, currentValue)}
+          {...typedInputAttributes(field)}
+          {...(field.required && { required: true, 'data-required': 'true' })}
+          {...(field.placeholder && { placeholder: field.placeholder })}
+          {...(field.readOnly && { readOnly: true })}
+          {...(field.disabled && { disabled: true })}
+          {...fieldDescribedBy(field)}
+        />
+      )}
     </CrudFieldShell>
   )
 }
@@ -345,7 +351,7 @@ export function renderUpdateSkeletonField(
   field: SkeletonFieldDef,
   record: Record<string, unknown>
 ): ReactElement {
-  const currentValue = String(record[field.name] ?? '')
+  const currentValue = skeletonValueText(field.type, record[field.name])
   if (field.hidden) return renderUpdateHiddenSkeleton(field, currentValue)
   if (field.type === 'rich-text') return renderUpdateRichTextSkeleton(field, currentValue)
   if (field.type === 'single-attachment')

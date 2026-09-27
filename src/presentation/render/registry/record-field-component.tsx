@@ -24,6 +24,7 @@
 
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { computeRecordFieldValueClasses } from '@/presentation/design/display-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import type { ComponentRenderer } from './component-dispatch-config'
@@ -87,8 +88,8 @@ function resolveChrome(props: Record<string, unknown>, className: unknown): Reco
 
 const ATTACHMENT_FIELD_TYPES = new Set(['attachment', 'single-attachment', 'multiple-attachments'])
 
-/** Implicit bucket used when the bound column declares no `bucket`. */
-const DEFAULT_BUCKET = 'default'
+/** The built-in `system` bucket, used when the bound column declares no `bucket`. */
+const SYSTEM_BUCKET = 'system'
 
 /** Look up the declared field from the bound table's schema. */
 function resolveField(
@@ -103,12 +104,12 @@ function resolveField(
 
 /**
  * Resolve the download bucket for an attachment column: the bucket DECLARED on
- * the column, else the implicit 'default' — never the app's first declared
+ * the column, else the built-in `system` — never the app's first declared
  * bucket, which is the form-upload path's fallback..
  */
 function resolveBucket(field: { readonly bucket?: unknown } | undefined): string {
   const bucket = field?.bucket
-  return typeof bucket === 'string' && bucket.length > 0 ? bucket : DEFAULT_BUCKET
+  return typeof bucket === 'string' && bucket.length > 0 ? bucket : SYSTEM_BUCKET
 }
 
 /** A single attachment metadata shape ({ key, filename } JSONB or string key). */
@@ -246,7 +247,9 @@ function renderPlainText(
   format: ColumnFormat | undefined
 ): ReactElement {
   const text = format
-    ? formatCellValue(value, format, SSR_FORMAT_LOCALE)
+    ? formatCellValue(value, format, SSR_FORMAT_LOCALE, {
+        timeZone: parseSovriumTimezone().zoneId,
+      })
     : value === undefined || value === null
       ? ''
       : String(value)

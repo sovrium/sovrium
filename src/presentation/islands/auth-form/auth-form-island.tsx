@@ -119,12 +119,16 @@ function AuthFormFeedback({ state }: { readonly state: AuthState }) {
 
 function CredentialAuthForm(props: AuthFormIslandProps) {
   const { method, redirectUrl, successToast, errorToast, className, initialValues } = props
-  const fields = props.fields && props.fields.length > 0 ? props.fields : defaultAuthFields(method)
+  const fields =
+    props.fields && props.fields.length > 0
+      ? props.fields
+      : defaultAuthFields(method, props.strategy)
   const submitLabel = props.submitLabel ?? authSubmitLabel(method)
   const pendingLabel = props.pendingLabel ?? authPendingLabel(method)
 
   const { fieldErrors, summaryErrors, state, handleBlur, handleSubmit } = useAuthFormState({
     method,
+    strategy: props.strategy,
     fields,
     redirectUrl,
     successToast,

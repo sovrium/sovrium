@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 import { type FieldDef } from '../parts/crud-form/fields'
+import { toWireFields } from '../parts/crud-form/wire-values'
 import { type CrudFormIslandProps, type FormState, type SubmitContext } from './types'
 
 /** Default debounce delay (ms) for `saveMode: 'auto'` when not configured. */
@@ -42,7 +43,14 @@ async function persistAutoSave(ctx: SubmitContext, changed: Record<string, strin
   if (!ctx.recordId || Object.keys(changed).length === 0) return
   ctx.setState({ isPending: true })
   try {
-    await ctx.updateRecord.mutateAsync({ recordId: ctx.recordId, fields: changed })
+    const updated = await ctx.updateRecord.mutateAsync({
+      recordId: ctx.recordId,
+      fields: toWireFields(ctx.fields, changed),
+    })
+    // Auto-save sends no version, but it does produce one. The form's explicit
+    // save still declares the version it holds, so it must learn this one — or
+    // it would be refused (409) for conflicting with its own auto-save.
+    ctx.rememberUpdatedAt?.(updated)
     ctx.setState({ isPending: false })
   } catch (err) {
     const error = err as { message?: string }

@@ -1,0 +1,45 @@
+# The places assets sit: the offices, the storeroom, the repair shop, and
+# "Remote" for kit that lives at someone's home.
+name: locations
+path: /locations
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Locations · Arden Assets
+  description: The places assets sit.
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Locations
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: table
+                dataSource:
+                  table: locations
+                  sort:
+                    - { field: name, direction: asc }
+                rowHeight: short
+                columns:
+                  - { field: name, label: Location, sortable: true }
+                  - { field: kind, label: Kind }
+                  - { field: address, label: Address }
+                emptyMessage: The places your assets sit appear here. Add the first location.

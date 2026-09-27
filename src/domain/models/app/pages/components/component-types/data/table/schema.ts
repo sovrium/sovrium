@@ -20,6 +20,7 @@ import { i18nFields } from '../../modules/i18n'
 import { responsiveFields } from '../../modules/responsive'
 import { visibilityFields } from '../../modules/visibility'
 import { DataTableBulkActionSchema } from './bulk-actions'
+import { validateColumnDisplayFields } from './column-display-field-validation'
 import { DataTableColumnSchema } from './columns'
 import { DataTableGroupBySchema } from './group-by'
 import { DataTableLayoutSchema } from './layout'
@@ -778,9 +779,15 @@ function collectTableFieldNames(config: unknown): ReadonlyMap<string, readonly s
  */
 export function validateDataTableFieldReferences(config: unknown): readonly string[] {
   const fieldsByTable = collectTableFieldNames(config)
-  return collectDataTableComponents(config).flatMap(
-    (component) => validateDataTableColumns(component as unknown as DataTable, fieldsByTable).errors
-  )
+  return [
+    ...collectDataTableComponents(config).flatMap(
+      (component) =>
+        validateDataTableColumns(component as unknown as DataTable, fieldsByTable).errors
+    ),
+    // A column's `displayField` names a field of the RELATED table, so it needs
+    // field types and relations this name-only map does not carry.
+    ...validateColumnDisplayFields(config),
+  ]
 }
 
 /**

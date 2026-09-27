@@ -1,14 +1,15 @@
-# The flagship: an entire information system in ONE config. CRM, project
-# delivery, support, and HR share the same database and cross-reference each
-# other — a won deal spawns a delivery project, a ticket links to the CRM
-# contact, and one AI assistant works across all of it. This is the file you
-# diff, fork, and re-deploy: no per-module licence, no integration glue.
-name: company-os
-version: 1.0.0
+# Orrin OS — a small company's sales, delivery, support and team in one config.
+#
+# The four modules share one database and one list of clients: a won deal
+# opens its delivery project for the same client, a ticket names the client's
+# contact, and one assistant answers across all of it. This is the file you
+# diff, fork and redeploy — no per-module licence, no integration glue.
+name: orrin-os
+version: 2.0.0
 description: >-
-  A company's information system in one config — CRM pipeline, project
-  delivery, support tickets, and an HR directory with time off, wired
-  together with cross-domain automations and one AI assistant.
+  A small company's operations in one app: a sales pipeline, delivery projects
+  and their tasks, support tickets, the team and its time off, all around one
+  list of clients, with one assistant across every module.
 
 auth:
   $ref: ./config/auth.yaml
@@ -17,7 +18,7 @@ design:
   $ref: ./config/design.yaml
 
 tables:
-  # CRM
+  # Sales
   - $ref: ./config/tables/companies.yaml
   - $ref: ./config/tables/contacts.yaml
   - $ref: ./config/tables/deals.yaml
@@ -30,24 +31,31 @@ tables:
   - $ref: ./config/tables/employees.yaml
   - $ref: ./config/tables/time_off_requests.yaml
 
-# One assistant across the whole IS (surfaced on /assistant). Requires an AI
-# provider at runtime (AI_PROVIDER, local Ollama by default); config
-# validation does not need it.
+# The assistant on /assistant. It needs an AI provider at runtime
+# (AI_PROVIDER, for example ollama for a local model); validating the config
+# does not.
 agents:
   - $ref: ./config/agents/ops-assistant.yaml
 
+# Automations run on the server, with their history kept in your own database.
+# Each one reaches across modules: that is the point of one config.
+automations:
+  - $ref: ./config/automations/open-project-on-won-deal.yaml
+  - $ref: ./config/automations/notify-contact-on-resolved-ticket.yaml
+  - $ref: ./config/automations/approve-time-off.yaml
+
+# Listed in the order of the sidebar: Home first, then one module at a time.
 pages:
-  - $ref: ./config/pages/sign-in.yaml
-  - $ref: ./config/pages/dashboard.yaml
+  - $ref: ./config/pages/home.yaml
   - $ref: ./config/pages/sales.yaml
+  - $ref: ./config/pages/companies.yaml
   - $ref: ./config/pages/delivery.yaml
   - $ref: ./config/pages/support.yaml
   - $ref: ./config/pages/people.yaml
   - $ref: ./config/pages/assistant.yaml
+  - $ref: ./config/pages/sign-in.yaml
 
-# Cross-domain automations — the point of one config: domains react to each
-# other without integration middleware.
-automations:
-  - $ref: ./config/automations/create-project-on-won-deal.yaml
-  - $ref: ./config/automations/notify-contact-on-resolved-ticket.yaml
-  - $ref: ./config/automations/approve-time-off.yaml
+# A small "Built with Sovrium" line after each page's content rather than a
+# floating pill, so it never sits over the last row of a grid.
+badge:
+  placement: footer

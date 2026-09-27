@@ -220,10 +220,24 @@ export const baseUrlAliasEnvVar = (provider: SupportedAiProvider): string | unde
   PROVIDER_BASE_URL_ALIASES[provider]
 
 /**
+ * The public endpoint a provider is reached at when no base URL is configured.
+ * Only Mistral carries one today: its public API is the only place its models
+ * are served. OpenAI, Anthropic and Google still need `AI_BASE_URL` — they have
+ * no default yet, and adding one is a separate decision rather than a gap to
+ * fill here.
+ */
+const DEFAULT_AI_BASE_URLS: Readonly<Partial<Record<SupportedAiProvider, string>>> = {
+  mistral: 'https://api.mistral.ai/v1',
+}
+
+/**
  * Resolve the effective AI base URL from a snapshot of env vars for a given
- * canonical provider: `AI_BASE_URL` takes precedence, falling back to the
- * provider-specific alias (e.g. `OLLAMA_BASE_URL`). Returns `undefined` when
- * neither is present (after trimming).
+ * canonical provider: `AI_BASE_URL` takes precedence, then the
+ * provider-specific alias (e.g. `OLLAMA_BASE_URL`), then the provider's public
+ * endpoint (Mistral only). Returns `undefined` when none applies.
+ *
+ * This is the ONE resolver: the health report and the live AI adapter both read
+ * it, so the endpoint `/api/health` shows is the endpoint calls go to.
  */
 export const resolveBaseUrl = (
   provider: SupportedAiProvider,
@@ -233,7 +247,7 @@ export const resolveBaseUrl = (
   if (generic) return generic
   const aliasVar = baseUrlAliasEnvVar(provider)
   const aliasValue = aliasVar ? processEnv[aliasVar]?.trim() : undefined
-  return aliasValue || undefined
+  return aliasValue || DEFAULT_AI_BASE_URLS[provider]
 }
 
 /**

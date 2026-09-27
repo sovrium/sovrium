@@ -68,15 +68,15 @@ function firstFileError(files: readonly File[], field: FieldDef): string | undef
 }
 
 /**
- * Implicit bucket used when the bound column declares no `bucket` binding.
- * Mirrors the records read path's fallback — deliberately NOT the
+ * The built-in `system` bucket, used when the bound column declares no `bucket`
+ * binding. Mirrors the records read path's fallback — deliberately NOT the
  * app's first declared bucket, which is the form-upload path's fallback.
  */
-const DEFAULT_BUCKET = 'default'
+const SYSTEM_BUCKET = 'system'
 
 /** Resolve the bucket a file field uploads to and previews from. */
 function bucketOf(field: FieldDef): string {
-  return field.bucket ?? DEFAULT_BUCKET
+  return field.bucket ?? SYSTEM_BUCKET
 }
 
 /** Upload a single file to the field's declared storage bucket; returns the stored file. */
@@ -444,7 +444,7 @@ function useFileField(props: FileFieldProps) {
  *
  * - Validates MIME type, size, and (multi) file count on selection.
  * - Uploads valid files to the bucket declared on the bound column (falling
- *   back to the implicit 'default' bucket) and shows an upload progress
+ *   back to the built-in `system` bucket) and shows an upload progress
  *   indicator while the request is in flight.
  * - Renders a thumbnail preview for images, a filename chip for others, with
  *   a per-file Remove button.

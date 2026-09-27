@@ -6,6 +6,7 @@
  */
 
 import { resolveRecordColor } from '@/domain/kernel/color/record-color'
+import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import {
   TIMELINE_MARKER_WRAPPER_CLASSES,
   computeTimelineBarClasses,
@@ -18,6 +19,7 @@ import {
   computeTimelineScaleAxisClasses,
   computeTimelineShellClasses,
 } from '@/presentation/design/timeline-default-classes'
+import { resolvePageLocale } from '../runtime/page-locale'
 import {
   DEFAULT_TIMELINE_ZOOM,
   buildDependencyLinks,
@@ -222,13 +224,15 @@ const ONE_YEAR_MS = 365 * ONE_DAY_MS
  */
 function formatAxisTick(ms: number, stepMs: number): string {
   const date = new Date(ms)
+  // The page's language, like every other date the page prints.
+  const locale = usableLocale(resolvePageLocale())
   if (stepMs < ONE_DAY_MS) {
-    return date.toLocaleTimeString('en-US', { hour: 'numeric' })
+    return date.toLocaleTimeString(locale, { hour: 'numeric' })
   }
   if (stepMs < ONE_YEAR_MS) {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
   }
-  return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+  return date.toLocaleDateString(locale, { month: 'short', year: 'numeric' })
 }
 
 /**
@@ -304,7 +308,7 @@ function TimelineLanes({
             data-timeline-lane={lane.key}
             className={computeTimelineLaneClasses()}
           >
-            <div className={computeTimelineLaneTitleClasses()}>{lane.key}</div>
+            <div className={computeTimelineLaneTitleClasses()}>{lane.label}</div>
             {rows}
           </div>
         ) : (

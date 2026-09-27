@@ -6,7 +6,7 @@
  */
 
 /**
- * Seed-file reference tokens: `@table.key` and `@asset:filename`.
+ * Seed-file reference tokens: `@table.key`, `@asset:filename` and `@user:email`.
  *
  * ## Why references exist at all
  *
@@ -66,6 +66,15 @@ const REFERENCE_PATTERN = /^@([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z0-9][A-Za-z0-9_-]
  */
 const ASSET_PATTERN = /^@asset:([A-Za-z0-9][A-Za-z0-9._-]*)$/
 
+/**
+ * `@user:<email>`. Names a sign-in account rather than a seed row, so a
+ * `user` field can say who owns a record in the words an author knows — an
+ * email — instead of an id the auth layer invents at account creation. The
+ * reserved `user:` prefix cannot collide with a record reference, which needs a
+ * `.` after a table name and never a `:`.
+ */
+const USER_PATTERN = /^@user:([^\s@]+@[^\s@]+)$/
+
 /** The shape a seed row's `key:` must take. */
 export const SEED_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
 
@@ -85,6 +94,12 @@ export const parseAssetReference = (raw: string): string | undefined => {
   return match?.[1]
 }
 
+/** Parse `@user:<email>` into the bare email, or `undefined`. */
+export const parseUserReference = (raw: string): string | undefined => {
+  const match = USER_PATTERN.exec(raw)
+  return match?.[1]
+}
+
 /**
  * True when the value carries the reference sigil unescaped — i.e. the author
  * meant a reference. A `true` here with both parsers returning `undefined` is a
@@ -97,6 +112,7 @@ export const looksLikeReference = (raw: string): boolean =>
 export type ReferenceToken =
   | { readonly kind: 'record'; readonly reference: SeedReference }
   | { readonly kind: 'asset'; readonly filename: string }
+  | { readonly kind: 'user'; readonly email: string }
   | { readonly kind: 'literal'; readonly value: string }
   | { readonly kind: 'invalid'; readonly reason: string }
 
@@ -116,6 +132,9 @@ export const classifyReferenceToken = (raw: string): ReferenceToken => {
   const asset = parseAssetReference(raw)
   if (asset !== undefined) return { kind: 'asset', filename: asset }
 
+  const email = parseUserReference(raw)
+  if (email !== undefined) return { kind: 'user', email }
+
   const reference = parseSeedReference(raw)
   if (reference !== undefined) return { kind: 'record', reference }
 
@@ -123,8 +142,8 @@ export const classifyReferenceToken = (raw: string): ReferenceToken => {
     kind: 'invalid',
     reason:
       `Unrecognised reference "${raw}". ` +
-      `Expected @<table>.<key> (e.g. @companies.acme) or @asset:<filename> ` +
-      `(e.g. @asset:logo.avif). ` +
+      `Expected @<table>.<key> (e.g. @companies.acme), @asset:<filename> ` +
+      `(e.g. @asset:logo.avif) or @user:<email> (e.g. @user:ines@example.com). ` +
       `To store this text literally, escape it as "\\${raw}".`,
   }
 }

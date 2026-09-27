@@ -26,16 +26,18 @@ The backend is operator-controlled, so the same config runs against a local disk
 
 AI is disabled until a provider is set, and an unrecognised value aborts the boot rather than failing silently later. Leaving it unset is not silent either when it matters: if the config actually uses AI, the startup banner warns that agents are inert and AI fields fall back to their baseline. An app with no AI surface starts without that warning.
 
-| Variable                  | Default          | Description                                                                                            |
-| ------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------ |
-| `AI_PROVIDER`             | unset (disabled) | `anthropic`, `openai`, `mistral`, `google`, `ollama` or `openai-compatible`; `gemini` aliases `google` |
-| `AI_API_KEY`              | —                | Provider API key; required for every provider except `ollama`                                          |
-| `AI_BASE_URL`             | provider default | Endpoint URL; required for `ollama` and `openai-compatible`                                            |
-| `AI_MODEL`                | per provider     | Model identifier                                                                                       |
-| `AI_TEMPERATURE`          | provider default | Sampling temperature, 0 to 1 inclusive                                                                 |
-| `AI_MAX_TOKENS`           | provider default | Maximum output tokens                                                                                  |
-| `AI_EMBEDDING_MODEL`      | —                | Embedding model identifier                                                                             |
-| `AI_EMBEDDING_DIMENSIONS` | —                | Embedding vector dimensions                                                                            |
+| Variable                  | Default          | Description                                                                                                                                                            |
+| ------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_PROVIDER`             | unset (disabled) | `anthropic`, `openai`, `mistral`, `google`, `ollama` or `openai-compatible`; `gemini` aliases `google`                                                                 |
+| `AI_API_KEY`              | —                | Provider API key; required for every provider except `ollama`                                                                                                          |
+| `AI_BASE_URL`             | `mistral` only   | Endpoint URL; required for `ollama` and `openai-compatible`, and today for `openai`, `anthropic` and `google`; optional for `mistral`, whose public API is the default |
+| `AI_MODEL`                | per provider     | Model identifier                                                                                                                                                       |
+| `AI_TEMPERATURE`          | provider default | Sampling temperature, 0 to 1 inclusive                                                                                                                                 |
+| `AI_MAX_TOKENS`           | provider default | Maximum output tokens                                                                                                                                                  |
+| `AI_EMBEDDING_MODEL`      | —                | Embedding model identifier                                                                                                                                             |
+| `AI_EMBEDDING_DIMENSIONS` | —                | Embedding vector dimensions                                                                                                                                            |
+| `AI_ANON_RATE_LIMIT`      | `10`             | Anonymous transcriptions and chat messages allowed per window, per client address, on an app without `auth`                                                            |
+| `AI_ANON_RATE_WINDOW`     | `60`             | Length of that window, in seconds                                                                                                                                      |
 
 Provider-specific aliases are read when the generic variable is absent: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `MISTRAL_API_KEY` and `GOOGLE_API_KEY` stand in for the generic key, and `OLLAMA_BASE_URL` for the generic base URL. **The generic name always wins when both are set**, which is worth knowing before debugging a key that appears to be ignored.
 
@@ -47,12 +49,12 @@ A separate endpoint from the language model, never derived from `AI_BASE_URL`. U
 | -------------------- | ---------------- | ---------------------------------------------------------------------------- |
 | `STT_PROVIDER`       | unset (disabled) | `openai-compatible`, `whisper-cpp`, `openai` or `mistral`                    |
 | `STT_BASE_URL`       | provider default | Speech server URL (`/audio/transcriptions`, or `/inference` for whisper.cpp) |
-| `STT_API_KEY`        | —                | Key for a cloud speech provider                                              |
+| `STT_API_KEY`        | —                | Required for `openai` and `mistral`; startup refuses without it              |
 | `STT_MODEL`          | per provider     | Default speech model                                                         |
 | `STT_MODEL_FAST`     | `STT_MODEL`      | Model for the `fast` tier                                                    |
 | `STT_MODEL_ACCURATE` | `STT_MODEL`      | Model for the `accurate` tier                                                |
-| `STT_TIMEOUT_MS`     | `600000`         | Upper bound on one transcription request                                     |
-| `STT_MAX_FILE_BYTES` | `104857600`      | Largest recording sent                                                       |
+| `STT_TIMEOUT_MS`     | `600000`         | Upper bound on one transcription request, in ms; at most 2147483647          |
+| `STT_MAX_FILE_BYTES` | `104857600`      | Largest recording sent, in bytes (chat dictation is capped at 25 MB)         |
 
 ## Email
 
@@ -66,7 +68,11 @@ With no SMTP host set, email is disabled and sends are logged rather than delive
 | `SMTP_USER`      | —                     | Authentication username                      |
 | `SMTP_PASS`      | —                     | Authentication password                      |
 | `SMTP_FROM`      | `noreply@sovrium.com` | Sender address                               |
-| `SMTP_FROM_NAME` | `Sovrium`             | Sender display name                          |
+| `SMTP_FROM_NAME` | the app's `name`      | Sender display name                          |
+
+Every email the instance sends is headed with the app's `name` and carries no vendor branding or copyright line. The sender's display name follows the same rule: `SMTP_FROM_NAME` when it is set, otherwise the app's `name`, and `Sovrium` only when neither is available. Set `SMTP_FROM_NAME` only when the sender should read differently from the app — a team name, say.
+
+The same settings carry the operator emails — the automation-failure alert. Who receives them, and the two variables that shape that audience (`SOVRIUM_NOTIFY_TO`, `SOVRIUM_NOTIFY_AUTOMATIONS`), are described under **Operator emails** in the application and server reference.
 
 ## MCP server
 
@@ -142,14 +148,13 @@ Read when generating a static site.
 | Variable                      | Default  | Description                                                    |
 | ----------------------------- | -------- | -------------------------------------------------------------- |
 | `SOVRIUM_OUTPUT_DIR`          | `./dist` | Output directory                                               |
-| `SOVRIUM_BASE_URL`            | —        | Base URL for sitemap entries and canonical links               |
+| `SOVRIUM_BASE_URL`            | —        | Base URL for sitemap entries, canonical and hreflang links     |
 | `SOVRIUM_BASE_PATH`           | —        | Path prefix for subdirectory deployments                       |
 | `SOVRIUM_DEPLOYMENT`          | —        | `github-pages` or `generic`                                    |
 | `SOVRIUM_LANGUAGES`           | —        | Comma-separated language codes to build                        |
 | `SOVRIUM_DEFAULT_LANGUAGE`    | —        | Default language code                                          |
-| `SOVRIUM_GENERATE_SITEMAP`    | `false`  | Generate a sitemap                                             |
+| `SOVRIUM_GENERATE_SITEMAP`    | `false`  | Generate a sitemap, and write the page of each record it lists |
 | `SOVRIUM_GENERATE_ROBOTS`     | `false`  | Generate a robots file                                         |
-| `SOVRIUM_GENERATE_MANIFEST`   | `false`  | Generate a web app manifest                                    |
 | `SOVRIUM_HYDRATION`           | `false`  | Enable client-side hydration                                   |
 | `SOVRIUM_BUNDLE_OPTIMIZATION` | —        | `split` or `none`                                              |
 | `SOVRIUM_PUBLIC_DIR`          | —        | Static-asset directory to copy; `none` disables static serving |
@@ -167,3 +172,14 @@ Renders a banner marking an instance as a throwaway demo. Off unless explicitly 
 | `SOVRIUM_DEMO_PASSWORD` | Display-only sign-in password, never sourced from the admin seed                  |
 
 Those last two are display-only on purpose: a demo banner that read the real seeded credentials would publish them the moment someone enabled the banner on a real instance.
+
+## Seeding
+
+Read by `sovrium seed` only — a running server never looks at them.
+
+| Variable                | Description                                                                             |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| `SOVRIUM_SEED_PASSWORD` | Password for every `seed/users.yaml` account that does not give its own                 |
+| `SOVRIUM_SEED_TODAY`    | The day `{{today…}}` resolves against, as `YYYY-MM-DD`; the `--today` flag wins over it |
+
+`SOVRIUM_SEED_PASSWORD` exists so a template can ship its accounts without shipping their passwords: the file names who signs in, and the operator decides the secret at seed time.

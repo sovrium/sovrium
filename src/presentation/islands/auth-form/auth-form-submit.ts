@@ -103,6 +103,31 @@ async function handleSetNewPassword(password: string): Promise<string | undefine
   return result.error ? (result.error.message ?? 'Password reset failed') : undefined
 }
 
+/** English fallback when a magic-link form declares no `onSuccess.toast.message`. */
+const MAGIC_LINK_SENT_MESSAGE = 'Check your email — a sign-in link has been sent'
+
+/**
+ * Asks Better Auth to mail a sign-in link to `email`.
+ *
+ * Reached through `$fetch` rather than the `magicLinkClient` plugin: the plugin
+ * adds nothing but a typed wrapper around this one POST, and every byte it
+ * would add ships to every visitor of a page carrying any auth form.
+ * `callbackURL` is where the link lands once verified; it is author config, so
+ * it goes through `toSafeRedirectPath` and an unsafe value is dropped, leaving
+ * Better Auth's own default.
+ */
+async function handleMagicLinkRequest(
+  email: string,
+  redirectUrl: string | undefined
+): Promise<string | undefined> {
+  const callbackURL = toSafeRedirectPath(redirectUrl)
+  const result = await authClient.$fetch('/sign-in/magic-link', {
+    method: 'POST',
+    body: { email, ...(callbackURL !== undefined && { callbackURL }) },
+  })
+  return result.error ? (result.error.message ?? 'Sign-in link request failed') : undefined
+}
+
 /**
  * Everything `executeAuthMethod` needs, as ONE object.
  *
@@ -113,10 +138,26 @@ async function handleSetNewPassword(password: string): Promise<string | undefine
  */
 interface AuthMethodInput {
   readonly method: AuthMethod
+  /** The action's `strategy`; `magicLink` turns a login into a mailed link. */
+  readonly strategy: string | undefined
   readonly email: string
   readonly password: string
+  /** Where a mailed sign-in link lands once verified. */
+  readonly redirectUrl: string | undefined
   /** The form's `onSuccess.toast` config, when it declares one. */
   readonly successToast: ToastConfig | undefined
+}
+
+/**
+ * A magic-link login resolves to a banner rather than a navigation: the reader
+ * is not signed in until they open the mailed link.
+ */
+async function executeMagicLinkLogin(
+  input: AuthMethodInput
+): Promise<{ error?: string; success?: string }> {
+  const error = await handleMagicLinkRequest(input.email, input.redirectUrl)
+  if (error) return { error }
+  return { success: input.successToast?.message ?? MAGIC_LINK_SENT_MESSAGE }
 }
 
 async function executeAuthMethod(
@@ -125,6 +166,7 @@ async function executeAuthMethod(
   const { method, email, password } = input
   switch (method) {
     case 'login':
+      if (input.strategy === 'magicLink') return executeMagicLinkLogin(input)
       return { error: await handleLogin(email, password) }
     case 'signup':
       return { error: await handleSignup(email, password) }
@@ -148,6 +190,7 @@ async function executeAuthMethod(
 
 export interface SubmitContext {
   readonly method: AuthMethod
+  readonly strategy?: string
   readonly fields: readonly AuthFormField[]
   readonly values: Readonly<Record<string, string>>
   readonly redirectUrl: string | undefined
@@ -194,8 +237,10 @@ export async function submitAuthForm(ctx: SubmitContext): Promise<void> {
     const { email, password } = pickCredentials(ctx.fields, ctx.values)
     const result = await executeAuthMethod({
       method: ctx.method,
+      strategy: ctx.strategy,
       email,
       password,
+      redirectUrl: ctx.redirectUrl,
       successToast: ctx.successToast,
     })
     if (result.error) {

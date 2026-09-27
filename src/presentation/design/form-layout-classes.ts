@@ -98,6 +98,12 @@ export const computeFormFieldClasses = (): string => 'flex w-full flex-col gap-1
  *
  * A caller that needs the control to fill its column appends `w-full` itself:
  * that is a layout decision belonging to the field, not to the surface.
+ *
+ * The same string serves a `<select>` unchanged. Its chevron, its native
+ * drawing switched off and the wider right inset that keeps the value clear
+ * of the chevron all come from the select rule the CSS compiler emits in the
+ * utilities layer, which outranks the `px-3` here — so no select call site
+ * has to remember a `pr-*` of its own.
  */
 export const computeFormControlClasses = (): string =>
   'border-border bg-background text-foreground focus:border-primary focus:ring-primary rounded-md border px-3 py-2 text-md focus:ring-1 focus:outline-none'

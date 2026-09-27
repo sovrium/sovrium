@@ -136,7 +136,7 @@ export const SeedRecordSchema = Schema.Struct({
   fields: Schema.Record(Schema.String, Schema.Unknown).pipe(
     Schema.annotate({
       description:
-        'Column values for this row. String values may carry @<table>.<key> references, @asset:<file> references, or {{today±Nd}} tokens.',
+        'Column values for this row. String values may carry @<table>.<key> references, @asset:<file> references, or {{today±Nd}} tokens. `created_at` is the one system column a seed may set: it is written on insert and never updated.',
     })
   ),
 }).pipe(

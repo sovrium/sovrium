@@ -20,27 +20,19 @@ import {
   scaffoldFromRemoteTemplate,
 } from '@/cli/commands/init-remote-template'
 import { CLAUDE_MD_BODY, PUBLIC_README_BODY } from '@/cli/commands/init-scaffold-content'
+import { writeSkillsForScaffold } from '@/cli/commands/skills-files'
 import { writeConfigTypesFiles } from '@/cli/commands/types'
 import { embeddedTemplateDir } from '@/infrastructure/assets/embedded-static-assets'
 import { printDocument, printFailure, printStderr } from '@/infrastructure/logging/cli-output'
-
-/**
- * Relative path of the starter Claude Code agent inside every template tree.
- *
- * Every `templates/<slug>/` checks in a byte-identical copy of this file, so a
- * `--template` scaffold receives it for free via the tree copy. A no-template
- * `init` has no tree to copy and sources the same bytes from the embedded
- * `hello-world` template (see `writeStarterAgentIfMissing`).
- */
-const STARTER_AGENT_RELPATH = '.claude/agents/app-editor.md'
 
 /**
  * Template name → directory name under `templates/`.
  *
  * Each template is a directory under `templates/<template>/` (post-2026-05 split,
  * see the CLAUDE.md split rules in `CLAUDE_MD_BODY`). Init copies the entire
- * tree into the target verbatim — including the template's own `CLAUDE.md` and
- * `[internal ref]`. Nothing is generated or installed on top.
+ * tree into the target verbatim — including the template's own `CLAUDE.md`.
+ * The agent skills are not part of any template: they come from the binary
+ * (`writeSkillsForScaffold`), added beside the tree without overwriting.
  *
  * Template names are their directory names, one-to-one. The former `crud-app` /
  * `member-portal` templates were renamed to `crm` / `intranet` (business-job
@@ -376,10 +368,9 @@ export interface InitCommandOptions {
 /**
  * Scaffold from a `--template <name>` — a pure copy of the embedded tree.
  *
- * The template's own `CLAUDE.md` and `[internal ref]` are checked
- * into `templates/<slug>/`, so they land with the rest of the tree. Nothing is
- * generated or overwritten on top: whatever the template ships is what the user
- * gets.
+ * The template's own `CLAUDE.md` is checked into `templates/<slug>/`, so it
+ * lands with the rest of the tree. Nothing is overwritten on top: whatever the
+ * template ships is what the user gets.
  */
 const scaffoldFromTemplate = async (
   templateName: string,
@@ -392,30 +383,7 @@ const scaffoldFromTemplate = async (
 }
 
 /**
- * Write the starter Claude Code agent into a no-template scaffold.
- *
- * A `--template` scaffold gets this file from its tree copy. A bare `init` has
- * no tree, so it reads the same bytes from the embedded `hello-world` template
- * — every template ships a byte-identical copy (enforced by the
- * [internal ref] drift guard), so the choice of source is arbitrary.
- *
- * Additive: a pre-existing agent file is preserved verbatim.
- */
-const writeStarterAgentIfMissing = async (targetDir: string): Promise<readonly string[]> => {
-  const sourcePath = embeddedTemplateDir('hello-world')[STARTER_AGENT_RELPATH]
-  if (sourcePath === undefined) {
-    // The `Warning:` label went: `Error:` is load-bearing because scrapers grep
-    // it, but `Warning:` only restates the tone the sentence already carries.
-    printStderr(`Starter agent not embedded — skipping ${STARTER_AGENT_RELPATH}.`)
-    return []
-  }
-  const destPath = join(targetDir, ...STARTER_AGENT_RELPATH.split('/'))
-  const wrote = await writeOneTreeFile(sourcePath, destPath, false)
-  return wrote ? [destPath] : []
-}
-
-/**
- * The no-template scaffold: a config file, CLAUDE.md, the starter agent — and,
+ * The no-template scaffold: a config file and CLAUDE.md — and,
  * under `--typescript`, the two files that make the typed config check.
  *
  * `sovrium.d.ts` + `tsconfig.json` are written here rather than left to a
@@ -439,7 +407,7 @@ const scaffoldDefault = async (
     ? [typesFiles.declarationPath, ...(typesFiles.tsconfigWritten ? [typesFiles.tsconfigPath] : [])]
     : []
 
-  return [createdPath, ...typesPaths, ...(await writeStarterAgentIfMissing(targetDir))]
+  return [createdPath, ...typesPaths]
 }
 
 const assertNoConflict = async (targetPath: string, forceFlag: boolean): Promise<void> => {
@@ -473,7 +441,7 @@ const isWebFacingTemplate = (templateName: string | undefined): boolean => {
 
 /**
  * The forked-config scaffold: the published bytes verbatim, its provenance,
- * and the same CLAUDE.md and starter agent a bare `init` writes.
+ * and the same CLAUDE.md a bare `init` writes.
  *
  * A forked project is a first-class project, not a bare config file — which is
  * why this writes the bundle rather than only the document it fetched.
@@ -484,11 +452,7 @@ const scaffoldFromUrl = async (
 ): Promise<readonly string[]> => {
   const written = await writeForkedConfig(forked, targetDir)
   await writeFile(join(targetDir, 'CLAUDE.md'), generateClaudeMd(basename(targetDir)))
-  return [
-    ...written,
-    join(targetDir, 'CLAUDE.md'),
-    ...(await writeStarterAgentIfMissing(targetDir)),
-  ]
+  return [...written, join(targetDir, 'CLAUDE.md')]
 }
 
 const scaffoldTree = async (params: {
@@ -673,10 +637,15 @@ const scaffoldSupportFiles = async (
   const wroteGitignore = await writeGitignoreIfMissing(targetDir)
   const wroteEnvExample = await writeEnvExampleIfMissing(targetDir)
   const publicCreated = isWebFacing ? await writePublicDirIfMissing(targetDir) : []
+  // Every scaffold path funnels through here — bare, `--template`, a remote
+  // template and `--from-url` alike — so this one call is how each of them gets
+  // the agent skills. Add-only, like the other support files.
+  const skillsCreated = await writeSkillsForScaffold(targetDir)
 
   return [
     ...(wroteGitignore ? [join(targetDir, '.gitignore')] : []),
     ...(wroteEnvExample ? [join(targetDir, '.env.example')] : []),
     ...publicCreated,
+    ...skillsCreated,
   ]
 }

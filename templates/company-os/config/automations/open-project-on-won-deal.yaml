@@ -1,0 +1,39 @@
+# Sales and delivery live in the same config, so a won deal opens its delivery
+# project directly — no integration service between two tools. The project
+# takes the deal's name, its client and its owner, and starts as Planned.
+#
+# A record created by an automation does not fire the record triggers of the
+# table it lands in, so nothing chains from the new project by itself.
+name: open-project-on-won-deal
+label: Deal won — open the delivery project
+description: When a deal reaches Won, create a Planned project for the same client.
+enabled: true
+trigger:
+  type: record
+  table: deals
+  events:
+    - update
+  watchFields:
+    - stage
+actions:
+  - name: onlyWhenWon
+    type: filter
+    operator: continue
+    props:
+      condition:
+        logic: and
+        conditions:
+          - field: '{{trigger.data.record.stage}}'
+            operator: equals
+            value: Won
+      onFalse: stop
+  - name: openProject
+    type: record
+    operator: create
+    props:
+      table: projects
+      data:
+        name: '{{trigger.data.record.name}}'
+        client: '{{trigger.data.record.company}}'
+        owner: '{{trigger.data.record.owner}}'
+        status: Planned

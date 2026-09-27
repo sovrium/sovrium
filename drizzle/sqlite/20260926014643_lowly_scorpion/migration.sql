@@ -1,0 +1,1 @@
+ALTER TABLE `system_automation_approval_requests` ADD `approvers` text;

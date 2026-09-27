@@ -7,6 +7,7 @@
 
 import { findDuplicate } from '@/domain/models/app/tables/fields/field-types/validation-utils'
 import { SPECIAL_FIELDS } from './table-formula-validation'
+import { isPublicView } from './views/view-read-service'
 
 /**
  * Validate that view IDs are unique within a table.
@@ -378,4 +379,47 @@ export const validateViews = (
     validateViewGroupBy(views, fieldNames) ??
     validateFilterOperatorCompatibility(views, fields)
   )
+}
+
+type PublicViewCandidate = {
+  readonly id: string | number
+  readonly fields?: ReadonlyArray<string>
+  readonly permissions?: unknown
+}
+
+/**
+ * The two shapes a PUBLIC view cannot keep its promise in.
+ *
+ * `{ public: true }` serves visitors with no account exactly the columns the
+ * view lists, so:
+ *  - a public view must list them — no `fields`, or an empty list, would leave
+ *    "every column" as the answer by omission, the one answer it must never give;
+ *  - it cannot sit on a table with `rowLevelPermissions` — the view-records
+ *    read does not apply the row guard, and a visitor has no identity for a
+ *    `$currentUser` predicate to match, so it would serve every row.
+ *
+ * @param views - Views of one table
+ * @param hasRowLevelPermissions - Whether that table declares `rowLevelPermissions`
+ * @returns Error object if a public view breaks either rule, undefined if valid
+ */
+export const validatePublicViews = (
+  views: ReadonlyArray<PublicViewCandidate>,
+  hasRowLevelPermissions: boolean
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const publicViews = views.filter(isPublicView)
+  const withoutFields = publicViews.find((view) => (view.fields?.length ?? 0) === 0)
+  if (withoutFields) {
+    return {
+      message: `view '${String(withoutFields.id)}' is public but declares no \`fields\` — a public view serves exactly the columns it lists`,
+      path: ['views'],
+    }
+  }
+  const [firstPublic] = publicViews
+  if (firstPublic && hasRowLevelPermissions) {
+    return {
+      message: `view '${String(firstPublic.id)}' is public but its table declares \`rowLevelPermissions\` — a visitor has no identity for a row rule to scope, so a public view would serve every row`,
+      path: ['views'],
+    }
+  }
+  return undefined
 }

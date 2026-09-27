@@ -122,10 +122,12 @@ export interface ChatInput {
   /** Override the configured maximum output tokens for this request. */
   readonly maxTokens?: number
   /**
-   * OpenAI-compatible structured-output constraint. When set, it is passed
-   * through verbatim as the provider request body's `response_format` field
-   * (e.g. `{ type: 'json_schema', json_schema: { schema: <JSON Schema> } }`).
-   * Used by `ai:extract` to constrain the reply to a caller-supplied schema.
+   * OpenAI-compatible structured-output constraint, passed through verbatim as
+   * the provider request body's `response_format` field —
+   * `{ type: 'json_schema', json_schema: { name: <stable identifier>, schema: <JSON Schema> } }`.
+   * `name` is required by Mistral and by OpenAI's strict mode; `ai:extract`
+   * always sends one. Used by `ai:extract` to constrain the reply to a
+   * caller-supplied schema.
    */
   readonly responseFormat?: Record<string, unknown>
   /**

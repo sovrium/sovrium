@@ -10,16 +10,16 @@
 // THREE pages, and the third is the interesting one:
 //
 //   `/agents`          the bare collection, which always 302s — there is always
-//                      a first agent, because the reserved general-purpose
-//                      `default` leads the projection.
-//   `/agents/default`  the general-purpose agent, whose viewer holds every
+//                      a first agent, because the built-in `system` agent
+//                      leads the projection.
+//   `/agents/system`   the built-in System Agent, whose viewer holds every
 //                      conversation no declared agent claimed.
 //   `/agents/:agent`   one declared agent's viewer.
 //
-// ─── WHY `default` IS ITS OWN PAGE AND NOT A BRANCH ────────────────────────
+// ─── WHY `system` IS ITS OWN PAGE AND NOT A BRANCH ─────────────────────────
 //
 // The two differ by ONE sentence — the orienting blurb has to say what the
-// general-purpose agent IS, and that sentence is false for a declared agent.
+// System Agent IS, and that sentence is false for a declared agent.
 // Config has no way to branch a body on a route parameter: `visibility.condition`
 // reads `$user.*`, not `$param.*`, and widening it to route state would make a
 // component's presence depend on the URL rather than on who is asking, which is a
@@ -27,7 +27,7 @@
 //
 // Route ORDER answers it instead, at no cost: `findMatchingRoute` takes the
 // first pattern that matches, with no static-over-dynamic precedence, so a
-// literal page listed BEFORE the `:agent` page wins `/agents/default` and the
+// literal page listed BEFORE the `:agent` page wins `/agents/system` and the
 // param page never sees it. Order is therefore load-bearing here in a way it is
 // not on the other surfaces — reversing these two silently deletes the sentence.
 //
@@ -111,7 +111,7 @@ const viewerPage = (id: string, path: string, agent: string, blurb: string): Pag
  * projection, two consumers, so the sidebar cannot advertise an agent whose page
  * 404s nor omit one that opens.
  *
- * It never paints: the projection leads with the reserved `default`, so the
+ * It never paints: the projection leads with the built-in `system` agent, so the
  * redirect always resolves. It stands as the honest fallback for a failed read.
  */
 const agentDirectory = (): PageComponent =>
@@ -139,18 +139,18 @@ const directoryPage: PageConfig = withShell(
 )
 
 /**
- * All three pages, with the LITERAL `/agents/default` ahead of `/agents/:agent`.
+ * All three pages, with the LITERAL `/agents/system` ahead of `/agents/:agent`.
  *
- * That order is the whole mechanism behind the general-purpose agent's own
+ * That order is the whole mechanism behind the System Agent's own
  * blurb. See the header note before reordering.
  */
 export default [
   directoryPage,
   viewerPage(
-    'dashboard-data-agents-default',
-    '/agents/default',
-    'default',
-    '$t:admin.agents.blurbDefault'
+    'dashboard-data-agents-system',
+    '/agents/system',
+    'system',
+    '$t:admin.agents.blurbSystem'
   ),
   viewerPage(
     'dashboard-data-agents-agent',

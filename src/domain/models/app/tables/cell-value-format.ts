@@ -36,31 +36,77 @@ import {
   formatCurrencyValue,
   type CurrencyDisplayOptions,
 } from '../../../kernel/format/currency-format'
+import { usableLocale } from '../../../kernel/format/usable-locale'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 // ---------------------------------------------------------------------------
 // Date formatting helpers
 // ---------------------------------------------------------------------------
 
-function formatDate(value: unknown, options: Readonly<Intl.DateTimeFormatOptions>): string {
+function formatDate(
+  value: unknown,
+  locale: string,
+  options: Readonly<Intl.DateTimeFormatOptions>,
+  timeZone: string | undefined
+): string {
   const date = value instanceof Date ? value : new Date(String(value))
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('en-US', options)
+  if (Number.isNaN(date.getTime())) return String(value)
+  const zoned = timeZone === undefined ? options : { ...options, timeZone }
+  try {
+    return date.toLocaleDateString(locale, zoned)
+  } catch {
+    // An unknown zone (a `RangeError`) degrades to the runtime's own zone
+    // rather than taking the whole grid down with it.
+    return date.toLocaleDateString(locale, options)
+  }
 }
 
-function formatRelativeDate(value: unknown): string {
+/**
+ * Past-only elapsed time, phrased in the page's language: "3 days ago" in
+ * English, « il y a 3 jours » in French. The buckets are unchanged — whole
+ * days under a month, 30-day months under a year, 365-day years beyond — and
+ * only the phrasing moved to `Intl.RelativeTimeFormat`. `numeric: 'auto'` is
+ * kept to the DAY unit, where it gives the familiar "today" / "yesterday";
+ * a month or a year keeps its number ("1 month ago", not "last month").
+ */
+function formatRelativeDate(value: unknown, locale: string): string {
   const date = value instanceof Date ? value : new Date(String(value))
   if (Number.isNaN(date.getTime())) return String(value)
   const diffDays = Math.floor((Date.now() - date.getTime()) / 86_400_000)
-  if (diffDays === 0) return 'today'
-  if (diffDays === 1) return 'yesterday'
-  if (diffDays < 30) return `${diffDays} days ago`
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`
-  return `${Math.floor(diffDays / 365)} years ago`
+  if (diffDays < 30) {
+    return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-diffDays, 'day')
+  }
+  const phrase = new Intl.RelativeTimeFormat(locale, { numeric: 'always' })
+  return diffDays < 365
+    ? phrase.format(-Math.floor(diffDays / 30), 'month')
+    : phrase.format(-Math.floor(diffDays / 365), 'year')
+}
+
+/**
+ * The two answers of a `yes-no` column, by primary language subtag. `Intl`
+ * carries no word for yes or no, so these few are written out; a language not
+ * listed answers in English, the platform default every other format falls
+ * back to.
+ */
+const YES_NO_WORDS: Readonly<Record<string, readonly [yes: string, no: string]>> = {
+  en: ['Yes', 'No'],
+  fr: ['Oui', 'Non'],
+  de: ['Ja', 'Nein'],
+  es: ['Sí', 'No'],
+  it: ['Sì', 'No'],
+  pt: ['Sim', 'Não'],
+  nl: ['Ja', 'Nee'],
+}
+
+function formatYesNo(value: unknown, locale: string): string {
+  const language = locale.split('-')[0]?.toLowerCase() ?? 'en'
+  const [yes, no] = YES_NO_WORDS[language] ?? ['Yes', 'No']
+  return value ? yes : no
 }
 
 /**
  * Signed, locale-aware relative-time format — the bidirectional counterpart to
- * the past-only English `relative-date`. A FUTURE date renders forward
+ * the past-only `relative-date`. A FUTURE date renders forward
  * ("dans 5 j" in fr), a PAST date backward ("il y a 5 j"), via
  * `Intl.RelativeTimeFormat(locale, { style: 'short' }).format(diffDays, 'day')`.
  * `diffDays` is positive for the future (so a grace-window "scheduled erasure"
@@ -77,13 +123,26 @@ function formatRelativeTime(value: unknown, locale: string): string {
 // Value formatting
 // ---------------------------------------------------------------------------
 
+/** The per-value context a format may need beyond the locale. */
+export interface CellFormatOptions {
+  /** The bound field's declared currency treatment (`currency` format). */
+  readonly currency?: CurrencyDisplayOptions
+  /** IANA zone the three date formats render in (the operator timezone). */
+  readonly timeZone?: string
+}
+
 /**
  * Formats a bound value according to its declared display format.
  *
- * `locale` is the active page locale, consumed by the locale-aware
- * `relative-time` format; every other format is locale-independent.
+ * `locale` is the active page locale. Every format that writes a word or a
+ * date follows it — the three date formats, `relative-date`, `relative-time`,
+ * `compact` and `yes-no` — so a French page reads « 15 mars 2026 », « Oui » and
+ * « 13 k ». The purely symbolic ones (`percentage`, `check-cross`, `bytes`,
+ * `truncate`) do not need it. `currency` follows the field's own declared
+ * treatment, and groups in the page language when the field declares no
+ * separator.
  *
- * `currencyOptions` carries the bound field's declared currency treatment. It
+ * `options.currency` carries the bound field's declared currency treatment. It
  * used to be unreachable: this formatter hard-coded `$` and `en-US` while the
  * field's own `currency` never crossed into the browser, so a field declaring
  * `currency: 'EUR'` rendered `$0.35`. The arithmetic now lives in
@@ -91,6 +150,13 @@ function formatRelativeTime(value: unknown, locale: string): string {
  * so a grid cell and the formatted API value agree. With no declared
  * properties it falls back to the USD / 2-decimal / comma defaults this
  * formatter always emitted.
+ *
+ * `options.timeZone` is the IANA zone the three date formats render in: the operator
+ * timezone (`SOVRIUM_TIMEZONE`, UTC when unset). The server passes it directly;
+ * an island reads it off the page (`resolvePageTimezone`), which the server
+ * stamped. Left `undefined`, a date renders in the runtime's own zone — the
+ * host's POSIX `TZ` on the server, the visitor's zone in a browser — which is
+ * why every caller that knows the operator zone passes it.
  *
  * The dispatch is a TOTAL `Record<ColumnFormat, …>` on purpose: adding a
  * literal to `ColumnFormatSchema` without teaching this function what it means
@@ -100,16 +166,18 @@ export function formatCellValue(
   value: unknown,
   format: ColumnFormat,
   locale: string,
-  currencyOptions?: CurrencyDisplayOptions
+  options: CellFormatOptions = {}
 ): string {
+  const { currency: currencyOptions, timeZone } = options
   if (value === undefined || value === null) return ''
   const str = String(value)
+  const tag = usableLocale(locale)
 
   const formatters: Readonly<Record<ColumnFormat, () => string>> = {
     truncate: () => (str.length > 50 ? `${str.slice(0, 50)}…` : str),
     currency: () => {
       const num = Number(value)
-      return Number.isNaN(num) ? str : formatCurrencyValue(num, currencyOptions)
+      return Number.isNaN(num) ? str : formatCurrencyValue(num, currencyOptions, tag)
     },
     percentage: () => {
       const num = Number(value)
@@ -117,7 +185,7 @@ export function formatCellValue(
     },
     compact: () => {
       const num = Number(value)
-      return Number.isNaN(num) ? str : Intl.NumberFormat('en', { notation: 'compact' }).format(num)
+      return Number.isNaN(num) ? str : Intl.NumberFormat(tag, { notation: 'compact' }).format(num)
     },
     // A byte count is NOT `compact`: SI decimal `11.5K` and binary `11 KB` are
     // different units, and a size printed in the wrong base beside a real file
@@ -126,22 +194,29 @@ export function formatCellValue(
       const num = Number(value)
       return Number.isNaN(num) ? str : formatByteCount(num)
     },
-    'relative-date': () => formatRelativeDate(value),
-    // Signed, locale-aware counterpart to the past-only English `relative-date`:
+    'relative-date': () => formatRelativeDate(value, tag),
+    // Signed counterpart to the past-only `relative-date`:
     // a future date renders "dans 5 j" (fr) and a past one "il y a 5 j" via
     // `Intl.RelativeTimeFormat(<page locale>, { style: 'short' })`.
-    'relative-time': () => formatRelativeTime(value, locale),
-    'short-date': () => formatDate(value, { month: 'short', day: 'numeric', year: 'numeric' }),
-    'long-date': () => formatDate(value, { month: 'long', day: 'numeric', year: 'numeric' }),
+    'relative-time': () => formatRelativeTime(value, tag),
+    'short-date': () =>
+      formatDate(value, tag, { month: 'short', day: 'numeric', year: 'numeric' }, timeZone),
+    'long-date': () =>
+      formatDate(value, tag, { month: 'long', day: 'numeric', year: 'numeric' }, timeZone),
     datetime: () =>
-      formatDate(value, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    'yes-no': () => (value ? 'Yes' : 'No'),
+      formatDate(
+        value,
+        tag,
+        {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        },
+        timeZone
+      ),
+    'yes-no': () => formatYesNo(value, tag),
     'check-cross': () => (value ? '✓' : '✗'),
   }
 

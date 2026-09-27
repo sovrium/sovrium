@@ -59,6 +59,23 @@ export const userSchema = Schema.Struct({
         })
       )
     ),
+    // The two operator-email preferences, engine-owned columns declared the same
+    // way as `language` and read by `$session.<field>` for the same reason: the
+    // profile page's switches open on the caller's saved value. Optional for the
+    // reason `language` is — Better Auth composes this envelope — even though
+    // both columns are NOT NULL DEFAULT true and so always present in practice.
+    notifyAutomationAlerts: optionalField(
+      Schema.Boolean.annotate({
+        description:
+          'Whether this account receives automation-failure emails (admin-tier accounts only; on by default)',
+      })
+    ),
+    notifyWeeklyDigest: optionalField(
+      Schema.Boolean.annotate({
+        description:
+          'Whether this account receives the weekly summary email (admin-tier accounts only; on by default)',
+      })
+    ),
   }).fields,
   ...timestampSchema.fields,
 })

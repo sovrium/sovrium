@@ -1,7 +1,14 @@
-# Email + password auth. First registered user becomes admin (Better Auth
-# firstUserAdmin); subsequent sign-ups get the default `member` role. Table-level
-# permissions (defined per table) then gate create/update/delete by role.
-allowSignUp: true
+# Email and password sign-in, closed to strangers.
+#
+# A CRM holds a company's customers, so nobody signs themselves up: the first
+# administrator comes from `AUTH_ADMIN_EMAIL` / `AUTH_ADMIN_PASSWORD` on the
+# first start (see `.env.example`), and everyone else is added by an admin with
+# `sovrium admin create <email>`. The demo accounts come from `seed/users.yaml`.
+#
+# Two roles cover a small sales team: `member` for a rep, who reads everything
+# and creates or edits records, and `admin` for the founder or sales lead, who
+# may also delete them. Each table's `permissions` block says which is which.
+allowSignUp: false
 defaultRole: member
 strategies:
   - type: emailAndPassword

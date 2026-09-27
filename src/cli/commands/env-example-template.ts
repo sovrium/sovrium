@@ -31,6 +31,7 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # PORT=3000
 # BASE_URL=http://localhost:3000
 # DATABASE_URL=postgresql://user:password@localhost:5432/dbname   # omit → SQLite
+# SOVRIUM_TIMEZONE=UTC                   # IANA zone for schedules and displayed dates; TZ is ignored
 
 # ── Running under a supervisor ─────────────────────────────────────────
 # A supervising process — the Sovrium desktop app, a systemd unit, a CI step —
@@ -61,6 +62,22 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # AI_PROVIDER=ollama          # ollama | openai | anthropic | mistral | google
 # AI_API_KEY=                 # cloud providers only (not ollama)
 # AI_BASE_URL=http://localhost:11434   # ollama endpoint
+# On an app without auth, every caller is anonymous: this caps each client
+# address's chat messages and transcriptions (counted separately) per window.
+# AI_ANON_RATE_LIMIT=10       # anonymous requests per window, per address
+# AI_ANON_RATE_WINDOW=60      # window length, in seconds
+
+# ── Speech-to-text (disabled unless STT_PROVIDER is set) ──────────────
+# Its own endpoint, never derived from AI_BASE_URL. Sovrium ships no speech
+# model: point it at a server you run, or at a hosted provider with a key.
+# STT_PROVIDER=openai-compatible   # openai-compatible | whisper-cpp | openai | mistral
+# STT_BASE_URL=http://127.0.0.1:8000/v1   # whisper.cpp: http://127.0.0.1:8080
+# STT_API_KEY=                     # required for openai and mistral
+# STT_MODEL=                       # default model for every tier
+# STT_MODEL_FAST=                  # live dictation (chat)
+# STT_MODEL_ACCURATE=              # recordings you keep (automations)
+# STT_TIMEOUT_MS=600000            # upper bound on one transcription
+# STT_MAX_FILE_BYTES=104857600     # largest recording sent
 
 # ── Storage (auto: local files with SQLite, Postgres bytea otherwise) ──
 # STORAGE_PROVIDER=s3         # s3 | local   (omit → auto)
@@ -76,6 +93,23 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # at all is config (admin: true|false); this is the deployment-side kill
 # switch, and it wins over whatever the config declares.
 # SOVRIUM_ADMIN=on                        # on | off
+
+# ── Operator emails ───────────────────────────────────────────────────
+# A failed or timed-out automation emails every admin-tier account that left
+# "Automation alerts" on in its profile, plus the addresses listed here — the
+# only audience of an app with no auth block. Set BASE_URL for working links.
+# SOVRIUM_NOTIFY_AUTOMATIONS=on           # on | off
+# SOVRIUM_NOTIFY_TO=                      # comma-separated extra addresses
+# SOVRIUM_AUTOMATION_AUTOPAUSE=           # pause after N failures in a row; unset = never
+# A weekly summary of the instance goes to every admin-tier account that left
+# "Weekly summary" on, plus SOVRIUM_NOTIFY_TO. Runs in SOVRIUM_TIMEZONE.
+# SOVRIUM_NOTIFY_DIGEST=weekly            # weekly | off
+# SOVRIUM_NOTIFY_DIGEST_CRON="0 8 * * 1"  # five-field cron; default Mondays 08:00
+
+# ── Automations ───────────────────────────────────────────────────────
+# How long a run of an automation that sets no timeout may execute, in ms
+# (1000 to 3600000). Time spent waiting for a concurrency slot does not count.
+# SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS=900000   # default 15 minutes
 
 # ── Ecoconception (performance-first defaults; opt IN to frugality) ────
 # Win-win defaults — smaller AND faster. Change only for a specific reason.

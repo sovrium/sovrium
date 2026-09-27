@@ -31,10 +31,23 @@ export const EnvVarSchema = Schema.Struct({
     )
   ),
 
-  /** Whether this env var is required for automation execution */
+  /**
+   * Whether this env var must be set. Defaults to `true`, and boot enforces the
+   * default. It is resolved by `isEnvVarRequired`
+   * (`application/use-cases/env/validate-required-env-vars.ts`) rather
+   * than by a decoding default, so the console and the boot check read one
+   * answer: a decoding transform under `EnvVarsSchema` would make a mistyped
+   * `env:` report its identifier ("Expected EnvVars") instead of its shape
+   * ("Expected array"), because the encoded array keeps the identifier and
+   * drops the check.
+   */
   required: Schema.optional(
     Schema.Boolean.pipe(
-      Schema.annotate({ description: 'Whether this variable must be set (default: true)' })
+      Schema.annotate({
+        description:
+          'Whether this variable must be set. Defaults to true: an unset required variable refuses to boot.',
+        default: true,
+      })
     )
   ),
 
@@ -93,7 +106,7 @@ export const EnvVarSchema = Schema.Struct({
     description: 'Environment variable definition for use in automation actions',
     examples: [
       { key: 'API_KEY', description: 'External API authentication key', required: true },
-      { key: 'SLACK_WEBHOOK_URL', description: 'Slack incoming webhook URL' },
+      { key: 'SLACK_WEBHOOK_URL', description: 'Slack incoming webhook URL', required: false },
       // A default the operator is meant to READ in the configuration-as-booted
       // view (/_admin/changelog?view=current). Without `secret: false` it
       // renders as `***`, which says "a credential lives here" about a port

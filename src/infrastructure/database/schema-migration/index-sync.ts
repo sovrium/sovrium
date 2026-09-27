@@ -84,7 +84,8 @@ const generateDropIndexStatements = (
 export const syncIndexes = (
   tx: TransactionLike,
   table: Table,
-  previousSchema?: { readonly tables: readonly object[] }
+  previousSchema?: { readonly tables: readonly object[] },
+  physicalTableName: string = table.name
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     // Get previous table definition
@@ -99,10 +100,19 @@ export const syncIndexes = (
       | undefined
 
     // Determine which indexes should be dropped
-    const dropStatements = generateDropIndexStatements(table, previousTable)
+    // (index names are derived from the relation they were created on, so the
+    // drops are named against the physical relation too)
+    const dropStatements = generateDropIndexStatements(
+      { ...table, name: physicalTableName },
+      previousTable
+    )
 
-    // Generate CREATE INDEX statements for all current indexes
-    const createStatements = generateIndexStatements(table)
+    // Generate CREATE INDEX statements for all current indexes, against the
+    // physical relation — the same `{ ...table, name: physical }` the CREATE
+    // path hands `generateIndexStatements` (see `applyTableFeatures`), so an
+    // index on a view-backed table lands on `<name>_base` under the name it
+    // was first created with.
+    const createStatements = generateIndexStatements({ ...table, name: physicalTableName })
 
     // Execute drop statements first, then create statements
     yield* executeSQLStatements(tx, [...dropStatements, ...createStatements])

@@ -66,7 +66,7 @@ Classifying into a **closed** list is what makes the result usable in a branch: 
     connection: openai-key
 ```
 
-`schema` describes the shape you want back. Pair it with a file action that turns a PDF into text first — extraction reads text, not documents.
+`schema` describes the shape you want back. It is sent as a named JSON Schema constraint, which providers with strict structured output (Mistral, OpenAI strict mode) require. Pair it with a file action that turns a PDF into text first — extraction reads text, not documents.
 
 ## `transcribe`
 
@@ -83,6 +83,8 @@ Turns a stored recording into text on the speech endpoint the operator configure
 ```
 
 To keep the transcript on the record, follow it with a `record/update` writing `{{steps.transcrire.text}}` into a long-text field — there is no transcript field type. `quality` picks the tier (`accurate` by default here, because a kept recording rewards fidelity); `model` names one exact model instead. `prompt` is a vocabulary hint for names and jargon, not an instruction. A file that is not audio fails the step before anything is sent.
+
+`ai/transcribe` checks the recording's size in the storage catalog against `STT_MAX_FILE_BYTES` before downloading it, so an oversized recording fails the step without being read.
 
 ## `agent`
 

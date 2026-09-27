@@ -8,6 +8,8 @@
 import { Schema } from 'effect'
 import {
   cancelRunResponseSchema,
+  listAutomationApprovalsQuerySchema,
+  listAutomationApprovalsResponseSchema,
   listRunsQuerySchema,
   listRunsResponseSchema,
   replayRunRequestSchema,
@@ -30,6 +32,22 @@ import { type ResourceGroupSpec, type RouteSpec, type StaticGroupSpec } from '..
  */
 
 const errorResponse = (description: string) => effectJsonResponse(errorResponseSchema, description)
+
+/** Path parameters of the two approval-resolution endpoints. */
+const resolveApprovalPathSchema = Schema.Struct({
+  runId: Schema.String.annotate({ description: 'Id of the run paused on the request' }),
+  approvalId: Schema.String.annotate({ description: 'Id of the approval request' }),
+})
+
+/** Body of a successful approve or reject. */
+const resolveApprovalResponseSchema = Schema.Struct({
+  success: Schema.Literal(true),
+  runId: Schema.String.annotate({ description: 'Id of the paused run' }),
+  approvalId: Schema.String.annotate({ description: 'Id of the resolved request' }),
+  status: Schema.Literals(['approved', 'rejected']).annotate({
+    description: 'The decision recorded on the request',
+  }),
+})
 
 const routes: readonly RouteSpec[] = [
   {
@@ -222,6 +240,40 @@ export const automationCollectionGroup: StaticGroupSpec = {
         500: errorResponse('Internal error'),
       },
     },
+    {
+      method: 'get',
+      pathTemplate: '/api/automations/approvals',
+      summary: 'List automation approval requests',
+      description:
+        'Returns the approval requests the signed-in caller may resolve, newest first: those naming all-admins when the caller holds an admin-tier role, and those naming the caller by email or by role. Each row carries the runId and approvalId the approve and reject endpoints take.',
+      operationIdBase: 'listAutomationApprovals',
+
+      parameters: effectParameters(listAutomationApprovalsQuerySchema, 'query'),
+      responses: {
+        200: effectJsonResponse(listAutomationApprovalsResponseSchema, 'Approval requests'),
+        400: errorResponse('Invalid status'),
+        401: errorResponse('Not signed in'),
+      },
+    },
+    ...(['approve', 'reject'] as const).map((decision): RouteSpec => ({
+      method: 'post',
+      pathTemplate: `/api/automations/runs/{runId}/approvals/{approvalId}/${decision}`,
+      summary:
+        decision === 'approve' ? 'Approve an approval request' : 'Reject an approval request',
+      description:
+        (decision === 'approve'
+          ? 'Approves the request a paused run waits on; the actions after the approval step run. '
+          : 'Rejects the request a paused run waits on; the run ends as rejected and the actions after the approval step never run. ') +
+        'Only an approver the request names may resolve it: any admin-tier role for all-admins, otherwise a caller whose email (case ignored) or role the request lists. Anyone else receives 404, as for a request that does not exist.',
+      operationIdBase: decision === 'approve' ? 'approveAutomationRun' : 'rejectAutomationRun',
+      parameters: effectParameters(resolveApprovalPathSchema, 'path'),
+      responses: {
+        200: effectJsonResponse(resolveApprovalResponseSchema, 'Request resolved'),
+        401: errorResponse('Not signed in'),
+        404: errorResponse('No such request, or the caller is not one of its approvers'),
+        409: errorResponse('The request was already resolved'),
+      },
+    })),
     {
       method: 'post',
       pathTemplate: '/api/automations/runs/{id}/cancel',

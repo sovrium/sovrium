@@ -139,7 +139,11 @@ async function handleAuthorize(c: Context, app: App) {
   // `resolveOAuth2PropsEnv` first resolves `$env.VAR` placeholders (clientId/
   // urls/redirectUri/audience support env refs per the prop schema) so the
   // authorize URL carries the real values, not the literal `$env.…` string.
-  const fieldsCheck = requireAuthCodeFields(c, resolveOAuth2PropsEnv(conn.props, app))
+  const fieldsCheck = requireAuthCodeFields(
+    c,
+    resolveOAuth2PropsEnv(conn.props, app),
+    `/api/connections/${name}/callback`
+  )
   if ('response' in fieldsCheck) return fieldsCheck.response
   const { props } = fieldsCheck
 
@@ -238,7 +242,11 @@ const resolveCallbackContext = async (
   // REC-3: schema marks the auth-code fields optional (clientCredentials
   // grant only needs tokenUrl). Validate them at the callback boundary so
   // exchangeCodeForToken can rely on them being defined.
-  const fieldsCheck = requireAuthCodeFields(c, resolvedProps)
+  const fieldsCheck = requireAuthCodeFields(
+    c,
+    resolvedProps,
+    `/api/connections/${inputs.name}/callback`
+  )
   if ('response' in fieldsCheck) return { response: fieldsCheck.response }
 
   // The structural shape is correct (OAuth2AuthCodeProps strictly extends
@@ -287,6 +295,7 @@ async function handleCallback(c: Context, app: App) {
             typeof exchange.tokens.expires_in === 'number'
               ? new Date(Date.now() + exchange.tokens.expires_in * 1000)
               : undefined,
+          tokenFields: exchange.fields,
         },
       })
     ).pipe(Effect.result)

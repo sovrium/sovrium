@@ -34,7 +34,9 @@
 // operator's saved language outranks the `sovrium_language` cookie and the
 // console is composed in it server-side. Measured on `/_admin/profile` with the
 // account set to `fr` and again to `fr-FR`: `<html lang="fr-FR">` and the
-// breadcrumb reads `Mon profil`, sidebar group captions included.
+// breadcrumb reads `Mon profil`, sidebar group captions included. That path is
+// the MOUNTED console's; in the standalone preview (`bun run app:admin`,
+// `admin: false`) the console is the root app and the page is `/profile`.
 //
 // Two consequences worth keeping:
 //
@@ -139,6 +141,7 @@ export default {
   'admin.crumb.invitations': 'Invitations',
   'admin.crumb.pages': 'Analytique',
   'admin.crumb.automations': 'Exécutions',
+  'admin.crumb.automationRun': 'Exécution',
   'admin.crumb.links': 'Liens',
   'admin.crumb.footprint': 'Empreinte',
   'admin.crumb.decisions': 'Décisions',
@@ -165,6 +168,7 @@ export default {
   'admin.meta.userAccount': 'Sovrium — Données · Compte',
   'admin.meta.pages': 'Sovrium — Données · Analytique',
   'admin.meta.automations': 'Sovrium — Données · Exécutions',
+  'admin.meta.automationRun': 'Sovrium — Données · Exécution',
   'admin.meta.links': 'Sovrium — Données · Liens',
   'admin.meta.footprint': 'Sovrium — Empreinte',
   'admin.meta.decisions': 'Sovrium — Décisions',
@@ -264,6 +268,20 @@ export default {
   'admin.profile.language.savedDetail':
     'Langue enregistrée. La console bascule à ta prochaine page.',
   'admin.profile.language.failed': 'Impossible d’enregistrer ta langue.',
+
+  'admin.profile.notifications.label': 'Notifications',
+  'admin.profile.notifications.hint': 'Chaque e-mail d’alerte renvoie ici, où tu les désactives.',
+  'admin.profile.notifications.submit': 'Enregistrer',
+  'admin.profile.notifications.saved': 'Préférence enregistrée.',
+  'admin.profile.notifications.failed': 'Impossible d’enregistrer la préférence.',
+  'admin.profile.notifications.automationAlerts.label': 'Alertes d’automatisation',
+  'admin.profile.notifications.automationAlerts.hint':
+    'M’écrire quand une automatisation échoue, est interrompue, mise en pause ou relancée.',
+  'admin.profile.notifications.automationAlerts.formRegion': 'Changer tes alertes d’automatisation',
+  'admin.profile.notifications.weeklyDigest.label': 'Résumé hebdomadaire',
+  'admin.profile.notifications.weeklyDigest.hint':
+    'M’écrire chaque semaine ce qui a tourné, ce qui a échoué et comment les données ont évolué.',
+  'admin.profile.notifications.weeklyDigest.formRegion': 'Changer ton résumé hebdomadaire',
 
   'admin.profile.data.label': 'Tes données',
   'admin.profile.data.hint':
@@ -391,12 +409,16 @@ export default {
   'admin.buckets.heading': 'Fichiers',
   'admin.buckets.blurb':
     'Parcours les fichiers stockés dans tes buckets. Choisis un bucket pour ouvrir son explorateur — cherche, trie, filtre par type, puis télécharge un fichier.',
+  'admin.buckets.blurbBucket':
+    'Les fichiers stockés dans ce bucket. Cherche, trie ou filtre par type, puis télécharge ou supprime un fichier.',
+  'admin.buckets.blurbSystem':
+    'Le bucket intégré. Il liste chaque document et chaque image joints à un enregistrement, avec le bucket, la table, l’enregistrement et le champ auxquels ils appartiennent, et stocke les pièces jointes dont le champ ne nomme aucun bucket.',
 
   'admin.agents.heading': 'Conversations',
   'admin.agents.blurb':
     'Toutes les conversations que tes utilisateurs ont eues avec cet agent. Ouvres-en une pour lire le fil complet.',
-  'admin.agents.blurbDefault':
-    'L’agent généraliste : toutes les conversations qu’aucun agent déclaré n’a revendiquées. Ouvres-en une pour lire le fil complet.',
+  'admin.agents.blurbSystem':
+    'Les conversations avec l’agent Système intégré : l’assistant de Bienvenue, et toute discussion qui ne nomme aucun agent déclaré. Il lit les données de ton app sans jamais les modifier. Ouvres-en une pour lire le fil complet.',
 
   'admin.forms.heading': 'Réponses',
   'admin.forms.blurb':
@@ -404,7 +426,30 @@ export default {
 
   'admin.connections.heading': 'Connexions',
   'admin.connections.blurb':
-    'Inspecte les connexions de ton app aux services externes et l’état de leurs jetons : actif, bientôt expiré, ou expiré. Les connexions sont déclarées dans la config — ici, tu observes leur état réel.',
+    'Inspecte les connexions de ton app aux services externes et l’état de leurs jetons : actif, bientôt expiré, expiré, ou à reconnecter. Les connexions sont déclarées dans la config — ici, tu observes leur état réel.',
+  'admin.connections.status.active': 'Actif',
+  'admin.connections.status.expiringSoon': 'Bientôt expiré',
+  'admin.connections.status.expired': 'Expiré',
+  'admin.connections.status.reconnectNeeded': 'À reconnecter',
+  'admin.connections.col.connection': 'Connexion',
+  'admin.connections.col.provider': 'Fournisseur',
+  'admin.connections.col.type': 'Type',
+  'admin.connections.col.status': 'Statut',
+  'admin.connections.col.tokens': 'Jetons',
+  'admin.connections.col.expiration': 'Expiration',
+  'admin.connections.col.created': 'Créée le',
+  'admin.connections.col.actions': 'Actions',
+  'admin.connections.type.apiKey': 'Clé d’API',
+  'admin.connections.tokens.none': 'Aucun jeton',
+  'admin.connections.tokens.one': '1 utilisateur',
+  'admin.connections.tokens.two': '2 utilisateurs',
+  'admin.connections.action.connect': 'Connecter',
+  'admin.connections.action.reconnect': 'Reconnecter',
+  'admin.connections.action.disconnect': 'Déconnecter',
+  'admin.connections.action.disconnectConfirm': 'Révoquer les jetons de cette connexion ?',
+  'admin.connections.search': 'Rechercher une connexion',
+  'admin.connections.noMatch': 'Aucune connexion ne correspond à « {query} »',
+  'admin.connections.empty': 'Aucune connexion',
 
   // ── Organisation (`/organisation`) ──────────────────────────────────────
   //
@@ -551,6 +596,13 @@ export default {
     'Toutes les exécutions de cette app, et les automatisations dont elles viennent. Mets-en une en pause pour arrêter son exécution sans changer ta config ; une automatisation désactivée dans ta config d’app ne peut être réactivée que là.',
   'admin.automations.tabs.region': 'Sous-vues Exécutions',
   'admin.automations.metrics.region': 'Indicateurs des exécutions',
+  'admin.automations.tabs.history': 'Historique',
+  'admin.automations.tabs.automations': 'Automatisations',
+  'admin.automations.metrics.automations': 'Automatisations',
+  'admin.automations.metrics.runs24h': 'Exécutions (24\u00a0h)',
+  'admin.automations.metrics.failures24h': 'Échecs (24\u00a0h)',
+  'admin.automations.metrics.successRate': 'Taux de réussite',
+  'admin.automations.cancel': 'Annuler',
 
   'admin.links.heading': 'Liens',
   'admin.links.blurb':
@@ -582,11 +634,66 @@ export default {
     'Cette app ne déclare encore aucune automatisation. Ajoutes-en une dans ta config d’app pour voir ses exécutions apparaître ici.',
   'admin.automations.empty.hint': 'Aucune automatisation pour l’instant — donc rien à exécuter.',
 
+  'admin.automations.catalog.reason': 'Motif de la pause',
+  'admin.automations.catalog.reason.automatic': 'Automatique, après des échecs répétés',
+  'admin.automations.catalog.col.automation': 'Automatisation',
+  'admin.automations.catalog.col.trigger': 'Déclencheur',
+  'admin.automations.catalog.col.state': 'État',
+  'admin.automations.catalog.col.pausedBy': 'Mise en pause par',
+  'admin.automations.catalog.col.pausedAt': 'Mise en pause le',
+  'admin.automations.catalog.state.active': 'Active',
+  'admin.automations.catalog.state.paused': 'En pause',
+  'admin.automations.catalog.state.disabled': 'Désactivée dans la config',
+  'admin.automations.catalog.action.pause': 'Mettre en pause',
+  'admin.automations.catalog.action.resume': 'Reprendre',
+  'admin.automations.catalog.pause.title': 'Mettre cette automatisation en pause\u00a0?',
+  'admin.automations.catalog.pause.message':
+    'Les nouvelles exécutions s’arrêtent jusqu’à la reprise. Une exécution déjà en cours n’est pas annulée.',
+  'admin.automations.catalog.pause.toast': 'Automatisation mise en pause',
+  'admin.automations.catalog.resume.toast': 'Automatisation reprise',
+  'admin.automations.catalog.empty': 'Aucune automatisation',
+
   'admin.automations.runs.heading': 'Historique des exécutions',
   'admin.automations.runs.scope':
     'Affiche les 25 exécutions les plus récentes. La recherche et les filtres interrogent toutes les exécutions et renvoient les 25 correspondances les plus récentes.',
+  'admin.automations.runs.filter.all': 'Toutes',
+  'admin.automations.runs.filter.automation': 'Filtrer par automatisation',
+  'admin.automations.runs.filter.status': 'Filtrer par statut',
+  'admin.automations.runs.status.success': 'Réussie',
+  'admin.automations.runs.status.failed': 'Échouée',
+  'admin.automations.runs.status.partial': 'Partielle',
+  'admin.automations.runs.col.automation': 'Automatisation',
+  'admin.automations.runs.col.status': 'Statut',
+  'admin.automations.runs.col.started': 'Démarrée',
+  'admin.automations.runs.col.duration': 'Durée',
+  'admin.automations.runs.action.view': 'Voir l’exécution',
+  'admin.automations.runs.search': 'Rechercher des exécutions',
+  'admin.automations.runs.empty': 'Aucune exécution',
+  'admin.automations.runs.noMatch': 'Aucune exécution ne correspond à «\u00a0{query}\u00a0»',
   'admin.automations.runs.detail.configuredInCode':
     'Configurée dans le code, pas ici. Modifie la configuration de l’app puis redémarre.',
+  'admin.automations.runs.detail.blurb':
+    'Une exécution : ce qu’elle a reçu, et ce que chaque étape a fait et journalisé.',
+  'admin.automations.runs.detail.noLogs': 'Cette étape n’a rien journalisé.',
+  'admin.automations.runs.detail.field.automation': 'Automatisation',
+  'admin.automations.runs.detail.field.status': 'Statut',
+  'admin.automations.runs.detail.field.trigger': 'Déclencheur',
+  'admin.automations.runs.detail.field.started': 'Démarrée',
+  'admin.automations.runs.detail.field.finished': 'Terminée',
+  'admin.automations.runs.detail.field.duration': 'Durée (ms)',
+  'admin.automations.runs.detail.field.attempt': 'Tentative',
+  'admin.automations.runs.detail.failure': 'Échec',
+  'admin.automations.runs.detail.log': 'Journal',
+  'admin.automations.runs.detail.dataIn': 'Données en entrée',
+  'admin.automations.runs.detail.dataOut': 'Données en sortie',
+  'admin.automations.runs.detail.steps': 'Étapes',
+  'admin.automations.runs.detail.back': 'Retour aux exécutions',
+  'admin.automations.runs.detail.retry': 'Relancer',
+  'admin.automations.runs.detail.retry.title': 'Confirmer la relance',
+  'admin.automations.runs.detail.retry.message':
+    'L’automatisation s’exécute de nouveau, comme une nouvelle exécution. Celle-ci reste telle quelle.',
+  'admin.automations.runs.detail.retry.toast': 'Relance lancée',
+  'admin.automations.runs.detail.retry.error': 'L’exécution n’a pas été relancée.',
 
   'admin.forms.openForm': 'Ouvrir le formulaire',
   'admin.forms.conversion.heading': 'Taux de conversion',

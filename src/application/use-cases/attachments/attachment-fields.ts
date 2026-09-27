@@ -17,7 +17,8 @@
  * Everything here is pure: it reads `app.tables[]` and nothing else.
  */
 
-import { DEFAULT_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
+import { parseBucketFileUrl } from '@/domain/kernel/url/bucket-file-url'
+import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import type { App } from '@/domain/models/app'
 
@@ -58,12 +59,12 @@ export const attachmentFieldsOf = (scope: Readonly<AttachmentScope>): readonly A
 /**
  * The bucket one column's files live in.
  *
- * The fallback is `'default'` and deliberately NOT `buckets[0].name` — see
+ * The fallback is the built-in `system` bucket and deliberately NOT `buckets[0].name` — see
  * `resolveFieldBucket`'s own doc comment for why the read path's and the write
  * path's fallbacks must not be unified.
  */
 export const bucketForField = (scope: Readonly<AttachmentScope>, fieldName: string): string =>
-  resolveFieldBucket(scope.app, scope.tableName, fieldName) ?? DEFAULT_BUCKET_NAME
+  resolveFieldBucket(scope.app, scope.tableName, fieldName) ?? SYSTEM_BUCKET_NAME
 
 /**
  * Extract attachment storage keys from a record's field value, normalising the
@@ -91,3 +92,51 @@ export const isMimeTypeAllowed = (mimeType: string, allowedFileTypes: readonly s
  */
 export const stripUuidPrefix = (key: string): string =>
   key.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(.+)$/i)?.[1] ?? key
+
+/** The storage key a bucket download URL (public `files/` or signed form) addresses. */
+const keyFromBucketUrl = (url: unknown): string | undefined =>
+  typeof url === 'string' ? parseBucketFileUrl(url)?.key : undefined
+
+/**
+ * Every key an object-shaped attachment item references: its `key`, and the
+ * key inside its `url` and its `signedUrl`. ALL of them, not the first found —
+ * each reader picks its own (the record enricher reads `key`, the
+ * `ai/transcribe` step reads `key` else the first URL, the purge reads `url`),
+ * so a value is admissible only when every address it carries is.
+ */
+const referencedKeysOfObject = (record: Readonly<Record<string, unknown>>): readonly string[] => {
+  // An inline `{ name, content }` payload carries its own bytes: it is stored
+  // into the column's bucket by the write itself and references nothing.
+  if (typeof record['content'] === 'string') return []
+  const { key } = record
+  return [
+    typeof key === 'string' && key.length > 0 ? key : undefined,
+    keyFromBucketUrl(record['url']),
+    keyFromBucketUrl(record['signedUrl']),
+  ].filter((candidate): candidate is string => candidate !== undefined)
+}
+
+/** The storage keys one attachment ITEM references (none when it names no stored file). */
+const referencedKeys = (item: unknown): readonly string[] => {
+  if (typeof item === 'string') {
+    return item.length === 0 ? [] : [keyFromBucketUrl(item) ?? item]
+  }
+  if (typeof item !== 'object' || item === null || Array.isArray(item)) return []
+  return referencedKeysOfObject(item as Readonly<Record<string, unknown>>)
+}
+
+/**
+ * Every EXISTING storage key an attachment value names, de-duplicated.
+ *
+ * Wider than {@link extractAttachmentKeys}, which reads bare string keys for the
+ * type and size caps: a reference can also arrive as an object carrying `key`,
+ * a `url` or a `signedUrl` in either bucket download form (read by
+ * `parseBucketFileUrl`, the parser every downstream reader shares) — the shapes
+ * the read path and the multipart form path produce, and so the shapes a
+ * client can echo back. Inline `{ name, content }` payloads are skipped: they
+ * carry bytes, not a reference. So is an object whose URL is external: it
+ * names no stored file, and no reader resolves one out of it.
+ */
+export const extractAttachmentReferences = (value: unknown): readonly string[] => [
+  ...new Set((Array.isArray(value) ? value : [value]).flatMap(referencedKeys)),
+]

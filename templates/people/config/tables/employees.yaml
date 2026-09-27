@@ -1,3 +1,5 @@
+# The team: one row per person, with their role, team, manager and time-off
+# allowance. The directory lists it, and each time-off request points at it.
 id: 1
 name: employees
 fields:
@@ -10,29 +12,41 @@ fields:
     type: email
     required: true
   - id: 3
-    name: job_title
+    name: title
     type: single-line-text
+  # Every team shares the accent: a team is not an outcome, so none gets a
+  # colour of its own. Charts grouped by team paint their bars with it.
   - id: 4
-    name: department
+    name: team
     type: single-select
     options:
-      - Engineering
-      - Sales
-      - Marketing
-      - Operations
-      - Finance
-      - People
+      - value: Engineering
+        color: '#8A46A7'
+      - value: Sales
+        color: '#8A46A7'
+      - value: Marketing
+        color: '#8A46A7'
+      - value: Operations
+        color: '#8A46A7'
+      - value: Finance
+        color: '#8A46A7'
+      - value: People
+        color: '#8A46A7'
   - id: 5
     name: start_date
     type: date
+  # A person's manager is another row of this same table. `displayField`
+  # names the column a human should see instead of the link's number.
   - id: 6
     name: manager
     type: relationship
     relatedTable: employees
     relationType: many-to-one
+    displayField: name
   - id: 7
     name: photo
     type: single-attachment
+  # Read and written by admins only — see `permissions.fields` below.
   - id: 8
     name: salary
     type: currency
@@ -41,7 +55,40 @@ fields:
   - id: 9
     name: created_at
     type: created-at
+  # The sign-in account of this person. It is what lets a request filed by
+  # someone be matched to their row in the directory.
+  - id: 10
+    name: account
+    type: user
+  # Time off, counted in calendar days.
+  - id: 11
+    name: allowance_days
+    type: integer
+    min: 0
+  - id: 12
+    name: days_taken
+    type: integer
+    min: 0
+  - id: 14
+    name: time_off_this_year
+    type: formula
+    formula: "days_taken || ' of ' || allowance_days || ' days taken'"
+    resultType: string
+  # The salary as a reader sees it in the directory. It is withheld exactly
+  # like the amount it is made of — see `permissions.fields`.
+  - id: 15
+    name: salary_label
+    type: formula
+    formula: "'€' || salary"
+    resultType: string
 
+views:
+  - id: people_directory
+    name: Directory
+    sorts:
+      - { field: name, direction: asc }
+
+# Everyone reads the directory; only an admin adds, edits or removes a person.
 permissions:
   read: authenticated
   create:
@@ -50,12 +97,14 @@ permissions:
     - admin
   delete:
     - admin
-  # Field-level permissions: everyone can browse the directory, but the salary
-  # column is invisible and read-only to non-admins — enforced server-side,
-  # not hidden client-side.
+  # The salary is left out of every response to anyone but an admin — the
+  # server drops the field, so it never reaches a member's browser at all.
   fields:
     - field: salary
       read:
         - admin
       write:
+        - admin
+    - field: salary_label
+      read:
         - admin

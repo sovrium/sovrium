@@ -17,6 +17,7 @@ import {
   validateFieldWritePermissions,
   validateFieldFormats,
   validateAttachmentConstraints,
+  validateAttachmentReferences,
   enrichAttachmentMetadata,
   uploadInlineAttachmentContent,
 } from './field-rules'
@@ -196,7 +197,14 @@ export function validateRecordCreation(
     // a column, so no engine has a CHECK that could carry this one.
     yield* validateRelationshipLinkLimits(slugAppliedData)
 
-    // Step 9: Validate attachment field constraints (allowedFileTypes)
+    // Step 9: Refuse an attachment reference to a file outside the column's
+    // bucket or the writer's download reach, then validate the column's
+    // declared constraints (allowedFileTypes, maxFiles, maxFileSize). The
+    // reference rule runs FIRST: `maxFileSize` downloads the bytes, and a
+    // download of a foreign or absent key would answer 503 where this rule
+    // answers one uniform 400 — an existence oracle. It also runs before step
+    // 9.5, so the inline payloads it skips are still inline.
+    yield* validateAttachmentReferences(slugAppliedData)
     yield* validateAttachmentConstraints(slugAppliedData)
 
     // Step 9.5: B-01 — persist inline `{ name, content }` attachment payloads

@@ -40,6 +40,7 @@ import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
+import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { db } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { validateTableName } from '@/infrastructure/database/table-queries/statement/validation'
@@ -66,6 +67,13 @@ export const withKey = (
   id: string | number
 ): SeedKeyIndex => new Map([...index, [indexKey(table, key), id] as const])
 
+/** The id this run recorded for `table.key`, or `undefined`. */
+export const idOfKey = (
+  index: SeedKeyIndex,
+  table: string,
+  key: string
+): string | number | undefined => index.get(indexKey(table, key))
+
 /** A resolved value paired with the index the resolution may have extended. */
 export interface Resolved<T> {
   readonly value: T
@@ -80,6 +88,18 @@ export interface SeedResolveContext {
   readonly plan: SeedPlan
   readonly tables: readonly SeedTableConfig[]
   readonly seedDir: string
+  /** Account ids by lower-cased email, for `@user:<email>` values. */
+  readonly accounts: ReadonlyMap<string, string>
+}
+
+/** The id behind one `@user:<email>`. Planning already refused an unknown one. */
+const resolveAccountId = (context: SeedResolveContext, email: string): string => {
+  const id = context.accounts.get(email.toLowerCase())
+  if (id === undefined) {
+    // eslint-disable-next-line functional/no-throw-statements -- caught by handleSeedCommand, which prints and exits 1
+    throw new SeedResolutionError(`no account has the email "${email}".`)
+  }
+  return id
 }
 
 /**
@@ -116,8 +136,8 @@ const uploadAsset = async (seedDir: string, filename: string): Promise<string> =
     const storage = yield* StorageService
     // Seeded assets always land on a column with no declared bucket — the
     // seed refuses a bucket-bound column outright — so the read path
-    // resolves them through the implicit 'default' bucket.
-    yield* storage.upload(key, bytes, inferMimeFromKey(filename), 'default')
+    // resolves them through the built-in system bucket.
+    yield* storage.upload(key, bytes, inferMimeFromKey(filename), SYSTEM_BUCKET_NAME)
   })
   return Effect.runPromise(Effect.provide(program, StorageServiceLive)).then(() => key)
 }
@@ -210,6 +230,10 @@ const resolveSeedValue = async (
   }
   if (value.kind === 'ref') {
     return resolveReferenceId(context, index, value.ref.table, value.ref.key)
+  }
+  if (value.kind === 'user') return { value: resolveAccountId(context, value.email), index }
+  if (value.kind === 'users') {
+    return { value: value.emails.map((email) => resolveAccountId(context, email)), index }
   }
   return foldSequential(value.refs, index, (carried, ref) =>
     resolveReferenceId(context, carried, ref.table, ref.key)

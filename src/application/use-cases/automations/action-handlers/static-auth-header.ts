@@ -62,7 +62,12 @@ export const buildStaticAuthHeader = (
   if (conn.type === 'basic') {
     const username = secretProp('username')
     const password = secretProp('password')
-    if (!username) return { error: `connection ${conn.name}: basic requires a username` }
+    // An empty username is valid when a password is set: APIs that take their
+    // key as the Basic password (`:apikey`) expect exactly that. Both empty
+    // would send a bare `:`, which authenticates nothing — refuse it instead.
+    if (!username && !password) {
+      return { error: `connection ${conn.name}: basic requires a username or a password` }
+    }
     const encoded = Buffer.from(`${username}:${password}`, 'utf8').toString('base64')
     return { header: 'Authorization', value: `Basic ${encoded}` }
   }

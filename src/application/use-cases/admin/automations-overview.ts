@@ -61,7 +61,11 @@ import {
   type PeriodPreset,
   type PeriodWindow,
 } from '@/domain/models/api/admin/envelope/period-preset'
-import { runStatusSchema, type RunStatus } from '@/domain/models/api/automations'
+import {
+  runStatusSchema,
+  stepLogEntrySchema,
+  type RunStatus,
+} from '@/domain/models/api/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import type { App } from '@/domain/models/app'
 
@@ -434,6 +438,23 @@ export type AdminRunDetailOutcome =
   | { readonly _tag: 'NotFound' }
   | { readonly _tag: 'ValidationFailed'; readonly error: unknown }
 
+const decodeStepLogEntry = decodeSafe(stepLogEntrySchema)
+
+/**
+ * Read the persisted `logs` column as the step's log entries. Always an array:
+ * an absent or non-array column is a step that logged nothing, and an entry
+ * the engine would never write (unknown level, missing message, a bare value)
+ * is DROPPED one by one — the same degrade-don't-fail policy the detail read
+ * applies to the step rows themselves, so one corrupt entry cannot 500 a run.
+ */
+function readStepLogs(logs: unknown): AdminRunStep['logs'] {
+  if (!Array.isArray(logs)) return []
+  return logs.flatMap((entry: unknown) => {
+    const decoded = decodeStepLogEntry(entry)
+    return decoded.success ? [{ level: decoded.data.level, message: decoded.data.message }] : []
+  })
+}
+
 /**
  * Project a persisted step row to the admin run-step shape (the per-step I/O the
  * dashboard run-detail panel renders). `input` is the action's `props`; `output`
@@ -448,6 +469,7 @@ function buildAdminRunStep(step: {
   readonly input: unknown
   readonly output: unknown
   readonly error: string | null
+  readonly logs?: unknown
 }): AdminRunStep {
   return {
     index: step.stepIndex,
@@ -458,6 +480,7 @@ function buildAdminRunStep(step: {
     // eslint-disable-next-line unicorn/no-null -- schema declares input/output `.nullable()`
     output: step.output ?? null,
     error: step.error,
+    logs: readStepLogs(step.logs),
   }
 }
 

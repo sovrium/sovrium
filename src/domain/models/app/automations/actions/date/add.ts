@@ -23,8 +23,8 @@ import { DurationProps, isValidTimezone, TimezoneProp } from './props'
  * across a DST boundary in `Europe/Paris` must land on the same wall-clock time
  * the next day — 23 or 25 hours later, not 24. The shift is therefore computed
  * in the given zone and converted back to an instant, rather than by adding a
- * fixed offset to the epoch. `timezone` defaults to UTC, where the distinction
- * collapses.
+ * fixed offset to the epoch. `timezone` defaults to the operator timezone; in UTC the
+ * distinction collapses.
  *
  * Larger units are applied before smaller ones, so a month shift that would
  * overflow (31 January + 1 month) clamps to the last valid day of the target
@@ -55,12 +55,12 @@ export const DateAddActionSchema = Schema.Struct({
 
     ...DurationProps,
 
-    /** IANA timezone the calendar shift is computed in. Default UTC. */
+    /** IANA timezone the calendar shift is computed in. Default: the operator timezone. */
     timezone: Schema.optional(
       TimezoneProp.pipe(
         Schema.annotate({
           description:
-            'IANA timezone the calendar shift is computed in (e.g. "Europe/Paris"). Default "UTC". ' +
+            'IANA timezone the calendar shift is computed in (e.g. "Europe/Paris"). Default: the operator timezone (SOVRIUM_TIMEZONE, UTC when unset). ' +
             'Determines DST behaviour for day-and-larger units.',
         })
       )

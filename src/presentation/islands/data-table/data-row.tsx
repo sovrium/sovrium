@@ -17,7 +17,9 @@ import {
 import { AiRefinementMarker } from '../runtime/ai-refinement-marker'
 import { readAiRefinementStatus } from '../runtime/ai-refinement-status'
 import { dispatch as dispatchIslandEvent } from '../runtime/event-bus'
+import { followAddress } from '../runtime/follow-address'
 import { stopClickPropagation } from './cell-click'
+import { columnAlignClass } from './column-align'
 import { evaluateCellStyle } from './formatting'
 import { FROZEN_CELL_CLASS, frozenCellStyle, type FrozenOffsets } from './frozen-columns'
 import {
@@ -319,7 +321,7 @@ function dataCellAttributes(params: {
   const positionClass = positioned && !pinStyle ? 'relative' : ''
   return {
     ...(ctx.gridRole && { role: 'gridcell' }),
-    className: `${ctx.cellClass} ${ctx.borderClass} whitespace-nowrap ${conditionalClass} ${positionClass} ${pinStyle ? FROZEN_CELL_CLASS : ''} ${cellMarkerClass(cursorAttrs, isCursor)}`,
+    className: `${ctx.cellClass} ${ctx.borderClass} whitespace-nowrap ${columnAlignClass(meta?.align)} ${conditionalClass} ${positionClass} ${pinStyle ? FROZEN_CELL_CLASS : ''} ${cellMarkerClass(cursorAttrs, isCursor)}`,
     ...(pinStyle && { style: pinStyle }),
     ...(meta?.field && { 'data-field': meta.field }),
     ...cursorAttrs,
@@ -445,7 +447,7 @@ function performRowAction(row: DataTableRow, ctx: DataRowContext): void {
   // configured; selection still works through the row checkbox column.
   if (action?.type === 'navigate') {
     const resolved = substituteRecordVars(action.path, row.original)
-    if (typeof window !== 'undefined') window.location.assign(resolved)
+    followAddress(resolved, { openInNewTab: action.openInNewTab })
     return
   }
   // PG-04: openDrawer dispatch — fire a `sovrium:open-drawer` CustomEvent for
@@ -453,7 +455,13 @@ function performRowAction(row: DataTableRow, ctx: DataRowContext): void {
   // toggles its `open` state; the clicked row's record rides on
   // `detail.record` so future tiers can populate the drawer's child form.
   if (action?.type === 'openDrawer') {
-    dispatchIslandEvent('sovrium:open-drawer', { id: action.component, record: row.original })
+    dispatchIslandEvent('sovrium:open-drawer', {
+      id: action.component,
+      record: row.original,
+      // A system-backed grid has no table: its name is `''`, which would match
+      // no form at all, so it names none and the drawer binds as before.
+      ...(ctx.tableName ? { table: ctx.tableName } : {}),
+    })
     return
   }
   if (ctx.selectionMode !== 'single') return

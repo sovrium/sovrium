@@ -230,6 +230,20 @@ export default {
   'admin.profile.language.savedDetail': 'Language saved. The console switches on your next page.',
   'admin.profile.language.failed': 'Could not save your language.',
 
+  'admin.profile.notifications.label': 'Notifications',
+  'admin.profile.notifications.hint': 'Every alert email links back here, where you turn them off.',
+  'admin.profile.notifications.submit': 'Save',
+  'admin.profile.notifications.saved': 'Preference saved.',
+  'admin.profile.notifications.failed': 'Could not save the preference.',
+  'admin.profile.notifications.automationAlerts.label': 'Automation alerts',
+  'admin.profile.notifications.automationAlerts.hint':
+    'Email me when an automation fails, is interrupted, paused or resumed.',
+  'admin.profile.notifications.automationAlerts.formRegion': 'Change your automation alerts',
+  'admin.profile.notifications.weeklyDigest.label': 'Weekly summary',
+  'admin.profile.notifications.weeklyDigest.hint':
+    'Email me every week with what ran, what failed and how the data grew.',
+  'admin.profile.notifications.weeklyDigest.formRegion': 'Change your weekly summary',
+
   'admin.profile.data.label': 'Your data',
   'admin.profile.data.hint':
     'Export everything this instance holds about you, or erase your account.',

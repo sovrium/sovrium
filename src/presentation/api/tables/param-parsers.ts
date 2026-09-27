@@ -6,6 +6,10 @@
  */
 
 import { DEFAULT_PAGE_SIZE } from '@/application/use-cases/tables/list-helpers'
+import {
+  parseRequestedLabels,
+  type RequestedLabel,
+} from '@/application/use-cases/tables/relationship-display-fields'
 import type { Context } from 'hono'
 
 type AggregateParams = {
@@ -137,6 +141,7 @@ export function parseListRecordsParams(c: Context): {
   readonly offset: number | undefined
   readonly aggregate: AggregateParams | undefined
   readonly groupBy: string | undefined
+  readonly labels: readonly RequestedLabel[]
 } {
   const includeDeleted = c.req.query('includeDeleted') === 'true'
   const format = c.req.query('format') === 'display' ? ('display' as const) : undefined
@@ -148,6 +153,21 @@ export function parseListRecordsParams(c: Context): {
   const offset = resolveOffset(c.req.query('offset'), c.req.query('page'), limit)
   const aggregate = parseAggregateParam(c.req.query('aggregate'))
   const groupBy = c.req.query('groupBy')
+  // Relationship labels a page column asks for. Malformed pairs are dropped
+  // here, and pairs naming no relationship later: a label is decoration, and a
+  // misspelt one costs the label rather than the page.
+  const labels = parseRequestedLabels(c.req.query('labels'))
 
-  return { includeDeleted, format, timezone, sort, fields, limit, offset, aggregate, groupBy }
+  return {
+    includeDeleted,
+    format,
+    timezone,
+    sort,
+    fields,
+    limit,
+    offset,
+    aggregate,
+    groupBy,
+    labels,
+  }
 }

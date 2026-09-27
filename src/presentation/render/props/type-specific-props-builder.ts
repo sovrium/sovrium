@@ -10,6 +10,10 @@ import { declaredFieldLabel } from '@/presentation/design/field-display'
 import { resolveLiftedTranslationTokens } from '../i18n/translation-handler'
 import { buildEmptyStateElementProps } from './empty-state-copy-builder'
 import { withRelatedCreateGates } from './related-create-gates'
+import {
+  resolveFigureFieldContext,
+  type ChartCategoryOptionInput,
+} from './resolve-chart-field-context'
 import { resolveDataTableViews, type ResolvedDataTableView } from './resolve-data-table-views'
 import { resolveFieldDisplayMeta, resolveFieldEditMeta } from './resolve-field-cell-meta'
 import {
@@ -18,6 +22,8 @@ import {
   resolveKanbanColumnOptions,
   resolveKanbanSwimlaneOptions,
 } from './resolve-option-colors'
+import { isViewBoundSource, narrowToBoundView, resolveBoundView } from './view-binding-inputs'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { Languages } from '@/domain/models/app/languages'
 import type {
   Component,
@@ -56,6 +62,10 @@ export type TypeSpecificResolvedInputs = {
    * does today (ruling 5: an opt-in, never a repaint).
    */
   readonly colorFieldColors: Readonly<Record<string, string>> | undefined
+  /** A chart's category options and a chart or KPI's plotted-field currency — see
+   * `resolve-chart-field-context.ts`. Absent for every other component type. */
+  readonly categoryOptions?: readonly ChartCategoryOptionInput[]
+  readonly valueCurrency?: CurrencyDisplayOptions
 }
 
 /**
@@ -264,6 +274,26 @@ function resolveRecordViewColorField(type: string, component: Component): string
 }
 
 /**
+ * The field metadata of the columns a kanban card's FOOTER names — the same
+ * entries the grid receives, narrowed to what the footer can print, so a
+ * `currency` item formats with the column's own currency, precision and
+ * separators without the whole table's schema riding along in the page.
+ * Absent when the card declares no footer.
+ */
+function resolveKanbanFooterFieldMeta(
+  table: Tables[number],
+  component: Component
+): Record<string, unknown> | undefined {
+  const footer = (
+    component as { readonly card?: { readonly footer?: readonly { field: string }[] } }
+  ).card?.footer
+  if (!footer || footer.length === 0) return undefined
+  const named = new Set(footer.map((item) => item.field))
+  const all = resolveDataTableInputs(table).dataTableFieldMeta ?? {}
+  return Object.fromEntries(Object.entries(all).filter(([field]) => named.has(field)))
+}
+
+/**
  * The kanban board's four table-derived inputs: both axes' declared options,
  * the column axis' option colours, and the card's `colorField` palette.
  *
@@ -279,6 +309,7 @@ function resolveKanbanInputs(
   if (!table) return EMPTY_RESOLVED
   return {
     ...EMPTY_RESOLVED,
+    dataTableFieldMeta: resolveKanbanFooterFieldMeta(table, component),
     kanbanColumnOptions: resolveKanbanColumnOptions(table, component),
     kanbanColumnColors: resolveKanbanColumnColors(table, component),
     kanbanSwimlaneOptions: resolveKanbanSwimlaneOptions(table, component),
@@ -287,6 +318,23 @@ function resolveKanbanInputs(
       resolveRecordViewColorField('kanban', component)
     ),
   }
+}
+
+/** A chart's or a KPI's field context (`resolve-chart-field-context.ts`). */
+function resolveFigureInputs(
+  type: 'chart' | 'kpi',
+  component: Component,
+  tables: Tables | undefined
+): TypeSpecificResolvedInputs {
+  const table = resolveSourceTable(component, tables)
+  if (!table) return EMPTY_RESOLVED
+  // `Component` is still `any` (see `component.ts`); naming the branch here is
+  // what makes a renamed chart or KPI key fail the typecheck in the resolver.
+  const figure =
+    type === 'chart'
+      ? { type, component: component as ComponentOfType<'chart'> }
+      : { type, component: component as ComponentOfType<'kpi'> }
+  return { ...EMPTY_RESOLVED, ...resolveFigureFieldContext(figure, table) }
 }
 
 /**
@@ -310,7 +358,7 @@ export function resolveTypeSpecificInputs(
   if (type === 'table') {
     const table = resolveSourceTable(component, tables)
     if (!table) return resolveSystemSourceColumnInputs(component)
-    return {
+    const inputs = {
       ...resolveDataTableInputs(table),
       // Same resolver, same slot as the three record views — the grid is the
       // fourth surface in the `colorField` family, not a second mechanism.
@@ -319,9 +367,15 @@ export function resolveTypeSpecificInputs(
         resolveRecordViewColorField(type, component)
       ),
     }
+    // A grid reading through one of the table's views is told only what the
+    // view serves — see `view-binding-inputs.ts`.
+    const view = resolveBoundView(component, table)
+    return view === undefined ? inputs : narrowToBoundView(inputs, view)
   }
 
   if (type === 'kanban') return resolveKanbanInputs(component, tables)
+
+  if (type === 'chart' || type === 'kpi') return resolveFigureInputs(type, component, tables)
 
   if (type === 'calendar' || type === 'timeline') {
     const table = resolveSourceTable(component, tables)
@@ -399,6 +453,9 @@ const TYPE_BUILDERS: {
     return {
       ...baseElementPropsWithType,
       dataSource: component.dataSource,
+      // Read-only switch for a grid reading through a view: no create, edit,
+      // import, saved views or live refresh (`view-binding-inputs.ts`).
+      isViewBound: isViewBoundSource(component.dataSource),
       columns: component.columns,
       selection: component.selection,
       pagination: component.pagination,
@@ -477,6 +534,7 @@ const TYPE_BUILDERS: {
     columnColors: resolved.kanbanColumnColors,
     swimlaneOptions: resolved.kanbanSwimlaneOptions,
     colorFieldColors: resolved.colorFieldColors,
+    fieldMeta: resolved.dataTableFieldMeta,
     search: component.search,
   }),
 
@@ -504,7 +562,7 @@ const TYPE_BUILDERS: {
     layout: component.layout,
   }),
 
-  chart: ({ baseElementPropsWithType, component }) => ({
+  chart: ({ baseElementPropsWithType, component, resolved }) => ({
     ...baseElementPropsWithType,
     dataSource: component.dataSource,
     chartType: component.chartType,
@@ -514,6 +572,8 @@ const TYPE_BUILDERS: {
     legend: component.legend,
     tooltip: component.tooltip,
     chartAggregate: component.chartAggregate,
+    categoryOptions: resolved.categoryOptions,
+    valueCurrency: resolved.valueCurrency,
     emptyMessage: component.emptyMessage,
     // Optional NAMED empty-state region: forwarded
     // so a system-bound chart with zero rows renders an accessible `role="region"`
@@ -521,12 +581,13 @@ const TYPE_BUILDERS: {
     emptyState: component.emptyState,
   }),
 
-  kpi: ({ baseElementPropsWithType, component }) => ({
+  kpi: ({ baseElementPropsWithType, component, resolved }) => ({
     ...baseElementPropsWithType,
     dataSource: component.dataSource,
     label: component.label,
     kpiAggregate: component.kpiAggregate,
     kpiFormat: component.kpiFormat,
+    valueCurrency: resolved.valueCurrency,
     icon: component.icon,
     trend: component.trend,
     thresholds: component.thresholds,

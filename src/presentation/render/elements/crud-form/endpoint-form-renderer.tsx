@@ -55,12 +55,16 @@ import {
   computeButtonDefaultClasses,
   type ButtonVariant,
 } from '@/presentation/design/button-default-classes'
+import { fieldDescriptionId } from '@/presentation/design/field-display'
+import { computeFormHelpTextClasses } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
   computeFormClasses,
   computeFormControlClasses,
   computeFormFieldClasses,
   computeFormFieldLabelClasses,
+  computeFormSwitchClasses,
+  computeFormSwitchFieldClasses,
 } from '../../../design/forms-default-classes'
 import { omitInternalMarkers } from '../../props/internal-marker-props'
 import type { ElementProps } from '../html-element-renderer'
@@ -123,6 +127,55 @@ function computeSubmitClasses(variant: ButtonVariant | undefined): string {
 /** A `select` option as read off an endpoint-bound field (`{ value, label? }`). */
 type EndpointFieldOption = { readonly value: string; readonly label?: string }
 
+/**
+ * The `aria-describedby` for one field's control, or nothing when the field
+ * carries no `description`. The id is the one {@link renderHelpText} stamps on
+ * the sentence, so the control is DESCRIBED by it — the association a screen
+ * reader announces with the field — rather than merely sitting near it.
+ */
+function describedByProps(field: FormFieldConfig): Record<string, string> {
+  return field.description === undefined
+    ? {}
+    : { 'aria-describedby': fieldDescriptionId(field.field) }
+}
+
+/**
+ * A field's `description`, drawn as the help text under its control. It sits
+ * OUTSIDE the `<label>`, so the sentence describes the control without also
+ * becoming part of its accessible name.
+ */
+function renderHelpText(field: FormFieldConfig): ReactElement | undefined {
+  if (field.description === undefined) return undefined
+  return (
+    <small
+      id={fieldDescriptionId(field.field)}
+      className={`help-text ${computeFormHelpTextClasses()}`}
+    >
+      {field.description}
+    </small>
+  )
+}
+
+/**
+ * Wrap a field's `<label>` with its help text when it has a description. A
+ * field without one is returned exactly as before, so its markup keeps its
+ * bytes; one with a description gains a column wrapper holding the label and
+ * the sentence under it.
+ */
+function withHelpText(field: FormFieldConfig, labelled: ReactElement): ReactElement {
+  const help = renderHelpText(field)
+  if (help === undefined) return labelled
+  return (
+    <div
+      key={field.field}
+      className={computeFormFieldClasses()}
+    >
+      {labelled}
+      {help}
+    </div>
+  )
+}
+
 /** The marker the client session resolver fills a prefilled control from. */
 const SESSION_VALUE_ATTRIBUTE = 'data-session-value'
 
@@ -158,10 +211,60 @@ function prefillProps(field: FormFieldConfig): Record<string, string> {
   return { defaultValue: asText }
 }
 
+/**
+ * The prefill props for a `switch`. The same identity rule as
+ * {@link prefillProps}, in its on/off form: a boolean (or the string `'true'`)
+ * is the same for every reader and is rendered as `checked`; a `$session.*`
+ * default is the caller's own and is emitted as the TEMPLATE, the switch drawn
+ * OFF, for the browser to set once it has read the caller's session. So the
+ * served bytes never say `aria-checked="true"` for somebody's saved preference.
+ *
+ * `aria-checked` is written explicitly even though a native checkbox already
+ * exposes its state: the attribute is what a switch's contract names, and the
+ * client runtime keeps it in step with `checked` on every change.
+ */
+function switchPrefillProps(field: FormFieldConfig): Record<string, string | boolean> {
+  const declared = field.defaultValue
+  if (typeof declared === 'string' && declared.includes(SESSION_TOKEN_MARKER)) {
+    return { [SESSION_VALUE_ATTRIBUTE]: declared, 'aria-checked': 'false' }
+  }
+  const on = declared === true || declared === 'true'
+  return { defaultChecked: on, 'aria-checked': on ? 'true' : 'false' }
+}
+
+/**
+ * A `switch` field: a native checkbox carrying `role="switch"`, labelled by the
+ * `<label>` that wraps it. It submits through the same endpoint runtime as every
+ * other control, which reads it as a JSON boolean — `false` included, never
+ * omitted (`islands/client.ts`), because an unchecked checkbox contributes
+ * nothing to `FormData` and a partial update reads "absent" as "leave it alone".
+ * It does NOT submit on change: the form's own submit button saves it, like
+ * every other field.
+ */
+function renderEndpointSwitchField(field: FormFieldConfig): ReactElement {
+  return (
+    <label
+      key={field.field}
+      className={computeFormSwitchFieldClasses()}
+    >
+      <input
+        type="checkbox"
+        role="switch"
+        name={field.field}
+        data-control="switch"
+        className={computeFormSwitchClasses()}
+        {...describedByProps(field)}
+        {...switchPrefillProps(field)}
+      />
+      <span className={computeFormFieldLabelClasses()}>{field.label ?? field.field}</span>
+    </label>
+  )
+}
+
 /** Render the inner control element for one endpoint field, keyed off its `control`. */
 function renderEndpointControl(field: FormFieldConfig): ReactElement {
   const name = field.field
-  const prefill = prefillProps(field)
+  const prefill = { ...describedByProps(field), ...prefillProps(field) }
   if (field.control === 'select') {
     const options = (field.options ?? []) as readonly EndpointFieldOption[]
     return (
@@ -204,7 +307,9 @@ function renderEndpointControl(field: FormFieldConfig): ReactElement {
 
 /** Render one endpoint field as a label-wrapped control (accessible name = label). */
 function renderEndpointField(field: FormFieldConfig): ReactElement {
-  return (
+  if (field.control === 'switch') return withHelpText(field, renderEndpointSwitchField(field))
+  return withHelpText(
+    field,
     <label
       key={field.field}
       className={computeFormFieldClasses()}

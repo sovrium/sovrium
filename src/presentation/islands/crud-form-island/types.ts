@@ -51,6 +51,13 @@ export interface CrudFormIslandProps {
   readonly fields: readonly FieldDef[]
   readonly record?: Record<string, unknown>
   readonly recordId?: string
+  /**
+   * Save an update through the mutation (a `fetch` PATCH) even though a
+   * `recordId` is known, instead of the native POST a page-level edit form
+   * uses. Set by a host that must not be navigated away from — the quick-edit
+   * drawer binds the clicked record this way.
+   */
+  readonly submitInPlace?: boolean
   readonly redirectUrl?: string
   readonly successToast?: SuccessToast
   /** When true, the form clears its fields after a successful submission. */
@@ -103,6 +110,14 @@ export interface SubmitContext {
   readonly tableName?: string
   readonly fields: readonly FieldDef[]
   readonly recordId?: string
+  /**
+   * The `updatedAt` of the record version this form was filled from. An update
+   * declares it, so the server refuses (409) a save made against a record that
+   * someone else changed since — the same optimistic lock the inline grid uses.
+   */
+  readonly updatedAt?: string
+  /** Learn the version a successful update produced, for the next save. */
+  readonly rememberUpdatedAt?: (response: unknown) => void
   readonly redirectUrl?: string
   readonly successToast?: SuccessToast
   /** When true, clear the form fields after a successful submission. */

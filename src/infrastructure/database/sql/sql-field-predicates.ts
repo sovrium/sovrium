@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isViewComputedFormula } from '../formula/formula-utils'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
 /**
@@ -151,3 +152,26 @@ export const shouldCreateDatabaseColumn = (field: Fields[number]): boolean => {
 
   return true
 }
+
+/**
+ * Whether a field is STORED as a column of the table's physical relation.
+ *
+ * Narrower than {@link shouldCreateDatabaseColumn}, which only excludes the
+ * fields that have no value at all. A `lookup` or `rollup` field, and a formula
+ * that reads one (transitively), has a value — but the VIEW body computes it
+ * over `<name>_base`; it is never a column of the base table. Every site that
+ * compares the config against the live columns (the CREATE, the ALTER planner,
+ * the derived-DDL ledger) must use this predicate, or it plans an
+ * `ADD COLUMN <lookup>` for a column that must never exist.
+ *
+ * @param allFields - the table's full field list, needed to resolve formulas
+ *   that reference a computed field through another formula.
+ */
+export const isPhysicalColumnField = (
+  field: Fields[number],
+  allFields: readonly Fields[number][]
+): boolean =>
+  shouldCreateDatabaseColumn(field) &&
+  field.type !== 'lookup' &&
+  field.type !== 'rollup' &&
+  !isViewComputedFormula(field, allFields)

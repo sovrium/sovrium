@@ -6,7 +6,8 @@
  */
 
 import { Schema } from 'effect'
-import { commonFieldProps } from '../form-field-props'
+import { SelectOptionSourceSchema } from '../../table-option-source'
+import { commonFieldProps, FormRecordAudioSchema } from '../form-field-props'
 
 /**
  * Standalone field input types — used when a form is NOT bound to a table.
@@ -68,6 +69,18 @@ export const StandaloneFieldSchema = Schema.Struct({
       description: 'Choices offered by a select, multi-select or radio field.',
     })
   ),
+  /**
+   * Choices read from a table's rows each time the form is served — only for a
+   * `select`, `multi-select` or `radio` input, and never with `options`
+   * (`form-option-source-validation.ts`). The TABLE member of the page select
+   * source only: a hosted form has no caller credentials to lend a `system` one.
+   */
+  optionsSource: Schema.optional(
+    SelectOptionSourceSchema.annotate({
+      description:
+        "Reads this field's choices from a table's rows each time the form is served: `displayField` is shown, `valueField` (default `id`) is stored. Resolved on the server with the form's own authority, so a public form needs no read permission on the table; only those two columns reach the page. Mutually exclusive with `options`.",
+    })
+  ),
   /** Accepted MIME types for attachment fields. */
   accept: Schema.optional(
     Schema.String.annotate({
@@ -92,6 +105,8 @@ export const StandaloneFieldSchema = Schema.Struct({
   dropZone: Schema.optional(
     Schema.Boolean.annotate({ description: 'Shows a drag-and-drop area next to the file picker.' })
   ),
+  /** In-browser microphone recorder for attachment fields. */
+  recordAudio: Schema.optional(FormRecordAudioSchema),
   ...commonFieldProps,
 }).annotate({
   identifier: 'StandaloneField',

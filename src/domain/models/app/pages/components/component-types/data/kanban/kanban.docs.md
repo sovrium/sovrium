@@ -8,6 +8,8 @@ A board places each record in the column its grouping field names, and lets a re
 
 `kanbanGroupBy: { field }` names the field whose values become the columns. `drag` is `{ enabled, persistAction }` — whether cards move, and what saves the move. `persistAction` must be a `crud` action, `{ type: crud, operation: update, table }`: it is the only type a drop runs.
 
+`kanbanGroupBy.collapsed` lists the column values that start folded, for example `kanbanGroupBy: { field: status, collapsed: [done] }`. A folded column keeps its heading and record count, hides its cards, and carries a disclosure control the reader clicks to expand it — the column counterpart of `swimlanes.collapsed`. Columns fold on a board without `swimlanes`; a board that declares both axes keeps every column open.
+
 ```yaml
 tables:
   - name: tasks
@@ -29,7 +31,9 @@ pages:
           footer: [{ field: assignee, format: avatar }, { field: due_date, format: short-date }]
 ```
 
-The card takes `children` for its body, `coverImage`, `colorField`, `footer` entries of `{ field, format }` — where `format` is `relative-date`, `short-date`, `avatar`, `badge` or `text` — and `onClick`.
+The card takes `children` for its body, `coverImage`, `colorField`, `footer` entries of `{ field, format }` — where `format` is `relative-date`, `short-date`, `avatar`, `badge`, `text` or `currency` — and `onClick`. `relative-date` reads in the page's language (`meta.lang`), so a French page prints « dans 3 j ». `currency` formats the amount with the bound column's own `currency`, `precision` and separators, exactly as a table's `format: currency` cell does.
+
+**Relationships print their label where the card shows text.** In a card's `children` content and in a footer item, a relationship field that declares `displayField` prints the related record's label — `$record.company` reads `Acme Robotics`, not `1`. Wherever the value builds an address — an `onClick` `path`, a `url`, an `href` — the same `$record.company` keeps the record's id, because a link built from a label would not resolve. A relationship that declares no `displayField` prints its id everywhere.
 
 **A top-level `colorField` has no effect on a kanban.** It is accepted and then ignored; the board reads `card.colorField`. This is the one place the three record views do not spell the key the same way.
 

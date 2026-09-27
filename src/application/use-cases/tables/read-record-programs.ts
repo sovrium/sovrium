@@ -46,10 +46,15 @@ import { enrichRecordWithAttachmentUrls } from './attachment-url-enricher'
 import { formatFieldForDisplay } from './display-formatter'
 import { processRecords, applyPagination } from './list-helpers'
 import { preserveIdType } from './preserve-id-type'
-import { readManyToManyLinks, mergeManyToManyFields } from './record-link-enrichment'
+import {
+  enrichRecordsWithRelatedLabels,
+  mergeManyToManyFields,
+  readManyToManyLinks,
+} from './record-link-enrichment'
 import { transformRecord } from './record-transformer'
 import type { TransformedRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
 import type { DatabaseError } from '@/domain/errors'
 import type { ListRecordsResponse, GetRecordResponse } from '@/domain/models/api/tables/tables'
@@ -141,7 +146,26 @@ interface GetRecordConfig {
   readonly timezone?: string
   /** See `ListRecordsConfig.origin` in `list-records-program.ts`. */
   readonly origin?: string
+  /** The caller's groups, which decide which relationship labels they may read. */
+  readonly userGroups?: readonly string[]
 }
+
+/**
+ * The `_display` block of ONE record — the same relationship and account labels
+ * a list row carries, so a drawer opened on a row names what the grid
+ * cell beside it names.
+ */
+const readRecordDisplay = (
+  config: GetRecordConfig,
+  id: string | number,
+  fields: Readonly<TransformedRecord['fields']>
+): Effect.Effect<unknown, DatabaseError, TableRepository | AuthRepository> =>
+  enrichRecordsWithRelatedLabels(
+    config.app,
+    config.tableName,
+    [{ id, fields, createdAt: '', updatedAt: '' }],
+    { reader: { role: config.userRole, groups: config.userGroups ?? [] } }
+  ).pipe(Effect.map((records) => (records[0] as { readonly _display?: unknown })._display))
 
 /**
  * Collapse the single-record read's fields to FLAT display strings.
@@ -214,7 +238,7 @@ export function createGetRecordProgram(
 ): Effect.Effect<
   GetRecordResponse,
   DatabaseError | NotFoundError | ValidationError,
-  TableRepository
+  TableRepository | AuthRepository
 > {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
@@ -257,6 +281,11 @@ export function createGetRecordProgram(
     // top-level `_aiCompute` block. `undefined` (omitted) for non-AI tables
     // and for records with no status rows yet — non-AI tables skip the read.
     const aiCompute = yield* buildAiComputeProjection(app, tableName, id)
+    const display = yield* readRecordDisplay(
+      config,
+      id,
+      enrichedFields as TransformedRecord['fields']
+    )
 
     // Spread fields at root level as flat aliases (same pattern as createRecordProgram).
     // Lets callers access record.fieldName in addition to record.fields.fieldName.
@@ -270,6 +299,7 @@ export function createGetRecordProgram(
       ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
       ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
       ...(aiCompute ? { _aiCompute: aiCompute } : {}),
+      ...(display === undefined ? {} : { _display: display }),
     }
   }).pipe(Effect.withSpan('tables.create-get-record-program'))
 }

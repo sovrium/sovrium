@@ -11,6 +11,7 @@ import {
   ActivityLogRepository,
   ActivityLogDatabaseError,
 } from '@/application/ports/repositories/analytics/activity-log-repository'
+import { resolveActorUserId } from '@/domain/models/app/auth/guest-session'
 import { db } from '@/infrastructure/database'
 import {
   authUsersTable,
@@ -82,7 +83,11 @@ export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
   }),
 
   /**
-   * Create activity log entry
+   * Create activity log entry.
+   *
+   * `user_id` references the user table, so a synthetic actor (`guest`,
+   * `system`) is resolved to NULL here exactly as the activity-log helpers do —
+   * an insert carrying the sentinel would fail the foreign key.
    */
   create: (log) =>
     wrap(async () => {
@@ -90,7 +95,7 @@ export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
         .insert(activityLogs)
         .values({
           id: crypto.randomUUID(),
-          userId: log.userId,
+          userId: resolveActorUserId(log.userId),
           action: log.action,
           tableName: log.tableName,
           tableId: log.tableId,

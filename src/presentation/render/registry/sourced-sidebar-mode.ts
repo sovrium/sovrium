@@ -33,8 +33,9 @@ function itemNeedsIsland(item: unknown): boolean {
 /**
  * True when a `sidebar` mounts an island — a group whose entries are FETCHED
  * (`sidebar-groups`), an entry whose badge is a fetched count (`sidebar-badge`),
- * an entry that EXPANDS (`sidebar-disclosure`), or a sidebar re-deriving its
- * current-entry mark after a same-document navigation (`sidebar-current`).
+ * an entry that EXPANDS (`sidebar-disclosure`), a sidebar re-deriving its
+ * current-entry mark after a same-document navigation (`sidebar-current`), or a
+ * sidebar folding into a drawer below a breakpoint (`sidebar-drawer`).
  *
  * `sidebar` is deliberately NOT in `ISLAND_COMPONENT_TYPES`: an authored-only
  * grouped sidebar with no disclosures is entirely server-rendered, and listing
@@ -49,10 +50,14 @@ function itemNeedsIsland(item: unknown): boolean {
  */
 export function isSourcedSidebar(component: Component): boolean {
   if (component.type !== 'sidebar') return false
-  const { groups, trackNavigation } = component as {
+  const { groups, trackNavigation, drawer } = component as {
     groups?: unknown
     trackNavigation?: unknown
+    drawer?: unknown
   }
+  // Checked before `groups`: a drawer folds whatever the sidebar holds, authored
+  // children included, and its menu button opens nothing without the island.
+  if (drawer !== undefined) return true
   if (!Array.isArray(groups)) return false
   if (trackNavigation === true) return true
   return groups.some((group: unknown) => {

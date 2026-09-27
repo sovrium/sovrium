@@ -44,6 +44,18 @@ export const DEFAULT_STT_TIMEOUT_MS = 600_000
 /** Default ceiling on one recording sent to the endpoint (100 MB). */
 export const DEFAULT_STT_MAX_FILE_BYTES = 104_857_600
 
+/**
+ * Why a recording of `bytes` is refused under the `limit` from
+ * `STT_MAX_FILE_BYTES`, or `undefined` when it fits. One sentence for every
+ * place the limit is enforced — the speech service on the bytes it is handed,
+ * and the `ai/transcribe` step on the size the storage catalog records before
+ * it downloads anything — so an operator reads the same words either way.
+ */
+export const oversizedRecordingRefusal = (bytes: number, limit: number): string | undefined =>
+  bytes > limit
+    ? `the recording is ${String(bytes)} bytes, above the ${String(limit)}-byte limit (STT_MAX_FILE_BYTES)`
+    : undefined
+
 /** Where each provider listens when `STT_BASE_URL` is unset. */
 const DEFAULT_BASE_URLS: Readonly<Record<SpeechProvider, string>> = {
   'openai-compatible': 'http://127.0.0.1:8000/v1',
@@ -63,6 +75,18 @@ const DEFAULT_MODELS: Readonly<Partial<Record<SpeechProvider, string>>> = {
 
 const PositiveIntFromString = Schema.FiniteFromString.pipe(
   Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
+)
+
+/**
+ * The longest deadline a JavaScript timer can hold (2^31 - 1 ms, about 24.8
+ * days). A longer `STT_TIMEOUT_MS` would not mean "wait longer": the runtime
+ * clamps an overflowing timer to 1 ms, so every transcription would time out at
+ * once. It is refused at boot instead.
+ */
+export const MAX_TIMER_MS = 2_147_483_647
+
+const TimerMsFromString = PositiveIntFromString.pipe(
+  Schema.check(Schema.isLessThanOrEqualTo(MAX_TIMER_MS))
 )
 
 const NonEmptyString = Schema.String.pipe(Schema.check(Schema.isMinLength(1)))
@@ -93,7 +117,7 @@ export const SpeechEnvSchema = Schema.Struct({
     NonEmptyString.annotate({ description: 'Model for the accurate tier (STT_MODEL_ACCURATE)' })
   ),
   timeoutMs: Schema.optional(
-    PositiveIntFromString.annotate({ description: 'Per-request deadline (STT_TIMEOUT_MS)' })
+    TimerMsFromString.annotate({ description: 'Per-request deadline (STT_TIMEOUT_MS)' })
   ),
   maxFileBytes: Schema.optional(
     PositiveIntFromString.annotate({ description: 'Largest recording sent (STT_MAX_FILE_BYTES)' })
@@ -128,7 +152,7 @@ const describeInvalidEnv = (env: Readonly<Record<string, string | undefined>>): 
   ) {
     return `STT_PROVIDER=${provider} is not a supported speech provider. Supported: ${SUPPORTED_SPEECH_PROVIDERS.join(', ')}.`
   }
-  return 'The STT_* speech-to-text variables are invalid: STT_BASE_URL must be an http(s) URL, and STT_TIMEOUT_MS and STT_MAX_FILE_BYTES must be positive integers.'
+  return 'The STT_* speech-to-text variables are invalid: STT_BASE_URL must be an http(s) URL, STT_TIMEOUT_MS must be a positive integer of at most 2147483647 (milliseconds), and STT_MAX_FILE_BYTES a positive integer.'
 }
 
 /**
@@ -210,4 +234,16 @@ export const speechPrecedenceRefusal = (
 ): string | undefined =>
   parseAiProviderPrecedence(env) === 'local-only' && isCloudSpeechProvider(config.provider)
     ? `ECO_AI_PROVIDER_PRECEDENCE=local-only forbids a cloud speech provider, but STT_PROVIDER=${config.provider} would send recordings off this machine. Point speech-to-text at a local server (STT_PROVIDER=openai-compatible or whisper-cpp) or choose another precedence.`
+    : undefined
+
+/**
+ * Why a configured speech provider cannot work without a credential, or
+ * `undefined` when it can. A hosted provider (OpenAI, Mistral) authenticates
+ * every request, so a missing `STT_API_KEY` would fail every transcription at
+ * run time; refusing at startup names the variable while the operator is
+ * still looking at the terminal. A local server needs no key.
+ */
+export const speechCredentialRefusal = (config: SpeechConfig): string | undefined =>
+  isCloudSpeechProvider(config.provider) && config.apiKey === undefined
+    ? `STT_PROVIDER=${config.provider} is a hosted speech provider and needs a key, but STT_API_KEY is empty. Set STT_API_KEY to your ${config.provider} API key, or point speech-to-text at a local server (STT_PROVIDER=openai-compatible or whisper-cpp).`
     : undefined

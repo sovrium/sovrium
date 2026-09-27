@@ -1,0 +1,210 @@
+# The home page: the four figures a sales lead asks for first, then every open
+# deal by stage. Won and Lost are columns too, folded until someone opens them,
+# so the month's outcomes are one click away without crowding the board.
+name: pipeline
+path: /
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Pipeline · Kestrel CRM
+  description: Open deals by stage, with value, close date and owner.
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Pipeline
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Add deal
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-deal-dialog
+          - type: dialog
+            props:
+              id: add-deal-dialog
+              title: Add deal
+              description: The deal lands on the board in the stage you choose.
+            children:
+              - type: form
+                dataSource:
+                  table: deals
+                fields:
+                  - field: name
+                  - field: company
+                  - field: contact
+                  - field: stage
+                  - field: value
+                  - field: probability
+                  - field: close_date
+                  - field: owner
+                action:
+                  type: crud
+                  operation: create
+                  table: deals
+                  submitLabel: Add deal
+                  onSuccess:
+                    navigate: /
+                    toast:
+                      message: Deal added
+                      variant: success
+          - type: container
+            props:
+              className: flex flex-col gap-4 px-5 pb-5 pt-4
+            children:
+              # Four figures over the open pipeline. Each is computed from the
+              # deals table on every visit, never typed in.
+              - type: grid
+                props:
+                  className: grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4
+                children:
+                  - type: kpi
+                    label: Open pipeline
+                    dataSource:
+                      table: deals
+                      filter:
+                        - {
+                            field: stage,
+                            operator: in,
+                            value: [Prospect, Qualified, Proposal, Negotiation],
+                          }
+                    kpiAggregate: { function: sum, field: value }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+                  - type: kpi
+                    label: Weighted forecast
+                    dataSource:
+                      table: deals
+                      filter:
+                        - {
+                            field: stage,
+                            operator: in,
+                            value: [Prospect, Qualified, Proposal, Negotiation],
+                          }
+                    kpiAggregate: { function: sum, field: weighted_value }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+                  # Filtered by stage, not by month, so the figure never goes
+                  # stale when the calendar turns.
+                  - type: kpi
+                    label: Won
+                    dataSource:
+                      table: deals
+                      filter:
+                        - { field: stage, operator: eq, value: Won }
+                    kpiAggregate: { function: sum, field: value }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+                  - type: kpi
+                    label: Stalled deals
+                    dataSource:
+                      table: deals
+                      filter:
+                        - { field: health, operator: eq, value: Stalled }
+                    kpiAggregate: { function: count }
+                    kpiFormat: { type: number }
+              - type: filter-bar
+                publishes:
+                  bindTo: pipeline-filter
+                fields:
+                  - name: stage
+                    label: Stage
+                    kind: select
+                    options:
+                      - { value: Prospect, label: Prospect }
+                      - { value: Qualified, label: Qualified }
+                      - { value: Proposal, label: Proposal }
+                      - { value: Negotiation, label: Negotiation }
+                  - { name: value, label: Value, kind: number }
+                  - { name: close_date, label: Close date, kind: date }
+              # The four open stages share the width; the two folded outcome
+              # columns take only what their heading needs. On a phone every
+              # column keeps a readable width and the board scrolls sideways.
+              - type: kanban
+                props:
+                  className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Won]]:flex-[0_0_6rem]! md:[&_[data-column=Lost]]:flex-[0_0_6rem]!'
+                dataSource:
+                  table: deals
+                  bindTo: pipeline-filter
+                  sharedFilter: {}
+                  sort:
+                    - { field: close_date, direction: asc }
+                kanbanGroupBy:
+                  field: stage
+                  # The two outcome columns start folded: they hold the month's
+                  # results, not work in progress.
+                  collapsed: [Won, Lost]
+                drag:
+                  enabled: true
+                  persistAction:
+                    type: crud
+                    operation: update
+                    table: deals
+                emptyColumnMessage: No deals in this stage.
+                card:
+                  children:
+                    - type: text
+                      element: h3
+                      props:
+                        className: text-[13px] font-medium leading-snug text-foreground
+                      content: $record.name
+                    - type: text
+                      element: p
+                      props:
+                        className: text-xs text-foreground-muted
+                      content: $record.company
+                  footer:
+                    - { field: value, format: currency }
+                    - { field: health, format: badge }
+                    - { field: close_date, format: short-date }
+                    # The deal's owner, as an avatar chip with their name.
+                    - { field: owner, format: avatar }
+                  onClick:
+                    action: openDrawer
+                    component: deal-detail
+              # One deal, opened over the board. `/?record=<id>` opens it too,
+              # so a deal can be linked to directly.
+              - type: drawer
+                id: deal-detail
+                drawerSide: right
+                drawerSize: md
+                canEdit: false
+                dataSource:
+                  table: deals
+                props:
+                  title: Deal
+                recordFields:
+                  - { name: name, type: single-line-text, label: Deal }
+                  - { name: company, type: relationship, label: Company }
+                  - { name: contact, type: relationship, label: Contact }
+                  - { name: stage, type: single-select, label: Stage }
+                  - { name: value, type: currency, label: Value }
+                  - { name: close_date, type: date, label: Expected close }
+                  - { name: owner, type: user, label: Owner }
+                related:
+                  - label: Tasks
+                    table: tasks
+                    field: deal
+                    columns:
+                      - { field: title, label: Task }
+                      - { field: due_date, label: Due }
+                      - { field: status, label: Status }
+                    sort:
+                      - { field: due_date, direction: asc }
+                    emptyMessage: No task on this deal yet.

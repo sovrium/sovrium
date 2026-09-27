@@ -37,7 +37,8 @@ export const generateMultiLanguageFiles = (
   replaceAppTokens: (app: App, lang: string) => App,
   serverFactory: ServerFactory,
   pageRenderer: PageRenderer,
-  staticSiteGenerator: StaticSiteGenerator
+  staticSiteGenerator: StaticSiteGenerator,
+  recordPagePaths: readonly string[] = []
 ): Effect.Effect<
   readonly string[],
   | AppValidationError
@@ -84,7 +85,7 @@ export const generateMultiLanguageFiles = (
           const langOutputDir = `${outputDir}/${lang.code}`
           // Filter to publicly-emittable pages — see getPublicPagePaths and
           // [internal ref] for the access-leak regression.
-          const pagePaths = getPublicPagePaths(validatedLangApp.pages)
+          const pagePaths = [...getPublicPagePaths(validatedLangApp.pages), ...recordPagePaths]
           // Disposed AFTER the HTML exists, and on every exit path. The old
           // order was the reverse — the server was stopped BEFORE its `app`
           // reached the generator — which worked only because rendering never
@@ -159,7 +160,8 @@ export const generateSingleLanguageFiles = (
   outputDir: string,
   serverFactory: ServerFactory,
   pageRenderer: PageRenderer,
-  staticSiteGenerator: StaticSiteGenerator
+  staticSiteGenerator: StaticSiteGenerator,
+  recordPagePaths: readonly string[] = []
 ): Effect.Effect<
   readonly string[],
   | CSSCompilationError
@@ -183,7 +185,9 @@ export const generateSingleLanguageFiles = (
 
     // Filter to publicly-emittable pages — see getPublicPagePaths and
     // [internal ref] for the access-leak regression.
-    const pagePaths = getPublicPagePaths(validatedApp.pages)
+    // The declared pages, plus one address per record the sitemap lists — the
+    // record pages are written so a static host answers every listed address.
+    const pagePaths = [...getPublicPagePaths(validatedApp.pages), ...recordPagePaths]
     logDebug(`[ssg] generating static HTML files for ${pagePaths.length} pages...`)
     const ssgResult = yield* staticSiteGenerator
       .generate(renderApp.app, {

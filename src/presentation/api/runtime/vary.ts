@@ -49,6 +49,9 @@ const ACCEPT_LANGUAGE = 'Accept-Language'
 /** The request header carrying a persisted language preference. */
 const COOKIE = 'Cookie'
 
+/** The request header that picks HTML or Markdown on a content-negotiated URL. */
+const ACCEPT = 'Accept'
+
 /**
  * Declare that this response varies on `Accept-Language`.
  *
@@ -79,4 +82,19 @@ export function varyOnAcceptLanguage(c: Context): void {
  */
 export function varyOnCookie(c: Context): void {
   c.header('Vary', COOKIE, { append: true })
+}
+
+/**
+ * Declare that this response varies on `Accept`.
+ *
+ * Narrow in the same way: called only on a content-directory article URL, the
+ * one address that answers HTML or Markdown depending on `Accept`. Both
+ * representations carry it, or a shared cache hands the Markdown to a browser
+ * or the HTML to an agent. The `.md` twin has one representation and needs
+ * none.
+ *
+ * @param c - The Hono request context.
+ */
+export function varyOnAccept(c: Context): void {
+  c.header('Vary', ACCEPT, { append: true })
 }

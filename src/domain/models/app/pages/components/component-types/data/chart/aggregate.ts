@@ -34,6 +34,29 @@ export const ChartDateIntervalSchema = Schema.Literals([
 })
 
 /**
+ * Order in which an aggregated chart draws its categories.
+ *
+ * `option` follows the declared option order of a `single-select` or `status`
+ * grouping field — a pipeline reads Prospect, Qualified, Proposal, Won, Lost
+ * rather than alphabetically. `label` sorts the category names as displayed
+ * (an option's label, else its value); `value-asc` and `value-desc` sort by the
+ * aggregated value. The effective default is `option` when the grouping field
+ * declares options, otherwise `value-desc` for a pie or donut and `label` for
+ * every other chart, so the default lives in the renderer rather than on this
+ * node.
+ */
+export const ChartAggregateOrderSchema = Schema.Literals([
+  'option',
+  'label',
+  'value-asc',
+  'value-desc',
+]).annotate({
+  title: 'Category Order',
+  description:
+    "Order of the chart's categories: `option` follows the grouping field's declared options (the default for a single-select or status field), `label` sorts the category names as displayed (the default otherwise, except a pie or donut), `value-asc` and `value-desc` sort by the aggregated value (`value-desc` is a pie or donut's default).",
+})
+
+/**
  * Aggregate configuration for summarized chart data.
  */
 export const ChartAggregateSchema = Schema.Struct({
@@ -49,6 +72,8 @@ export const ChartAggregateSchema = Schema.Struct({
   }),
   /** Date grouping interval (when groupBy is a date field) */
   interval: Schema.optional(ChartDateIntervalSchema),
+  /** Category order (defaults by grouping field type) */
+  order: Schema.optional(ChartAggregateOrderSchema),
 }).annotate({
   title: 'Chart Aggregate',
   description: 'Aggregate function and grouping configuration for summarized chart data',
@@ -58,5 +83,7 @@ export const ChartAggregateSchema = Schema.Struct({
 export type ChartAggregateFunction = Schema.Schema.Type<typeof ChartAggregateFunctionSchema>
 /** @public */
 export type ChartDateInterval = Schema.Schema.Type<typeof ChartDateIntervalSchema>
+/** @public */
+export type ChartAggregateOrder = Schema.Schema.Type<typeof ChartAggregateOrderSchema>
 /** @public */
 export type ChartAggregate = Schema.Schema.Type<typeof ChartAggregateSchema>

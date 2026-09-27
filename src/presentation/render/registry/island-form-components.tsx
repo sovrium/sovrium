@@ -18,8 +18,10 @@ import {
   renderNativeSelect,
   renderSsrSelectPlaceholder,
 } from '@/presentation/render/elements/native-select'
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import { LAZY_PANEL_PARAM_KEY } from '@/presentation/render/resolve/tabs-lazy-resolver'
 import { buildAccordionItems } from './island-accordion-items'
+import { localizeChildLabel } from './island-child-label'
 import { asRecord, baseProps, controlLabel, pickFromComponent } from './island-form-props'
 import { renderSsrNavItem } from './island-nav-ssr'
 import {
@@ -99,8 +101,16 @@ function buildCheckboxProps(rawProps: RawProps, elementProps: ElemProps, compone
 /** Form, navigation, and interactive island components */
 export const islandFormComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   'record-picker': recordPickerComponent,
-  select: ({ rawProps, elementProps, component, designStyles }) => {
-    const selectProps = buildSelectProps(rawProps, elementProps, component, designStyles)
+  select: ({ rawProps, elementProps, component, designStyles, currentLang, languages }) => {
+    const built = buildSelectProps(rawProps, elementProps, component, designStyles)
+    // The caption is read off `rawProps`, which the props translation pass never
+    // reaches, so a `$t:` label is resolved HERE — once, on the way into the
+    // props both the platform control and the island serialise, so neither the
+    // SSR document nor the hydrated island prints the key.
+    const selectProps =
+      typeof built.label === 'string'
+        ? { ...built, label: localizeChildLabel(built.label, currentLang, languages) }
+        : built
     // The PLATFORM control: the same element this renderer already
     // produced below, left enabled and emitted with NO island marker — so
     // nothing replaces it and the page ships no component code for it.
@@ -113,6 +123,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       <div
         id={elementProps.id as string | undefined}
         data-island="select"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(selectProps)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
@@ -135,6 +146,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     return (
       <div
         data-island="accordion"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
@@ -304,6 +316,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     return (
       <div
         data-island="checkbox"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(checkboxProps)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
@@ -336,6 +349,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     return (
       <div
         data-island="radio-group"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
@@ -361,6 +375,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     return (
       <div
         data-island="switch"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
@@ -389,6 +404,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     return (
       <div
         data-island="slider"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
@@ -414,6 +430,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     return (
       <div
         data-island="toggle"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
@@ -458,6 +475,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     return (
       <div
         data-island="toggle-group"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
@@ -469,11 +487,17 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     )
   },
 
-  menubar: ({ rawProps, elementProps }) => {
-    const props = { menus: rawProps?.menus, ...baseProps(elementProps) }
+  menubar: ({ rawProps, elementProps, component }) => {
+    // `menus` is a top-level schema field (a sibling of `props`), read like
+    // every other form-control field through `pickFromComponent`.
+    const props = {
+      menus: pickFromComponent(asRecord(component), rawProps, 'menus'),
+      ...baseProps(elementProps),
+    }
     return (
       <div
         data-island="menubar"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
@@ -526,10 +550,17 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     // usage relies on the landmark, e.g. `nav a` selectors in the
     // responsive-override specs).
     const Wrapper = navItems !== undefined ? 'div' : 'nav'
+    // Only the `navItems` form is an island. The island renders `navItems` and
+    // nothing else, and it mounts INSIDE this host, replacing what the server
+    // rendered — so marking the children-based form as an island erased the
+    // author's children (and the empty placeholder) on hydration, leaving an
+    // empty, zero-size nav. That form is complete as served.
+    const isIsland = navItems !== undefined
     return (
       <Wrapper
-        data-island="navigation-menu"
-        data-island-props={JSON.stringify(props)}
+        data-island={isIsland ? 'navigation-menu' : undefined}
+        data-component-type={hostComponentType(elementProps)}
+        data-island-props={isIsland ? JSON.stringify(props) : undefined}
         data-testid={elementProps['data-testid'] as string | undefined}
         aria-label={elementProps['aria-label'] as string | undefined}
         className={navClassName}
@@ -561,6 +592,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     return (
       <div
         data-island="scroll-area"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
         // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- SSR placeholder; one-shot during server render before island hydration

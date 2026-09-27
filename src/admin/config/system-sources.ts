@@ -155,10 +155,11 @@ export const AUTOMATIONS_OVERVIEW_ENDPOINT = '/api/admin/automations/overview'
 export const AUTOMATION_RUNS_ENDPOINT = '/api/admin/automations/runs'
 
 /**
- * One run's per-step detail. `:runId` is the drawer's client-side id slot,
- * filled from the clicked row — so the GET fires on a row click, never on load.
+ * One run's per-step detail. `:id` is the run page's route parameter, injected
+ * on the server before the page is sent — the same name on both sides, and the
+ * binding's default, because a page path admits no capital letter.
  */
-export const AUTOMATION_RUN_DETAIL_ENDPOINT = '/api/admin/automations/runs/:runId'
+export const AUTOMATION_RUN_DETAIL_ENDPOINT = '/api/admin/automations/runs/:id'
 
 /**
  * The link catalog — definitions, never metrics.

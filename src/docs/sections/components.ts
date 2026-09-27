@@ -123,7 +123,7 @@ export const section = defineSection({
       slug: 'sidebar-navigation',
       title: 'Sidebar Navigation',
       description:
-        'The sidebar layout component — declarative navigation groups, fetched entries, expanding sections, the current-entry mark, and the icon rail.',
+        'The sidebar layout component — declarative navigation groups, fetched entries, expanding sections, the current-entry mark, the icon rail, and the drawer on narrow screens.',
       keywords: ['sovrium', 'sidebar', 'navigation', 'app shell', 'groups', 'landmark'],
       order: 3212,
       sidebarLabel: 'Sidebar',
@@ -135,6 +135,7 @@ export const section = defineSection({
         'US-PAGES-LAYOUT-APP-SHELL-SIDEBAR',
         'US-PAGES-NAVIGATION-SIDEBAR-CLIENT-CURRENT',
         'US-PAGES-NAVIGATION-SIDEBAR-DISCLOSURE',
+        'US-PAGES-NAVIGATION-SIDEBAR-DRAWER',
         'US-PAGES-NAVIGATION-SIDEBAR-ENTRY-PROPS',
         'US-PAGES-NAVIGATION-SIDEBAR-GROUPS',
         'US-PAGES-NAVIGATION-SIDEBAR-SECTIONS',

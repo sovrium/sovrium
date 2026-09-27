@@ -1,0 +1,14 @@
+# The two people of Brunel & Fils who use the app, created as sign-in accounts
+# before any table is filled, so orders can name who handles them.
+#
+# Élise runs the stock and buys (admin); Maxime receives, picks, moves and
+# counts in the warehouses (member). No password is written here: every
+# account takes `SOVRIUM_SEED_PASSWORD` from the environment, so a password
+# never lands in a file you might commit.
+users:
+  - email: elise.brunel@brunel-fils.example
+    name: Élise Brunel
+    role: admin
+  - email: maxime.vidal@brunel-fils.example
+    name: Maxime Vidal
+    role: member

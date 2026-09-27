@@ -200,8 +200,25 @@ export function generateHeadingStyles(
 }
 
 /**
+ * Every element's default border colour, re-pointed at the theme's
+ * `--color-border` token. Tailwind's preflight resets it to `currentColor`, so
+ * without this rule a bare `border` class paints in the element's TEXT colour.
+ * It lives in the base layer so any colour utility (`border-primary`,
+ * `border-foreground`) still wins, and it reads the same variable the dark
+ * palette overrides, so dark mode follows for free.
+ */
+const DEFAULT_BORDER_COLOR_RULE = `*,
+      ::before,
+      ::after,
+      ::backdrop,
+      ::file-selector-button {
+        border-color: var(--color-border, currentColor);
+      }`
+
+/**
  * Generate base layer styles with design color and font applications
  * Applies design colors and fonts to base HTML elements if design defines those tokens
+ * The first rule is {@link DEFAULT_BORDER_COLOR_RULE}.
  *
  * @param design - Optional design configuration
  * @returns CSS @layer base rule as string
@@ -225,6 +242,8 @@ export function generateBaseLayer(design?: Design): string {
   const headingStyles = generateHeadingStyles(headingClasses, headingStyleProps)
 
   return `@layer base {
+      ${DEFAULT_BORDER_COLOR_RULE}
+
       body {
         @apply ${bodyClasses.join(' ')};
       }

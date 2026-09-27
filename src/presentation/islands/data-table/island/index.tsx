@@ -10,6 +10,7 @@ import { type FieldMetaMap } from '../../hooks/use-inline-editing'
 import { type DataTableRowClickAction } from '../body'
 import { usePasteImport } from '../paste-preview/use-paste-import'
 import { coerceFieldValues, createRecord } from './create-record-data'
+import { withColumnDisplayFields } from './island-setup-helpers'
 import { useClipboardCopy } from './use-clipboard-copy'
 import { useDataTableIslandSetup } from './use-island-setup'
 import { DataTableView } from './view/data-table-view'
@@ -108,6 +109,13 @@ interface DataTableIslandProps {
    * because a grid that gets three of them is broken rather than half dressed.
    */
   readonly layout?: DataTableLayout
+  /**
+   * The grid reads through one of its table's views (`dataSource.view`). A
+   * view is a projection, and writes stay on the table, so a view-bound grid is
+   * read-only exactly as a system source is: no create, no inline edit, no CSV
+   * import, no saved views, no live refresh.
+   */
+  readonly isViewBound?: boolean
   readonly searchSourceId?: string
   readonly tableFields?: readonly string[]
   readonly fieldMeta?: FieldMetaMap
@@ -202,6 +210,7 @@ interface DataTableIslandProps {
         readonly action?: string
         readonly path?: string
         readonly component?: string
+        readonly openInNewTab?: boolean
       }
     | undefined
   /**
@@ -271,6 +280,38 @@ function isSystemSourceBinding(props: DataTableIslandProps): boolean {
 }
 
 /**
+ * Whether the grid may write at all. A system source has no table to write to;
+ * a view-bound grid reads a projection whose writes stay on the table. Both
+ * take the same read-only posture, decided here once.
+ */
+function isReadOnlyBinding(props: DataTableIslandProps): boolean {
+  return isSystemSourceBinding(props) || props.isViewBound === true
+}
+
+/**
+ * A view-bound grid's columns with every author `editable` switched off —
+ * reading through a view never opens an editor, whatever a column declares.
+ */
+function withViewBoundReadOnly(
+  columns: readonly DataTableColumn[] | undefined,
+  isViewBound: boolean
+): readonly DataTableColumn[] | undefined {
+  if (!columns || !isViewBound) return columns
+  return columns.map((col) => ('field' in col ? { ...col, editable: false } : col))
+}
+
+/**
+ * A view-bound grid's toolbar with export switched off. The export route is
+ * the TABLE's, gated on the table's own read grant — which a visitor on a
+ * public view does not hold — so the affordance would only ever answer 401.
+ */
+function withViewBoundToolbar(props: DataTableIslandProps): DataTableToolbar | undefined {
+  return props.isViewBound === true && props.toolbar?.export === true
+    ? { ...props.toolbar, export: false }
+    : props.toolbar
+}
+
+/**
  * Resolves the documented default of `ColumnSchema.editable` — "default: from
  * table permissions" — once, at the island boundary,
  * by stamping `editable: true` onto the columns entitled to it.
@@ -321,7 +362,7 @@ function withPermissionEditableDefault(
 function permissionEditableAllowed(props: DataTableIslandProps): boolean {
   return (
     props.canUpdate === true &&
-    props.dataSource.system === undefined &&
+    !isReadOnlyBinding(props) &&
     props.onRowClick === undefined &&
     props.selection?.mode !== 'single'
   )
@@ -331,11 +372,15 @@ function permissionEditableAllowed(props: DataTableIslandProps): boolean {
 function toSetupParams(props: DataTableIslandProps) {
   return {
     dataSource: props.dataSource,
-    columnConfig: withPermissionEditableDefault(props.columns, permissionEditableAllowed(props)),
+    columnConfig: withViewBoundReadOnly(
+      withPermissionEditableDefault(props.columns, permissionEditableAllowed(props)),
+      props.isViewBound === true
+    ),
+    isViewBound: props.isViewBound === true,
     paginationConfig: props.pagination,
     searchConfig: props.search,
     selectionConfig: props.selection,
-    toolbarConfig: props.toolbar,
+    toolbarConfig: withViewBoundToolbar(props),
     initialRowHeight: props.rowHeight ?? 'medium',
     searchSourceId: props.searchSourceId,
     tableFields: props.tableFields,
@@ -356,7 +401,7 @@ function toPasteParams(
   props: DataTableIslandProps,
   containerRef: React.RefObject<HTMLDivElement | null>,
   onImported: () => void,
-  isSystemSource: boolean
+  readOnly: boolean
 ) {
   return {
     containerRef,
@@ -365,7 +410,7 @@ function toPasteParams(
     tableFields: props.tableFields ?? [],
     fieldMeta: props.fieldMeta,
     onImported,
-    enabled: !isSystemSource,
+    enabled: !readOnly,
   }
 }
 
@@ -373,7 +418,7 @@ function toPasteParams(
  * Narrow the schema-level `onRowClick` (any action variant) down to the
  * shapes the data-table row-click handler consumes:
  *
- * - `navigate` — `{ type: 'navigate', path: <string> }`
+ * - `navigate` — `{ type: 'navigate', path: <string>, openInNewTab? }`
  * - `openDrawer` (PG-04) — `{ action: 'openDrawer', component: <drawer-id> }`
  *   discriminated by `action` (not `type`) per the OpenDrawerActionSchema.
  *
@@ -385,7 +430,9 @@ function resolveRowClickAction(
 ): DataTableRowClickAction | undefined {
   if (!action) return undefined
   if (action.type === 'navigate' && typeof action.path === 'string') {
-    return { type: 'navigate', path: action.path }
+    return action.openInNewTab === true
+      ? { type: 'navigate', path: action.path, openInNewTab: true }
+      : { type: 'navigate', path: action.path }
   }
   if (action.action === 'openDrawer' && typeof action.component === 'string') {
     return { type: 'openDrawer', component: action.component }
@@ -434,17 +481,33 @@ function useDataTableCreateFlow(
   return { creating, onCreate, onCancelCreate, onSubmitCreate }
 }
 
+/**
+ * The island's props with each column's `displayField` merged into `fieldMeta`.
+ *
+ * Done once, at the entry, so every consumer of `fieldMeta` — the picker, the
+ * create dialog, paste-import, the cells — reads the same field meta. Merged
+ * into one place rather than re-derived per consumer, which is how two of them
+ * would come to search a relationship on different columns.
+ */
+function useColumnDisplayFieldMeta(props: DataTableIslandProps): DataTableIslandProps {
+  const { fieldMeta: declared, columns } = props
+  const fieldMeta = useMemo(() => withColumnDisplayFields(declared, columns), [declared, columns])
+  return useMemo(
+    () => (fieldMeta === declared ? props : { ...props, fieldMeta }),
+    [props, fieldMeta, declared]
+  )
+}
+
 // eslint-disable-next-line max-lines-per-function, complexity -- thin coordinator: 60+ lines of prop-forwarding wiring whose ?? / && short-circuit defaults aggregate one past the threshold; further extraction would obscure the call site
-export default function DataTableIsland(props: DataTableIslandProps) {
-  const isSystemSource = isSystemSourceBinding(props)
+export default function DataTableIsland(islandProps: DataTableIslandProps) {
+  const props = useColumnDisplayFieldMeta(islandProps)
+  const isReadOnly = isReadOnlyBinding(props)
   const setup = useDataTableIslandSetup(toSetupParams(props))
   // Clipboard + paste-import: cell/row selection + Ctrl/Cmd+C / +V handlers.
   // Paste-import (CSV-via-clipboard) targets a DB table; for a system source
   // there is no records table to write to, so it is gated OFF.
   const clipboardRef = useClipboardCopy()
-  const paste = usePasteImport(
-    toPasteParams(props, clipboardRef, setup.handleRefresh, isSystemSource)
-  )
+  const paste = usePasteImport(toPasteParams(props, clipboardRef, setup.handleRefresh, isReadOnly))
   const onRowClickAction = resolveRowClickAction(props.onRowClick)
 
   const { creating, onCreate, onCancelCreate, onSubmitCreate } = useDataTableCreateFlow(
@@ -455,10 +518,10 @@ export default function DataTableIsland(props: DataTableIslandProps) {
   // A system source is read-only: never offer the "Nouvel enregistrement"
   // create affordance (there is no records table to write to). Otherwise the
   // button is offered unless the server explicitly denied create for the role.
-  const showCreate = !isSystemSource && props.canCreate !== false
+  const showCreate = !isReadOnly && props.canCreate !== false
   // Saved/user views are a DB-table-only feature — never offered for a system
   // source (there is no table id to key personal views on).
-  const viewsEnabled = !isSystemSource && setup.viewsEnabled
+  const viewsEnabled = !isReadOnly && setup.viewsEnabled
   // Optional props applied only when present (keeps the JSX spread free of inline
   // boolean operators that would inflate this component's cyclomatic complexity).
   const optionalProps = {
@@ -498,7 +561,7 @@ export default function DataTableIsland(props: DataTableIslandProps) {
         containerRef={clipboardRef}
         table={setup.table}
         {...optionalProps}
-        readOnly={isSystemSource}
+        readOnly={isReadOnly}
         layout={props.layout}
         tableName={tableName}
         allColumns={setup.allColumns}
@@ -509,7 +572,7 @@ export default function DataTableIsland(props: DataTableIslandProps) {
         isLoading={isLoading}
         searchConfig={setup.resolvedSearchConfig}
         selectionConfig={props.selection}
-        toolbarConfig={props.toolbar}
+        toolbarConfig={withViewBoundToolbar(props)}
         bulkActionsConfig={props.bulkActions}
         paginationConfig={props.pagination}
         cursorPaged={setup.cursorFeed.cursorPaged}

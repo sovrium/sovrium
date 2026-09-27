@@ -15,11 +15,11 @@ schedule:
 
 <!-- sovrium:options AgentScheduleSchema -->
 
-`cron` is a standard five-field expression and `timezone` an IANA identifier defaulting to UTC. Both are validated when the configuration is decoded, by the same parser automation cron triggers use, so a malformed expression or an unknown zone fails validation offline — you find out at your desk rather than from a job that never fired.
+`cron` is a standard five-field expression and `timezone` an IANA identifier defaulting to the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset). Both are validated when the configuration is decoded, by the same parser automation cron triggers use, so a malformed expression or an unknown zone fails validation offline — you find out at your desk rather than from a job that never fired.
 
 `taskPrompt` is the difference between a schedule and an alarm clock. The system prompt says who the agent is; the task prompt says what **this run** is for. Write it as an instruction with a definite end state rather than an open remit like "check the tickets", which gives the model nothing to stop at.
 
-**Set `timezone` whenever the schedule means something to a person.** Nine o'clock in the default UTC fires at ten in Paris for half the year and eleven for the other half, and a digest landing before the working day starts is not a digest anyone reads. A named zone handles daylight saving; an offset baked into the expression does not.
+**Set `timezone` whenever the schedule means something to a person.** Nine o'clock in UTC fires at ten in Paris for half the year and eleven for the other half, and a digest landing before the working day starts is not a digest anyone reads. A named zone handles daylight saving; an offset baked into the expression does not.
 
 Schedules are armed once the server is accepting requests and torn down on shutdown, so a restart leaves no timer firing an agent the new configuration no longer schedules.
 

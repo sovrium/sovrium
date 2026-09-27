@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
+import { HttpQuerySchema } from './query'
 
 /**
  * HTTP DELETE Action (type: http, operator: delete)
@@ -32,6 +33,7 @@ export const HttpDeleteActionSchema = Schema.Struct({
     url: TemplateStringSchema.pipe(
       Schema.annotate({ description: 'Request URL (supports template variables)' })
     ),
+    query: Schema.optional(HttpQuerySchema),
     headers: Schema.optional(
       Schema.Record(Schema.String, TemplateStringSchema).pipe(
         Schema.annotate({

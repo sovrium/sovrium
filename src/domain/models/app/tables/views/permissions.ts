@@ -57,16 +57,19 @@ export const RoleBasedViewPermissionsSchema = Schema.Struct({
  */
 export const PublicViewPermissionsSchema = Schema.Struct({
   /**
-   * When true, the view is accessible without authentication.
+   * When true, the view is readable by everyone, signed in or not. Its
+   * `fields` become a server-side column whitelist, so a public view must
+   * declare them; writes stay on the table's own permissions.
    */
   public: Schema.Literal(true).annotate({
     description:
-      'Marks the view readable without authentication. Only `true` is accepted — omit the whole block rather than writing `false`.',
+      "Makes the view readable by everyone, signed in or not: its `fields` become the only columns served, its `filters` and `sorts` are applied on the server, and writes stay on the table's own permissions. Requires `fields`. Only `true` is accepted — omit the block rather than writing `false`.",
   }),
 }).pipe(
   Schema.annotate({
     title: 'Public View Permissions',
-    description: 'View is publicly accessible without authentication.',
+    description:
+      'View readable by everyone, signed in or not, limited to the columns its `fields` names.',
     examples: [{ public: true as const }],
   })
 )

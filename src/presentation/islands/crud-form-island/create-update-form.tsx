@@ -152,8 +152,10 @@ export function CreateUpdateForm(props: {
   const autoSave = useAutoSave({ island, values, ctx, setState: ctx.setState })
   // When auto-save is active the form persists edits in-place; the native
   // POST/redirect path would conflict (full page reload on submit), so it is
-  // disabled and submission falls back to the JS mutation handler.
-  const useNativeForm = operation === 'update' && !!island.recordId && !autoSave.enabled
+  // disabled and submission falls back to the JS mutation handler. A host that
+  // must not be navigated away from (`submitInPlace`) takes the same path.
+  const useNativeForm =
+    operation === 'update' && !!island.recordId && !autoSave.enabled && !island.submitInPlace
 
   // onSuccess.type: 'successPage' — replace the form with the success page once
   // the submission has succeeded. A `reset` action returns to the empty form.

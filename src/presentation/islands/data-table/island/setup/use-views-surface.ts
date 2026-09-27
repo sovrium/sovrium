@@ -18,7 +18,10 @@ export type ViewsSurface = ReturnType<typeof useViewsSurface>
  * modified-indicator diff, and the URL sync that applies a shared view link.
  */
 export function useViewsSurface(ctx: SetupContext, layout: EffectiveLayout) {
-  const { ui, tableKey } = ctx
+  const { ui } = ctx
+  // Saved views are keyed on the TABLE; a grid reading through a declared view
+  // has none (the empty key short-circuits their reads, as for a system source).
+  const tableKey = ctx.isViewBound ? '' : ctx.tableKey
   const headerSorting = layout.tableState.sorting
 
   // The "current sort state" the modified-indicator compares against the view
@@ -63,7 +66,8 @@ export function useViewsSurface(ctx: SetupContext, layout: EffectiveLayout) {
 
   // Saved/user views are a DB-table-only feature — never offered for a system
   // source (there is no table id to key personal views on).
-  const enabled = !ctx.isSystemSource && ctx.params.toolbarConfig?.views === true
+  const enabled =
+    !ctx.isSystemSource && !ctx.isViewBound && ctx.params.toolbarConfig?.views === true
 
   return { orchestration, enabled }
 }

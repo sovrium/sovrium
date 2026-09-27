@@ -70,7 +70,8 @@ export function RichTextEditorField({
   imageBucket,
 }: RichTextEditorFieldProps) {
   const toolbarItems = toolbar ?? DEFAULT_TOOLBAR
-  const bucket = imageBucket ?? 'default'
+  // The built-in `system` bucket stores an image whose field names no bucket.
+  const bucket = imageBucket ?? 'system'
   const fileInputRef = useRef<HTMLInputElement>(null)
   const editorRef = useRef<Editor | null>(null)
 

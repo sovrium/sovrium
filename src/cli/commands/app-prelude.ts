@@ -98,8 +98,15 @@ export const requireApp = async (configFile: string): Promise<App> => {
  * (attachment-URL backfill, connection seeding, agent-user sync, RAG
  * embedding). Those are startup concerns, and a command named `seed` or
  * `migrate` would then have side effects its name does not promise.
+ *
+ * `allowDestructive` is `sovrium migrate --allow-destructive`'s one-shot consent
+ * to drop a table the config no longer declares while it still holds rows.
+ * Every other caller omits it, so they refuse such a drop.
  */
-export const applyDatabaseMigrations = async (app: App): Promise<void> => {
+export const applyDatabaseMigrations = async (
+  app: App,
+  options: { readonly allowDestructive?: boolean } = {}
+): Promise<void> => {
   const { parseDatabaseDialectConfig } =
     await import('@/domain/models/process-env/database/database-dialect')
   const { runMigrations } = await import('@/infrastructure/database/drizzle/migrate')
@@ -107,7 +114,7 @@ export const applyDatabaseMigrations = async (app: App): Promise<void> => {
   return Effect.runPromise(
     Effect.gen(function* () {
       yield* runMigrations(parseDatabaseDialectConfig())
-      yield* initializeSchema(app)
+      yield* initializeSchema(app, options)
     })
   )
 }

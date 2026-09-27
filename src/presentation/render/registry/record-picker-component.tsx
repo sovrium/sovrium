@@ -15,6 +15,7 @@
  * Specs: [internal ref]
  */
 
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import { asRecord, baseProps, pickFromComponent } from './island-form-props'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ElemProps, RawProps } from './island-form-props'
@@ -54,6 +55,7 @@ export const recordPickerComponent: ComponentRenderer = ({ rawProps, elementProp
     <div
       id={elementProps.id as string | undefined}
       data-island="record-picker"
+      data-component-type={hostComponentType(elementProps)}
       data-island-props={JSON.stringify(pickerProps)}
       data-testid={elementProps['data-testid'] as string | undefined}
     >

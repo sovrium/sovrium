@@ -36,13 +36,17 @@ import { findMatchingRoute } from '@/domain/kernel/matching/route-matcher'
 import { validateLanguageSubdirectory } from '@/domain/models/app/languages/language-detection'
 import { matchContentDirIndexBasePath } from '@/domain/models/app/pages/content-dir-index-match'
 import { deriveContentDirSlugFromRouteParams } from '@/domain/models/app/pages/content-dir-slug'
+import { isPublicPage } from '@/domain/models/app/pages/is-public'
 import { checkPageAccess } from '@/domain/models/app/pages/page-access-check'
+import { isNoindexPage } from '@/domain/models/app/pages/sitemap-builder'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { varyOnAccept } from '@/presentation/api/runtime/vary'
+import { PRIVATE_CACHE_CONTROL } from './page-cache-decision'
 import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
-import type { Hono } from 'hono'
+import type { Context, Hono, Next } from 'hono'
 
 /** The suffix that flags a per-page raw-markdown export request. */
 const MD_SUFFIX = '.md'
@@ -118,6 +122,44 @@ const findContentDirArticle = (
 }
 
 /**
+ * Headers of a Markdown response.
+ *
+ * `X-Robots-Tag: noindex` when the article's page is withheld from search: a
+ * Markdown body has nowhere to carry the `noindex` meta tag, so the twin of a
+ * withheld page would otherwise be indexable. `Vary: Accept` is not set here:
+ * a record entry REPLACES the header, so it is appended through
+ * {@link varyOnAccept} instead, which keeps whatever `Vary` another layer
+ * already declared.
+ */
+/** Cache policy of a public article's Markdown: shareable for five minutes. */
+const PUBLIC_MARKDOWN_CACHE_CONTROL = 'public, max-age=300'
+
+const markdownResponseHeaders = (page: Page): Record<string, string> => ({
+  'Content-Type': 'text/markdown; charset=utf-8',
+  // A page restricted by `access` answers each session with its own Markdown,
+  // exactly as its HTML does, so it carries the HTML's private policy: a
+  // shared cache must never store it and hand it to the next caller.
+  'Cache-Control': isPublicPage(page) ? PUBLIC_MARKDOWN_CACHE_CONTROL : PRIVATE_CACHE_CONTROL,
+  ...(isNoindexPage(page) ? { 'X-Robots-Tag': 'noindex' } : {}),
+})
+
+/**
+ * Let an HTML request through, then mark its response `Vary: Accept` when the
+ * URL is a negotiable article address — one that also answers Markdown to
+ * `Accept: text/markdown`. Without it a cache or CDN in front of the app may
+ * hand the Markdown to a browser, or the HTML to an agent.
+ */
+const answerHtmlVaryingOnAccept = async (
+  c: Context,
+  next: Next,
+  app: App,
+  path: string
+): Promise<void> => {
+  await next()
+  if (findContentDirArticle(app, path) !== undefined) varyOnAccept(c)
+}
+
+/**
  * Setup the per-page Markdown export route.
  *
  * Mounts a single fall-through handler that serves raw Markdown for
@@ -140,7 +182,7 @@ export function setupMarkdownExportRoutes(
     const rawPath = c.req.path
     const byExtension = rawPath.endsWith(MD_SUFFIX)
     const byAccept = acceptsMarkdown(c.req.header('Accept') ?? '')
-    if (!byExtension && !byAccept) return next()
+    if (!byExtension && !byAccept) return answerHtmlVaryingOnAccept(c, next, app, rawPath)
 
     const articlePath = byExtension ? rawPath.slice(0, -MD_SUFFIX.length) : rawPath
     const match = findContentDirArticle(app, articlePath)
@@ -166,9 +208,9 @@ export function setupMarkdownExportRoutes(
       return c.html(await config.renderNotFoundPage(app), 404)
     }
 
-    return c.body(body, 200, {
-      'Content-Type': 'text/markdown; charset=utf-8',
-      'Cache-Control': 'public, max-age=300',
-    })
+    // The negotiated form shares its URL with the HTML; the `.md` address has
+    // one representation and needs no `Vary`.
+    if (!byExtension) varyOnAccept(c)
+    return c.body(body, 200, markdownResponseHeaders(match.page))
   })
 }

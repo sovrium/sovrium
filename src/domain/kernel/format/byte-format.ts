@@ -18,14 +18,27 @@
  * a column or `record-field` declaring `format: 'bytes'` cannot print the same
  * number two ways on the same page.
  *
- * Below 1024 bytes the raw count is suffixed with `B`; larger values are
- * ROUNDED into the next binary unit, so the result is always an integer plus a
- * unit. A non-finite input renders `0 B` rather than `NaN B`.
+ * Below 1024 bytes the raw count is suffixed with `B` and never carries a
+ * fraction. Larger values move into the next binary unit and keep ONE decimal
+ * while they are below 10 in that unit — `1.5 MB`, `9.8 KB` — because rounding
+ * `1.5 MB` to `2 MB` misstates it by a third; at 10 and above the integer is
+ * precise enough (`12 MB`). A trailing `.0` is dropped (`1 KB`, not `1.0 KB`).
+ * A non-finite input renders `0 B` rather than `NaN B`.
  */
+const UNITS = [
+  { unit: 'KB', size: 1024 },
+  { unit: 'MB', size: 1024 * 1024 },
+  { unit: 'GB', size: 1024 * 1024 * 1024 },
+] as const
+
+const scaled = (value: number): string => {
+  const oneDecimal = Math.round(value * 10) / 10
+  return oneDecimal < 10 ? String(oneDecimal) : String(Math.round(value))
+}
+
 export function formatByteCount(bytes: number): string {
   if (!Number.isFinite(bytes)) return '0 B'
-  if (bytes < 1024) return `${String(bytes)} B`
-  if (bytes < 1024 * 1024) return `${String(Math.round(bytes / 1024))} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${String(Math.round(bytes / (1024 * 1024)))} MB`
-  return `${String(Math.round(bytes / (1024 * 1024 * 1024)))} GB`
+  if (bytes < 1024) return `${String(Math.round(bytes))} B`
+  const { unit, size } = UNITS.findLast((candidate) => bytes >= candidate.size) ?? UNITS[0]
+  return `${scaled(bytes / size)} ${unit}`
 }

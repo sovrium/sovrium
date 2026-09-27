@@ -22,18 +22,28 @@
 
 import { type CSSProperties } from 'react'
 import { renderToString } from 'react-dom/server'
-import { isBadgeEnabled } from '@/domain/models/app/badge'
+import { markdownToText } from '@/domain/kernel/markdown/markdown-to-text'
+import { findDeclaredDirection } from '@/domain/models/app/languages/language-detection'
 import { getVersionedCssPath } from '@/infrastructure/css/versioned-css-path'
+import { resolveBadge } from '@/presentation/render/page/badge-placement'
 import { DemoNotice } from '@/presentation/render/page/demo-notice'
 import { SovriumBadge } from '@/presentation/render/page/sovrium-badge'
 import { FormBody } from './form-body'
 import { type PrefillValue } from './form-field-elements'
-import { resolveAllFields, resolveDocumentLang, resolveText } from './form-field-resolver'
+import {
+  resolveAllFields,
+  resolveDocumentLang,
+  resolveFormDensityStep,
+  resolveText,
+  stepDescriptionsHtml,
+  stepItems,
+} from './form-field-resolver'
 import { resolveFormPrefill, type FormPrefillContext } from './form-prefill-resolver'
 import { FormBodyStep } from './form-renderer-multi-step'
 import type { EmbeddedFormPrefillContext } from './form-body'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
+import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
 
 /**
  * Pure HTML head fragment — title and description are resolved upstream
@@ -88,6 +98,35 @@ function formThemeStyle(form: Readonly<Form>): CSSProperties | undefined {
 }
 
 /**
+ * Platform chrome of a STANDALONE form page: the "Built with Sovrium" badge and
+ * the demo context notice. Standalone form pages are the badge's
+ * highest-distribution surface, and `placement: footer` matters most here — a
+ * floating pill sits over a long form's submit button. The embed variant
+ * renders none of it: a fixed pill or panel inside a small third-party iframe
+ * would cover form fields, and the host page carries its own.
+ */
+function FormPageChrome({
+  app,
+  lang,
+}: {
+  readonly app: App
+  readonly lang?: string
+}): React.JSX.Element {
+  const badgePlacement = resolveBadge(app.badge)
+  return (
+    <>
+      {badgePlacement !== undefined && (
+        <SovriumBadge
+          lang={lang}
+          placement={badgePlacement}
+        />
+      )}
+      <DemoNotice lang={lang} />
+    </>
+  )
+}
+
+/**
  * Standalone form page React component. Renders a complete HTML document
  * for SSR — the form posts to `/api/forms/{name}/submissions` via the
  * native `<form action>` attribute and a regular `submit` button.
@@ -98,16 +137,21 @@ function FormPage({
   embed = false,
   activeLang,
   prefill,
+  optionSets,
 }: {
   readonly app: App
   readonly form: Form
   readonly embed?: boolean
   readonly activeLang?: string
   readonly prefill?: Readonly<Record<string, PrefillValue>>
+  readonly optionSets?: FormOptionSets
 }) {
   const { languages } = app
   const title = resolveText(form.title, languages, form.name, activeLang)
   const documentLang = resolveDocumentLang(languages, activeLang)
+  // The document's direction follows its language, exactly as a page's does:
+  // without `dir` an Arabic form lays its labels and inputs out left to right.
+  const direction = findDeclaredDirection(languages, documentLang)
   // Standalone prefill (literal / $query / $user) renders as editable
   // initial values, so it routes through the prefill context with
   // `lockPrefill: false`. An empty map is treated as "no prefill".
@@ -116,10 +160,16 @@ function FormPage({
   const themeStyle = formThemeStyle(form)
 
   return (
-    <html lang={documentLang}>
+    <html
+      lang={documentLang}
+      dir={direction}
+      data-density={resolveFormDensityStep(app, form)}
+    >
       <FormHead
         title={title}
-        description={resolveText(form.description, languages, '', activeLang)}
+        // The description renders as inline markdown on the page; a search result
+        // or a link preview shows the meta verbatim, so it keeps the words only.
+        description={markdownToText(resolveText(form.description, languages, '', activeLang))}
         cssHref={getVersionedCssPath(app)}
       />
       <body>
@@ -134,17 +184,15 @@ function FormPage({
             embed={embed}
             activeLang={activeLang}
             prefillContext={prefillContext}
+            {...(optionSets !== undefined ? { optionSets } : {})}
           />
         </main>
-        {/* "Built with Sovrium" badge — standalone form pages are the
-            highest-distribution surface. The embed variant stays badge-free:
-            a fixed pill inside a small third-party iframe would cover form
-            fields, and the host page carries its own badge. */}
-        {!embed && isBadgeEnabled(app.badge) && <SovriumBadge lang={activeLang} />}
-        {/* Demo context notice — same embed carve-out as the badge: a fixed
-            panel inside a small third-party iframe would cover form fields, and
-            the embedding host page carries its own notice. */}
-        {!embed && <DemoNotice lang={activeLang} />}
+        {!embed && (
+          <FormPageChrome
+            app={app}
+            lang={activeLang}
+          />
+        )}
       </body>
     </html>
   )
@@ -207,6 +255,7 @@ function renderFormDocument(opts: {
       embed={embed}
       activeLang={activeLang}
       prefill={resolveStandalonePrefill(form, prefillCtx)}
+      {...(prefillCtx?.optionSets !== undefined ? { optionSets: prefillCtx.optionSets } : {})}
     />
   )
   return `<!DOCTYPE html>\n${html}`
@@ -253,18 +302,30 @@ export function renderEmbedFormPage(
  * Returns the empty string when the form is not multi-step or the step
  * id is not registered.
  */
+export interface StepFragmentState {
+  /** The per-session draft, keyed by each field's submit identifier. */
+  readonly draftValues: Readonly<Record<string, unknown>>
+  /** The choices read from tables for this request, as the full page carries them. */
+  readonly optionSets?: FormOptionSets
+}
+
 export function renderFormStepFragment(
   app: Readonly<App>,
   form: Readonly<Form>,
   stepId: string,
-  draftValues: Readonly<Record<string, unknown>>
+  { draftValues, optionSets = {} }: StepFragmentState
 ): string {
   const steps = form.steps ?? []
   if (steps.length === 0) return ''
   const stepIndex = steps.findIndex((s) => s.id === stepId)
   if (stepIndex < 0) return ''
   const step = steps[stepIndex]!
-  const resolvedFields = resolveAllFields(app as App, form as Form)
+  // Evaluated against the draft, so a condition on an earlier step's answer
+  // is already applied to this step as served.
+  const resolvedFields = resolveAllFields(app as App, form as Form, undefined, {
+    conditionValues: draftValues,
+    optionSets,
+  })
   const prefillMap = Object.fromEntries(
     Object.entries(draftValues).map(([key, value]) => [key, value as PrefillValue])
   ) as Readonly<Record<string, PrefillValue>>
@@ -277,9 +338,10 @@ export function renderFormStepFragment(
       stepIndex={stepIndex}
       isFirst={isFirst}
       isLast={isLast}
-      stepFields={resolvedFields.filter((f) => step.fields.includes(f.name))}
+      stepFields={stepItems(resolvedFields, step.fields)}
       prefillMap={prefillMap}
       lockPrefill={false}
+      descriptionHtml={stepDescriptionsHtml([step], app.languages, undefined)[step.id] ?? ''}
     />
   )
 }
@@ -306,7 +368,12 @@ export function renderEmbeddedFormBody(
   form: Readonly<Form>,
   prefillContext?: EmbeddedFormPrefillContext,
   activeLang?: string,
-  opts?: { readonly titleAs?: 'h1' | 'h2' | 'h3' }
+  opts?: {
+    readonly titleAs?: 'h1' | 'h2' | 'h3'
+    readonly optionSets?: FormOptionSets
+    /** Draw no form title — the host (a dialog) heads the form itself. */
+    readonly omitTitle?: boolean
+  }
 ): string {
   // `embed={false}` so the embedded form gets standalone-like attributes (no
   // `data-embed`) and `mountRuntime` so the inline client runtime is emitted —
@@ -327,6 +394,8 @@ export function renderEmbeddedFormBody(
       prefillContext={prefillContext}
       activeLang={activeLang}
       titleAs={opts?.titleAs}
+      omitTitle={opts?.omitTitle}
+      {...(opts?.optionSets !== undefined ? { optionSets: opts.optionSets } : {})}
     />
   )
 }

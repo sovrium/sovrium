@@ -57,7 +57,6 @@
     "paths": {
       "@/*": ["src/*"],
       "@/specs/*": ["specs/*"],
-      "@apps/*": ["apps/*"],
       // Resolve the `sovrium` config-types specifier to its source. Outside this
       // repo that specifier is satisfied by the `sovrium.d.ts` that `sovrium types`
       // generates; in-repo there is no generated declaration to pick up, so the
@@ -66,7 +65,7 @@
       //
       // Pointing it at the emitter's own input is the whole design. The alias used
       // to target a second, hand-maintained surface (packages/types/src/index.ts)
-      // that exported 34 names against the 16 the binary shipped; four apps/partner
+      // that exported 34 names against the 16 the binary shipped; four partner-app
       // configs imported two of the extras and typechecked green here while failing
       // with TS2305 for every author outside this repo. One surface cannot drift
       // from itself.
@@ -74,19 +73,20 @@
       // It is still WIDER than the shipped declaration in one direction: src/index.ts
       // is the internal entry point, so it also exports four runtime VALUES that a
       // declaration cannot carry. scripts/drift/check-sovrium-specifier-surface.ts is what
-      // stops a config importing one — ESLint cannot, because apps/** and
-      // templates/** are in the global ignores.
+      // stops a config importing one — ESLint cannot, because templates/** is in
+      // the global ignores.
       //
       // Without this alias a clean checkout fails typecheck with TS2307 the moment
-      // anything in the program imports it. Matches the @apps/* / @/* pattern above.
+      // anything in the program imports it. Matches the @/* pattern above.
       "sovrium": ["src/index.ts"]
     }
   },
-  // Bound the typecheck program to the four source roots only. Without an explicit
+  // Bound the typecheck program to the three source roots only (the fourth,
+  // `apps`, left with the business apps — ADR-038). Without an explicit
   // `include`, tsc defaults to "every .ts under the project root minus exclude",
   // silently pulling in stray files (templates/, and historically packages/types,
   // which carried its own tsconfig). Dependents that override `include`
   // (tsconfig.build.json → ["src"], tsconfig.eslint.json → []) are unaffected.
-  "include": ["src", "specs", "scripts", "apps"],
+  "include": ["src", "specs", "scripts"],
   "exclude": ["node_modules", "dist", "tmp", "vendor", "docs"]
 }

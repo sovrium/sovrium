@@ -7,6 +7,8 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createRecordsClient } from '@/presentation/api/client'
+import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
+import type { SharedFilterBindingConfig } from '../hooks/use-shared-filter'
 import type { TableRecord } from '../runtime/types'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 
@@ -37,7 +39,7 @@ function buildSortParam(sort: readonly DataSort[] | undefined): string | undefin
   return sort.map((s) => `${s.field}:${s.direction}`).join(',')
 }
 
-export interface ChartRecordsDataSource {
+export interface ChartRecordsDataSource extends SharedFilterBindingConfig {
   readonly table: string
   readonly view?: string
   readonly filter?: readonly DataFilter[]
@@ -55,18 +57,24 @@ export interface ChartFetchResult {
  * default records-API page envelope; aggregation layers on top.
  */
 export function useChartRecords(dataSource: ChartRecordsDataSource | undefined) {
-  const filterParam = buildFilterParam(dataSource?.filter)
+  // A binding on a filter bar narrows the read to what the bar holds.
+  const shared = useLazySharedFilter(
+    { bindTo: dataSource?.bindTo, sharedFilter: dataSource?.sharedFilter },
+    buildFilterParam(dataSource?.filter)
+  )
+  const { filterParam, extraParams } = shared
   const sortParam = buildSortParam(dataSource?.sort)
 
-  const queryKey = ['chart-records', dataSource?.table, filterParam, sortParam]
+  const queryKey = ['chart-records', dataSource?.table, filterParam, sortParam, extraParams]
 
   return useQuery({
     queryKey,
-    enabled: Boolean(dataSource?.table),
+    enabled: Boolean(dataSource?.table) && shared.ready,
     queryFn: async (): Promise<ChartFetchResult> => {
       if (!dataSource?.table) return { records: [] }
 
       const query = {
+        ...extraParams,
         page: '1',
         limit: '100',
         ...(sortParam && { sort: sortParam }),

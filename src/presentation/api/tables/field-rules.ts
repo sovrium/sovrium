@@ -25,11 +25,13 @@ import { Effect } from 'effect'
 import { enrichAttachmentMetadata as writeAttachmentMetadata } from '@/application/use-cases/attachments/enrich-attachment-metadata'
 import { uploadInlineAttachmentContent as persistInlineAttachments } from '@/application/use-cases/attachments/upload-inline-attachments'
 import { validateAttachmentConstraints as checkAttachmentConstraints } from '@/application/use-cases/attachments/validate-attachment-constraints'
+import { validateAttachmentReferences as checkAttachmentReferences } from '@/application/use-cases/attachments/validate-attachment-references'
 import { isAdminEquivalent } from '@/domain/models/app'
 import { hasPermission } from '@/domain/models/app/auth/permissions'
 import { findColumnFormatViolations } from '@/domain/models/app/tables/column-formats-validation'
 import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields'
 import { findMissingRequiredFieldNames } from '@/domain/models/app/tables/required-fields-validation'
+import { resolveStoragePublicAccess } from '@/domain/models/process-env/storage/storage-public-access'
 import {
   FieldValidationError,
   FieldPermissionError,
@@ -343,6 +345,42 @@ export function validateAttachmentConstraints(
     const ctx = yield* ValidationContext
     yield* checkAttachmentConstraints({ scope: scopeOf(ctx), fields }).pipe(
       Effect.mapError(toFieldError)
+    )
+  })
+}
+
+/**
+ * Refuse a record write whose attachment columns reference a file outside the
+ * column's bucket or outside the writer's reach (catalog row, catalog bucket,
+ * bucket `download` permission — all three, one message).
+ *
+ * The refusal is a `FieldValidationError`, so it renders through the shared
+ * field-scoped 400 envelope: the body names the column and never says which of
+ * the three conditions failed. The synthetic `guest` principal is treated as
+ * anonymous — it has no session behind it. A catalog that cannot be read at all
+ * is not a verdict and renders as the storage-unavailable 503.
+ */
+export function validateAttachmentReferences(
+  fields: Record<string, unknown>
+): Effect.Effect<
+  void,
+  FieldValidationError | FieldStorageError,
+  ValidationContext | StorageService
+> {
+  return Effect.gen(function* () {
+    const ctx = yield* ValidationContext
+    const authenticated = ctx.userRole !== 'guest'
+    yield* checkAttachmentReferences({
+      scope: scopeOf(ctx),
+      fields,
+      writer: authenticated ? { authenticated, role: ctx.userRole } : { authenticated },
+      publicAccess: resolveStoragePublicAccess(),
+    }).pipe(
+      Effect.mapError((error) =>
+        error._tag === 'AttachmentReferenceRefused'
+          ? new FieldValidationError(error.message, error.field)
+          : new FieldStorageError(error.message, error.field, error.cause)
+      )
     )
   })
 }

@@ -49,7 +49,7 @@ A test form that posts repeatedly from one address is the usual way this surpris
 
 ## Attribution
 
-When a session is present the ledger records the submitter's user id, and a bound table's created-by column is populated.
+When a session is present the ledger records the submitter's user id, and a bound table's created-by column is populated with it. Without one, the created-by column reads `system`.
 
 There is no configuration for "one submission per person". To enforce that, put a unique constraint on the bound table's column — the database is the only place a uniqueness rule cannot be raced.
 

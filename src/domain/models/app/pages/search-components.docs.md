@@ -15,10 +15,10 @@ Tables declare what is searchable and a binding declares how a query runs (**Sea
 
 One component draws every search box, and `scope` says what the box searches. The two mechanisms look identical in the markup and behave nothing alike:
 
-| `scope`         | What the box searches                                                                                                                                            |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `'subscribers'` | Nothing on its own. It publishes the query, and sibling components whose `dataSource.bindTo` names this input's `props.id` apply it to their own records.        |
-| `'page'`        | The content of your public pages, through a prebuilt static index and its own results panel — a different layer from record search, which reads your table rows. |
+| `scope`         | What the box searches                                                                                                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `'subscribers'` | Nothing on its own. It publishes the query, and sibling components whose `dataSource.bindTo` names this input's `props.id` apply it to their own records.                                         |
+| `'page'`        | Your pages, in its own results panel — by default the public ones through a prebuilt static index; with `index: session`, the ones the current reader may open, answered by the server per query. |
 
 `scope` has **no default, deliberately**. A default would hand an author who omitted the key the other mechanism, silently: an input publishing to nobody, or a search box with no index behind it. Neither failure shows up as an error — the box renders, and simply never finds anything. The cost of requiring the key is paid once, at the migration the two retired type names (`searchInput`, `pageSearch`) force anyway.
 
@@ -77,9 +77,30 @@ What gets emitted, under `<outputDir>/sovrium-search/`, is a JSON index and a sm
 
 What gets indexed is narrower than "every page", in three ways worth knowing before you rely on it:
 
-- **Public pages only** — `access` omitted or `access: 'all'`. A page gated by `access: 'authenticated'`, by a role array or by a `require` rule is absent from the index, and `sovrium build` emits no static HTML for it either.
+- **Public pages only** — `access` omitted or `access: 'all'` — for the static index; see `index: session`. A page gated by `access: 'authenticated'`, by a role array or by a `require` rule is absent from the index, and `sovrium build` emits no static HTML for it either.
 - **No underscore paths.** A path beginning `/_` stays out, on the same convention that keeps it out of the static build.
 - **No chrome.** Only the page's `<main>` region is read, so a word from your header, nav or footer does not match on every page at once, and each excerpt is about the page rather than about the layout.
+
+### `index: session` — the pages this reader may open
+
+A box with `index: session` does not read the static file. Each query goes to `GET /api/search/pages?q=`, and the server answers with the pages the reader may open: public pages for a visitor who is not signed in, plus the gated pages and `contentDir` articles their role allows once they are. The static index is untouched and stays public-only, so a public box and a session box can sit on the same site. An omitted `index` means `public`: forgetting the key gives a box that searches less than you meant, never more.
+
+```yaml
+name: my-intranet
+auth:
+  strategies:
+    - type: emailAndPassword
+pages:
+  - name: Home
+    path: /
+    components:
+      - type: search-input
+        scope: page
+        index: session
+        placeholder: Search the intranet...
+```
+
+The server searches the text you wrote: each page's title and its text components, and each article's title and markdown, indexed on its first 16 KB. It never indexes a value rendered from a record, nor a part of a page bound to data or shown under `visibility`, so a reader cannot find a word they could not have read on the page. A component placed by reference contributes no text either. An article is found by whoever may open the page that publishes it, and a page embedding a form the reader may not use is left out, as the router refuses to open it for them. Answers carry at most ten results and `Cache-Control: private`, because they depend on who asks.
 
 ## `list` — the result display
 

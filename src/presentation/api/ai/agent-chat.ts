@@ -49,6 +49,11 @@
  * the agent that produced them.
  */
 
+import { isSystemAgentName } from '@/domain/models/app/agents/agent-identity'
+import {
+  buildSystemAgent,
+  type SystemAgentTable,
+} from '@/domain/models/app/agents/system-agent-service'
 import { hasReadPermission } from '@/domain/models/app/auth/permission-evaluator-service'
 import { resolveAgentTemperature } from '@/presentation/api/runtime/agent-ai-config'
 import type { App } from '@/domain/models/app'
@@ -159,6 +164,19 @@ export interface AgentTurnBinding {
   readonly maxTokens?: number
   /** Tool-table allowlist, or `undefined` for RBAC-only scoping. */
   readonly toolTables?: ReadonlyArray<string>
+  /**
+   * `true` for the built-in System Agent only. It changes three things, each
+   * because the System Agent is the caller's own read-only assistant rather
+   * than a configured actor:
+   *
+   *  - its tools read as the CALLER, never as {@link role}, so a member asking
+   *    it is offered exactly the tables a member may read;
+   *  - it replays the session's history like the generic chat does (it has no
+   *    fact memory to re-learn from a replay);
+   *  - its turns persist UNATTRIBUTED (`agent_name IS NULL`), which is the row
+   *    set its admin conversation view is defined as.
+   */
+  readonly builtIn?: true
 }
 
 /**
@@ -172,6 +190,7 @@ export const resolveAgentTurnBinding = (
   app: App,
   agentName: string
 ): AgentTurnBinding | undefined => {
+  if (isSystemAgentName(agentName)) return undefined
   const agent = app.agents?.find((candidate) => candidate.name === agentName)
   if (agent === undefined) return undefined
   // Deliberately NOT `resolveAgentModel`: that helper ends in a hard-coded
@@ -193,3 +212,44 @@ export const resolveAgentTurnBinding = (
     ...(toolTables !== undefined && { toolTables }),
   }
 }
+
+/**
+ * The binding for a turn addressed to the built-in System Agent.
+ *
+ * `readableTables` are the tables (and readable columns) the CALLER may read —
+ * the same RBAC-scoped set its tools are built from — so the prompt and the
+ * tool list can never name different tables or columns. Model and temperature follow the platform defaults
+ * (`AI_MODEL`, `AI_TEMPERATURE`): the System Agent declares no override.
+ */
+export const resolveSystemAgentTurnBinding = (
+  app: App,
+  readableTables: ReadonlyArray<{
+    readonly name: string
+    readonly readableColumns: ReadonlyArray<string>
+  }>
+): AgentTurnBinding => {
+  const tables: ReadonlyArray<SystemAgentTable> = readableTables.map((table) => ({
+    name: table.name,
+    fields: table.readableColumns.map((name) => ({ name })),
+  }))
+  const agent = buildSystemAgent(
+    { name: app.name, ...(app.description !== undefined && { description: app.description }) },
+    tables
+  )
+  const model = process.env.AI_MODEL
+  return {
+    name: agent.name,
+    role: agent.role,
+    systemPrompt: agent.systemPrompt,
+    temperature: resolveAgentTemperature(agent, DEFAULT_TEMPERATURE),
+    ...(model !== undefined && { model }),
+    builtIn: true,
+  }
+}
+
+/**
+ * The name a turn's persisted row is attributed to: the agent's, except for the
+ * System Agent, whose turns stay unattributed (`agent_name IS NULL`).
+ */
+export const agentAttribution = (agent: AgentTurnBinding | undefined): string | undefined =>
+  agent === undefined || agent.builtIn === true ? undefined : agent.name

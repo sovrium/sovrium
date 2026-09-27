@@ -16,6 +16,8 @@
  * returns `true` when all rules pass.
  */
 
+import { validateFormOptionSources } from './form-option-source-validation'
+
 /**
  * Compound condition shape used for cross-validation. Mirrors
  * `VisibleWhenCondition` from `./visible-when.ts` but kept structurally
@@ -754,6 +756,8 @@ export const validateAllFormsReferences = (app: AppForFormsValidation): string |
     () => validateStepIdUniqueness(forms),
     () => validateStepFieldNames(forms),
     () => validateGoToWhenTargets(forms),
+    // Choices read from a table: structure first, then what a form may publish.
+    () => validateFormOptionSources(app),
   ]
 
   const firstError = rules.reduce<string | undefined>((acc, rule) => acc ?? rule(), undefined)

@@ -44,7 +44,7 @@ A stored record answers with its generated id, the field values, and the authors
 
 <!-- sovrium:options recordSchema -->
 
-`_aiCompute` appears only on a table declaring AI fields, and reports for each of them whether the value is the model's answer or the locally computed fallback. `_display` appears only where a relationship needs a human-readable label beside its stored key. Neither is present otherwise, so a client reading a plain table sees neither.
+`_aiCompute` appears only on a table declaring AI fields, and reports for each of them whether the value is the model's answer or the locally computed fallback. `_display` appears only where a relationship or a user field needs a human-readable label beside its stored key. Neither is present otherwise, so a client reading a plain table sees neither.
 
 ## The list envelope
 
@@ -61,11 +61,11 @@ A list answers with an envelope, never a bare array: `records` is the page, and 
 
 The server sets authorship on every write, and values supplied in a request body are ignored — which is what makes the trail worth reading.
 
-| Field                     | Set when                     | Afterwards               |
-| ------------------------- | ---------------------------- | ------------------------ |
-| `createdBy` / `createdAt` | The record is created        | Never changes            |
-| `updatedBy` / `updatedAt` | Created, and on every update | Re-stamped on each write |
-| `deletedBy` / `deletedAt` | Soft-deleted                 | Cleared on restore       |
+| Field                             | Set when                     | Afterwards                                        |
+| --------------------------------- | ---------------------------- | ------------------------------------------------- |
+| `createdBy` / `createdAt`         | The record is created        | Never changes                                     |
+| `updatedBy` / `updatedAt`         | Created, and on every update | Re-stamped on each write                          |
+| `deletedBy` / `fields.deleted_at` | Soft-deleted                 | Cleared on restore; a live record carries neither |
 
 The three actor keys resolve to the authenticated user's id. They are also readable as ordinary columns through the `created-by`, `updated-by` and `deleted-by` field types, and `updated-at` auto-bumps on every write — which is the column the optimistic-locking token compares against.
 

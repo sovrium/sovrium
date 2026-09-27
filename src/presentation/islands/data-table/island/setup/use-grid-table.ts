@@ -33,6 +33,7 @@ export type GridInstance = ReturnType<typeof useGridInstance>
  *
  * The server returns the unfiltered page — the filter-builder is purely client
  * state, so narrowing happens here, before the records reach TanStack Table.
+ * The one exception is a load-more grid, which filters on the server.
  */
 export function useGridRecords(ctx: SetupContext, records: RecordsQuery) {
   const cursorFeed = useCursorFeedView(
@@ -49,9 +50,15 @@ export function useGridRecords(ctx: SetupContext, records: RecordsQuery) {
   // `cursorFeed.records` is already memoized, and v9's `data` option takes a
   // `ReadonlyArray` — so the defensive readonly -> mutable copy v8 forced here
   // is gone.
+  // A load-more grid sent the builder's rows with its request (see
+  // `resolveLoadMoreFeed`), so every row it holds already matches them.
+  const { filteredOnServer } = records
   const rows = useMemo(
-    () => applyClientFilters(cursorFeed.records, activeFilters, filterConjunction, fieldMeta),
-    [cursorFeed.records, activeFilters, filterConjunction, fieldMeta]
+    () =>
+      filteredOnServer
+        ? cursorFeed.records
+        : applyClientFilters(cursorFeed.records, activeFilters, filterConjunction, fieldMeta),
+    [cursorFeed.records, activeFilters, filterConjunction, fieldMeta, filteredOnServer]
   )
 
   return { cursorFeed, rows, totalRecords: cursorFeed.total }
@@ -74,6 +81,7 @@ export function buildGridColumns(
   const executeRowAction = createRowActionHandler({
     queryClient,
     queryKey: refresh.queryKey,
+    tableName: tableKey,
   })
 
   return buildColumns({

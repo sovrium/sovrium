@@ -22,13 +22,19 @@ import type { DataSourceDb } from '@/presentation/render/resolve/data-source-con
  * Outcome of resolving a page's host record.
  *
  * - `record` — `mode: 'single'` returned a row. Expose to inline-prefill.
+ *   The row is WHOLE: this resolver holds no session, so its caller gates it
+ *   for the visitor (`gateRecordForCaller`) before any of it reaches the page.
  * - `not-found` — `mode: 'single'` produced no row → 404 the page.
  * - `none` — no dataSource (or list/search mode); no parent context to
  *   expose. The form-ref expander should fall through to declarative
  *   defaults.
  */
 export type PageParentResolution =
-  | { readonly kind: 'record'; readonly record: Readonly<Record<string, unknown>> }
+  | {
+      readonly kind: 'record'
+      readonly table: string
+      readonly record: Readonly<Record<string, unknown>>
+    }
   | { readonly kind: 'not-found' }
   | { readonly kind: 'none' }
 
@@ -65,5 +71,5 @@ export async function resolvePageParentRecord(
   if (paramValue === undefined) return { kind: 'not-found' }
   const record = await db.fetchSingleRecord(dataSource.table, paramName, paramValue)
   if (record === undefined) return { kind: 'not-found' }
-  return { kind: 'record', record }
+  return { kind: 'record', table: dataSource.table, record }
 }

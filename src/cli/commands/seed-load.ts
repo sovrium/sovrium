@@ -18,8 +18,15 @@
 import { readdir } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { Schema } from 'effect'
-import { SeedFileSchema, resolveSeedTableName } from '@/domain/models/seed'
+import {
+  SeedFileSchema,
+  SeedUsersFileSchema,
+  findDuplicateAccountEmails,
+  isSeedUsersFile,
+  resolveSeedTableName,
+} from '@/domain/models/seed'
 import type { LoadedSeedFile } from '@/application/use-cases/seed/seed-plan'
+import type { SeedAccount } from '@/domain/models/seed'
 
 /** Extensions a seed file may carry — the same set app configs accept. */
 const SEED_EXTENSIONS = ['.yaml', '.yml', '.json'] as const
@@ -39,6 +46,25 @@ export const discoverSeedFiles = async (seedDir: string): Promise<readonly strin
 }
 
 const decodeSeedFile = Schema.decodeUnknownResult(SeedFileSchema)
+const decodeUsersFile = Schema.decodeUnknownResult(SeedUsersFileSchema)
+
+/** What one file in the seed folder turned out to be. */
+type LoadOutcome =
+  | { readonly file: LoadedSeedFile }
+  | { readonly accounts: readonly SeedAccount[] }
+  | { readonly error: string }
+
+/** Decode an accounts file (`users:` at the top level). */
+const loadAccounts = (fileName: string, parsed: unknown): LoadOutcome => {
+  const decoded = decodeUsersFile(parsed)
+  return decoded._tag === 'Failure'
+    ? {
+        error:
+          `${fileName}: not a valid accounts file — ${decoded.failure.message}\n` +
+          `  Expected: users: [ { email: <address>, name: <name>, role: <role>, password?: <secret> } ].`,
+      }
+    : { accounts: decoded.success.users }
+}
 
 /** Parse one file's text into a plain object, or the reason it could not be. */
 const parseSeedText = (
@@ -61,13 +87,11 @@ const parseSeedText = (
 }
 
 /** Read, parse and decode one seed file. */
-const loadOne = async (
-  seedDir: string,
-  fileName: string
-): Promise<{ readonly file: LoadedSeedFile } | { readonly error: string }> => {
+const loadOne = async (seedDir: string, fileName: string): Promise<LoadOutcome> => {
   const text = await Bun.file(join(seedDir, fileName)).text()
   const parsed = parseSeedText(fileName, text)
   if (!parsed.ok) return { error: parsed.error }
+  if (isSeedUsersFile(parsed.value)) return loadAccounts(fileName, parsed.value)
 
   const decoded = decodeSeedFile(parsed.value)
   if (decoded._tag === 'Failure') {
@@ -91,17 +115,34 @@ const loadOne = async (
   }
 }
 
-/** Every seed file in `seedDir`, or every reason one could not be read. */
+/**
+ * Every seed file in `seedDir` — table files and the accounts `users:` files
+ * list — or every reason one could not be read.
+ */
 export const loadSeedFiles = async (
   seedDir: string
 ): Promise<
-  | { readonly ok: true; readonly files: readonly LoadedSeedFile[] }
+  | {
+      readonly ok: true
+      readonly files: readonly LoadedSeedFile[]
+      readonly accounts: readonly SeedAccount[]
+    }
   | { readonly ok: false; readonly errors: readonly string[] }
 > => {
   const names = await discoverSeedFiles(seedDir)
   const outcomes = await Promise.all(names.map((name) => loadOne(seedDir, name)))
-  const errors = outcomes.flatMap((outcome) => ('error' in outcome ? [outcome.error] : []))
+  const accounts = outcomes.flatMap((outcome) => ('accounts' in outcome ? outcome.accounts : []))
+  const errors = [
+    ...outcomes.flatMap((outcome) => ('error' in outcome ? [outcome.error] : [])),
+    ...findDuplicateAccountEmails(accounts).map(
+      (email) => `accounts: "${email}" is listed more than once. Each email must name one account.`
+    ),
+  ]
   return errors.length > 0
     ? { ok: false, errors }
-    : { ok: true, files: outcomes.flatMap((outcome) => ('file' in outcome ? [outcome.file] : [])) }
+    : {
+        ok: true,
+        files: outcomes.flatMap((outcome) => ('file' in outcome ? [outcome.file] : [])),
+        accounts,
+      }
 }

@@ -9,13 +9,14 @@ import databaseInfrastructureBody from '@/docs/operations/database-infrastructur
 import ecoconceptionBody from '@/docs/operations/ecoconception.md' with { type: 'file' }
 import gdprPrivacyBody from '@/docs/operations/gdpr-privacy.md' with { type: 'file' }
 import migrationsBody from '@/docs/operations/migrations.md' with { type: 'file' }
+import notificationsBody from '@/docs/operations/notifications.md' with { type: 'file' }
 import securityHardeningBody from '@/docs/operations/security-hardening.md' with { type: 'file' }
 import { defineArticle, defineSection } from './define'
 
 /**
  * Operations — the section manifest.
  *
- * Five articles about running a deployed instance: policy rather than
+ * Six articles about running a deployed instance: policy rather than
  * configuration. Each spans the whole engine — a migration touches every
  * table, a security header every response — so none of them is about one
  * property directory and all five sit in the cross-cutting tree.
@@ -189,6 +190,33 @@ export const section = defineSection({
       body: ecoconceptionBody,
       documents: [],
       stories: [],
+    }),
+    defineArticle({
+      slug: 'notifications',
+      title: 'Operator Notifications',
+      description:
+        'The two emails an instance sends its operators on its own — automation alerts and a weekly summary — their audience, their content, and every variable that shapes them.',
+      keywords: [
+        'sovrium',
+        'notifications',
+        'email',
+        'automation alerts',
+        'weekly summary',
+        'digest',
+        'SOVRIUM_NOTIFY_TO',
+        'SOVRIUM_NOTIFY_AUTOMATIONS',
+        'SOVRIUM_NOTIFY_DIGEST',
+        'SOVRIUM_NOTIFY_DIGEST_CRON',
+        'SOVRIUM_AUTOMATION_AUTOPAUSE',
+        'SOVRIUM_TIMEZONE',
+      ],
+      order: 1650,
+      sidebarLabel: 'Operator Notifications',
+      body: notificationsBody,
+      documents: [],
+      // The alert stories are cited by the automations articles that own them
+      // (a story is cited by one article); this one owns the weekly summary.
+      stories: ['US-ADMIN-NOTIFICATIONS-WEEKLY-DIGEST'],
     }),
   ],
 })

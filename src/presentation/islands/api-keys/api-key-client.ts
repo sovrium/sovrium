@@ -18,6 +18,9 @@
  * `[internal ref]` asserts they are armed.
  */
 
+import { usableLocale } from '@/domain/kernel/format/usable-locale'
+import { resolvePageLocale } from '../runtime/page-locale'
+
 /** One key as the plugin's `list` endpoint describes it — never the secret. */
 export interface ApiKeySummary {
   readonly id: string
@@ -83,5 +86,7 @@ export async function revokeApiKey(keyId: string): Promise<boolean> {
 export function formatCreatedAt(value: string | null): string {
   if (!value) return '—'
   const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString()
+  return Number.isNaN(parsed.getTime())
+    ? '—'
+    : parsed.toLocaleString(usableLocale(resolvePageLocale()))
 }

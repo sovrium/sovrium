@@ -59,7 +59,6 @@
  * still blank pre-load registers no edit and silently reverts on arrival.)
  */
 
-import { useQuery } from '@tanstack/react-query'
 import {
   useCallback,
   useEffect,
@@ -77,10 +76,18 @@ import {
   type DrawerContentProps,
   type RecordDrawerField,
 } from './record-drawer-content'
+import {
+  EMPTY_RECORD,
+  toFormValue,
+  useTableRecordRead,
+  type RawRecord,
+  type Values,
+} from './record-drawer-record-read'
+import { useRelatedSlot, type RelatedSlotProps } from './record-drawer-related-slot'
 import { DialogSurface, RegionSurface } from './record-drawer-surfaces'
 import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
 
-interface RecordDrawerIslandProps {
+interface RecordDrawerIslandProps extends RelatedSlotProps {
   readonly id?: string
   /** Accessible NAME of the surface (CAP-2). Defaults to the legacy label. */
   readonly title?: string
@@ -106,6 +113,12 @@ interface RecordDrawerIslandProps {
    * childless drawer rendering exactly what it rendered before the slot existed.
    */
   readonly childrenHtml?: string
+  /**
+   * `false` when only another drawer's related rows open this one: the page's
+   * `?record=` deep link names a record of the page's own table, not of this
+   * drawer's, so it must not self-open on it. Absent means `true`.
+   */
+  readonly deepLink?: boolean
   readonly canEdit?: boolean
   /**
    * Interpreter-provided control labels, resolved against the app's language by
@@ -118,87 +131,19 @@ interface RecordDrawerIslandProps {
   readonly closeLabel?: string
 }
 
-type Values = Record<string, string>
-type RawRecord = Record<string, unknown>
-
 const EMPTY_FIELDS: ReadonlyArray<RecordDrawerField> = []
 const EMPTY_ACTIONS: ReadonlyArray<DrawerAction> = []
-const EMPTY_RECORD: RawRecord = {}
 /** Platform-default (English) fallbacks — the SSR host normally supplies these. */
 const DEFAULT_TITLE = 'Record details'
 const DEFAULT_SAVE_LABEL = 'Save'
 const DEFAULT_CLOSE_LABEL = 'Close'
 
-/** Coerce a record value to its form-ready string form. */
-function toFormValue(value: unknown): string {
-  return value === null || value === undefined ? '' : String(value)
-}
-
-/** Project a raw record into the form-ready string map the text inputs bind to. */
-function toFormValues(record: RawRecord): Values {
-  return Object.fromEntries(Object.entries(record).map(([key, value]) => [key, toFormValue(value)]))
-}
-
-/** Fetch the record by id; returns its RAW values (structured display needs them). */
-async function fetchRecord(table: string, recordId: string): Promise<RawRecord> {
-  const res = await fetch(`/api/tables/${table}/records/${recordId}`)
-  if (!res.ok) return {}
-  const body = (await res.json()) as { readonly record?: RawRecord }
-  return body.record ?? (body as RawRecord)
-}
-
-/**
- * Read the DB-table record for the open drawer, and seed the editable copy.
- *
- * The record is read per (table, id) and re-read on EVERY open — the drawer is
- * an edit surface, so a copy cached from a previous open could be a value the
- * operator has since changed through the grid. `staleTime` is therefore left at
- * zero, and re-enabling the query on open is what re-issues the GET.
- *
- * The effect this replaced had no cancellation at all: a second open before the
- * first response landed could paint the earlier record over the later one.
- * Keying the read retires that race rather than guarding it — a response for a
- * key nothing is observing is never rendered.
- *
- * Seeding `values` stays an effect, and that is not a leftover. `values` is not
- * the server's state: it is the operator's draft, diverging from the response
- * the moment they type. The LOAD GATE is what makes the seeding safe — the body
- * accepts no input until `loading` clears, so this can never overwrite a
- * keystroke.
- */
-function useTableRecordRead(
-  open: boolean,
-  table: string | undefined,
-  recordId: string | undefined,
-  setValues: Dispatch<SetStateAction<Values>>
-): { readonly record: RawRecord; readonly loading: boolean } {
-  const enabled = open && Boolean(table) && Boolean(recordId)
-  const recordQuery = useQuery({
-    queryKey: ['record-drawer', 'table-record', table, recordId],
-    queryFn: () => fetchRecord(table ?? '', recordId ?? ''),
-    enabled,
-    retry: false,
-    refetchOnWindowFocus: false,
-  })
-
-  const { data } = recordQuery
-  useEffect(() => {
-    if (data !== undefined) setValues(toFormValues(data))
-  }, [data, setValues])
-
-  return {
-    record: data ?? EMPTY_RECORD,
-    // True while the record GET is in flight — see the LOAD GATE note in the
-    // module docblock for why the body is inert until it resolves.
-    loading: enabled && recordQuery.isFetching,
-  }
-}
-
 /** The drawer's open lifecycle + DB-table record fetch, keyed to the dispatched id. */
 function useRecordDrawer(
   id: string | undefined,
   table: string | undefined,
-  system: SystemDetailSource | undefined
+  system: SystemDetailSource | undefined,
+  deepLink: boolean
 ) {
   const [open, setOpen] = useState(false)
   const [recordId, setRecordId] = useState<string | undefined>()
@@ -224,7 +169,7 @@ function useRecordDrawer(
   // pre-navigation URL; re-reading over ~400ms catches the pushState'd `?record=`.
   // A generic page that uses the drawer without `?record=` is unaffected.
   useEffect(() => {
-    if ((!table && !system) || typeof window === 'undefined') return undefined
+    if ((!table && !system) || !deepLink || typeof window === 'undefined') return undefined
     const tryOpen = (): boolean => {
       const deepLinkId = new URLSearchParams(window.location.search).get('record')
       if (!deepLinkId) return false
@@ -235,7 +180,7 @@ function useRecordDrawer(
     if (tryOpen()) return undefined
     const timers = [0, 100, 250, 450].map((delay) => setTimeout(tryOpen, delay))
     return () => timers.forEach((timer) => clearTimeout(timer))
-  }, [table, system])
+  }, [table, system, deepLink])
 
   const { record, loading } = useTableRecordRead(open, table, recordId, setValues)
 
@@ -297,12 +242,17 @@ function useDrawerRecord(
   return system ? (systemQuery.data ?? EMPTY_RECORD) : tableRecord
 }
 
-/** Field-edit + close handlers (clears the inline error on any field edit). */
+/** The inline error, plus the field-edit + close handlers (a field edit clears the error). */
 function useDrawerHandlers(
   setValues: Dispatch<SetStateAction<Values>>,
-  setOpen: (open: boolean) => void,
-  setError: (error: string | undefined) => void
-): { readonly onChange: (name: string, value: string) => void; readonly onClose: () => void } {
+  setOpen: (open: boolean) => void
+): {
+  readonly error: string | undefined
+  readonly setError: (error: string | undefined) => void
+  readonly onChange: (name: string, value: string) => void
+  readonly onClose: () => void
+} {
+  const [error, setError] = useState<string | undefined>()
   const onChange = useCallback(
     (name: string, value: string) => {
       setError(undefined)
@@ -311,7 +261,7 @@ function useDrawerHandlers(
     [setValues, setError]
   )
   const onClose = useCallback(() => setOpen(false), [setOpen])
-  return { onChange, onClose }
+  return { error, setError, onChange, onClose }
 }
 
 /**
@@ -349,12 +299,14 @@ function resolveDrawerLabels(props: RecordDrawerIslandProps): {
 function optionalBodyProps(
   error: string | undefined,
   table: string | undefined,
-  childrenHtml: string | undefined
-): Partial<Pick<DrawerContentProps, 'error' | 'table' | 'childrenHtml'>> {
+  childrenHtml: string | undefined,
+  related: ReactElement | undefined
+): Partial<Pick<DrawerContentProps, 'error' | 'table' | 'childrenHtml' | 'related'>> {
   return {
     ...(error === undefined ? {} : { error }),
     ...(table === undefined ? {} : { table }),
     ...(childrenHtml === undefined ? {} : { childrenHtml }),
+    ...(related === undefined ? {} : { related }),
   }
 }
 
@@ -378,12 +330,12 @@ export default function RecordDrawerIsland(props: RecordDrawerIslandProps): Reac
     values,
     setValues,
     loading,
-  } = useRecordDrawer(id, table, system)
+  } = useRecordDrawer(id, table, system, props.deepLink !== false)
   // The effective record — DB-table fetch OR system DETAIL fetch (see hook).
   const record = useDrawerRecord(system, recordId, tableRecord)
-  const [error, setError] = useState<string | undefined>()
-  const { onChange, onClose } = useDrawerHandlers(setValues, setOpen, setError)
+  const { error, setError, onChange, onClose } = useDrawerHandlers(setValues, setOpen)
   const onSave = useRecordSave({ recordFields, values, table, recordId, setOpen, setError })
+  const related = useRelatedSlot(props, { open, recordId, save: labels.save }, onClose)
   const body = renderDrawerBody({
     fields: recordFields,
     values,
@@ -394,17 +346,16 @@ export default function RecordDrawerIsland(props: RecordDrawerIslandProps): Reac
     onChange,
     onSave,
     saveLabel: labels.save,
-    ...optionalBodyProps(error, table, props.childrenHtml),
+    ...optionalBodyProps(error, table, props.childrenHtml, related),
   })
 
   if (role === 'region') {
-    // eslint-disable-next-line unicorn/no-null -- React components must return null (not undefined) to render nothing
-    if (!open) return null
     return (
       <RegionSurface
         title={labels.title}
         body={body}
         closeLabel={labels.close}
+        open={open}
         onClose={onClose}
       />
     )

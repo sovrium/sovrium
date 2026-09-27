@@ -111,7 +111,8 @@ function resolveInputType(field: ResolvedFieldDef): AuthFormField['inputType'] {
 export function resolveAuthFormFields(
   method: string,
   tables?: Tables,
-  component?: Component
+  component?: Component,
+  strategy?: string
 ): readonly AuthFormField[] {
   const dataSource = (component as { dataSource?: { table?: string } } | undefined)?.dataSource
   const tableName = dataSource?.table
@@ -127,7 +128,7 @@ export function resolveAuthFormFields(
       }))
     }
   }
-  return defaultAuthFields(method)
+  return defaultAuthFields(method, strategy)
 }
 
 /**
@@ -224,6 +225,7 @@ function buildIslandPropsJson(config: {
 }): string {
   return JSON.stringify({
     method: config.method,
+    strategy: config.action.strategy,
     fields: config.fields,
     submitLabel: config.submitLabel,
     pendingLabel: config.pendingLabel,
@@ -406,7 +408,7 @@ export function renderAuthForm(
   // Submit + in-flight labels (action overrides win, else localized built-ins).
   const { submitLabel, pendingLabel } = resolveAuthLabels(action, method, lang, languages)
   // Resolve the base field set, then layer action-level overrides + localization.
-  const baseFields = resolveAuthFormFields(method, tables, component)
+  const baseFields = resolveAuthFormFields(method, tables, component, action.strategy)
   const fields = applyFieldOverrides(baseFields, action.fields, context)
   const islandProps = buildIslandPropsJson({
     method,

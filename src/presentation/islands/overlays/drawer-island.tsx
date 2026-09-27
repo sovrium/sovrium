@@ -9,7 +9,12 @@ import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '@/presentation/design/class-merge'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
-import { subscribe as subscribeIslandEvent } from '@/presentation/islands/runtime/event-bus'
+import {
+  subscribe as subscribeIslandEvent,
+  type OpenDrawerDetail,
+} from '@/presentation/islands/runtime/event-bus'
+import { bindRecordToDrawerForms } from './drawer-record-binding'
+import { useLiveInjectedMarkup } from './live-injected-markup'
 import {
   computeDrawerHeaderClasses,
   computeDrawerPopupClasses,
@@ -37,6 +42,19 @@ interface DrawerIslandProps {
   readonly defaultOpen?: boolean
 }
 
+/** Whether a `data-click-modal="<id>"` trigger points at this drawer (client-side). */
+function hasExternalTrigger(id: string | undefined): boolean {
+  if (!id || typeof document === 'undefined') return false
+  return document.querySelector(`[data-click-modal="${id}"]`) !== null
+}
+
+/** Consume the pre-hydration click flag `clickScript` sets — as the dialog island does. */
+function consumePendingOpen(id: string): boolean {
+  const pending = (window as unknown as { __sovriumOpenModals?: Record<string, boolean> })
+    .__sovriumOpenModals
+  return pending?.[id] === true && Reflect.deleteProperty(pending, id)
+}
+
 /**
  * Wires external open triggers for this drawer:
  *
@@ -51,8 +69,8 @@ interface DrawerIslandProps {
  *    (PG-04 quick-edit drawer pattern). The event's `detail.id` matches the
  *    drawer component id, and `detail.record` carries the clicked row's
  *    record so the drawer's child form can be populated client-side. The
- *    record is stored in a ref so the post-mount effect can find input
- *    elements matching each record key and set their value attribute.
+ *    record is stored in a ref so the popup body's injection step can bind it
+ *    to the form before the form's island mounts (`drawer-record-binding.ts`).
  *
  * 3. The `sovrium:crud-success` CustomEvent dispatched by the embedded
  *    crud-form's `submitCrudForm` after a successful update / create
@@ -62,11 +80,15 @@ interface DrawerIslandProps {
 function useExternalOpenTrigger(
   id: string | undefined,
   setOpen: (open: boolean) => void,
-  recordRef: { current: Record<string, unknown> | null },
+  recordRef: { current: OpenDrawerDetail | null },
   closeOnCrudSuccess: boolean
 ): void {
   useEffect(() => {
     if (!id) return
+    // Replay a trigger click that landed BEFORE this (lazy) island hydrated —
+    // the drawer now mounts closed, so that click would otherwise be lost.
+    if (consumePendingOpen(id)) setOpen(true)
+    const raf = requestAnimationFrame(() => consumePendingOpen(id) && setOpen(true))
     const clickHandler = (event: Event): void => {
       const target = event.target as HTMLElement | null
       const trigger = target?.closest(`[data-click-modal="${id}"]`)
@@ -76,7 +98,7 @@ function useExternalOpenTrigger(
     const unsubscribeOpenDrawer = subscribeIslandEvent('sovrium:open-drawer', (detail) => {
       if (detail.id !== id) return
       // eslint-disable-next-line functional/immutable-data, no-param-reassign -- ref mutation is the documented React pattern for late-arriving data
-      recordRef.current = detail.record
+      recordRef.current = detail
       setOpen(true)
     })
     const unsubscribeCrudSuccess = subscribeIslandEvent('sovrium:crud-success', () => {
@@ -84,64 +106,12 @@ function useExternalOpenTrigger(
       setOpen(false)
     })
     return () => {
+      cancelAnimationFrame(raf)
       document.removeEventListener('click', clickHandler)
       unsubscribeOpenDrawer()
       unsubscribeCrudSuccess()
     }
   }, [id, setOpen, recordRef, closeOnCrudSuccess])
-}
-
-/**
- * After the drawer opens with a record dispatched via `sovrium:open-drawer`,
- * walk the form's named inputs and populate their `value` from the record.
- * Also stamps `data-action-record-id` on the parent `<form>` so the
- * `crud-form` island's update mutation has a target record id.
- *
- * Runs from the popup body's mount effect so the DOM nodes exist by the time
- * we query for them. Subsequent close/reopen cycles re-run on each open,
- * keeping the displayed values in sync with the most recently clicked row.
- */
-function populateFormFromRecord(container: HTMLElement, record: Record<string, unknown>): void {
-  const recordId = record['id']
-  if (recordId !== undefined && recordId !== null) {
-    const form = container.querySelector(
-      'form[data-action-method="update"]'
-    ) as HTMLFormElement | null
-    if (form) {
-      form.setAttribute('data-action-record-id', String(recordId))
-      const currentAction = form.getAttribute('action')
-      // PG-04: the SSR form action URL produced
-      // by `buildUpdateFormAction` carries the empty-recordId fallback path
-      // `/api/tables/<tbl>/records/update` (no double slash, no record id) —
-      // because no record is resolved at SSR time for drawer-hosted forms.
-      // Patch it in place so a native form POST (the path taken when the
-      // crud-form island has been blown away by the drawer's
-      // dangerouslySetInnerHTML re-mount) lands on the per-record endpoint.
-      // We also keep handling the older double-slash shape just in case any
-      // other SSR path still emits it.
-      if (currentAction) {
-        const patched = currentAction
-          .replace('/records//update', `/records/${String(recordId)}/update`)
-          .replace(/\/records\/update$/, `/records/${String(recordId)}/update`)
-        if (patched !== currentAction) form.setAttribute('action', patched)
-      }
-    }
-  }
-  const inputs = container.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
-    'input[name], textarea[name]'
-  )
-  inputs.forEach((el) => {
-    const key = el.getAttribute('name')
-    if (!key || !(key in record)) return
-    const value = record[key]
-    if (value === null || value === undefined) {
-      // eslint-disable-next-line functional/immutable-data, no-param-reassign -- DOM mutation is the contract here
-      el.value = ''
-    } else {
-      // eslint-disable-next-line functional/immutable-data, no-param-reassign -- DOM mutation is the contract here
-      el.value = String(value)
-    }
-  })
 }
 
 const SIDE_CLASSES = {
@@ -228,27 +198,42 @@ interface DrawerPopupBodyProps {
   readonly title?: string
   readonly description?: string
   readonly childrenHtml?: string
-  readonly onMount?: (container: HTMLElement) => void
+  readonly onInjected?: (container: HTMLElement) => void
+}
+
+/**
+ * The drawer's body markup, brought to life: injected when the popup opens, its
+ * scripts run and its island markers mounted — so a form placed in a drawer
+ * submits through its action — and unmounted when the popup closes, so a
+ * reopened drawer holds exactly one live copy.
+ *
+ * `onInjected` runs after injection and before the islands mount; the quick-
+ * edit drawer binds the dispatched record to its form there.
+ *
+ * SECURITY: `html` is server-rendered from the app's configuration, not user
+ * input.
+ */
+function DrawerChildren({
+  html,
+  onInjected,
+}: {
+  readonly html: string
+  readonly onInjected?: (container: HTMLElement) => void
+}): ReactElement {
+  const ref = useLiveInjectedMarkup(html, onInjected)
+  return <div ref={ref} />
 }
 
 /**
  * Renders the contents of the drawer popup. Extracted so the parent
  * island stays under the `max-lines-per-function` ESLint cap.
- *
- * `onMount` fires once the inner content container mounts so the parent
- * island can populate form fields from a dispatched record (PG-04
- * quick-edit drawer).
  */
 function DrawerPopupBody({
   title,
   description,
   childrenHtml,
-  onMount,
+  onInjected,
 }: DrawerPopupBodyProps): ReactElement {
-  const contentRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    if (contentRef.current && onMount) onMount(contentRef.current)
-  }, [onMount])
   return (
     <div className="flex h-full flex-col">
       <DrawerHeader
@@ -257,10 +242,9 @@ function DrawerPopupBody({
       />
       <div className="flex-1 overflow-auto p-4">
         {childrenHtml && (
-          <div
-            ref={contentRef}
-            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- preserves SSR skeleton HTML on initial paint; drawer re-render cost dominated by open/close
-            dangerouslySetInnerHTML={{ __html: childrenHtml }}
+          <DrawerChildren
+            html={childrenHtml}
+            onInjected={onInjected}
           />
         )}
       </div>
@@ -273,7 +257,7 @@ function DrawerPopupBody({
 
 /**
  * Wire the drawer's open state, the dispatched-record ref, external open
- * triggers, and the popup-body mount handler. Extracted from `DrawerIsland`
+ * triggers, and the popup-body injection handler. Extracted from `DrawerIsland`
  * to keep that component under the `max-lines-per-function` cap.
  */
 function useDrawerController(id: string | undefined, defaultOpen: boolean) {
@@ -282,12 +266,18 @@ function useDrawerController(id: string | undefined, defaultOpen: boolean) {
   // PG-04 quick-edit drawers (referenced by an openDrawer dispatch) opt out via
   // `defaultOpen={false}` so the drawer stays hidden until the dispatch fires.
   // `useExternalOpenTrigger` additionally re-opens after Escape/backdrop dismissal.
-  const [open, setOpen] = useState(defaultOpen)
+  //
+  // A drawer with a TRIGGER mounts closed whatever `defaultOpen` says: the
+  // trigger is how it opens, and one that opened itself on hydration covered
+  // the page it was meant to wait beside — the same rule the dialog island
+  // follows (`computeInitialOpen`). A click that beat hydration is replayed by
+  // `useExternalOpenTrigger`, which is what the open default was guarding.
+  const [open, setOpen] = useState(() => defaultOpen && !hasExternalTrigger(id))
   // PG-04: when `sovrium:open-drawer` fires, the dispatched record is
-  // captured in this ref so the popup-body mount effect can populate form
+  // captured in this ref so the popup-body injection step can populate form
   // fields. The ref is updated *before* `setOpen(true)` triggers the
   // re-render, so the new popup body mounts with the record already in hand.
-  const dispatchedRecordRef = useRef<Record<string, unknown> | null>(null)
+  const dispatchedRecordRef = useRef<OpenDrawerDetail | null>(null)
   // PG-04: only quick-edit drawers (those
   // referenced by an `onRowClick.action === 'openDrawer'` dispatch, which
   // pass `defaultOpen={false}` to opt out of legacy auto-open) should close
@@ -296,11 +286,11 @@ function useDrawerController(id: string | undefined, defaultOpen: boolean) {
   // mutation never closes them unexpectedly.
   const closeOnCrudSuccess = !defaultOpen
   useExternalOpenTrigger(id, setOpen, dispatchedRecordRef, closeOnCrudSuccess)
-  const handleBodyMount = useCallback((container: HTMLElement) => {
-    const record = dispatchedRecordRef.current
-    if (record) populateFormFromRecord(container, record)
+  const handleBodyInjected = useCallback((container: HTMLElement) => {
+    const opened = dispatchedRecordRef.current
+    if (opened) bindRecordToDrawerForms(container, opened.record, opened.table)
   }, [])
-  return { open, setOpen, handleBodyMount }
+  return { open, setOpen, handleBodyInjected }
 }
 
 /**
@@ -320,7 +310,7 @@ export default function DrawerIsland({
   defaultOpen = true,
   'data-testid': testId,
 }: DrawerIslandProps): ReactElement {
-  const { open, setOpen, handleBodyMount } = useDrawerController(id, defaultOpen)
+  const { open, setOpen, handleBodyInjected } = useDrawerController(id, defaultOpen)
   const sizeClass = getSizeClass(drawerSide, drawerSize)
   // Memoize to avoid creating a new style object every render (react-perf rule).
   const sizeInlineStyle = useMemo(
@@ -353,7 +343,7 @@ export default function DrawerIsland({
             title={title}
             description={description}
             childrenHtml={childrenHtml}
-            onMount={handleBodyMount}
+            onInjected={handleBodyInjected}
           />
         </Dialog.Popup>
       </Dialog.Portal>

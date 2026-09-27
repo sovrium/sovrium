@@ -20,6 +20,7 @@
  * exporting it from the wrapper instead would point the dependency backwards.
  */
 
+import { resolveFormRefOptionSets } from '@/presentation/render/forms/form-ref-option-sources'
 import { resolveComponentTranslationTokens } from '@/presentation/render/i18n/translation-handler'
 import { foldCodeContentFrom } from '@/presentation/render/resolve/code-content-fold-resolver'
 import { resolveCustomHtmlSources } from '@/presentation/render/resolve/custom-html-resolver'
@@ -32,6 +33,7 @@ import {
   applyPageLevelRecordBinding,
   type SystemRecordFetcher,
 } from '@/presentation/render/resolve/page-system-record-binding'
+import { gateRecordForCaller } from '@/presentation/render/resolve/record-read-gate'
 import { resolveSelectOptionSources } from '@/presentation/render/resolve/select-option-source-resolver'
 import {
   indexTemplatesByName,
@@ -271,6 +273,62 @@ async function applyRowScopedPasses(
 }
 
 /**
+ * The component filters, with the table-backed choices of every embedded form
+ * read first: an embedded form renders inside that synchronous pass, so the
+ * rows it needs cannot be read there.
+ */
+async function filterComponents(
+  boundPage: Page,
+  hostRecord: Readonly<Record<string, unknown>> | undefined,
+  input: ResolveAndFilterInput
+): Promise<Page> {
+  const { app, session, cookies, db } = input
+  const formOptions = await resolveFormRefOptionSets(boundPage.components, {
+    app,
+    db,
+    session,
+    cookies,
+  })
+  return applyPageComponentFilters({
+    rawPage: boundPage,
+    app,
+    session,
+    parentRecord: hostRecord,
+    detectedLanguage: input.detectedLanguage,
+    requestQuery: input.requestQuery,
+    urlLanguage: input.urlLanguage,
+    formOptions,
+    ...definedOnly({ hostApp: input.hostApp, callerCapabilities: input.callerCapabilities }),
+  })
+}
+
+/**
+ * The page-level `dataSource: { mode: single }` record, gated for THIS visitor
+ * the way the records API gates it: `'not-found'` for a record that does not
+ * exist AND for one the visitor may not read — the table's read permission
+ * refuses them, or its row-level rule hides the row — so a page cannot be used
+ * to learn which ids exist (S1). A readable record comes back less the columns
+ * the visitor may not read, so a `$record.<field>` naming one resolves to
+ * nothing. `undefined` when the page declares no such binding.
+ */
+async function resolveGatedParentRecord(
+  input: ResolveAndFilterInput
+): Promise<Readonly<Record<string, unknown>> | 'not-found' | undefined> {
+  const { rawPage, app, routeParams, session, db } = input
+  const resolution = await resolvePageParentRecord(rawPage, routeParams, db)
+  if (resolution.kind === 'none') return undefined
+  if (resolution.kind === 'not-found') return 'not-found'
+  const gated = await gateRecordForCaller({
+    app,
+    tableName: resolution.table,
+    session,
+    db,
+    record: resolution.record,
+  })
+  return gated ?? 'not-found'
+}
+
+/**
  * Resolve the host record (via Y-5 page-level dataSource) and apply all
  * component filters in one pass.
  *
@@ -296,12 +354,12 @@ export async function resolveAndFilterPage(
   // resolution is independent of `resolvePageDataSources` because that
   // function operates on per-component bindings, while inline-create
   // needs the host page's record visible to all descendant form-refs.
-  const parentResolution = await resolvePageParentRecord(rawPage, routeParams, db)
-  if (parentResolution.kind === 'not-found') return undefined
+  const parentRecord = await resolveGatedParentRecord(input)
+  if (parentRecord === 'not-found') return undefined
 
   // The single-mode dataSource record takes precedence; otherwise fall back
   // to the collection record so an embedded form’s `$record.*` tokens resolve.
-  const hostRecord = parentResolution.kind === 'record' ? parentResolution.record : collectionRecord
+  const hostRecord = parentRecord ?? collectionRecord
 
   // CAP-2 + [internal ref]: distribute the page-level single record to descendant
   // `$record.*` — server-side for BOTH arms now. The DB `{ table, mode: single }`
@@ -319,16 +377,7 @@ export async function resolveAndFilterPage(
   if (binding.kind === 'not-found') return undefined
   const boundPage = binding.page
 
-  const filteredPage = applyPageComponentFilters({
-    rawPage: boundPage,
-    app,
-    session,
-    parentRecord: hostRecord,
-    detectedLanguage: input.detectedLanguage,
-    requestQuery: input.requestQuery,
-    urlLanguage: input.urlLanguage,
-    ...definedOnly({ hostApp: input.hostApp, callerCapabilities: input.callerCapabilities }),
-  })
+  const filteredPage = await filterComponents(boundPage, hostRecord, input)
 
   // [internal ref]: a `specimen` that NAMES its subject
   // has that name replaced by the engine's own catalogue specimen for the type,

@@ -47,7 +47,10 @@
  */
 
 import { isHexColor } from '@/domain/kernel/color/option-chip-color'
+import { formatCalendarDate } from '@/domain/kernel/format/calendar-date'
 import { formatDurationValue } from '@/domain/kernel/format/duration-format'
+import { usableLocale } from '@/domain/kernel/format/usable-locale'
+import { toSafeAssetUrl } from '@/domain/kernel/url/asset-url-safety'
 import {
   computeAttachmentEntryClasses,
   computeAttachmentGlyphClasses,
@@ -63,8 +66,11 @@ import {
   computeProgressTrackClasses,
   computeRatingGlyphClasses,
   computeRatingRowClasses,
+  DEFAULT_RATING_MAX,
+  ratingGlyphsFor,
 } from '../../design/cell-affordances-default-classes'
-import { DEFAULT_RATING_MAX, ratingGlyphsFor, readsAsTrue } from '../runtime/cell-value-semantics'
+import { readsAsTrue } from '../runtime/cell-value-semantics'
+import { resolvePageLocale } from '../runtime/page-locale'
 import { richTextPreview } from '../runtime/rich-text-preview'
 import { EMPTY_VALUE, isMissing } from './cell-empty'
 import type { CellFieldOptions } from './cell-renderers'
@@ -302,7 +308,10 @@ const toAttachmentEntry = (value: unknown): AttachmentEntry | undefined => {
 
   const label = pick('filename', 'name', 'key')
   if (label === undefined) return undefined
-  const href = pick('signedUrl', 'url', 'key')
+  // The href is a URL-valued sink fed by stored data, so it goes through the
+  // canonical safe-address check: a value that is not a same-origin path or an
+  // http(s) URL leaves the entry as its name, with nothing to follow.
+  const href = toSafeAssetUrl(pick('signedUrl', 'url', 'key'))
   return { name: baseName(label), ...(href !== undefined ? { href } : {}) }
 }
 
@@ -394,6 +403,60 @@ export function AttachmentListCell({ value }: { value: unknown }): React.ReactNo
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// URL — a link that opens in a new tab, or the value as text
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Render a `url` field as a link a reader can follow.
+ *
+ * The value is stored data, and `url` compiles to a bare text column, so an
+ * imported row can hold anything — `javascript:…` included. The href therefore
+ * goes through the canonical safe-address check, and a value that fails it is
+ * shown as the text it is, with no anchor at all. A link opens in a new tab
+ * with `noopener noreferrer`, so the destination gets no handle on the app.
+ */
+export function UrlLinkCell({ value }: { value: unknown }): React.ReactNode {
+  if (isMissing(value)) return EMPTY_VALUE
+  const text = String(value)
+  const href = toSafeAssetUrl(text)
+  if (href === undefined) return text
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={computeAttachmentLinkClasses()}
+    >
+      {text}
+    </a>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// DATE — a calendar day, the same day for every reader
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Render a `date` field as a calendar date in the page's language.
+ *
+ * A date carries no time of day: the API sends it as `YYYY-MM-DD`, or as the
+ * UTC-midnight instant the driver decodes it to. Formatting that instant in
+ * the reader's own zone would print the day before for everyone west of UTC,
+ * so the day is formatted in UTC — which calendar day it is never depends on
+ * who reads it. Only the LOCALE (month names, order) follows the page.
+ */
+export function DateCell({
+  value,
+  fieldOptions,
+}: {
+  value: unknown
+  fieldOptions?: CellFieldOptions
+}): React.ReactNode {
+  if (isMissing(value)) return EMPTY_VALUE
+  return formatCalendarDate(value, fieldOptions?.locale) ?? String(value)
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // DATETIME — a readable instant, not the wire encoding
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -420,7 +483,7 @@ export function DateTimeCell({
   const parsed = value instanceof Date ? value : new Date(String(value))
   if (Number.isNaN(parsed.getTime())) return String(value)
   const timeZone = fieldOptions?.timeZone
-  return new Intl.DateTimeFormat(fieldOptions?.locale ?? 'en-US', {
+  return new Intl.DateTimeFormat(usableLocale(fieldOptions?.locale ?? resolvePageLocale()), {
     dateStyle: 'medium',
     timeStyle: 'short',
     ...(timeZone ? { timeZone } : {}),

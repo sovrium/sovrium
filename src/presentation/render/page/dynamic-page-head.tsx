@@ -46,6 +46,8 @@ export type DynamicPageHeadProps = {
   readonly builtInAnalyticsEnabled?: boolean
   readonly builtInAnalyticsSessionTimeout?: number
   readonly contentDirSeo?: ResolvedMarkdownPage['seo']
+  /** Title of the feed this page announces — see `PageHeadProps.feedTitle`. */
+  readonly feedTitle?: string
 }
 
 /**
@@ -69,6 +71,7 @@ export function DynamicPageHead({
   builtInAnalyticsEnabled,
   builtInAnalyticsSessionTimeout,
   contentDirSeo,
+  feedTitle,
 }: DynamicPageHeadProps): Readonly<ReactElement> {
   // Inline analytics script if enabled (contains /api/analytics/collect endpoint)
   const analyticsScript = builtInAnalyticsEnabled
@@ -106,6 +109,7 @@ export function DynamicPageHead({
         languages={languages}
         scripts={scripts}
         contentDirSeo={contentDirSeo}
+        feedTitle={feedTitle}
       />
       <IslandPreloadLinks hrefs={islandPreloadHrefs} />
       {analyticsScript && (

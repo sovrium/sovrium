@@ -1,0 +1,34 @@
+# The nine people of Orrin & Co, created as sign-in accounts before any table
+# is filled, so deals, projects, tasks and tickets can name them as owners.
+#
+# Priya runs operations and is the admin; the eight others are members. No
+# password is written here: every account takes `SOVRIUM_SEED_PASSWORD` from
+# the environment, so a password never lands in a file you might commit.
+users:
+  - email: priya.raghunathan@orrin.example
+    name: Priya Raghunathan
+    role: admin
+  - email: mateo.ferrer@orrin.example
+    name: Mateo Ferrer
+    role: member
+  - email: hannah.okonkwo@orrin.example
+    name: Hannah Okonkwo
+    role: member
+  - email: jules.marchand@orrin.example
+    name: Jules Marchand
+    role: member
+  - email: sofia.lindqvist@orrin.example
+    name: Sofia Lindqvist
+    role: member
+  - email: omar.haddad@orrin.example
+    name: Omar Haddad
+    role: member
+  - email: keiko.tanaka@orrin.example
+    name: Keiko Tanaka
+    role: member
+  - email: dan.whitfield@orrin.example
+    name: Dan Whitfield
+    role: member
+  - email: noor.haddadi@orrin.example
+    name: Noor Haddadi
+    role: member

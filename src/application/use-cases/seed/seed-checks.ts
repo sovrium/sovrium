@@ -19,8 +19,9 @@
  * pick an arbitrary order) exits `0`.
  */
 
+import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { ATTACHMENT_TYPES, findSeedTable, uniqueFieldNames } from './seed-config'
-import { referencesOf } from './seed-values'
+import { accountEmailsOf, referencesOf } from './seed-values'
 import type { SeedTableConfig } from './seed-config'
 import type { SeedValue } from './seed-values'
 
@@ -113,6 +114,17 @@ export const checkDuplicateKeys = (files: readonly LoadedSeedFile[]): readonly s
   })
 
 /**
+ * The system columns a seed file may set, beside the table's declared fields.
+ *
+ * `created_at` alone: importing rows from another system must be able to keep
+ * the date they were really created. It is written on insert only (the upsert
+ * update path drops it), so a seed can never rewrite a row's history.
+ * `updated_at` and `deleted_at` stay engine-owned — deliberately NOT every
+ * system field name.
+ */
+export const SEEDABLE_SYSTEM_COLUMNS: readonly string[] = ['created_at']
+
+/**
  * A seed field the table does not declare.
  *
  * Letting it reach the driver instead reports `column "revenue" does not
@@ -128,7 +140,7 @@ export const checkUndeclaredFields = (
     const declared = table.fields.map((field) => field.name)
     return file.records.flatMap((record) =>
       Object.keys(record.fields)
-        .filter((name) => !declared.includes(name))
+        .filter((name) => !declared.includes(name) && !SEEDABLE_SYSTEM_COLUMNS.includes(name))
         .map(
           (name) =>
             `${file.fileName} (key "${record.key}"): "${file.table}" declares no field ` +
@@ -138,10 +150,10 @@ export const checkUndeclaredFields = (
   })
 
 /**
- * An attachment field bound to a bucket other than `default`.
+ * An attachment field bound to a bucket other than the built-in `system` one.
  *
  * Auto-signed attachment URLs are always built against
- * `/api/buckets/default/signed`, ignoring the field's declared `bucket`, so a
+ * `/api/buckets/system/signed`, ignoring the field's declared `bucket`, so a
  * seeded row here carries a link that can never resolve. Refusing is the honest
  * answer until that defect is fixed — the row would look correct in the
  * database and render a broken image forever.
@@ -159,14 +171,14 @@ export const checkAttachmentBuckets = (
         (field) =>
           ATTACHMENT_TYPES.has(field.type) &&
           field.bucket !== undefined &&
-          field.bucket !== 'default' &&
+          field.bucket !== SYSTEM_BUCKET_NAME &&
           written.has(field.name)
       )
       .map(
         (field) =>
           `${table.fileName}: field "${field.name}" targets bucket "${field.bucket}". ` +
-          `sovrium seed only writes attachments on the "default" bucket — signed ` +
-          `attachment URLs are always built against /api/buckets/default/signed, so a ` +
+          `sovrium seed only writes attachments on the "system" bucket — signed ` +
+          `attachment URLs are always built against /api/buckets/system/signed, so a ` +
           `row written here would carry a link that never resolves.`
       )
   })
@@ -199,25 +211,54 @@ export const checkReferenceTargets = (planned: readonly PlannedSeedTable[]): rea
   )
 }
 
-/**
- * A row pointing at another row in the same table.
- *
- * Resolving one needs a two-pass insert-then-patch, which v1 does not do. The
- * refusal fires only when seed data actually uses such a reference, so a table
- * merely *declaring* a self-link seeds normally.
- */
-export const checkSelfReferences = (planned: readonly PlannedSeedTable[]): readonly string[] =>
-  planned.flatMap((table) =>
-    table.records.flatMap((record) =>
-      Object.entries(record.fields)
-        .filter(([, value]) => referencesOf(value).some((ref) => ref.table === table.name))
-        .map(
-          ([field]) =>
-            `${table.fileName} (key "${record.key}"): field "${field}" references the same ` +
-            `table. Self-referencing links are not supported by sovrium seed yet.`
+/** One `@user:<email>` in the seed data, with where it was written. */
+export interface SeedAccountReference {
+  readonly fileName: string
+  readonly key: string
+  readonly field: string
+  readonly email: string
+}
+
+/** Every `@user:<email>` the in-scope seed rows name, in file order. */
+export const collectAccountReferences = (
+  planned: readonly PlannedSeedTable[]
+): readonly SeedAccountReference[] =>
+  planned
+    .filter((table) => table.inScope)
+    .flatMap((table) =>
+      table.records.flatMap((record) =>
+        Object.entries(record.fields).flatMap(([field, value]) =>
+          accountEmailsOf(value).map((email) => ({
+            fileName: table.fileName,
+            key: record.key,
+            field,
+            email,
+          }))
         )
+      )
     )
-  )
+
+/**
+ * A `@user:<email>` naming no account.
+ *
+ * `known` holds every email that will have an account by the time rows are
+ * written — the ones already in the database and the ones `seed/users.yaml`
+ * creates — lower-cased, because sign-in treats an email case-insensitively.
+ * Writing `NULL` instead would seed a record with no owner and exit `0`, which
+ * is how a misspelt email in a template ships an ownerless demo.
+ */
+export const checkAccountReferences = (
+  references: readonly SeedAccountReference[],
+  known: ReadonlySet<string>
+): readonly string[] =>
+  references
+    .filter((reference) => !known.has(reference.email.toLowerCase()))
+    .map(
+      (reference) =>
+        `${reference.fileName} (key "${reference.key}"): field "${reference.field}" names ` +
+        `@user:${reference.email}, but no account has the email "${reference.email}". ` +
+        `Create it with sovrium admin create, or list it in seed/users.yaml.`
+    )
 
 /**
  * Resolve the columns `--mode upsert` matches on: the file's `mergeOn`, else

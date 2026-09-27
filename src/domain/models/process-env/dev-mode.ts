@@ -11,12 +11,11 @@
  * in any layer (presentation, infrastructure, application) can share the
  * same semantic without re-implementing the unset-vs-empty-vs-set distinction.
  *
- * The original site of this predicate was `infrastructure/process/env.ts`'s
- * `isLiveReloadEligible`, which was duplicated inline in
- * `presentation/ui/pages/page-body-scripts.tsx::DevLiveReloadScript` "to preserve
- * the presentation→infrastructure layer boundary". The pure predicate belongs
- * in the domain layer so both call sites consume the same canonical shape
- * without a layer hop.
+ * `infrastructure/process/env.ts`'s `isLiveReloadEligible` is its one
+ * live-reload reader. The page renderer used to carry a second, inline copy
+ * to print the reload tag; the tag is now added by the dev-reload mount itself
+ * (`presentation/api/server/dev-reload-routes.ts`), so a surface that does not
+ * mount the routes — a static build — cannot name the script either.
  */
 
 /**

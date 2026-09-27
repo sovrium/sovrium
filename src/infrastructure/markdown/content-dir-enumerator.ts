@@ -55,6 +55,8 @@ export interface ContentDirEntry {
   readonly description: string | undefined
   /** Resolved page URL (route prefix + slug, e.g. `/docs/getting-started`). */
   readonly path: string
+  /** The source file's modification time — the sitemap's `<lastmod>`. */
+  readonly modifiedAt?: Date
 }
 
 /**
@@ -66,6 +68,8 @@ export interface ParsedFile {
   readonly relativePath: string
   readonly frontmatter: Readonly<Record<string, string>>
   readonly body: string
+  /** The file's modification time in epoch milliseconds, when readable. */
+  readonly modifiedAtMs?: number
 }
 
 /**
@@ -144,7 +148,7 @@ const readFile = async (
     const file = Bun.file(absolutePath)
     if (!(await file.exists())) return undefined
     const { frontmatter, body } = splitFrontmatter(await file.text())
-    return { relativePath, frontmatter, body }
+    return { relativePath, frontmatter, body, modifiedAtMs: file.lastModified }
   } catch {
     return undefined
   }
@@ -209,6 +213,7 @@ const toEntry = (
     group,
     description: file.frontmatter['description'],
     path: resolveEntryPath(contentDir, pagePath, slug),
+    ...(file.modifiedAtMs !== undefined ? { modifiedAt: new Date(file.modifiedAtMs) } : {}),
   }
 }
 

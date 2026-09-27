@@ -6,8 +6,7 @@
  */
 
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { isViewComputedFormula } from '../formula/formula-utils'
-import { shouldCreateDatabaseColumn } from '../sql/sql-field-predicates'
+import { isPhysicalColumnField, shouldCreateDatabaseColumn } from '../sql/sql-field-predicates'
 import { generateColumnDefinition, isFieldNotNull } from '../sql/sql-generators'
 import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
 import {
@@ -76,6 +75,10 @@ export const needsIdColumnRecreation = (
 /**
  * Find columns that should be added to the table
  * Excludes columns that exist but have type mismatches (those will be altered, not dropped/added)
+ *
+ * Only STORED fields qualify ({@link isPhysicalColumnField}): a lookup, rollup
+ * or view-computed formula is produced by the view body, so it is never missing
+ * from the base table no matter what the live column list says.
  */
 export const findColumnsToAdd = (
   table: Table,
@@ -83,8 +86,7 @@ export const findColumnsToAdd = (
   renamedNewNames: ReadonlySet<string>
 ): readonly Fields[number][] =>
   table.fields.filter((field) => {
-    if (!shouldCreateDatabaseColumn(field)) return false // Skip UI-only fields
-    if (isViewComputedFormula(field, table.fields)) return false // Computed in VIEW, not a base column
+    if (!isPhysicalColumnField(field, table.fields)) return false // UI-only or view-computed
     if (renamedNewNames.has(field.name)) return false // Skip renamed fields
     if (!existingColumns.has(field.name)) return true // New column (needs ADD COLUMN)
     // Existing columns with type mismatches will be handled by ALTER COLUMN TYPE
@@ -136,10 +138,9 @@ export const filterModifiableFields = (
   renamedNewNames: ReadonlySet<string>
 ): readonly Fields[number][] =>
   fields.filter((field) => {
-    // Skip UI-only fields, view-computed formulas, renamed fields, and fields
-    // not in database
-    if (!shouldCreateDatabaseColumn(field)) return false
-    if (isViewComputedFormula(field, fields)) return false
+    // Skip UI-only and view-computed fields (lookup, rollup, formulas over
+    // them), renamed fields, and fields not in database
+    if (!isPhysicalColumnField(field, fields)) return false
     if (renamedNewNames.has(field.name)) return false
     if (!existingColumns.has(field.name)) return false
     return true
@@ -266,14 +267,23 @@ export const findNullabilityChanges = (
 /**
  * Find columns that need default value changes
  * Returns ALTER COLUMN statements for SET DEFAULT or DROP DEFAULT
+ *
+ * @param context.physicalTableName - the relation the statements ALTER
+ *   (`<name>_base` for a view-backed table); defaults to the config name.
  */
 export const findDefaultValueChanges = (
   table: Table,
   existingColumns: ReadonlyMap<string, ExistingColumnInfo>,
   renamedNewNames: ReadonlySet<string>,
-  previousSchema?: { readonly tables: readonly object[] }
+  context: {
+    readonly previousSchema?: { readonly tables: readonly object[] }
+    readonly physicalTableName?: string
+  } = {}
 ): readonly string[] => {
-  // Find previous table definition to compare default values
+  const { previousSchema } = context
+  const physicalTableName = context.physicalTableName ?? table.name
+  // Find previous table definition to compare default values. Keyed by the
+  // CONFIG name: the snapshot stores config tables, never `<name>_base`.
   const previousTable = previousSchema?.tables.find(
     (t: object) => 'name' in t && t.name === table.name
   ) as
@@ -297,7 +307,7 @@ export const findDefaultValueChanges = (
 
     // Case 1: Default removed (was set, now undefined)
     if (previousDefault !== undefined && currentDefault === undefined) {
-      return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP DEFAULT`]
+      return [`ALTER TABLE ${physicalTableName} ALTER COLUMN ${field.name} DROP DEFAULT`]
     }
 
     // Case 2: Default added or modified (generate SET DEFAULT statement)
@@ -308,7 +318,9 @@ export const findDefaultValueChanges = (
       const defaultMatch = columnDef.match(/DEFAULT\s+('(?:[^']|'')*'|[^\s]+)/)
       if (defaultMatch) {
         const defaultClause = defaultMatch[1]
-        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET DEFAULT ${defaultClause}`]
+        return [
+          `ALTER TABLE ${physicalTableName} ALTER COLUMN ${field.name} SET DEFAULT ${defaultClause}`,
+        ]
       }
     }
 

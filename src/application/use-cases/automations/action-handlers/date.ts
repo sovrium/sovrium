@@ -36,6 +36,7 @@
 
 import { DateTime, Effect } from 'effect'
 import { formatWithTokens, parseWithTokens } from '@/domain/kernel/format/date-tokens'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import {
   CALENDAR_DIFF_UNITS,
   diffInUnits,
@@ -88,7 +89,7 @@ const WEEK_STARTS_ON = 1 as const
 export const handleDateFormat: ActionHandler = (action, _app, _automation) =>
   Effect.sync(() => {
     const props = propsOf(action)
-    const timezone = resolveTimezone(props, 'format')
+    const timezone = resolveTimezone(props, 'format', resolveOperatorTimezone())
     if (!timezone.ok) return failure(timezone.error)
     const pattern = optionalString(props, 'pattern')
     if (pattern === undefined) return failure('date.format requires a `pattern`')
@@ -118,7 +119,7 @@ export const handleDateFormat: ActionHandler = (action, _app, _automation) =>
 export const handleDateParse: ActionHandler = (action, _app, _automation) =>
   Effect.sync(() => {
     const props = propsOf(action)
-    const timezone = resolveTimezone(props, 'parse')
+    const timezone = resolveTimezone(props, 'parse', resolveOperatorTimezone())
     if (!timezone.ok) return failure(timezone.error)
     const pattern = optionalString(props, 'pattern')
     if (pattern === undefined) return failure('date.parse requires a `pattern`')
@@ -145,7 +146,7 @@ const shiftHandler =
   (action, _app, _automation) =>
     Effect.sync(() => {
       const props = propsOf(action)
-      const timezone = resolveTimezone(props, operator)
+      const timezone = resolveTimezone(props, operator, resolveOperatorTimezone())
       if (!timezone.ok) return failure(timezone.error)
       const instant = resolveInstant(props, 'input', operator)
       if (!instant.ok) return failure(instant.error)
@@ -174,7 +175,7 @@ export const handleDateSubtract: ActionHandler = shiftHandler('subtract', -1)
 export const handleDateDiff: ActionHandler = (action, _app, _automation) =>
   Effect.sync(() => {
     const props = propsOf(action)
-    const timezone = resolveTimezone(props, 'diff')
+    const timezone = resolveTimezone(props, 'diff', resolveOperatorTimezone())
     if (!timezone.ok) return failure(timezone.error)
     const unit = optionalString(props, 'unit')
     if (
@@ -215,7 +216,7 @@ const boundaryHandler =
   (action, _app, _automation) =>
     Effect.sync(() => {
       const props = propsOf(action)
-      const timezone = resolveTimezone(props, operator)
+      const timezone = resolveTimezone(props, operator, resolveOperatorTimezone())
       if (!timezone.ok) return failure(timezone.error)
       const unit = optionalString(props, 'unit') as DateTime.DateTime.UnitSingular | undefined
       if (unit === undefined || !BOUNDARY_UNITS.has(unit)) {
@@ -251,7 +252,7 @@ export const handleDateEndOf: ActionHandler = boundaryHandler('endOf')
 export const handleDateNow: ActionHandler = (action, _app, _automation) =>
   Effect.sync(() => {
     const props = propsOf(action)
-    const timezone = resolveTimezone(props, 'now')
+    const timezone = resolveTimezone(props, 'now', resolveOperatorTimezone())
     if (!timezone.ok) return failure(timezone.error)
     const instant = new Date()
     const pattern = optionalString(props, 'pattern')

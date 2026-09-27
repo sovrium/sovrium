@@ -27,7 +27,7 @@ A generic block-level wrapper — the workhorse for constraining width, applying
 
 <!-- sovrium:options type:container depth=3 -->
 
-`element` chooses the rendered tag — `div` by default, or `section`, `main`, `aside`, `nav`, `header`, `footer`, `article`. `content` renders when there are no `children`. `repeat: { record: <field> }` renders `children` once per element of an array the bound record already carries; it is supported inside a record-bound drawer's `children` and refused anywhere else.
+`element` chooses the rendered tag — `div` by default, or `section`, `main`, `aside`, `nav`, `header`, `footer`, `article`. `content` renders when there are no `children`. `repeat: { record: <field> }` renders `children` once per element of an array the bound record already carries; it is supported inside a record-bound drawer's `children` and on a page bound to one record, and refused anywhere else. `repeat.as` names the element, so `$<as>.<key>` reads it while `$record.<key>` keeps reading the bound record, and a second repeat may nest inside a named one.
 
 ### The page opener
 

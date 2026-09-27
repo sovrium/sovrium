@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { pageFoldsDocsNav } from '@/presentation/render/registry/docs-nav-drawer-mode'
 import {
   ISLAND_COMPONENT_TYPES,
   zeroJsDialogNeedsNoRuntime,
@@ -110,6 +111,7 @@ function itemSelfNeedsIslands(item: Component): boolean {
  */
 export function hasIslandComponents(page: Page, components?: Components): boolean {
   if (page.presence === true) return true
+  if (pageFoldsDocsNav(page)) return true
   return someComponentInTree(page.components, components, (item) =>
     itemSelfNeedsIslands(item as Component)
   )

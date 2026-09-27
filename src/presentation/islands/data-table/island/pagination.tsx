@@ -65,6 +65,12 @@ function PageSizeSelect({
  * cursor-paginated feed, where that would be wrong. And the summary span
  * declares no type of its own: the bar's 11px muted step IS the pager's voice,
  * and the span used to override it one step LOUDER than the values it counts.
+ *
+ * On a phone the two halves do not fit one row once the page-size select
+ * holds `100 / page`. The bar wraps rather than squeezing: each half keeps
+ * its words on one line, and `ml-auto` keeps the controls at the end edge
+ * when they drop to a second row. Squeezed, the summary broke as
+ * "1–100 of / 150".
  */
 export function PaginationControls(props: PaginationControlsProps) {
   const { table, total, pageSizeOptions, position = 'bottom' } = props
@@ -87,10 +93,10 @@ export function PaginationControls(props: PaginationControlsProps) {
     <nav
       aria-label="pagination"
       data-pagination
-      className={`${computeTablePagerClasses({ position })} justify-between`}
+      className={`${computeTablePagerClasses({ position })} flex-wrap justify-between gap-y-1`}
     >
-      <span>{summary}</span>
-      <div className="flex items-center gap-2">
+      <span className="whitespace-nowrap">{summary}</span>
+      <div className="ml-auto flex items-center gap-2">
         {pageSizeOptions && pageSizeOptions.length > 0 && (
           <PageSizeSelect
             pageSize={pageSize}
@@ -107,7 +113,7 @@ export function PaginationControls(props: PaginationControlsProps) {
         >
           Previous
         </button>
-        <span>
+        <span className="whitespace-nowrap">
           Page {pageIndex + 1} of {pageCount || 1}
         </span>
         <button

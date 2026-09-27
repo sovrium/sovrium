@@ -5,11 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import frLocale from '@fullcalendar/core/locales/fr'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import { useRef, useState } from 'react'
+import { usableLocale } from '@/domain/kernel/format/usable-locale'
+import { resolvePageLocale } from '../runtime/page-locale'
+import { resolveCalendarCaptions } from './calendar-captions'
 import { CalendarCreateModal } from './calendar-create-modal'
 import {
   buildDropPatch,
@@ -57,6 +61,16 @@ const FULLCALENDAR_TO_VIEW: Record<string, CalendarView> = {
 
 // Module-level constants — stable references avoid jsx-no-new-* warnings.
 const CALENDAR_PLUGINS = [dayGridPlugin, timeGridPlugin, interactionPlugin]
+/**
+ * The FullCalendar locale bundles the calendar ships — French only, matching
+ * the caption table in `calendar-captions.ts`. The period title and the
+ * weekday headers are dates, which FullCalendar formats through `Intl` under
+ * whatever `locale` it is given, bundle or not; a bundle only adds the few
+ * words FullCalendar writes itself (the week view's "all-day" row, the month
+ * view's "+N more"). One bundle is ~0.6 KB, where `locales-all` would carry
+ * sixty-odd languages the caption table cannot follow anyway.
+ */
+const CALENDAR_LOCALES = [frLocale]
 // 24-hour `09:00` format (matches the test contract for time-grid views).
 const SLOT_LABEL_FORMAT = {
   hour: '2-digit' as const,
@@ -229,6 +243,11 @@ interface ToolbarState {
    * six JSX attributes is most of the budget the toolbar can afford there.
    */
   readonly toolbar: CalendarToolbarProps
+  /**
+   * The page language as `Intl` accepts it — handed to FullCalendar so the
+   * period title and weekday headers are dates in the page's language too.
+   */
+  readonly pageLocale: string
 }
 
 /**
@@ -248,6 +267,7 @@ interface ToolbarState {
  * keeps the segmented control honest when something else changes the view.
  */
 function useCalendarToolbar(defaultView: CalendarView): ToolbarState {
+  const pageLocale = usableLocale(resolvePageLocale())
   const calendarRef = useRef<FullCalendar | null>(null)
   const [title, setTitle] = useState('')
   const [activeView, setActiveView] = useState<CalendarView>(defaultView)
@@ -265,9 +285,10 @@ function useCalendarToolbar(defaultView: CalendarView): ToolbarState {
     onNext: () => calendarRef.current?.getApi().next(),
     onToday: () => calendarRef.current?.getApi().today(),
     onViewChange: (view) => calendarRef.current?.getApi().changeView(VIEW_TO_FULLCALENDAR[view]),
+    captions: resolveCalendarCaptions(pageLocale),
   }
 
-  return { calendarRef, handleDatesSet, toolbar }
+  return { calendarRef, handleDatesSet, toolbar, pageLocale }
 }
 
 /**
@@ -302,11 +323,10 @@ export function CalendarViewComponent({
   const handleEventClick = buildEventClickHandler(calendarEvent)
   const handleEventDrop = buildEventDropHandler({ tableName, dateField, endDateField })
   const { open, clickedDate, handleDateClick, closeModal } = useDateClickModal(calendarInteraction)
-  const { calendarRef, handleDatesSet, toolbar } = useCalendarToolbar(defaultView)
+  const { calendarRef, handleDatesSet, toolbar, pageLocale } = useCalendarToolbar(defaultView)
 
   const editableDrag = Boolean(handleEventDrop)
   const showCurrentTimeIndicator = calendarInteraction?.showCurrentTimeIndicator !== false
-  const createTable = resolveCreateTable(calendarInteraction, tableName)
 
   return (
     <div
@@ -321,6 +341,8 @@ export function CalendarViewComponent({
         initialView={initialView}
         {...(initialDate && { initialDate })}
         headerToolbar={false}
+        locales={CALENDAR_LOCALES}
+        locale={pageLocale}
         datesSet={handleDatesSet}
         events={events as CalendarEvent[]}
         height="auto"
@@ -337,7 +359,7 @@ export function CalendarViewComponent({
       />
       <CalendarCreateModal
         open={open}
-        tableName={createTable ?? ''}
+        tableName={resolveCreateTable(calendarInteraction, tableName) ?? ''}
         clickedDate={clickedDate}
         dateField={dateField}
         onClose={closeModal}

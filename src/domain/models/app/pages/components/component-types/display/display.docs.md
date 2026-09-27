@@ -136,6 +136,8 @@ A vertical rail of events, in one of two shapes — the `dataSource` decides whi
 
 **With a `dataSource`** it is the record-bound Gantt — bars on a time axis, grouped into swimlanes, zoomable — described with the other record views.
 
+A timeline laned by a `user` or a labelled relationship heads each lane with the label, not the stored key.
+
 **`children` and `dataSource` are mutually exclusive.** A timeline declaring both is refused at validation. Elsewhere a key belonging to the other shape is simply ignored; here the binding would win and your authored children would vanish from the page with nothing to explain why. Drop `dataSource` to keep the rail, or drop `children` to keep the records.
 
 ## `accordion`

@@ -23,7 +23,7 @@
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
-import { BuildBucketFiles } from '@/application/use-cases/admin/bucket-files'
+import { BuildBucketFiles, ReadBucketUsage } from '@/application/use-cases/admin/bucket-files'
 import {
   buildBucketUploadSeries,
   BuildBucketUploadSeries,
@@ -55,7 +55,7 @@ import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import {
   bucketIdForName,
   declaredBucketNames,
-  DEFAULT_BUCKET_ID,
+  SYSTEM_BUCKET_ID,
 } from '@/domain/models/app/buckets/bucket-identity'
 import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import { logError } from '@/infrastructure/logging/logger'
@@ -109,10 +109,9 @@ function buildBucketEnvelope(fileCount: number, totalBytes: number): BucketAdmin
 
 /**
  * Live reading of the storage backend: how many files it holds and how many
- * bytes they occupy. GLOBAL figures — Sovrium stores every upload under a flat
- * `<uuid>-<filename>` key with no bucket component
- * ({@link buildUploadStorageKey}), so there is no per-bucket attribution to
- * compute. A backend that cannot be read reports zeros rather than failing the
+ * bytes they occupy. GLOBAL figures, read from the backend itself — the
+ * overview's totals, which include objects no catalog row attributes to a
+ * bucket. A backend that cannot be read reports zeros rather than failing the
  * request: an operator triaging a storage problem needs the dashboard to render.
  */
 async function readStorageTotals(c: Context): Promise<{
@@ -130,22 +129,37 @@ async function readStorageTotals(c: Context): Promise<{
 }
 
 /**
- * Build one list item per bucket the app declares — or one for the virtual
- * `default` bucket when it declares none. Empty when no storage provider
- * resolves: a declaration that cannot hold a byte is not a bucket.
+ * Per-bucket usage from the storage catalog, which records the bucket every
+ * upload went through. A catalog that cannot be read reports every bucket empty
+ * rather than failing the request: an operator triaging a storage problem needs
+ * the list to render.
+ */
+async function readBucketUsage(
+  c: Context
+): Promise<ReadonlyMap<string, { readonly fileCount: number; readonly totalBytes: number }>> {
+  const result = await runRequestEffect(c, provideDomain(c, ReadBucketUsage).pipe(Effect.result))
+  if (result._tag === 'Failure') {
+    logError('[admin] bucket usage read failed', result.failure, requestLogAttributes(c))
+    return new Map()
+  }
+  return result.success
+}
+
+/**
+ * Build one list item per bucket the app exposes: the built-in `system` bucket
+ * first, then every declared bucket. Empty when no storage provider resolves: a
+ * declaration that cannot hold a byte is not a bucket.
  *
- * Every item carries the same `metadata`, because it is the same shared store:
- * declared buckets are path prefixes inside the one env-resolved backend, and
- * the sibling file browser (`/api/admin/buckets/:bucketName/files`) already
- * reports that backend-wide `totalBytes` for any bucket name. These per-item
- * figures are therefore never summed — the overview reads
- * {@link readStorageTotals} once — or one 1 KB upload would be reported as three.
+ * Each item counts only the objects recorded under it — the `system` bucket its
+ * own uploads, not the record-linked files its listing also gathers — so the
+ * per-item figures partition the store rather than repeating one global total
+ * on every row.
  */
 async function buildBucketItems(c: Context, app: App): Promise<readonly BucketAdminItem[]> {
   const meta = resolveDefaultBucket()
   if (!meta) return []
 
-  const { totalBytes, fileCount } = await readStorageTotals(c)
+  const usage = await readBucketUsage(c)
   const now = new Date().toISOString()
 
   return declaredBucketNames(app.buckets).map((name) => ({
@@ -155,7 +169,7 @@ async function buildBucketItems(c: Context, app: App): Promise<readonly BucketAd
     region: meta.region,
     createdAt: now,
     updatedAt: now,
-    _admin: buildBucketEnvelope(fileCount, totalBytes),
+    _admin: buildBucketEnvelope(usage.get(name)?.fileCount ?? 0, usage.get(name)?.totalBytes ?? 0),
   }))
 }
 
@@ -244,7 +258,7 @@ async function handleListBuckets(c: Context, app: App): Promise<Response> {
   await emitAuditEvent({
     action: AUDIT_ACTIONS.BUCKET_LIST_QUERIED,
     actor,
-    resourceId: DEFAULT_BUCKET_ID,
+    resourceId: SYSTEM_BUCKET_ID,
     severity: 'info',
     result: 'success',
   })
@@ -276,9 +290,7 @@ async function readOverviewSeries(
  * Build the overview's right-edge `totals` snapshot.
  *
  * `buckets` counts what the app DECLARES; `files` / `totalBytes` are the
- * backend's global figures, read ONCE. Summing the per-bucket metadata instead
- * would multiply a single upload by the bucket count (see
- * {@link buildBucketItems}). With no provider resolved there is nothing to
+ * backend's global figures, read ONCE. With no provider resolved there is nothing to
  * count: a declaration that cannot hold a byte is not a bucket.
  *
  * No bucket can be soft-deleted today, so every declared bucket is live.
@@ -349,7 +361,7 @@ async function handleBucketsOverview(c: Context, app: App): Promise<Response> {
   await emitAuditEvent({
     action: AUDIT_ACTIONS.BUCKET_OVERVIEW_QUERIED,
     actor,
-    resourceId: DEFAULT_BUCKET_ID,
+    resourceId: SYSTEM_BUCKET_ID,
     severity: 'info',
     result: 'success',
   })
@@ -376,12 +388,12 @@ async function handleBucketsOverview(c: Context, app: App): Promise<Response> {
  * three pages down as absent. The operator was told a file they had uploaded
  * did not exist.
  *
- * Sovrium today backs every named bucket with a single virtual "default"
- * bucket, so the listing reads ALL metadata rows (the per-named-bucket
- * projection is a Phase-1 concern) — replicating the legacy "all keys"
- * semantics. `totalBytes` is the bucket-wide `SUM(size)`, invariant across the
- * `type` filter and pagination, so the quota bar renders without a second
- * round-trip.
+ * Each listing is scoped to its bucket: the objects recorded under it. The
+ * built-in `system` bucket also lists every file linked to a record, whichever
+ * bucket holds it, each row naming that bucket and the table, record and field
+ * referencing it. A name the app does not expose answers 404. `totalBytes` is
+ * the listing-wide `SUM(size)`, invariant across the `type` filter and
+ * pagination, so the quota bar renders without a second round-trip.
  *
  * The endpoint is gated upstream by `requireAdminTier()` (admin + operator);
  * unauthenticated and non-admin-tier callers receive 404 per anti-enumeration
@@ -433,9 +445,15 @@ function parseBucketFilesQuery(c: Context) {
   })
 }
 
-async function handleListBucketFiles(c: Context): Promise<Response> {
+/** Whether `name` is a bucket the app exposes — the built-in `system` or a declared one. */
+const isExposedBucket = (app: App, name: string | undefined): name is string =>
+  name !== undefined && declaredBucketNames(app.buckets).includes(name)
+
+async function handleListBucketFiles(c: Context, app: App): Promise<Response> {
   const { session } = (c as ContextWithSession).var
   if (!session) return notFound(c, 'Not found')
+  const bucket = c.req.param('bucketName')
+  if (!isExposedBucket(app, bucket)) return notFound(c, 'Not found')
 
   const parsedQuery = parseBucketFilesQuery(c)
   if (!parsedQuery.success) {
@@ -444,6 +462,8 @@ async function handleListBucketFiles(c: Context): Promise<Response> {
   const { cursor, limit, sort, order, type, q } = parsedQuery.data
 
   const program = BuildBucketFiles({
+    bucket,
+    app,
     sort,
     order,
     ...(type !== undefined ? { type } : {}),
@@ -478,7 +498,7 @@ async function handleListBucketFiles(c: Context): Promise<Response> {
   await emitAuditEvent({
     action: AUDIT_ACTIONS.BUCKET_FILES_QUERIED,
     actor,
-    resourceId: DEFAULT_BUCKET_ID,
+    resourceId: bucketIdForName(bucket),
     severity: 'info',
     result: 'success',
   })
@@ -490,8 +510,7 @@ async function handleListBucketFiles(c: Context): Promise<Response> {
  * Default admin-console upload size cap (10 MB). Mirrors the signed-URL upload
  * default (`DEFAULT_UPLOAD_MAX_SIZE` in `buckets/signed-urls.ts`) so the console
  * upload, the signed-URL flow, and the public route share one frugal default.
- * The admin console writes to the single virtual `default` bucket, so there is
- * no per-bucket `maxFileSize` to consult here.
+ * The admin console's upload does not consult a per-bucket `maxFileSize`.
  */
 const ADMIN_UPLOAD_MAX_SIZE = 10 * 1024 * 1024
 
@@ -533,7 +552,9 @@ function validateAdminUploadFilename(
  * is admin-guarded automatically. One `bucket.file.uploaded` audit entry is
  * emitted on success (canonical `resource.type === 'bucket'`).
  */
-async function handleUploadBucketFile(c: Context): Promise<Response> {
+async function handleUploadBucketFile(c: Context, app: App): Promise<Response> {
+  const bucket = c.req.param('bucketName')
+  if (!isExposedBucket(app, bucket)) return notFound(c, 'Not found')
   // Parse the multipart body and assert the `file` part is a binary File.
   const body = await c.req.parseBody()
   const { file } = body
@@ -555,7 +576,7 @@ async function handleUploadBucketFile(c: Context): Promise<Response> {
     )
   }
 
-  return persistAdminUpload(c, file, c.req.param('bucketName') ?? 'default')
+  return persistAdminUpload(c, file, bucket)
 }
 
 /**
@@ -618,7 +639,7 @@ async function persistAdminUpload(c: Context, file: File, bucket: string): Promi
   await emitAuditEvent({
     action: AUDIT_ACTIONS.BUCKET_FILE_UPLOADED,
     actor,
-    resourceId: DEFAULT_BUCKET_ID,
+    resourceId: bucketIdForName(bucket),
     severity: 'info',
     result: 'success',
   })
@@ -644,7 +665,7 @@ async function persistAdminUpload(c: Context, file: File, bucket: string): Promi
 export function chainAdminBucketsRoutes<T extends Hono>(honoApp: T, app: App): T {
   return honoApp
     .get('/api/admin/buckets/overview', (c) => handleBucketsOverview(c, app))
-    .get('/api/admin/buckets/:bucketName/files', handleListBucketFiles)
-    .post('/api/admin/buckets/:bucketName/files', handleUploadBucketFile)
+    .get('/api/admin/buckets/:bucketName/files', (c) => handleListBucketFiles(c, app))
+    .post('/api/admin/buckets/:bucketName/files', (c) => handleUploadBucketFile(c, app))
     .get('/api/admin/buckets', (c) => handleListBuckets(c, app)) as T
 }

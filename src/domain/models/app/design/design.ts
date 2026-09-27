@@ -93,7 +93,8 @@ export const DesignSchema = Schema.Struct({
    * - `'dark'` — force the dark scheme as the default (the `.dark` class is
    *   set on `<html>` ahead of the stylesheet).
    * - `'system'` — follow the visitor's `prefers-color-scheme` (default when a
-   *   `theme-toggle` is present and no value is configured).
+   *   `theme-toggle` is present or `darkColors` is declared, and no value is
+   *   configured). An app with neither stays light.
    *
    * A stored visitor preference always overrides this default once the no-FOUC
    * head script runs. This sets the starting point, not the policy.
@@ -102,7 +103,7 @@ export const DesignSchema = Schema.Struct({
     Schema.Literals(['light', 'dark', 'system']).annotate({
       title: 'Default Color Scheme',
       description:
-        "Default color scheme before content renders: 'light', 'dark', or 'system' (follow prefers-color-scheme).",
+        "Default color scheme before content renders: 'light', 'dark', or 'system' (follow prefers-color-scheme). Omitted, an app that declares `darkColors` follows the visitor's system scheme; an app without one stays light.",
     })
   ),
 

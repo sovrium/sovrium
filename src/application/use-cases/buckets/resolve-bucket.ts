@@ -14,15 +14,17 @@
  * `buckets[]` block do with its own storage?".
  */
 
-import { deriveImplicitBucketPermissions } from '@/domain/models/app/buckets/implicit-default-permissions'
+import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
+import { deriveSystemBucketPermissions } from '@/domain/models/app/buckets/system-bucket-permissions'
 import type { App } from '@/domain/models/app'
 import type { Bucket } from '@/domain/models/app/buckets'
 
 /**
- * Resolve the bucket for a file request, falling back to an implicit `default`
- * bucket when the config declares none.
+ * Resolve the bucket for a file request: a declared bucket by name, or the
+ * built-in `system` bucket — the fallback store of every attachment field that
+ * names no `bucket:`, and a name no app may declare.
  *
- * The implicit default bucket is private (`public: false`) when the app declares
+ * The system bucket is private (`public: false`) when the app declares
  * an `auth` block — writes then require a session. With no auth configured there
  * is no session system to gate against, so it is public, which is what keeps
  * page-component file-upload forms working on a no-auth app.
@@ -30,8 +32,8 @@ import type { Bucket } from '@/domain/models/app/buckets'
  * It also inherits the STRICTEST role list the app's DECLARED buckets state for
  * each file action. Without that, an app declaring a single admin-only bucket
  * still exposed every one of its objects to any signed-in caller through this
- * phantom bucket, because storage keys are flat and carry no bucket — see
- * {@link deriveImplicitBucketPermissions} for the full rule and its bounds
+ * system bucket, because storage keys are flat and carry no bucket — see
+ * {@link deriveSystemBucketPermissions} for the full rule and its bounds
  * (`[internal ref]`/`-017`).
  */
 export const resolveUploadBucket = (
@@ -40,9 +42,9 @@ export const resolveUploadBucket = (
 ): Bucket | undefined => {
   const explicit = app.buckets?.find((b) => b.name === bucketName)
   if (explicit) return explicit
-  if (bucketName !== 'default') return undefined
-  const permissions = deriveImplicitBucketPermissions(app.buckets)
+  if (bucketName !== SYSTEM_BUCKET_NAME) return undefined
+  const permissions = deriveSystemBucketPermissions(app.buckets)
   return permissions === undefined
-    ? { name: 'default', public: !app.auth }
-    : { name: 'default', public: !app.auth, permissions }
+    ? { name: SYSTEM_BUCKET_NAME, public: !app.auth }
+    : { name: SYSTEM_BUCKET_NAME, public: !app.auth, permissions }
 }

@@ -8,6 +8,7 @@
 /* eslint-disable max-lines-per-function, react-perf/jsx-no-new-function-as-prop -- per-comment state machine renders 4 distinct modes (view/edit/confirming-delete/replying); per-handler arrow props are conventional React pattern. */
 
 import { useState, type ReactElement, type ReactNode } from 'react'
+import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
   computeCommentActionClasses,
@@ -21,6 +22,7 @@ import {
   computeCommentTextClasses,
   computeCommentTimestampClasses,
 } from '@/presentation/design/comments-default-classes'
+import { resolvePageLocale } from '../runtime/page-locale'
 import { CommentThreadForm } from './comment-thread-form'
 import { isEdited, resolveCommentAuthorName, type CommentRecord } from './comment-thread-types'
 
@@ -121,7 +123,7 @@ function CommentMeta({ comment }: { readonly comment: CommentRecord }): ReactEle
         dateTime={comment.createdAt}
         className={computeCommentTimestampClasses()}
       >
-        {created.toLocaleString()}
+        {created.toLocaleString(usableLocale(resolvePageLocale()))}
       </time>
     </header>
   )

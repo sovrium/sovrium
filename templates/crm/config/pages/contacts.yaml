@@ -1,153 +1,144 @@
+# The people behind the deals. Selecting a row opens the person in a drawer over
+# the grid — their fields, the deals they are part of and their tasks — so the
+# rep keeps their place in the list.
 name: contacts
 path: /contacts
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Contacts
-  description: People across your accounts
+  title: Contacts · Kestrel CRM
+  description: The people you sell to, each linked to a company and its deals.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: Contacts
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: The same records in two views — a spreadsheet grid and a card gallery.
-
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: border rounded-lg p-5 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: Add a contact
-          - type: form
-            dataSource:
-              table: contacts
-            fields:
-              - field: name
-              - field: email
-              - field: phone
-              - field: company
-              - field: title
-              - field: status
-              - field: tags
-            action:
-              type: crud
-              operation: create
-              table: contacts
-              onSuccess:
-                navigate: /contacts
-                toast:
-                  message: Contact created
-                  variant: success
-
-      - type: table
-        dataSource:
-          table: contacts
-          sort:
-            - field: name
-              direction: asc
-        columns:
-          - field: name
-            label: Name
-            sortable: true
-            filterable: true
-          - field: title
-            label: Title
-          - field: company
-            label: Company
-            sortable: true
-            filterable: true
-          - field: email
-            label: Email
-          - field: phone
-            label: Phone
-          - field: status
-            label: Status
-            filterable: true
-          - field: tags
-            label: Tags
-          - field: last_contacted
-            label: Last Contacted
-            format: relative-date
-        selection:
-          mode: multiple
-        search:
-          enabled: true
-          placeholder: Search contacts...
-        # `toolbar.viewSwitcher` renders one button per entry of `views`. With
-        # `views` omitted it falls back to ['grid'] — a one-button switcher that
-        # does nothing. Declaring the set is what makes the tab real, and
-        # listing `kanban` requires `kanbanGroupBy`.
-        views:
-          - grid
-          - kanban
-        kanbanGroupBy:
-          field: status
-        toolbar:
-          search: true
-          filters: true
-          sort: true
-          views: true
-          viewSwitcher: true
-          export: true
-        pagination:
-          pageSize: 25
-        bulkActions:
-          - label: Delete
-            confirm: Delete the selected contacts?
-            action:
-              type: crud
-              operation: delete
-              table: contacts
-        emptyMessage: No contacts yet.
-
-      - type: text
-        element: h2
-        props:
-          className: text-xl font-semibold mt-10 mb-4
-        content: Gallery
-
-      - type: gallery
-        dataSource:
-          table: contacts
-          sort:
-            - field: name
-              direction: asc
-        gridColumns:
-          mobile: 1
-          sm: 2
-          md: 3
-          lg: 4
-        galleryCard:
-          coverImage: $record.avatar
-          children:
-            - type: text
-              element: h3
-              props:
-                className: text-md font-semibold
-              content: $record.name
-            - type: text
-              element: p
-              props:
-                className: text-sm
-              content: $record.title
-            - type: text
-              element: p
-              props:
-                className: text-sm
-              content: $record.email
-        emptyMessage: No contacts to show.
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Contacts
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Add contact
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-contact-dialog
+          - type: dialog
+            props:
+              id: add-contact-dialog
+              title: Add contact
+              description: An email already on file is refused, so one person keeps one record.
+            children:
+              - type: form
+                dataSource:
+                  table: contacts
+                fields:
+                  - field: name
+                  - field: email
+                  - field: company
+                  - field: title
+                  - field: status
+                action:
+                  type: crud
+                  operation: create
+                  table: contacts
+                  submitLabel: Add contact
+                  onSuccess:
+                    navigate: /contacts
+                    toast:
+                      message: Contact added
+                      variant: success
+          - type: container
+            props:
+              className: flex flex-col gap-4 px-5 pb-5 pt-4
+            children:
+              # Bound to the table itself, not a read-only view, so a rep who may
+              # create contacts also gets the grid's trailing "+ New row".
+              - type: table
+                dataSource:
+                  table: contacts
+                  sort:
+                    - { field: name, direction: asc }
+                columns:
+                  - { field: name, label: Name, sortable: true }
+                  - { field: company, label: Company, sortable: true, filterable: true }
+                  - { field: title, label: Title }
+                  - { field: status, label: Status, filterable: true }
+                  # A `user` column prints the account's name, not its id.
+                  - { field: owner, label: Owner, filterable: true }
+                  - {
+                      field: last_contacted,
+                      label: Last contacted,
+                      format: short-date,
+                      align: right,
+                    }
+                search:
+                  enabled: true
+                  placeholder: Search contacts
+                toolbar:
+                  search: true
+                  filters: true
+                  export: true
+                pagination:
+                  pageSize: 25
+                onRowClick:
+                  action: openDrawer
+                  component: contact-detail
+                emptyMessage: No contacts yet. Add the first person you sell to.
+              - type: drawer
+                id: contact-detail
+                drawerSide: right
+                drawerSize: md
+                # Read-only: the drawer is for looking a person up mid-call.
+                canEdit: false
+                dataSource:
+                  table: contacts
+                props:
+                  title: Contact
+                recordFields:
+                  - { name: name, type: single-line-text, label: Name }
+                  - { name: title, type: single-line-text, label: Title }
+                  - { name: email, type: email, label: Email }
+                  # A relationship prints its `displayField` (the company's
+                  # name) and a `user` field the account's name.
+                  - { name: company, type: relationship, label: Company }
+                  - { name: status, type: status, label: Status }
+                  - { name: tags, type: multi-select, label: Tags }
+                  - { name: owner, type: user, label: Owner }
+                  - { name: last_contacted, type: date, label: Last contacted }
+                # A person's deals and tasks point at them through their own
+                # `contact` field, so the drawer reads them as related lists.
+                related:
+                  - label: Open deals
+                    table: deals
+                    field: contact
+                    columns:
+                      - { field: name, label: Deal }
+                      - { field: stage, label: Stage }
+                      - { field: value, label: Value }
+                    emptyMessage: No deal with this person yet.
+                  - label: Tasks
+                    table: tasks
+                    field: contact
+                    columns:
+                      - { field: title, label: Task }
+                      - { field: due_date, label: Due }
+                    sort:
+                      - { field: due_date, direction: asc }
+                    emptyMessage: Nothing planned with this person.

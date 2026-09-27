@@ -103,12 +103,12 @@ const select: TypePageBody = {
           children: [sel('sel-static', { defaultValue: 'proposal' })],
         },
         {
-          label: 'dataSource: { table, labelField, valueField }',
+          label: 'dataSource: { table, displayField, valueField }',
           children: [
             {
               type: 'code',
               props: { language: 'yaml' },
-              content: 'dataSource:\n  table: stages\n  labelField: name\n  valueField: slug',
+              content: 'dataSource:\n  table: stages\n  displayField: name\n  valueField: slug',
             } as PageComponent,
           ],
         },

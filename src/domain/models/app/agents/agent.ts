@@ -6,7 +6,6 @@
  */
 
 import { Schema } from 'effect'
-import { DEFAULT_AGENT_NAME, isDefaultAgentName } from '@/domain/models/app/agents/agent-identity'
 import { AgentApprovalSchema } from './approval'
 import { AgentDefinitionSchema } from './definition'
 import { AgentKnowledgeSchema } from './knowledge'
@@ -68,6 +67,25 @@ export const AgentSchema = Schema.Struct({
 export type Agent = Schema.Schema.Type<typeof AgentSchema>
 
 /**
+ * The name of the built-in System Agent every app carries.
+ *
+ * Reserved: an operator may NOT declare an agent with this name. The System
+ * Agent is not a declaration — it is built by the engine from the app itself
+ * (a prompt describing the app, read-only tools over its tables) and it owns
+ * the conversations no declared agent claimed. A declaration named `system`
+ * would put two different agents, and two different row sets, behind one name
+ * and one URL, so the name is refused at config validation instead.
+ *
+ * `default` is NOT reserved: it was the old name of the general-purpose view
+ * and is an ordinary agent name again.
+ *
+ * Kept local to the schema on purpose: the runtime identity module owns the
+ * constant the resolvers read, and the schema must not reach for runtime
+ * behaviour to know which single name it refuses.
+ */
+const RESERVED_SYSTEM_AGENT_NAME = 'system'
+
+/**
  * AgentsSchema is an array of agent configurations.
  *
  * Used as the type for the `agents` property on AppSchema.
@@ -75,23 +93,19 @@ export type Agent = Schema.Schema.Type<typeof AgentSchema>
 export const AgentsSchema = Schema.Array(AgentSchema).pipe(
   Schema.check(
     // The reservation is checked HERE, on the array, rather than on the name
-    // inside `AgentDefinitionSchema`: `default` is legal kebab-case, so the
+    // inside `AgentDefinitionSchema`: `system` is legal kebab-case, so the
     // per-name pattern has no business rejecting it, and the collision it
-    // creates is a collision with a set — the virtual `agent_name IS NULL`
-    // view — not with any other declaration. A declared `default` would carry
-    // rows stamped `agent_name = 'default'` while that virtual view carries
-    // NULL rows: two different row sets behind one name and one URL. See
-    // `src/domain/models/app/agents/agent-identity.ts`.
+    // creates is a collision with the built-in System Agent — not with any
+    // other declaration.
     //
     // ORDER IS LOAD-BEARING: it precedes `isMinLength`. The trailing
     // `Schema.annotate` below lands on the LAST check, and a `makeFilter` has
     // no JSON Schema representation, so a filter in final position swallows the
-    // title + description and the PUBLISHED schema
-    // (`apps/website/public/schema/app.json`) silently loses them — measured,
-    // not assumed. Keeping a representable check last preserves them.
+    // title + description and the PUBLISHED schema silently loses them —
+    // measured, not assumed. Keeping a representable check last preserves them.
     Schema.makeFilter((agents) =>
-      agents.some((agent) => isDefaultAgentName(agent.name))
-        ? `Agent name '${DEFAULT_AGENT_NAME}' is reserved for the general-purpose agent (the conversations no declared agent claimed). Rename this agent.`
+      agents.some((agent) => agent.name === RESERVED_SYSTEM_AGENT_NAME)
+        ? `Agent name '${RESERVED_SYSTEM_AGENT_NAME}' is reserved for the built-in System Agent every app carries. Rename this agent.`
         : undefined
     ),
     Schema.isMinLength(1)
@@ -100,7 +114,7 @@ export const AgentsSchema = Schema.Array(AgentSchema).pipe(
     identifier: 'Agents',
     title: 'Agents Configuration',
     description:
-      'Array of AI agent configurations. At least one agent must be defined when the agents property is present. The name `default` is reserved for the general-purpose agent.',
+      'Array of AI agent configurations. At least one agent must be defined when the agents property is present. The name `system` is reserved for the built-in System Agent, which every app has without declaring it.',
   })
 )
 

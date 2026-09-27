@@ -53,8 +53,14 @@ jobs:
             engine-file: sovrium-darwin-arm64
             rust-target: aarch64-apple-darwin
             bundles: app,dmg
+          # An INTEL runner. `macos-14` is Apple Silicon, and Rosetta 2 emulates
+          # SSE4.2 but not AVX, which Bun's darwin-x64 build uses unconditionally:
+          # the engine dies on `sovrium init` with "CPU lacks AVX support" and an
+          # illegal-instruction panic before the smoke test can prove anything.
+          # Measured on release run 35913557305 (v0.28.0). See release.yml's
+          # matching lane for the full note; the two matrices must stay in step.
           - label: macOS x64
-            runner: macos-14
+            runner: macos-15-intel
             engine-target: darwin-x64
             engine-file: sovrium-darwin-x64
             rust-target: x86_64-apple-darwin
@@ -256,10 +262,16 @@ jobs:
             || { echo "FAIL: no sidecar at $ROOT/usr/bin/sovrium"; ls -la "$ROOT/usr/bin"; exit 1; }
           # The sidecar is the anchor; the shell is whatever else is in there.
           # Its name comes from Tauri's `mainBinaryName` (the crate name today),
-          # which is not ours to depend on.
+          # which is not ours to depend on. Asserted, then NOT launched.
           EXE=$(find "$ROOT/usr/bin" -maxdepth 1 -type f ! -name 'sovrium' | head -n 1)
           test -n "$EXE" || { echo "FAIL: no shell executable beside the sidecar in $ROOT/usr/bin"; ls -la "$ROOT/usr/bin"; exit 1; }
-          xvfb-run -a bun run scripts/build/smoke-desktop-app.ts --exe "$EXE"
+          # AppRun, never the shell binary directly: WebKitGTK's helper-process
+          # path is binary-patched to a RELATIVE one and only resolves after
+          # AppRun's `chdir("$APPDIR/usr")` and its env setup. Launching the
+          # binary itself dies on a missing WebKitNetworkProcess. Full note in
+          # release.yml's matching step; the two must stay in step.
+          test -x "$ROOT/AppRun" || { echo "FAIL: the extracted AppImage has no AppRun at $ROOT/AppRun"; ls -la "$ROOT"; exit 1; }
+          xvfb-run -a bun run scripts/build/smoke-desktop-app.ts --exe "$ROOT/AppRun"
 
       - name: Upload the bundles
         if: always()

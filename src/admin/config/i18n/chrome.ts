@@ -108,6 +108,9 @@ export default {
   // The row, the trail and the heading all say Runs: the page is the run
   // history, and the automations catalogue is one view inside it.
   'admin.crumb.automations': 'Runs',
+  // The `runs` segment of `/automations/runs/:id`: one run under the
+  // history. The id after it prints verbatim, and names the run.
+  'admin.crumb.automationRun': 'Run',
   'admin.crumb.links': 'Links',
   'admin.crumb.footprint': 'Footprint',
   // `/decisions/:id` gets NO entry of its own, deliberately: the id segment is
@@ -145,6 +148,7 @@ export default {
   'admin.meta.userAccount': 'Sovrium — Data · Account',
   'admin.meta.pages': 'Sovrium — Data · Analytics',
   'admin.meta.automations': 'Sovrium — Data · Runs',
+  'admin.meta.automationRun': 'Sovrium — Data · Run',
   'admin.meta.links': 'Sovrium — Data · Links',
   'admin.meta.footprint': 'Sovrium — Footprint',
   'admin.meta.decisions': 'Sovrium — Decisions',

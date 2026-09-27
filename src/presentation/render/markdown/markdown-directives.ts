@@ -88,20 +88,59 @@ const themeColor = (design: Design | undefined, key: string): string | undefined
 }
 
 /**
+ * The callout kinds an author may declare with `type="…"`. Anything else — a
+ * typo, an unknown word, no attribute at all — renders as `info`, so a page
+ * never fails over a callout's kind.
+ */
+const CALLOUT_TYPES = ['info', 'note', 'tip', 'warning', 'danger'] as const
+type CalloutType = (typeof CALLOUT_TYPES)[number]
+
+const normaliseCalloutType = (raw: string | undefined): CalloutType => {
+  const candidate = raw?.trim().toLowerCase()
+  return CALLOUT_TYPES.find((type) => type === candidate) ?? 'info'
+}
+
+/**
+ * Per-kind accent, drawn from the role tokens the compiled theme already
+ * registers (`--color-<role>-solid` / `-bg`): a left rule in the role's solid
+ * colour over its tinted surface. `note` is a quiet aside, so it takes the
+ * neutral subtle ramp rather than a status role. These are Tailwind utilities
+ * so they follow the active theme and scheme on every layout; the docs layout's
+ * scoped prose patch re-asserts the same per-kind rule over its own panel.
+ */
+const CALLOUT_ACCENT_CLASSES: Readonly<Record<CalloutType, string>> = {
+  info: 'border-l-info-solid bg-info-bg',
+  note: 'border-l-foreground-subtle bg-background-subtle',
+  tip: 'border-l-success-solid bg-success-bg',
+  warning: 'border-l-warning-solid bg-warning-bg',
+  danger: 'border-l-error-solid bg-error-bg',
+}
+
+/**
  * Render the `callout` directive as an alert element. Carries `role="alert"`
  * so screen readers announce it AND so the spec test
- * `[role="alert"], [data-component="alert"]` matches; the `info`/`alert`
- * classes satisfy [internal ref] (theme-aware token classes — the
- * matcher regex is `/(info|alert)/`).
+ * `[role="alert"], [data-component="alert"]` matches; the `alert` class and,
+ * on an info callout, the `info` class satisfy [internal ref]
+ * (theme-aware token classes — the matcher regex is `/(info|alert)/`).
+ *
+ * The declared kind (`::: callout type="warning"`) is normalised to one of
+ * `CALLOUT_TYPES` and exposed twice: as `data-type` (the stable hook) and as a
+ * class naming the kind, beside the per-kind accent utilities.
  *
  * The inner content is the already-rendered, already-sanitised inner markdown
  * (passed in as `innerHtml`). We do NOT re-render or re-sanitise — that would
  * duplicate work and risk the second sanitiser-pass widening interpretation.
  */
-const renderCallout = (innerHtml: string, design: Design | undefined): string => {
-  const infoColor = themeColor(design, 'info')
+const renderCallout = (
+  attrs: Readonly<Record<string, string>>,
+  innerHtml: string,
+  design: Design | undefined
+): string => {
+  const type = normaliseCalloutType(attrs['type'])
+  const infoColor = type === 'info' ? themeColor(design, 'info') : undefined
   const styleAttr = infoColor !== undefined ? ` style="border-color:${escapeAttr(infoColor)}"` : ''
-  return `<div role="alert" data-component="alert" class="md-callout alert info"${styleAttr}>${innerHtml}</div>`
+  const classes = `md-callout alert ${type} border-l-4 rounded-r-md px-4 py-3 ${CALLOUT_ACCENT_CLASSES[type]}`
+  return `<div role="alert" data-component="alert" data-type="${type}" class="${classes}"${styleAttr}>${innerHtml}</div>`
 }
 
 /**
@@ -163,7 +202,7 @@ const resolveDirectiveHtml = (
 ): string => {
   switch (directive.name) {
     case 'callout':
-      return renderCallout(innerHtml, design)
+      return renderCallout(directive.attrs, innerHtml, design)
     case 'code-block':
       return renderCodeBlock(innerHtml)
     case 'cta':

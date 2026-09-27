@@ -29,6 +29,7 @@ import { matchesContentDirFilter } from '@/domain/models/app/pages/content-dir-f
 import { deriveContentDirIndexBasePath } from '@/domain/models/app/pages/content-dir-index-base-path'
 import { loadContentDirCorpus } from '@/infrastructure/markdown/content-dir-enumerator'
 import { humanizeFieldName } from '@/presentation/design/string-utils'
+import { orderSidebarEntries } from '@/presentation/render/markdown/docs-sidebar-tabs'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
 
 /**
@@ -274,8 +275,9 @@ const loadFilteredFiles = async (contentDir: ContentDir): Promise<readonly Conte
 
 /**
  * Resolve the adjacent (previous / next) entries relative to `currentSlug`
- * in the sorted list. Returns `undefined` for boundary positions (the first
- * entry has no previous; the last has no next).
+ * in the order the sidebar lists them (`orderSidebarEntries` — groups, then
+ * tabs, not the flat sort). Returns `undefined` for boundary positions (the
+ * first entry has no previous; the last has no next).
  */
 const buildPrevNext = (
   entries: readonly CollectionNavEntry[],
@@ -308,12 +310,11 @@ export const listContentDir = async (
 ): Promise<CollectionNavData> => {
   const files = await loadFilteredFiles(contentDir)
   const sidebar = buildSidebarEntries(files, contentDir, pagePath, currentSlug)
-  const { previous, next } = buildPrevNext(sidebar, currentSlug)
-  return {
-    sidebar,
-    previous,
-    next,
-    collapsed: contentDir.nav?.collapsed === true,
-    tabs: contentDir.nav?.tabs,
-  }
+  const collapsed = contentDir.nav?.collapsed === true
+  const tabs = contentDir.nav?.tabs
+  const { previous, next } = buildPrevNext(
+    orderSidebarEntries(sidebar, tabs, collapsed),
+    currentSlug
+  )
+  return { sidebar, previous, next, collapsed, tabs }
 }

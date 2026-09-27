@@ -1,29 +1,33 @@
+# Time off: whose it is, what kind, from when to when, and the decision it
+# waits for. Anyone signed in asks for themselves; an admin decides (see
+# config/automations/approve-time-off.yaml).
 id: 2
 name: time_off_requests
 fields:
+  # The person who is away. A request filed in the app does not ask for it:
+  # the approval automation fills it in from the requester's account.
   - id: 1
     name: employee
     type: relationship
     relatedTable: employees
     relationType: many-to-one
-    required: true
-    # Names the column a human should see instead of the foreign key. Measured
-    # against the running app: this reaches the `table` grid's inline record
-    # PICKER (`record-picker-editor.tsx` searches and labels on it) but NOT the
-    # read-only cell, which still renders the raw integer, and not a `form`
-    # bound to this field, which renders a plain text input rather than a
-    # picker. It is declared here anyway because it is the correct place to say
-    # what identifies an employee, and the two render paths that ignore it are
-    # platform gaps rather than a reason to leave the intent unstated.
     displayField: name
+  # A type is a word, not a colour: every option is the same neutral grey, and
+  # only the decision below is coloured.
   - id: 2
     name: type
     type: single-select
     options:
-      - Vacation
-      - Sick leave
-      - Remote work
-      - Other
+      - value: Vacation
+        color: '#767178'
+      - value: Remote work
+        color: '#767178'
+      - value: Sick leave
+        color: '#767178'
+      - value: Parental leave
+        color: '#767178'
+      - value: Other
+        color: '#767178'
     default: Vacation
   - id: 3
     name: start_date
@@ -33,24 +37,63 @@ fields:
     name: end_date
     type: date
     required: true
+  # Approved is the outcome; Pending waits on an admin, in the warning colour;
+  # Rejected keeps its reason in `decision_note`.
   - id: 5
     name: status
     type: status
     options:
       - value: Pending
-        color: '#F59E0B'
+        color: '#8A5700'
       - value: Approved
-        color: '#10B981'
+        color: '#187C49'
       - value: Rejected
-        color: '#EF4444'
+        color: '#BA3535'
     default: Pending
+  # A note for whoever decides. Read by admins only — see `permissions`.
   - id: 6
-    name: notes
+    name: note
     type: long-text
   - id: 7
     name: created_at
     type: created-at
+  # Who asked. Stamped by the server from the session, so a member can only
+  # ever ask for themselves.
+  - id: 8
+    name: requester
+    type: created-by
+  - id: 9
+    name: decision_note
+    type: long-text
+  # The person's name, read through the link, so the calendar and the lists
+  # label each absence by name.
+  - id: 10
+    name: employee_name
+    type: lookup
+    relationshipField: employee
+    relatedField: name
+  # Calendar days, counted by the approval automation for a new request.
+  - id: 11
+    name: days
+    type: integer
+    min: 0
+  # 0 while a request waits, 1 once it is decided: the queue sorts on it so
+  # what needs a decision comes first.
+  - id: 12
+    name: queue_rank
+    type: formula
+    formula: "CASE WHEN status = 'Pending' THEN 0 ELSE 1 END"
+    resultType: number
 
+views:
+  - id: request_queue
+    name: Requests
+    sorts:
+      - { field: queue_rank, direction: asc }
+      - { field: start_date, direction: asc }
+
+# Anyone signed in asks for time off; only an admin decides, changes or
+# removes a request.
 permissions:
   read: authenticated
   create:
@@ -60,3 +103,15 @@ permissions:
     - admin
   delete:
     - admin
+  # The note may carry personal context, so only an admin reads it. Whoever
+  # files the request may still write it.
+  fields:
+    - field: note
+      read:
+        - admin
+      write:
+        - admin
+        - member
+    - field: decision_note
+      write:
+        - admin

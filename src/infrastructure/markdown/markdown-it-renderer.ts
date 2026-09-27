@@ -303,6 +303,68 @@ const SHARED_RENDERER = createRenderer()
 // eslint-disable-next-line functional/no-expression-statements -- one-time freeze at module load is the intended runtime guard
 Object.freeze(SHARED_RENDERER.renderer.rules)
 
+/** Schemes an inline link keeps; anything else, and a protocol-relative `//host`, becomes `#`. */
+const INLINE_LINK_SCHEMES: ReadonlySet<string> = new Set(['http', 'https', 'mailto'])
+
+/**
+ * The href an inline link keeps: relative and `http(s)` / `mailto:` targets
+ * pass, every other scheme and a protocol-relative `//host` (which would leave
+ * the site under a relative-looking spelling) are neutralised to `#`.
+ */
+const safeInlineHref = (rawHref: string): string => {
+  const trimmed = rawHref.trim()
+  if (trimmed.startsWith('//')) return '#'
+  const schemeMatch = /^([a-z][a-z0-9+.-]*):/i.exec(trimmed)
+  if (schemeMatch === null) return trimmed
+  return INLINE_LINK_SCHEMES.has((schemeMatch[1] ?? '').toLowerCase()) ? trimmed : '#'
+}
+
+/**
+ * The inline renderer behind help text and form descriptions — a SEPARATE
+ * frozen instance, so its narrower policy never leaks into the page renderer.
+ *
+ *  - `html: false`: raw author HTML is escaped to visible text, never parsed.
+ *  - `breaks: true`: one newline in a help line is one `<br>`.
+ *  - `image` disabled: `![alt](url)` renders as `!` plus a link, never an image.
+ *  - every link opens in a new tab with `rel="noopener noreferrer"` — someone
+ *    following a link from a half-filled form must not lose the form.
+ *
+ * Only inline rules run (`renderInline`), so headings, lists and fences stay
+ * literal text: a help line has no room for a block.
+ */
+const createInlineRenderer = (): MarkdownIt => {
+  const md = new MarkdownIt({ html: false, linkify: false, breaks: true }).disable(['image'])
+  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- markdown-it exposes `validateLink` as a mutable hook on the instance; the anchor always renders and `link_open` below decides its href
+  md.validateLink = () => true
+  // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, max-params -- renderer.rules IS markdown-it's plugin contract; signature is library-imposed
+  md.renderer.rules.link_open = (tokens, idx, options, _env, self) => {
+    const token = tokens[idx]
+    if (!token) return ''
+
+    token.attrSet('href', safeInlineHref(token.attrGet('href') ?? ''))
+
+    token.attrSet('target', '_blank')
+
+    token.attrSet('rel', 'noopener noreferrer')
+    return self.renderToken(tokens, idx, options)
+  }
+  return md
+}
+
+const INLINE_RENDERER = createInlineRenderer()
+
+// eslint-disable-next-line functional/no-expression-statements -- one-time freeze at module load, as for the shared renderer above
+Object.freeze(INLINE_RENDERER.renderer.rules)
+
+/**
+ * Render a one-line markdown source — help text, a form or step description —
+ * into inline HTML: links, bold, italic, strikethrough, inline code and line
+ * breaks, nothing block-level. Callers pass the result through the canonical
+ * `sanitizeRichTextHTML` before it reaches the page.
+ */
+export const renderMarkdownInlineToHtml = (source: string): string =>
+  INLINE_RENDERER.renderInline(source)
+
 /**
  * Render a markdown source string into HTML, with frontmatter and headings.
  *

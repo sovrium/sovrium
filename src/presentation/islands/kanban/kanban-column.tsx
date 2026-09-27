@@ -7,15 +7,62 @@
 
 import {
   KANBAN_COLUMN_TITLE_CLASSES,
+  computeKanbanSwimlaneToggleClasses,
   computeKanbanColumnCountClasses,
   computeKanbanColumnDotClasses,
   computeKanbanColumnHeaderClasses,
 } from '@/presentation/design/kanban-default-classes'
 import { columnDropId } from './collision-detection'
 import { KanbanCell } from './kanban-cell'
+import { LaneChevron } from './kanban-swimlane'
 import type { KanbanColumnData } from './group-records'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { ReactElement } from 'react'
+
+/**
+ * DOM id of a foldable column's card well — the target of its `aria-controls`.
+ * Scoped by the board's own id, so two boards on one page that share a column
+ * value never point their toggles at each other's well.
+ */
+const columnBodyId = (idPrefix: string, value: string): string =>
+  `${idPrefix}-column-${encodeURIComponent(value)}`
+
+/**
+ * The column title — plain text, or, on a board that declares
+ * `kanbanGroupBy.collapsed`, the WAI-ARIA disclosure a swimlane header uses:
+ * `<h3><button aria-expanded aria-controls>`, the whole label the hit target.
+ * `expanded` is `undefined` on a board whose columns do not fold.
+ */
+function ColumnTitle({
+  value,
+  bodyId,
+  expanded,
+  onToggle,
+}: {
+  readonly value: string
+  readonly bodyId: string | undefined
+  readonly expanded: boolean | undefined
+  readonly onToggle: ((value: string) => void) | undefined
+}): ReactElement {
+  if (expanded === undefined || !onToggle || bodyId === undefined) {
+    return <h3 className={KANBAN_COLUMN_TITLE_CLASSES}>{value}</h3>
+  }
+  return (
+    <h3 className={KANBAN_COLUMN_TITLE_CLASSES}>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={bodyId}
+        className={computeKanbanSwimlaneToggleClasses()}
+        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- one closure per column over its own value; React Compiler not yet enabled in Bun
+        onClick={() => onToggle(value)}
+      >
+        <LaneChevron expanded={expanded} />
+        {value}
+      </button>
+    </h3>
+  )
+}
 
 /**
  * Column header: the optional colored status accent dot, the column label, and
@@ -39,8 +86,16 @@ import type { ReactElement } from 'react'
  */
 export function KanbanColumnHeader({
   column,
+  bodyId,
+  expanded,
+  onToggle,
 }: {
   readonly column: KanbanColumnData
+  /** DOM id of the well a foldable header controls; absent on a board whose columns do not fold. */
+  readonly bodyId?: string
+  /** Open state of a foldable column; absent on a board whose columns do not fold. */
+  readonly expanded?: boolean
+  readonly onToggle?: (value: string) => void
 }): ReactElement {
   return (
     <div className={computeKanbanColumnHeaderClasses()}>
@@ -53,7 +108,12 @@ export function KanbanColumnHeader({
           aria-hidden="true"
         />
       ) : undefined}
-      <h3 className={KANBAN_COLUMN_TITLE_CLASSES}>{column.value}</h3>
+      <ColumnTitle
+        value={column.value}
+        bodyId={bodyId}
+        expanded={expanded}
+        onToggle={onToggle}
+      />
       <span
         className={computeKanbanColumnCountClasses()}
         aria-label={`${column.records.length} records`}
@@ -77,6 +137,9 @@ export function KanbanColumn({
   card,
   draggableEnabled,
   colorFieldColors,
+  expanded,
+  onToggle,
+  idPrefix,
 }: {
   readonly column: KanbanColumnData
   readonly emptyMessage?: string
@@ -84,7 +147,13 @@ export function KanbanColumn({
   readonly draggableEnabled: boolean
   /** `optionValue → #RRGGBB` declared on the field `card.colorField` names. */
   readonly colorFieldColors?: Readonly<Record<string, string>>
+  /** Open state, present only on a board that declares `kanbanGroupBy.collapsed`. */
+  readonly expanded?: boolean
+  readonly onToggle?: (value: string) => void
+  /** The board's DOM-id scope, so a foldable column's `aria-controls` is unique per page. */
+  readonly idPrefix: string
 }): ReactElement {
+  const bodyId = expanded === undefined ? undefined : columnBodyId(idPrefix, column.value)
   return (
     <KanbanCell
       column={column}
@@ -93,7 +162,16 @@ export function KanbanColumn({
       card={card}
       draggableEnabled={draggableEnabled}
       colorFieldColors={colorFieldColors}
-      header={<KanbanColumnHeader column={column} />}
+      header={
+        <KanbanColumnHeader
+          column={column}
+          bodyId={bodyId}
+          expanded={expanded}
+          onToggle={onToggle}
+        />
+      }
+      folded={expanded === false}
+      bodyId={bodyId}
     />
   )
 }

@@ -6,7 +6,10 @@
  */
 
 import type { EmbeddedAppMount } from '@/application/ports/contracts/embedded-app-mount'
-import type { PageRenderResult } from '@/application/ports/services/page-renderer'
+import type {
+  FetchSitemapRecords,
+  PageRenderResult,
+} from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
@@ -90,11 +93,16 @@ export interface HonoAppConfig {
   /**
    * RSS feed renderer ([internal ref] — [internal ref]).
    *
-   * Returns the RSS 2.0 XML body for the first collection page that
-   * declares `rss !== false`, or `undefined` when no such page exists
+   * Returns the RSS 2.0 XML body for the first PUBLIC page that declares
+   * `rss !== false` (`findRssPage`), or `undefined` when no such page exists
    * (the route handler responds 404). Optional so a caller that wires no
    * renderer gets a 404 by default rather than a runtime crash.
    */
   readonly renderRssFeed?: (app: App, baseUrl: string) => Promise<string | undefined>
+  /**
+   * Row reader behind the sitemap's record fan-out. Optional: without it a
+   * collection page contributes no record entries.
+   */
+  readonly fetchSitemapRecords?: FetchSitemapRecords
   readonly getSession?: (headers: Headers) => Promise<SessionInfo | undefined>
 }

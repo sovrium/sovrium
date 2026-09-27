@@ -15,6 +15,8 @@ Your assistant runs the Sovrium binary on your machine and talks to it over a pi
 - **Look up what a setting accepts**, so it writes something valid the first time.
 - **See whether your app is running**, and whether the last save was applied.
 
+It also gets Sovrium's agent skills as prompts: pick `sovrium-app` from the client's prompt menu and the assistant starts from the loop Sovrium expects — edit, validate, run, look, stop — instead of guessing. In a client that can run commands, `sovrium skills` writes the same skills into the project, with their reference files; **Agent Skills** explains both.
+
 Those four are reads, and they are all you get until you decide otherwise. The assistant can still change your app by editing the configuration file in the folder the way it edits any other file — Sovrium notices the save and reloads on its own. What the next step adds is letting it do that **through the connection**, where Sovrium gets to check the edit first.
 
 ## Point it at the folder
@@ -64,7 +66,7 @@ Restart the client. The assistant can now list the files your config is made of,
 
 Writing is bounded rather than trusted, and you do not configure any of it. Edits stay inside the folder and touch only `.yaml`, `.yml` and `.json` files, never your `.env`, `.git/` or Sovrium's own data directory. A file that changed on disk since the assistant read it is refused rather than overwritten, so a save you made in your own editor cannot be lost to one it was still thinking about. An edit that would not decode as a valid config never reaches the disk. Dropping a column needs your explicit agreement, which the assistant cannot give on your behalf. And every change is snapshotted first, so there is always a way back.
 
-**Your Config over MCP** lists the four tools and every reason a write is refused.
+**Your Config over MCP** lists the four read tools; **Letting Your AI Edit the Config** lists the four write tools and every reason a write is refused.
 
 ## Verify it
 

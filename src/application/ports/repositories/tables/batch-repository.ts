@@ -80,7 +80,15 @@ export class BatchRepository extends Context.Service<
       session: Readonly<UserSession>,
       tableName: string,
       recordsData: readonly Record<string, unknown>[],
-      fieldsToMergeOn: readonly string[]
+      options: {
+        readonly fieldsToMergeOn: readonly string[]
+        /**
+         * Columns written when a row is inserted and never when a matched row
+         * is updated: the creation date and the created-by author. A row is
+         * created once, so an update must not rewrite either.
+         */
+        readonly insertOnlyFields?: readonly string[]
+      }
     ) => Effect.Effect<UpsertResult, DatabaseError | BatchValidationError | ValidationError>
   }
 >()('BatchRepository') {}

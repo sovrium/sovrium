@@ -5,7 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useRecordsQuery, type RecordsDataSource } from '../hooks/use-records-query'
+import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
+import {
+  buildFilterParam,
+  useRecordsQuery,
+  type RecordsDataSource,
+} from '../hooks/use-records-query'
 
 /**
  * Fetches records for the gallery component in a single page.
@@ -17,5 +22,12 @@ import { useRecordsQuery, type RecordsDataSource } from '../hooks/use-records-qu
  * gallery components — this hook only owns the fetch.
  */
 export function useGalleryRecords(dataSource: RecordsDataSource | undefined) {
-  return useRecordsQuery('gallery', dataSource)
+  return useRecordsQuery(
+    'gallery',
+    dataSource,
+    useLazySharedFilter(
+      { bindTo: dataSource?.bindTo, sharedFilter: dataSource?.sharedFilter },
+      buildFilterParam(dataSource?.filter)
+    )
+  )
 }

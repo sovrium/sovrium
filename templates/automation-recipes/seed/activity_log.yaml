@@ -1,69 +1,184 @@
-# Sample activity log — one row per seeded lead, in the exact shape recipe 2
-# writes.
+# One week of runs, oldest first: 17 lines across three of the four recipes.
 #
-# WHY THIS FILE HAS TO EXIST AT ALL
-#   `sovrium seed` writes through `createRecordProgram`, the same application
-#   use-case the records API calls. Record-trigger dispatch does NOT live there —
-#   it lives in the HTTP handler (`src/presentation/api/routes/tables/record/`),
-#   one layer up. So seeding `leads` does not fire `log-new-lead`, and a demo
-#   seeded without this file shows eight leads beside an empty activity log,
-#   which reads as a broken recipe rather than as a bypassed trigger.
+# Each line has the shape the recipes write. Recipes 1, 2 and 3 add their own
+# line when they succeed; recipe 2 marks a run Retried when its email needed a
+# second try; recipe 4 writes the line of a run that failed after its last
+# retry. That is why no line names `alert-on-failure`: it writes the failed
+# run's line, not one of its own.
 #
-#   These rows are therefore written by hand to match
-#   `config/automations/log-new-lead.yaml` character for character:
+# What a live line cannot carry: the run id (`reference`) and the duration.
+# No step can read its own run's id or timing, so those two columns are filled
+# only here, copied from the admin console where every run is kept in full.
 #
-#     event:   'Lead created: {{trigger.data.record.name}}'
-#     details: 'Source: {{…source}} — email {{…email}}'
-#
-#   Compare the two files side by side; the correspondence is the demonstration.
-#   POST a lead to the webhook on a running instance and the ninth row the
-#   automation appends is indistinguishable from these eight.
-#
-# WHY ONLY RECIPE 2 APPEARS HERE
-#   It is the only recipe that writes to this table. Recipes 3 and 4 send email
-#   and write nothing; recipe 1 creates a lead, which is what recipe 2 then logs.
-#   Inventing "digest sent" or "automation failed" rows would show the reader a
-#   behaviour this configuration does not have.
-#
-# `created_at` is a `created-at` field, engine-stamped on insert, so it is absent
-# here — see the note in leads.yaml.
+# The week in figures, which the four figures on Activity recompute from this
+# table: 17 runs, 15 succeeded, 1 retried then succeeded, 1 failed after 3
+# attempts (lead #6, Sofia Ricci: the mailbox rejected the sender), the oldest
+# on Thursday a week ago. Times are relative to the moment the seed runs.
 records:
-  - key: log-nadia
+  - key: run-7c11
     fields:
-      event: 'Lead created: Nadia Okonkwo'
-      details: 'Source: Webhook — email nadia.okonkwo@brightpath.example'
-
-  - key: log-liam
+      logged_at: '{{now-9805m}}'
+      recipe: log-new-lead
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 610
+      reference: run_7c11
+      detail: 'Lead created: Dev Patel · 2 steps'
+      lead: '@leads.dev-patel'
+  - key: run-7c12
     fields:
-      event: 'Lead created: Liam Carver'
-      details: 'Source: Webhook — email liam.carver@northgate-supply.example'
-
-  - key: log-sofia
+      logged_at: '{{now-9804m}}'
+      recipe: log-new-lead
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 590
+      reference: run_7c12
+      detail: 'Lead created: Elena Varga · 2 steps'
+      lead: '@leads.elena-varga'
+  - key: run-7c5a
     fields:
-      event: 'Lead created: Sofia Ricci'
-      details: 'Source: Website — email sofia.ricci@atelier-ricci.example'
-
-  - key: log-dev
+      logged_at: '{{now-8405m}}'
+      recipe: daily-digest
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 1200
+      reference: run_7c5a
+      detail: 'Digest sent to team@kerlo.example'
+  - key: run-7d02
     fields:
-      event: 'Lead created: Dev Patel'
-      details: 'Source: Referral — email dev.patel@meridian-labs.example'
-
-  - key: log-hannah
+      logged_at: '{{now-4553m}}'
+      recipe: capture-lead-from-webhook
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 39
+      reference: run_7d02
+      detail: 'POST · lead created: Hannah Bloom'
+      lead: '@leads.hannah-bloom'
+  - key: run-7d03
     fields:
-      event: 'Lead created: Hannah Bloom'
-      details: 'Source: Website — email hannah.bloom@bloomfield.example'
-
-  - key: log-yusuf
+      logged_at: '{{now-4553m}}'
+      recipe: log-new-lead
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 655
+      reference: run_7d03
+      detail: 'Lead created: Hannah Bloom · 2 steps'
+      lead: '@leads.hannah-bloom'
+  - key: run-7d1e
     fields:
-      event: 'Lead created: Yusuf Demir'
-      details: 'Source: Import — email yusuf.demir@karadeniz-freight.example'
-
-  - key: log-elena
+      logged_at: '{{now-4085m}}'
+      recipe: daily-digest
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 1300
+      reference: run_7d1e
+      detail: 'Digest sent to team@kerlo.example'
+  - key: run-7d44
     fields:
-      event: 'Lead created: Elena Varga'
-      details: 'Source: Import — email elena.varga@varga-consulting.example'
-
-  - key: log-theo
+      logged_at: '{{now-2785m}}'
+      recipe: log-new-lead
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 602
+      reference: run_7d44
+      detail: 'Lead created: Yusuf Demir · 2 steps'
+      lead: '@leads.yusuf-demir'
+  - key: run-7d4b
     fields:
-      event: 'Lead created: Théo Mercier'
-      details: 'Source: Referral — email theo.mercier@mercier-atelier.example'
+      logged_at: '{{now-2645m}}'
+      recipe: daily-digest
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 1100
+      reference: run_7d4b
+      detail: 'Digest sent to team@kerlo.example'
+  - key: run-7e21
+    fields:
+      logged_at: '{{now-1740m}}'
+      recipe: capture-lead-from-webhook
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 40
+      reference: run_7e21
+      detail: 'POST · lead created: Théo Mercier'
+      lead: '@leads.theo-mercier'
+  - key: run-7e22
+    fields:
+      logged_at: '{{now-1740m}}'
+      recipe: log-new-lead
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 630
+      reference: run_7e22
+      detail: 'Lead created: Théo Mercier · 2 steps'
+      lead: '@leads.theo-mercier'
+  - key: run-7e5f
+    fields:
+      logged_at: '{{now-1305m}}'
+      recipe: capture-lead-from-webhook
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 36
+      reference: run_7e5f
+      detail: 'POST · lead created: Sofia Ricci'
+      lead: '@leads.sofia-ricci'
+  - key: run-7e60
+    fields:
+      logged_at: '{{now-1304m}}'
+      recipe: log-new-lead
+      outcome: Failed
+      attempts: 3
+      duration_ms: 9800
+      reference: run_7e60
+      detail: 'Failed after 3 attempts; the operators were emailed'
+      error: '550 sender rejected: the mailbox refused kerlo-bot@kerlo.example'
+      lead: '@leads.sofia-ricci'
+  - key: run-7e98
+    fields:
+      logged_at: '{{now-1205m}}'
+      recipe: daily-digest
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 1400
+      reference: run_7e98
+      detail: 'Digest sent to team@kerlo.example'
+  - key: run-7f30
+    fields:
+      logged_at: '{{now-138m}}'
+      recipe: capture-lead-from-webhook
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 41
+      reference: run_7f30
+      detail: 'POST · lead created: Liam Carver'
+      lead: '@leads.liam-carver'
+  - key: run-7f31
+    fields:
+      logged_at: '{{now-137m}}'
+      recipe: log-new-lead
+      outcome: Retried
+      attempts: 2
+      duration_ms: 2100
+      reference: run_7f31
+      detail: 'Lead created: Liam Carver · 2 steps'
+      lead: '@leads.liam-carver'
+  - key: run-7f39
+    fields:
+      logged_at: '{{now-3m}}'
+      recipe: capture-lead-from-webhook
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 38
+      reference: run_7f39
+      detail: 'POST · lead created: Nadia Okonkwo'
+      lead: '@leads.nadia-okonkwo'
+  - key: run-7f3a
+    fields:
+      logged_at: '{{now-2m}}'
+      recipe: log-new-lead
+      outcome: Succeeded
+      attempts: 1
+      duration_ms: 640
+      reference: run_7f3a
+      detail: 'Lead created: Nadia Okonkwo · 2 steps'
+      lead: '@leads.nadia-okonkwo'

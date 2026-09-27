@@ -264,6 +264,7 @@ export interface ParseOptions {
   readonly timezone?: string
 }
 
+// Pure and parameterised: callers pass the operator timezone; this is only the last resort.
 const DEFAULT_TIMEZONE = 'UTC'
 const DEFAULT_LOCALE = 'en-US'
 

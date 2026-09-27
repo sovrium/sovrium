@@ -52,6 +52,14 @@ export interface SessionInfo {
    * browser's remembered preference — and then the app default — deciding.
    */
   readonly language?: string
+  /**
+   * Whether this account receives the operator's automation-failure emails.
+   * An engine-owned `auth.user` column, `NOT NULL DEFAULT true`; absent only
+   * when the session envelope predates it.
+   */
+  readonly notifyAutomationAlerts?: boolean
+  /** Whether this account receives the operator's weekly summary email. */
+  readonly notifyWeeklyDigest?: boolean
   readonly isUnrestricted?: boolean
   readonly groups?: readonly string[]
   /**

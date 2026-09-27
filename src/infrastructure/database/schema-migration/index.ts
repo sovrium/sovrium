@@ -29,7 +29,16 @@ export { PROTECTED_SYSTEM_TABLES } from './constants'
 export { detectFieldRenames, detectTableRenames } from './rename-detection'
 
 // Table operations
-export { renameTablesIfNeeded, dropObsoleteTables } from './table-operations'
+export {
+  renameTablesIfNeeded,
+  dropObsoleteTables,
+  findObsoleteTables,
+  obsoleteTableDropStatement,
+  planViewTopology,
+  reconcileViewTopology,
+  type ObsoleteTable,
+  type ViewTopologyStep,
+} from './table-operations'
 
 // Type utilities
 export {

@@ -16,6 +16,10 @@ components:
 
 `props` and `children` are universal. Everything else is opt-in per type: a `divider` carries `props` and `children` and nothing else, while a `container` adds `content`, `element`, `dataSource`, `responsive`, `visibility` and `i18n`. Each reference page below lists what its types actually accept, and the shared vocabulary is documented once in Shared Component Modules.
 
+## Every component names its type and keeps its class
+
+Every component names its type on the element it renders, in `data-component-type`, including components that render through an island; a spec or a stylesheet finds a `select` or a `filter-bar` exactly as it finds a `text`. `props.className` lands on the component's own element for every component type, data components included.
+
 ## Unknown keys are dropped, not rejected
 
 A misspelled module name — `onClick` instead of `interactions.click`, `inline` instead of `inlineScripts` — passes validation and then does nothing. When a declared behaviour silently fails to appear, check the key against the reference page before checking the runtime.

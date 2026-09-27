@@ -13,6 +13,8 @@ Two routes are served:
 
 Both are derived from your content-directory pages, so a documentation site gets them automatically. **The trigger is a page declaring `contentDir`**: an app with none serves neither route, and `llms.enabled: true` does not conjure them — there would be nothing to index. Set `enabled: false` to withhold the routes from an app that does have content.
 
+Only pages a signed-out visitor can open are published: a content collection whose `access` requires a session or a role contributes neither a listing to `/llms.txt` nor a body to `/llms-full.txt` — the same rule the sitemap follows.
+
 ## Configuration
 
 The whole `llms` block is optional. Declare it only to turn the feature off, or to override what the generated header says.

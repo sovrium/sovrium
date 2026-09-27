@@ -1,176 +1,95 @@
+# Customer orders by status. Each card names the customer, what is on the
+# order and what it is worth; drag a card to move the order on. Shipped and
+# Cancelled are columns too, folded until someone opens them, so the board
+# shows the work still to do.
 name: orders
 path: /orders
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Orders
-  description: Customer orders and their line items
+  title: Orders · Brunel Stock
+  description: Customer orders by status, from draft to shipped.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-7xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
         props:
-          className: text-3xl font-bold mb-1
-        content: Orders
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: >-
-          What customers asked for. Totals roll up from the line items below, so
-          they cannot drift.
-
-      - type: table
-        dataSource:
-          table: orders
-          sort:
-            - field: placed_at
-              direction: desc
-        rowHeight: medium
-        striped: true
-        columns:
-          - field: order_number
-            label: Order
-            frozen: true
-            align: right
-            sortable: true
-          - field: customer_name
-            label: Customer
-            sortable: true
-            filterable: true
-            editable: true
-          - field: status
-            label: Status
-            sortable: true
-            filterable: true
-            editable: true
-          - field: channel
-            label: Channel
-            sortable: true
-            filterable: true
-            editable: true
-          - field: fulfilment_flags
-            label: Flags
-          - field: line_count
-            label: Lines
-            align: right
-          - field: units_ordered
-            label: Units
-            align: right
-            sortable: true
-          - field: shipping_cost
-            label: Shipping
-            align: right
-            format: currency
-          - field: placed_at
-            label: Placed
-            format: datetime
-            sortable: true
-          - field: pickup_time
-            label: Pickup
-          - field: customer_email
-            label: Email
-        selection:
-          mode: multiple
-        search:
-          enabled: true
-          placeholder: Search orders
-        groupBy:
-          field: status
-          direction: asc
-        summary:
-          - field: order_number
-            function: count
-            label: Orders
-          - field: units_ordered
-            function: sum
-            label: Units ordered
-        toolbar:
-          search: true
-          filters: true
-          sort: true
-          groupBy: true
-          views: true
-          export: true
-          columnToggle: true
-          density: true
-        pagination:
-          pageSize: 25
-          pageSizeOptions: [10, 25, 50]
-        bulkActions:
-          - label: Delete
-            confirm: Delete the selected orders? They stay recoverable.
-            action:
-              type: crud
-              operation: delete
-              table: orders
-        emptyMessage: No orders yet.
-        noMatchMessage: No orders match "{query}".
-
-      - type: text
-        element: h2
-        props:
-          className: text-xl font-semibold mt-10 mb-1
-        content: Order lines
-      - type: text
-        element: p
-        props:
-          className: text-md mb-4
-        content: One row per product on an order. Line totals are computed in the database.
-      - type: table
-        dataSource:
-          table: order_lines
-        rowHeight: short
-        columns:
-          - field: label
-            label: Line
-            frozen: true
-            editable: true
-          - field: sales_order
-            label: Order
-            sortable: true
-            filterable: true
-          - field: product
-            label: Product
-            sortable: true
-            filterable: true
-          - field: product_sku
-            label: SKU
-          - field: quantity
-            label: Qty
-            align: right
-            editable: true
-          - field: unit_price
-            label: Unit price
-            align: right
-            format: currency
-            editable: true
-          - field: line_total
-            label: Line total
-            align: right
-            format: currency
-        search:
-          enabled: true
-          placeholder: Search lines
-        summary:
-          - field: quantity
-            function: sum
-            label: Units
-          - field: line_total
-            function: sum
-            label: Units
-        toolbar:
-          search: true
-          filters: true
-          sort: true
-          export: true
-          columnToggle: true
-        pagination:
-          pageSize: 25
-        emptyMessage: No order lines yet.
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Orders
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Add order
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-order-dialog
+          - $ref: ./_add-order.yaml
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: filter-bar
+                publishes:
+                  bindTo: orders-filter
+                fields:
+                  - { name: customer, label: Customer, kind: text }
+                  - { name: order_number, label: Order, kind: text }
+                  - { name: placed_at, label: Placed, kind: date }
+              # The three open statuses share the width; each folded column
+              # takes only what its heading needs.
+              - type: container
+                props:
+                  className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Shipped]]:flex-[0_0_9.5rem]! md:[&_[data-column=Cancelled]]:flex-[0_0_9.5rem]!'
+                children:
+                  - type: kanban
+                    dataSource:
+                      table: orders
+                      bindTo: orders-filter
+                      sharedFilter: {}
+                      sort:
+                        - { field: placed_at, direction: desc }
+                    kanbanGroupBy:
+                      field: status
+                      # Shipped and Cancelled are done with; they start folded.
+                      collapsed: [Shipped, Cancelled]
+                    drag:
+                      enabled: true
+                      persistAction:
+                        type: crud
+                        operation: update
+                        table: orders
+                    emptyColumnMessage: No order in this status. Drag one here as the order moves on.
+                    card:
+                      children:
+                        - type: text
+                          element: h3
+                          props:
+                            className: text-[13px] font-medium leading-snug text-foreground
+                          content: '#$record.order_number · $record.customer'
+                        - type: text
+                          element: p
+                          props:
+                            className: font-mono text-xs text-foreground-muted
+                          content: $record.lines lines · $record.units units
+                      footer:
+                        - { field: total, format: currency }
+                        - { field: placed_at, format: short-date }
+                        - { field: fulfilment, format: badge }
+                        - { field: owner, format: avatar }

@@ -66,12 +66,12 @@ export const DateStartOfActionSchema = Schema.Struct({
       })
     ),
 
-    /** IANA timezone the boundary is computed in. Default UTC. */
+    /** IANA timezone the boundary is computed in. Default: the operator timezone. */
     timezone: Schema.optional(
       TimezoneProp.pipe(
         Schema.annotate({
           description:
-            'IANA timezone the boundary is computed in (e.g. "Europe/Paris"). Default "UTC". ' +
+            'IANA timezone the boundary is computed in (e.g. "Europe/Paris"). Default: the operator timezone (SOVRIUM_TIMEZONE, UTC when unset). ' +
             'This is what makes "start of today" mean local midnight rather than UTC midnight.',
         })
       )

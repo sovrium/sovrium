@@ -1,9 +1,11 @@
-# HR approval flow: a new request pauses this run until an admin approves —
-# then the record.update stamps the outcome. On reject or timeout, the run
-# terminates and the request stays Pending.
+# A new time-off request asks the admins for a decision. The run pauses on the
+# approval step; once an admin approves, the next step marks the request
+# Approved. On a rejection or after seven days without an answer the run
+# stops, and the request stays Pending on the People page until someone
+# decides.
 name: approve-time-off
-label: Time off — request approval
-description: Ask an admin to approve each new time-off request, then stamp the outcome.
+label: Time off — ask for approval
+description: Ask an admin to approve each new time-off request, then mark it Approved.
 enabled: true
 trigger:
   type: record
@@ -17,7 +19,7 @@ actions:
     props:
       approvers: all-admins
       message: >-
-        Time-off request from {{trigger.data.record.start_date}} to
+        Time off requested from {{trigger.data.record.start_date}} to
         {{trigger.data.record.end_date}}. Approve?
       timeout: 7d
       onTimeout: reject

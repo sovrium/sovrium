@@ -10,6 +10,7 @@ import { Layer } from 'effect'
 import {
   AutomationPauseDatabaseError,
   AutomationPauseRepository,
+  type AutomationPauseReason,
   type AutomationPauseRow,
 } from '@/application/ports/repositories/automations/automation-pause-repository'
 import { db } from '@/infrastructure/database'
@@ -56,6 +57,7 @@ export const AutomationPauseRepositoryLive = Layer.succeed(AutomationPauseReposi
       .select({
         automationName: automationPauses.automationName,
         pausedAt: automationPauses.pausedAt,
+        reason: automationPauses.reason,
         userName: users.name,
         userEmail: users.email,
       })
@@ -66,6 +68,7 @@ export const AutomationPauseRepositoryLive = Layer.succeed(AutomationPauseReposi
       .leftJoin(users, eq(users.id, automationPauses.pausedByUserId))) as ReadonlyArray<{
       automationName: string
       pausedAt: Date | string
+      reason: string | null
       userName: string | null
       userEmail: string | null
     }>
@@ -77,24 +80,33 @@ export const AutomationPauseRepositoryLive = Layer.succeed(AutomationPauseReposi
       // eslint-disable-next-line unicorn/no-null
       pausedBy: row.userName ?? row.userEmail ?? null,
       pausedAt: row.pausedAt,
+      // The column is free text in storage; only the platform writes it, with
+      // the one value the contract names.
+      // eslint-disable-next-line unicorn/no-null
+      reason: row.reason === null ? null : (row.reason as AutomationPauseReason),
     }))
   }),
 
-  pause: ({ automationName, pausedByUserId }) =>
+  pause: ({ automationName, pausedByUserId, reason }) =>
     wrap(async () => {
-      // eslint-disable-next-line functional/no-expression-statements
-      await db
+      const inserted = await db
         .insert(automationPauses)
         .values({
           automationName,
           ...(pausedByUserId === undefined ? {} : { pausedByUserId }),
+          ...(reason === undefined ? {} : { reason }),
         })
         .onConflictDoNothing({ target: automationPauses.automationName })
+        .returning({ id: automationPauses.id })
+      return inserted.length > 0
     }),
 
   resume: (automationName) =>
     wrap(async () => {
-      // eslint-disable-next-line functional/no-expression-statements
-      await db.delete(automationPauses).where(eq(automationPauses.automationName, automationName))
+      const deleted = await db
+        .delete(automationPauses)
+        .where(eq(automationPauses.automationName, automationName))
+        .returning({ id: automationPauses.id })
+      return deleted.length > 0
     }),
 })

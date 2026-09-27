@@ -24,6 +24,7 @@
  * different declarations and together exceeded the tree's file ceiling.
  */
 
+import { resolveDensityStep } from '@/domain/models/app/design/density-service'
 import { resolveLandingPath } from '@/domain/models/app/pages/landing-resolver'
 import { resolveFirstObjectRedirect } from '@/presentation/render/resolve/first-object-redirect-resolver'
 import { hideComponent } from './page-crud-gating'
@@ -58,13 +59,17 @@ export const noopDb: DataSourceDb = {
  * without needing a per-app configurable template — a richer UX (custom
  * page slot, i18n, theme integration) is a follow-up tier.
  */
-export function renderPermissionBlockedPage(
-  _app: App,
-  _detectedLanguage: string | undefined
-): string {
+export function renderPermissionBlockedPage(app: App, pagePath: string): string {
+  // Same step the page itself would have run at. A closed literal set, so it
+  // needs no escaping inside the attribute.
+  const densityStep = resolveDensityStep(
+    app.design,
+    pagePath,
+    app.languages?.supported.map((language) => language.code)
+  )
   return (
     '<!DOCTYPE html>\n' +
-    '<html lang="en"><head><meta charset="utf-8">' +
+    `<html lang="en" data-density="${densityStep}"><head><meta charset="utf-8">` +
     '<title>Access denied</title></head><body>' +
     '<main><h1>Access denied</h1>' +
     '<p>You do not have permission to view this record.</p>' +

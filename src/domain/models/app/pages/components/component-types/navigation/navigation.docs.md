@@ -103,9 +103,26 @@ Its label accepts a `$t:` key and the `$app.*` variables, so the crumb can print
 
 `home` on an enumerated trail is refused at startup, because such a trail already states its own first item.
 
+### A segment with no page
+
+Every derived ancestor links to its own path prefix, and not every prefix is a page. A run page at `/automations/runs/:id` has nothing at `/automations/runs`, so its middle crumb would link to a page that does not exist. `unlinked` names the segments to keep as plain text:
+
+```yaml
+- type: breadcrumb
+  derive: path
+  labels:
+    automations: Automations
+    runs: Run
+  unlinked: [runs]
+```
+
+At `/automations/runs/42` that renders **Automations › Run › 42**, with `Automations` linking to `/automations`, `Run` as text with no link, and `42` as the current page. The segment stays in the trail because it still tells the reader where they are; only the dead link goes. Name the segment as it appears in the URL, not its label: `labels` still applies to it. Like `labels`, `unlinked` requires `derive` and is refused at startup without it — on an enumerated trail, leave `href` off the item instead.
+
 ## `command-palette`
 
 The keyboard-first way into everything a page can reach: one overlay, one input, results from the sources the page declares.
+
+The palette's "Go to" actions list only the pages the visitor may open. An anonymous visitor is offered pages with no `access`, or an `access` open to everyone; a signed-in reader is also offered the pages that require a session and those whose roles include theirs. A page the visitor cannot open is never named in the palette or in the page that carries it. That holds for a list you write yourself in the palette's `props.pages` too: your list is the set of candidates, and an entry pointing at a page the visitor may not open is dropped for that visitor.
 
 <!-- sovrium:options type:command-palette depth=3 -->
 

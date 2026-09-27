@@ -103,6 +103,13 @@
  * `var(--sv-x, <oklch>)`) precisely because the fallback already exists: if a
  * `--sv-*` were somehow unresolved, `var()` falls through to FullCalendar's own
  * `:root` default rather than to `unset`, which is the correct degrade.
+ *
+ * The event TEXT is the scheme-invariant `--sv-neutral-950`, not
+ * `--sv-fg-inverse`, because the fill it sits on is scheme-invariant too:
+ * `--sv-chart-1` is the same blue in both palettes, while `--sv-fg-inverse`
+ * flips to near-white in the light one. White on that blue measured 3.5:1 in
+ * the light week view, under the 4.5:1 of body text; the near-black it is in
+ * dark reads 5.5:1, and now reads so in both.
  */
 const FC_VAR_BRIDGE = `.fc {
       --fc-border-color: var(--sv-border);
@@ -112,7 +119,7 @@ const FC_VAR_BRIDGE = `.fc {
       --fc-today-bg-color: var(--sv-bg-subtle);
       --fc-event-bg-color: var(--sv-chart-1);
       --fc-event-border-color: var(--sv-chart-1);
-      --fc-event-text-color: var(--sv-fg-inverse);
+      --fc-event-text-color: var(--sv-neutral-950);
       --fc-now-indicator-color: var(--sv-error-solid);
       --fc-list-event-hover-bg-color: var(--sv-bg-subtle);
       --fc-highlight-color: var(--sv-bg-subtle);

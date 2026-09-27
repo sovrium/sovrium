@@ -11,6 +11,7 @@ import { PermissionValueSchema } from '@/domain/models/app/auth/permissions'
 import { type Action, ActionSchema } from './actions'
 import { RetryConfigSchema } from './retry'
 import { TriggerSchema } from './trigger'
+import { validateWebhookSignatureScheme } from './trigger/webhook-signature-validation'
 
 /**
  * Recursively collect all action names (including nested in path/loop props)
@@ -109,13 +110,19 @@ export const AutomationSchema = Schema.Struct({
   /** Automation-level retry configuration (applies to the entire workflow) */
   retry: Schema.optional(RetryConfigSchema),
 
-  /** Timeout for the entire automation run in milliseconds */
+  /**
+   * Timeout for the entire automation run in milliseconds. Counts only the
+   * active execution window: the time a run waits in the concurrency queue or
+   * for a human approval is excluded.
+   */
   timeout: Schema.optional(
     Schema.Finite.pipe(
       Schema.annotate({
-        description: 'Total automation timeout in ms (1000-900000, default: 300000)',
+        description:
+          'Total automation timeout in ms (1000–3600000). Default: 900000 ms of active execution — queue wait and approval suspension are excluded; `SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS` changes the default',
+        defaultNote: '900000 (15 minutes), or SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS',
       }),
-      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 900_000 }))
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 3_600_000 }))
     )
   ),
 
@@ -242,6 +249,11 @@ export const AutomationSchema = Schema.Struct({
       }
       return true
     })
+  ),
+  Schema.check(
+    Schema.makeFilter((automation) =>
+      validateWebhookSignatureScheme(automation.name, automation.trigger)
+    )
   )
 )
 

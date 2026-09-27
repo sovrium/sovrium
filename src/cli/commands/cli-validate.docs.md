@@ -70,7 +70,7 @@ A finding:
 
 | Field        | Meaning                                                                                                                                                                                   |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `path`       | Dotted and indexed path from the config root. Empty for a refusal belonging to the config as a whole rather than to one position                                                          |
+| `path`       | Dotted and indexed path from the config root — for every kind of refusal, a length, range or pattern check included. Empty only for a refusal belonging to the config as a whole          |
 | `message`    | What is wrong, in one line. It names the position and the expected shape — and the offending value only where that value is a name (see below)                                            |
 | `accepted`   | What may be written there instead — read off the schema, and **never elided**. For an unknown component `type` that is every legal type, in full. Absent when there are no alternatives   |
 | `sourceFile` | The `$ref` partial the mistake lives in, present only for a split config. There, `path` names a position in the _resolved_ document, which exists in no file; this names the file to open |

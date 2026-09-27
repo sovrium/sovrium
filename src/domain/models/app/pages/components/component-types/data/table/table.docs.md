@@ -48,6 +48,8 @@ An action column also takes `capability`, which withholds the whole column — h
 
 A field column's `format` chooses the cell rendering: `truncate`, `currency`, `percentage`, `compact`, `bytes`, `relative-date`, `relative-time`, `short-date`, `long-date`, `datetime`, `yes-no`, `check-cross`. `cellStyle` applies `{ when: { <operator>: value }, className }` rules per cell, over the operators `eq`, `neq`, `in`, `notIn`, `contains`, `gt`, `lt`, `gte`, `lte`.
 
+A `url` field's cell is a link that opens in a new tab; a value that is not a web address is shown as text. A `date` field's cell reads as a calendar date in the page's language, on the same day for every reader.
+
 ```yaml
 columns:
   - field: status
@@ -66,6 +68,8 @@ columns:
 `direction` orders the group headers themselves, not the rows inside a group — those follow `dataSource.sort` and the column headers. Grouping by a single-select or status field orders the headers by the field's **declared option order** rather than alphabetically, so a `stage` of `prospect`/`qualified`/`won` reads in the order it was authored. Each header also counts the whole result set: a group holding 30 records reads `(30)` even on a page showing 22 of them, and that holds at every level.
 
 Every level answers for itself. `direction` applies per level and independently, `collapsed` is per level too, and folding nests. A field named by any level need not be a visible column; the header carries its value, which is often the reason to group by it. Naming the same field at two levels is refused at validation: every record in a group already shares the value that group was formed on, so a repeated level puts exactly one sub-group inside each group and partitions nothing.
+
+Grouping by a relationship names each group by the related record, not by its key. When the relationship declares a `displayField` — or a grid column over that field names one — every group header at every level reads that label ("Acme Robotics (3)"), and `direction` orders the groups by it, alphabetically by the collation rules of the page's language — the one its cells are formatted in — so accented letters sort where a reader of that language expects them. A relationship that declares no label keeps its key in the header. The label only names the group: two related records that share a name stay two groups, each with its own count and totals. Grouping by a many-to-many relationship is not labelled.
 
 **A declared `summary` describes the grid as a whole, and once the grid is grouped it additionally describes each group — at every level, not only the innermost.** There is no second option to turn this on. Because every level is summarised the figures reconcile: a `sum` over the sub-groups of one parent equals that parent's, and the parents' equal the footer's. Group totals stay visible when a group is collapsed, which is what makes collapsing everything a useful way to compare groups, and each is rendered in its column's `format`.
 
@@ -89,6 +93,24 @@ Regions read in their declared order, the stages inside each region read in reve
 **On a `dataSource.system` binding, a summary describes the rows the endpoint returned.** A grid bound to a table asks the database for its totals, so the footer answers for the whole collection whatever page you are on. A read endpoint answers with rows and no totals, so the figures are computed from the rows in hand — the grid asks for them without its own page window, keeping the same endpoint, static params, sort and search term. Two windows stay in place, because in both the narrowing is somebody's deliberate choice rather than the grid's paging: a `limit` the binding declares, and a feed walked by cursor. That is a real difference in what the number means: a `sum` under a table binding is the sum of everything, and under a system binding it is the sum of what came back. Empty cells are left out of both rather than counted as zero.
 
 **Where a selection export gets its rows depends on the same binding.** A grid bound to a table sends the ticked ids to the records-export endpoint, so the file can carry rows from pages the browser never fetched, formatted as each column declares. A grid bound to a read endpoint has no table to address, so it writes the CSV itself — the rows it is holding, over the columns still on screen, with the values as the endpoint returned them — and names the file after the endpoint's last segment.
+
+## Reading through a view
+
+`dataSource.view` names one of the bound table's views by id or name. The grid reads through that view on the server and becomes read-only: no create, edit, import, saved views or live refresh. Bound to a public view, a page with no access rule shows the table to visitors who are not signed in.
+
+A view's own filters, sorts and `fields` apply before anything the grid adds: its sort headers, search and filters narrow the view, and never reach a column it leaves out. See the data binding article for an example.
+
+## Pagination
+
+`pagination` takes `pageSize` (25 by default), `pageSizeOptions` — the sizes the reader may pick —, `position` (`top`, `bottom` or `both`) and `style` (`numbered` or `loadMore`). No page size may exceed 100, the rows per page the records API serves: a larger `pageSize` or `pageSizeOptions` entry is refused at validation, naming the number and the ceiling, rather than failing the first time a reader picks it.
+
+`style: numbered`, the default, draws page controls. `style: loadMore` draws one "Load more" button instead: each press fetches the next `pageSize` rows and appends them under the rows already shown, and the button disappears once every row is on screen. That grid shows no page-size selector and no page controls, and changing its sort, its filters or its search starts again from the first page. Its filters are applied by the server, so a match on a page not loaded yet is still found. Three limits apply: a filter row using `between`, `doesNotContain` or `isNoneOf` has no server spelling, so the whole filter panel then narrows only the rows already loaded and the footer totals no longer reflect it; the server compares `equals` with case, where a numbered grid filtering in the browser does not; and pages already shown are not refreshed by `refreshMode: poll` or `realtime` until the sort, filters or search change or the page reloads. There is no "show all": every request stays within the 100-row window, so a list of any length is reached one page at a time.
+
+```yaml
+- type: table
+  dataSource: { table: candidatures }
+  pagination: { pageSize: 100, style: loadMore }
+```
 
 ## `rowColorField`
 

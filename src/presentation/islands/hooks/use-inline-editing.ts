@@ -69,6 +69,8 @@ export interface FieldDisplayMeta extends CurrencyDisplayOptions {
   readonly format?: string
   /** `duration` — one of the three display presets. */
   readonly displayFormat?: DurationDisplayFormat
+  /** `formula` — the declared result kind (`text`, `number`, `date`, …). */
+  readonly resultType?: string
 }
 
 /**

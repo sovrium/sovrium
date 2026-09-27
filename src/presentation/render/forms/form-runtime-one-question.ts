@@ -106,6 +106,7 @@ export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
     stashedAnswers = {}
     var inputs = namedInputs()
     inputs.forEach(function (input) {
+      if (input.disabled) return
       if (input.type === 'radio') {
         if (input.checked) {
           var labelEl = input.id ? form.querySelector('label[for="' + input.id + '"]') : null
@@ -230,7 +231,14 @@ export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
       }
       return
     }
-    showQuestion(oqState.current + 1)
+    showQuestion(nextShownQuestion(oqState.current, 1))
+  }
+  // A question whose field is hidden by its condition is stepped over.
+  function nextShownQuestion(from, step) {
+    var qs = getQuestions()
+    var i = from + step
+    while (i >= 0 && i < qs.length && qs[i].querySelector('[data-condition-hidden]')) i += step
+    return i < 0 ? from : i
   }
   function goPrevious() {
     if (oqState.current <= 0) return
@@ -243,7 +251,7 @@ export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
       // wrappers from stashedAnswers; the foundation tier does not.
       return
     }
-    showQuestion(oqState.current - 1)
+    showQuestion(nextShownQuestion(oqState.current, -1))
   }
   // ---- Radio-group highlight + auto-advance ---------------------------------
   // Sovrium-owned highlight (not the native browser radio focus-checks-arrow
@@ -423,7 +431,7 @@ export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
   }
   if (isOneQuestion) {
     oqState.total = getQuestions().length
-    showQuestion(0)
+    showQuestion(nextShownQuestion(-1, 1))
     bindOneQuestionEvents()
   }
 `

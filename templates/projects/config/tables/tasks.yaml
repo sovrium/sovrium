@@ -1,3 +1,6 @@
+# One row per task: what it is, the project it belongs to, who does it, when it
+# starts and when it is due. The Board, the Timeline and the Calendar are three
+# views of this one table.
 id: 2
 name: tasks
 fields:
@@ -10,27 +13,26 @@ fields:
     type: relationship
     relatedTable: projects
     relationType: many-to-one
-    # Names the column a human should see instead of the foreign key. Measured
-    # against the running app: this reaches the `table` grid's inline record
-    # PICKER (`record-picker-editor.tsx` searches and labels on it) but NOT the
-    # read-only cell, and not the "Add a task" form, which renders `project` as
-    # a plain text input expecting an id. It is declared here anyway because it
-    # is the correct place to say what identifies a project, and the two render
-    # paths that ignore it are platform gaps rather than a reason to leave the
-    # intent unstated.
+    # What a human should see instead of the foreign key, and what the picker
+    # searches on.
     displayField: name
+  # The order work moves in. The option order is the order of the board's
+  # columns and of the Dashboard's status chart. Blocked and Done are outcomes
+  # and carry the outcome colours; To do and In progress are declared a neutral
+  # grey, so a timeline bar or a calendar event only takes a colour when the
+  # task has an outcome.
   - id: 3
     name: status
     type: status
     options:
       - value: To do
-        color: '#94A3B8'
+        color: '#8A93A3'
       - value: In progress
-        color: '#3B82F6'
+        color: '#8A93A3'
       - value: Blocked
-        color: '#EF4444'
+        color: '#B91C1C'
       - value: Done
-        color: '#10B981'
+        color: '#15803D'
     default: To do
   - id: 4
     name: priority
@@ -39,6 +41,9 @@ fields:
       - Low
       - Medium
       - High
+    default: Medium
+  # Who does it. "My tasks" on the Calendar is the list of open tasks whose
+  # assignee is the signed-in person.
   - id: 5
     name: assignee
     type: user
@@ -53,7 +58,46 @@ fields:
   - id: 8
     name: created_at
     type: created-at
+  # With a start date and a due date, a task is a bar on the Timeline.
+  - id: 9
+    name: start_date
+    type: date
+  # The task this one waits on. The Timeline draws the link between the two,
+  # and a task's drawer lists the tasks waiting on it.
+  - id: 10
+    name: predecessor
+    type: relationship
+    relatedTable: tasks
+    relationType: many-to-one
+    displayField: title
+  # A milestone is a task that marks a date the team has promised: a go-live,
+  # a release to testers.
+  - id: 11
+    name: is_milestone
+    type: checkbox
+    default: false
+  # What the task needs, or what it waits on, in a sentence or two.
+  - id: 12
+    name: description
+    type: long-text
+  # The project's name, read through the relationship, so the Timeline can
+  # group its bars under each project by name.
+  - id: 13
+    name: project_name
+    type: lookup
+    relationshipField: project
+    relatedField: name
+  # "Overdue" when an open task is past its due date. Computed each time the
+  # task is saved, so finishing it or moving its date clears the flag.
+  - id: 14
+    name: schedule
+    type: formula
+    formula: "CASE WHEN status <> 'Done' AND due_date < CURRENT_DATE THEN 'Overdue' ELSE '' END"
+    resultType: string
 
+# Everyone signed in reads, creates and moves tasks; only an admin deletes one.
+# A member who tries is answered 404, the same answer as for a task that does
+# not exist.
 permissions:
   read: authenticated
   create:

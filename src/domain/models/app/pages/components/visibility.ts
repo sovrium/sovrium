@@ -63,9 +63,8 @@ export type QueryCondition = Schema.Schema.Type<typeof QueryConditionSchema>
  * ─── WHY THIS IS NOT A ROLE LIST ───────────────────────────────────────────
  *
  * `visibility.roles` already gates on a role NAME, and it is the wrong
- * instrument twice over. It only CSS-hides (see the two strategies below), and
- * a name is not a power: whether `operator` may change another user's role
- * depends on `app.auth.roles[]` — the level it declares, whether a higher one
+ * instrument for a power, because a name is not a power: whether `operator`
+ * may change another user's role depends on `app.auth.roles[]` — the level it declares, whether a higher one
  * exists, whether the app renamed the built-ins — which is a computation over
  * the whole auth config, not a string comparison. Enumerating the names that
  * happen to satisfy it was measured on a partner-shaped app to share ZERO
@@ -126,26 +125,21 @@ export type CallerCapability = Schema.Schema.Type<typeof CallerCapabilitySchema>
  * `declares: 'agents'` renders a composer whose only possible outcome is a
  * panel saying it is unavailable.
  *
- * The engine already draws this line. `collectAiProviderPhases` opens with
- * `if (!appRequiresAi(app) || isAiProviderConfigured(process.env)) return []` —
- * the "inert vs active" signal of [internal ref], and the source of the `AI disabled`
- * startup warning. This key surfaces that conjunction to config; it does not
- * invent one.
+ * | Capability | Predicate                     |
+ * | ---------- | ----------------------------- |
+ * | `ai`       | `isAiProviderConfigured(env)` |
  *
- * | Capability | Predicate                                              |
- * | ---------- | ------------------------------------------------------ |
- * | `ai`       | `appRequiresAi(hostApp) && isAiProviderConfigured(env)` |
+ * ─── THE PROVIDER HALF ALONE ───────────────────────────────────────────────
  *
- * ─── A CONJUNCTION, NOT AN ENV READ ────────────────────────────────────────
+ * Every app carries the built-in System Agent, whether or not it declares an
+ * agent of its own, so a configured provider is all a chat needs to run. The
+ * `ai` row therefore reads the provider and nothing else: an app declaring no
+ * AI still gets the `runtime` half on a host with `AI_PROVIDER` set.
  *
- * An app declaring no AI surface at all gets the `unlessRuntime` half even on a
- * host with `AI_PROVIDER` set — there is nothing to run, and a composer bound
- * to no agent is as useless as one bound to an unreachable provider. So this
- * SUBSUMES `declares: 'agents'` for the shape rather than composing with it:
- * an author writes one key. `appRequiresAi` is in fact broader than
- * `declares: 'agents'` — it is also true for an `ai-*` compute field, an `ai`
- * automation action, or an `ai-chat` component anywhere in the tree — which is
- * the right breadth for "is there anything here that needs a model".
+ * `appRequiresAi` is NOT part of this gate. It still decides the boot-time
+ * checks — `collectAiProviderPhases`, the eco-routing and speech validators —
+ * so an app declaring no AI gets no new startup warning just because the
+ * System Agent exists.
  *
  * ─── WHY A CLOSED SET AND NOT A BOOLEAN ────────────────────────────────────
  *
@@ -172,7 +166,7 @@ export type CallerCapability = Schema.Schema.Type<typeof CallerCapabilitySchema>
  * changes without a config change.
  *
  * @see src/presentation/render/resolve/runtime-capability-resolver.ts — the resolver
- * @see src/domain/models/app/requires-ai.ts — the app half
+ * @see src/domain/models/app/requires-ai.ts — the boot-check predicate, not part of this gate
  * @see src/domain/models/process-env/ai/ai-providers.ts — the env half
  */
 export const RUNTIME_CAPABILITIES = ['ai'] as const
@@ -186,7 +180,7 @@ export const RuntimeCapabilitySchema = Schema.Literals([...RUNTIME_CAPABILITIES]
   // `identifier`, so a use-site annotation would fork its `$def`. The gate's
   // direction belongs to the key name; this says what the value NAMES.
   description:
-    'A capability the host app both declares and can actually RUN on this deployment — declared in its config and supported by the environment the process is in',
+    'A capability the host app can actually RUN on this deployment. `ai` holds wherever a provider is configured, since every app carries the built-in System Agent even when it declares no AI of its own',
 })
 
 /** @public */
@@ -196,9 +190,10 @@ export type RuntimeCapability = Schema.Schema.Type<typeof RuntimeCapabilitySchem
  * Visibility Schema
  *
  * Controls conditional visibility of components based on authentication state,
- * user roles, or field-based conditions. Components with visibility constraints
- * may be SSR-excluded (condition) or CSS-hidden (when/roles) when conditions
- * are not met.
+ * user roles, or field-based conditions. Every gate excludes: a component whose
+ * visibility is not met is left out of the server-rendered HTML with its whole
+ * subtree, at any depth. A `roles` entry written `group:<name>` matches members
+ * of that group; the app's top role passes a gate naming `admin`.
  *
  * - `when`: Show only for authenticated or unauthenticated users
  * - `roles`: Show only for users with specific roles
@@ -280,7 +275,8 @@ export const VisibilitySchema = Schema.Struct({
     ).pipe(
       Schema.annotate({
         title: 'Visibility Roles',
-        description: 'Show component only to users with one of these roles',
+        description:
+          'Show component only to users with one of these roles. A `group:<name>` entry admits members of that group, and a gate naming `admin` admits the app top role. Readers it excludes do not receive the component at all.',
         examples: [['admin'], ['admin', 'editor']],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -304,9 +300,8 @@ export const VisibilitySchema = Schema.Struct({
    * ─── EXCLUSION, NOT DISABLING (S1) ─────────────────────────────────────────
    *
    * An unmet capability removes the component from the SSR output entirely —
-   * it never reaches the HTML. It shares that with `condition` and NOT with
-   * `when` / `roles`, which render the component and inject `display: none`;
-   * a CSS-hidden action column would ship every row action's endpoint to a
+   * it never reaches the HTML, exactly as an unmet `condition`, `when` or
+   * `roles` does. A CSS-hidden action column would ship every row action's endpoint to a
    * caller forbidden to call it, which is a disclosure, not a style. It is also
    * why an unmet capability renders NOTHING rather than a disabled control:
    * a greyed-out Change-role button advertises a power the backend will 404.
@@ -412,13 +407,15 @@ export const VisibilitySchema = Schema.Struct({
    * ─── THE THIRD SUBJECT ─────────────────────────────────────────────────────
    *
    * `capability` asks what the CALLER may do. `declares` asks what the app being
-   * SERVED declares. This asks whether that declaration can actually run on THIS
-   * deployment: `appRequiresAi(hostApp) && isAiProviderConfigured(env)`.
+   * SERVED declares. This asks whether AI can actually run on THIS deployment:
+   * `isAiProviderConfigured(env)`, since every app carries the built-in System
+   * Agent and so always has something a provider can run.
    *
    * It is not a rephrasing of `declares`. On a host declaring an agent with no
-   * `AI_PROVIDER`, `declares: 'agents'` renders and `runtime: 'ai'` does not —
-   * and if the two ever agree, this key is a synonym and should be deleted
-   * rather than documented.
+   * `AI_PROVIDER`, `declares: 'agents'` renders and `runtime: 'ai'` does not;
+   * on a host declaring none with `AI_PROVIDER` set, the reverse — and if the
+   * two ever agree, this key is a synonym and should be deleted rather than
+   * documented.
    *
    * ─── WHAT THE EXISTING GRACEFUL DEGRADATION CANNOT DO ──────────────────────
    *
@@ -430,15 +427,9 @@ export const VisibilitySchema = Schema.Struct({
    * different label, keyboard affordance and endpoint. No amount of degradation
    * inside `ai-chat` produces a `command-palette`.
    *
-   * ─── ON A MOUNT THE APP HALF READS `hostApp` ───────────────────────────────
-   *
-   * A mounted console asking its own preset whether the operator declares AI
-   * would answer about the console. The env half is process-wide and therefore
-   * identical either way.
-   *
    * @example
    * ```yaml
-   * # The assistant composer, only where AI both is declared and can run
+   * # The assistant composer, only where a provider is configured
    * - type: ai-chat
    *   props: { agent: assistant }
    *   visibility:
@@ -543,9 +534,8 @@ export const VisibilitySchema = Schema.Struct({
    * shown" claim is false to anything that reads HTML — including the reader's
    * own find-in-page.
    *
-   * Unlike `condition`, which is deliberately flat and gates top-level
-   * components only, this gate RECURSES into `children`, on the reach
-   * `applyCallerCapabilityGate` already has. A tabbed body is a block INSIDE the
+   * Like every other gate in this struct, it RECURSES into `children` (and
+   * into each `responsive` breakpoint's `children`). A tabbed body is a block INSIDE the
    * panel that frames it, and a predicate that only reached the outermost
    * component could not express the one case it exists for.
    *

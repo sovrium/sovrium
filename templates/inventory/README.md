@@ -1,6 +1,6 @@
-# Sovrium Inventory
+# Brunel Stock
 
-> Products, stock, and orders — an Airtable alternative you own.
+> A stock workspace for a small distributor: products, stock per warehouse, orders, suppliers.
 
 Built with [Sovrium](https://sovrium.com) — a configuration-as-code interpreter: one config
 file in, a complete self-hosted web application out.
@@ -19,14 +19,23 @@ sovrium init my-inventory --template inventory
 
 ## What's inside
 
-Six linked tables — suppliers, warehouses, products, stock movements, orders, and order
-lines — behind spreadsheet-style grids with grouping, saved views, filters, footer
-summaries, inline editing, and an expand-record side panel. Plus an AI assistant that
-reads and edits records, and an automation that emails purchasing when stock hits zero.
+A stock workspace for a team of two to ten, built around what you hold, where, and what to
+buy next:
 
-The products table is deliberately wide: it is the reference surface for Sovrium's field
-types, from select chips and attachments to rollups, lookups, and database-computed
-formulas. Use the grid's **Hide fields** control rather than deleting columns.
+- **Products** (`/`) — the catalogue grouped by category, with stock on hand, reorder point
+  and value at cost per product, totalled per category and for the whole catalogue. The
+  products under their reorder point are marked, and the **Reorder list** tab keeps only
+  those. A product opens in a drawer with every movement that made its stock.
+- **Stock** — every movement in and out, signed and dated, grouped by warehouse with the net
+  per warehouse: receipts, picks, transfers as a pair of rows, and counts.
+- **Orders** — customer orders by status, each card with its lines, units and value. Shipped
+  and Cancelled are folded columns; drag a card to move an order on.
+- **Suppliers** — who you buy from, with each one's lead time.
+- **Assistant** — ask what to reorder and from whom, and have it draft the purchase order
+  (needs an AI provider, see below).
+
+Stock on hand is never typed: it is the sum of the product's movements, so it cannot drift
+from the ledger. Sign-up is closed; an admin adds each account.
 
 Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
 no application code. Edit the config, restart, done.
@@ -39,11 +48,31 @@ sovrium start app.yaml
 
 Zero-config: embedded SQLite, local file storage, no env vars required to boot. See
 [`.env.example`](./.env.example) for the optional variables (database, auth bootstrap,
-email, AI).
+AI provider, email, demo data). The assistant stays off until `AI_PROVIDER` is set; every
+other page works without it.
 
-> The assistant and the AI columns on suppliers need an AI provider (`AI_PROVIDER` +
-> `AI_API_KEY`, or a local [Ollama](https://ollama.com) via `AI_BASE_URL`). Without one,
-> deploy anyway — the rest of the app works and those columns stay empty.
+## What to try
+
+Load the demo data first. It creates two demo accounts, eleven products in three warehouses,
+a month of stock movements, eight orders and three purchase orders, dated relative to today:
+
+```bash
+SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+sovrium start app.yaml
+```
+
+Sign in as **elise.brunel@brunel-fils.example** (admin, the stock manager) or
+**maxime.vidal@brunel-fils.example** (member, the warehouse operator), with the password you
+chose. Both are demo accounts. Then:
+
+1. On **Products**, read the totals per category and the four products marked Reorder or
+   Out of stock; open the **Reorder list** tab.
+2. Open the void-fill paper: 34 on hand in Lyon South, and the delivery, the pick and the
+   count that got it there.
+3. On **Stock**, find the transfer from Lille to Lyon: one reference, two signed rows.
+4. On **Orders**, Cardinal Freight's order is being picked; expand the folded Shipped column.
+5. Sign in as Maxime: a member records movements and moves orders, but only an admin deletes
+   a product.
 
 ## Deploy
 

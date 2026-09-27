@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  resolveCurrencyOptions,
+  type CurrencyDisplayOptions,
+} from '@/domain/kernel/format/currency-format'
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
 import {
   matchesConditionOperators,
@@ -13,7 +17,9 @@ import {
 import { resolveDisplayLabel } from '@/presentation/design/field-display'
 import { computeTableActionRowClasses } from '@/presentation/design/table-default-classes'
 import { computeCurrencyDisplayClasses } from '../../design/field-affordances-default-classes'
+import { resolvePageTimezone } from '../runtime/page-timezone'
 import { RecordButton } from '../runtime/record-button'
+import { readDisplayLabel } from '../runtime/record-display-label'
 import { ActionButton, type ActionControlLabels } from './action-cell'
 import { FIELD_TYPE_TO_CELL_RENDERER } from './cell-renderer-registry'
 import { rowIdOf } from './row-identity'
@@ -21,7 +27,6 @@ import type { CellFieldOptions } from './cell-renderers'
 import type { FieldMeta, FieldMetaMap } from '../hooks/use-inline-editing'
 import type { DataTableCellContext, DataTableColumnDef } from './island/table-features'
 import type { TableRecord } from '../runtime/types'
-import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type {
   ActionColumn,
   ActionColumnItem,
@@ -165,33 +170,6 @@ function buildCellFieldOptions(meta: FieldMeta | undefined, locale: string): Cel
 }
 
 /**
- * The declared currency treatment for a column, or `undefined` when the bound
- * field declares none — in which case a `format: 'currency'` column keeps the
- * USD defaults, exactly as before.
- *
- * **A DECLARED CODE drives the symbol, not the field TYPE.** The gate used to
- * be `meta.type === 'currency'`, which is a narrower question than the one that
- * matters and got the wider one wrong: a `formula` computing
- * `unit_price * stock_on_hand` printed `$224,430.90` in the column beside the
- * `€28.63` it was multiplied from. The author had declared `format: currency`
- * on both the field and the column and could do nothing else — the code was
- * thrown away one line before it was needed. `currency` FIELDS are unaffected:
- * their code is required by `CurrencyFieldSchema`, so the first arm still
- * matches every one of them.
- *
- * Exported because the summary footer formats its aggregates through the same
- * column `format` and must apply the same rule — a `sum` under a EUR column has
- * to print `€`, and the grid cell and the total beneath it disagreeing about
- * the symbol would be worse than either being wrong alone.
- */
-export function resolveCurrencyOptions(
-  meta: FieldMeta | undefined
-): CurrencyDisplayOptions | undefined {
-  if (!meta) return undefined
-  return meta.type === 'currency' || meta.display?.currency !== undefined ? meta.display : undefined
-}
-
-/**
  * The slice of the column options a button cell reads. Shared by the explicit
  * and auto-generated column paths, whose own option bags both satisfy it.
  */
@@ -233,22 +211,6 @@ function buildButtonCellRenderer(
       {...(onButtonInvoked === undefined ? {} : { onInvoked: onButtonInvoked })}
     />
   )
-}
-
-/**
- * The label the records API resolved for a relationship cell, when the bound
- * field declared a `displayField`.
- *
- * A relationship column stores the related row's key, so a cell rendering the
- * stored value shows a number. `_display` carries the resolved label ALONGSIDE
- * that key — a string for a to-one column, a list for a to-many one — and is
- * absent for a column that declared nothing, which is what keeps the
- * identifier showing rather than a label the author never asked for.
- */
-function readDisplayLabel(record: TableRecord, field: string): unknown {
-  const display = record['_display']
-  if (typeof display !== 'object' || display === null) return undefined
-  return (display as Record<string, unknown>)[field]
 }
 
 function buildFieldCellRenderer(col: FieldColumn, locale: string, options: MapColumnsOptions) {
@@ -308,7 +270,10 @@ function renderValueCell(value: unknown, chrome: ValueCellChrome, displayLabel?:
 
   // Path 1 — explicit format override
   if (col.format) {
-    const displayValue = formatCellValue(value, col.format, locale, currencyOptions)
+    const displayValue = formatCellValue(value, col.format, locale, {
+      currency: currencyOptions,
+      timeZone: resolvePageTimezone(),
+    })
     const formatClass = MONO_DISPLAY_FORMATS.has(col.format)
       ? `${computeCurrencyDisplayClasses()} font-mono`
       : GLYPH_DISPLAY_FORMATS.has(col.format)
@@ -335,13 +300,6 @@ function renderValueCell(value: unknown, chrome: ValueCellChrome, displayLabel?:
 // ---------------------------------------------------------------------------
 // Column mapping: Domain config → TanStack Table ColumnDef
 // ---------------------------------------------------------------------------
-
-/**
- * The locale an auto-generated column formats in. Auto-generation runs without
- * a page locale in hand, so it falls back to the same platform default the
- * formatters themselves use rather than inventing a second one.
- */
-const DEFAULT_AUTO_COLUMN_LOCALE = 'en-US'
 
 /** Platform-default (English) fallbacks when the host supplies no labels. */
 const DEFAULT_SAVE_LABEL = 'Save'
@@ -447,6 +405,7 @@ export function mapColumnsToColumnDefs(
           // Carried beside `size` above so the header cell can tell an authored
           // width from TanStack's merged-in default, which `getSize()` cannot.
           authoredWidth: col.width,
+          align: col.align,
         },
       } satisfies DataTableColumnDef
     }
@@ -483,7 +442,7 @@ function buildAutoCellRenderer(
   if (!fieldType) return undefined
   const renderer = FIELD_TYPE_TO_CELL_RENDERER[fieldType]
   if (!renderer) return undefined
-  const fieldOptions = buildCellFieldOptions(fieldMeta?.[field], DEFAULT_AUTO_COLUMN_LOCALE)
+  const fieldOptions = buildCellFieldOptions(fieldMeta?.[field], options.locale)
   return ({ getValue, row }: DataTableCellContext) =>
     renderer({ value: readDisplayLabel(row.original, field) ?? getValue(), fieldOptions })
 }
@@ -496,6 +455,11 @@ function buildAutoCellRenderer(
  * address its own invoke endpoint.
  */
 export interface AutoColumnOptions {
+  /**
+   * The active page locale (`<html lang>` ← `meta.lang`), so a generated
+   * column's dates read like a declared column's on the same page.
+   */
+  readonly locale: string
   /**
    * Opts every generated column into inline double-click editing — used by
    * `refreshMode: 'realtime'` data tables, which are inline-editable by

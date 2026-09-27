@@ -6,11 +6,13 @@
  */
 
 import { DndContext, type DragEndEvent, type UniqueIdentifier } from '@dnd-kit/core'
+import { useId } from 'react'
 import { computeKanbanBoardClasses } from '@/presentation/design/kanban-default-classes'
 import { kanbanCollisionDetection } from './collision-detection'
 import { KanbanColumn } from './kanban-column'
 import { KanbanSwimlaneGrid } from './kanban-swimlane-grid'
 import { SettledDropTarget } from './settled-drop-target'
+import { useFoldedValues } from './use-folded-values'
 import { useKanbanSensors } from './use-kanban-sensors'
 import { useSettledDrop } from './use-settled-drop'
 import type { KanbanGrid } from './group-lanes'
@@ -32,6 +34,12 @@ interface KanbanBoardProps {
    */
   readonly grid: KanbanGrid | undefined
   readonly swimlanes: KanbanSwimlanes | undefined
+  /**
+   * `kanbanGroupBy.collapsed` — the column values that start folded. Declaring
+   * it is what makes every column of a single-axis board foldable; a board that
+   * declares none keeps plain headings, exactly as before.
+   */
+  readonly collapsedColumns: readonly string[] | undefined
   readonly card: KanbanCard | undefined
   readonly emptyColumnMessage: string | undefined
   readonly draggableEnabled: boolean
@@ -58,13 +66,19 @@ function KanbanColumnRow({
   emptyColumnMessage,
   draggableEnabled,
   colorFieldColors,
+  collapsedColumns,
+  idPrefix,
 }: {
   readonly columns: readonly KanbanColumnData[]
   readonly card: KanbanCard | undefined
   readonly emptyColumnMessage: string | undefined
   readonly draggableEnabled: boolean
   readonly colorFieldColors: Readonly<Record<string, string>> | undefined
+  readonly collapsedColumns: readonly string[] | undefined
+  readonly idPrefix: string
 }): ReactElement {
+  const [folded, toggle] = useFoldedValues(collapsedColumns)
+  const foldable = collapsedColumns !== undefined
   return (
     <div className={computeKanbanBoardClasses()}>
       {columns.map((column) => (
@@ -75,6 +89,9 @@ function KanbanColumnRow({
           card={card}
           draggableEnabled={draggableEnabled}
           colorFieldColors={colorFieldColors}
+          expanded={foldable ? !folded.has(column.value) : undefined}
+          onToggle={foldable ? toggle : undefined}
+          idPrefix={idPrefix}
         />
       ))}
     </div>
@@ -96,6 +113,7 @@ export function KanbanBoard({
   columns,
   grid,
   swimlanes,
+  collapsedColumns,
   card,
   emptyColumnMessage,
   draggableEnabled,
@@ -105,6 +123,9 @@ export function KanbanBoard({
   const sensors = useKanbanSensors()
   const settleDrop = grid !== undefined
   const { overIdRef, cancelDrop, handleDragEnd } = useSettledDrop(settleDrop, onDragEnd)
+  // Scopes every disclosure's `aria-controls` target to THIS board: two boards
+  // on one page that share a column or lane value must not share an id.
+  const idPrefix = `kanban-${useId()}`
 
   return (
     <DndContext
@@ -129,6 +150,7 @@ export function KanbanBoard({
           draggableEnabled={draggableEnabled}
           colorFieldColors={colorFieldColors}
           initiallyCollapsed={swimlanes?.collapsed}
+          idPrefix={idPrefix}
         />
       ) : (
         <KanbanColumnRow
@@ -137,6 +159,8 @@ export function KanbanBoard({
           emptyColumnMessage={emptyColumnMessage}
           draggableEnabled={draggableEnabled}
           colorFieldColors={colorFieldColors}
+          collapsedColumns={collapsedColumns}
+          idPrefix={idPrefix}
         />
       )}
     </DndContext>

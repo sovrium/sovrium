@@ -6,7 +6,8 @@
  */
 
 /**
- * `sovrium seed [config] [--dir <path>] [--mode …] [--table <name>] [--dry-run]`
+ * `sovrium seed [config] [--dir <path>] [--mode …] [--table <name>] [--as <email>]
+ *   [--today <YYYY-MM-DD>] [--dry-run]`
  *
  * Loads a folder of `seed/<table>.yaml` files into an app's tables through the
  * same application use-cases the records API calls — one write path, two entry
@@ -35,11 +36,14 @@
 import { stat } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { buildSeedPlan } from '@/application/use-cases/seed/seed-plan'
-import { SEED_MODES, parseSeedMode } from '@/domain/models/seed'
+import { SEED_MODES, parseSeedMode, pinRunAtToDay } from '@/domain/models/seed'
 import { printDocument } from '@/infrastructure/logging/cli-output'
 import { applyDatabaseMigrations, discoverConfigFile, refuse, requireApp } from './app-prelude'
 import { loadSeedFiles } from './seed-load'
-import type { SeedMode } from '@/domain/models/seed'
+import type { AccountPlan } from './seed-accounts'
+import type { SeedPlan } from '@/application/use-cases/seed/seed-plan'
+import type { App } from '@/domain/models/app'
+import type { SeedAccount, SeedMode } from '@/domain/models/seed'
 
 /** Everything `sovrium seed` reads from the command line. */
 export interface SeedCommandOptions {
@@ -49,6 +53,10 @@ export interface SeedCommandOptions {
   readonly mode: string | undefined
   readonly tables: readonly string[]
   readonly dryRun: boolean
+  /** `--as <email>` — the account every row is written as. */
+  readonly as?: string | undefined
+  /** `--today <YYYY-MM-DD>` — wins over `SOVRIUM_SEED_TODAY`. */
+  readonly today?: string | undefined
 }
 
 const DEFAULT_SEED_DIR = 'seed'
@@ -121,6 +129,99 @@ const requireSeedDir = async (raw: string | undefined, configFile: string): Prom
 }
 
 /**
+ * The instant every `{{today…}}` / `{{now…}}` in this run renders against.
+ *
+ * `--today` wins over `SOVRIUM_SEED_TODAY`, so a one-off run can override a
+ * pinned day set for the host. A value that is not a real calendar day is
+ * refused, naming where it came from, rather than falling back to the clock —
+ * a fixture that silently seeds today's dates instead of the pinned ones looks
+ * right until someone compares it with the drawing.
+ */
+const requireRunAt = (flag: string | undefined): Readonly<Date> => {
+  const clock = new Date()
+  const [raw, source] =
+    flag !== undefined ? [flag, '--today'] : [Bun.env.SOVRIUM_SEED_TODAY, 'SOVRIUM_SEED_TODAY']
+  if (raw === undefined || raw === '') return clock
+  return (
+    pinRunAtToDay(raw, clock) ??
+    refuse(`Error: ${source} "${raw}" is not a calendar day. Expected YYYY-MM-DD, e.g. 2026-09-24.`)
+  )
+}
+
+/** Settle every account question for the run, refusing before anything is written. */
+const requireAccountPlan = async (
+  app: Readonly<App>,
+  loaded: { readonly accounts: readonly SeedAccount[] },
+  plan: SeedPlan,
+  actingAs: string | undefined
+) => {
+  const { collectAccountReferences } = await import('@/application/use-cases/seed/seed-checks')
+  const { planAccounts, readAccountIndex } = await import('./seed-accounts')
+  const accountPlan = planAccounts({
+    app,
+    accounts: loaded.accounts,
+    index: await readAccountIndex(),
+    references: collectAccountReferences(plan.tables),
+    actingAs,
+    fallbackPassword: Bun.env.SOVRIUM_SEED_PASSWORD,
+  })
+  return accountPlan.errors.length > 0
+    ? refuse(`Error: seed data was refused:\n${indent(accountPlan.errors)}`)
+    : accountPlan
+}
+
+/**
+ * Create the accounts, then write the rows as the system or the `--as` account.
+ *
+ * Deferred imports, for the reason the plan's are: `seed-write` drags in the
+ * whole database + table layer, which no other verb needs. An eager import here
+ * put that graph — and every module-load side effect in it — inside
+ * `sovrium --help`. It also matters in compiled binary mode, where native
+ * .node modules cannot be resolved from Bun's virtual filesystem.
+ */
+const writeRun = async (input: {
+  readonly app: Readonly<App>
+  readonly plan: SeedPlan
+  readonly accountPlan: AccountPlan
+  readonly mode: SeedMode
+  readonly seedDir: string
+  readonly options: SeedCommandOptions
+}): Promise<readonly string[]> => {
+  const { app, accountPlan, options } = input
+  const { seedTablesOf } = await import('@/application/use-cases/seed/seed-config')
+  const { buildSyntheticSession, buildSystemSession } =
+    await import('@/application/use-cases/automations/build-guest-session')
+  const { accountReportLines, createPlannedAccounts, readAccountIndex } =
+    await import('./seed-accounts')
+  const { executeSeedPlan } = await import('./seed-write')
+
+  const accounts = options.dryRun
+    ? await readAccountIndex()
+    : await createPlannedAccounts(app, accountPlan)
+  const actingId = options.as === undefined ? undefined : accounts.get(options.as.toLowerCase())
+  const rows = await executeSeedPlan({
+    app,
+    plan: input.plan,
+    tables: seedTablesOf(app),
+    mode: input.mode,
+    seedDir: input.seedDir,
+    dryRun: options.dryRun,
+    session: actingId === undefined ? buildSystemSession() : buildSyntheticSession(actingId),
+    accounts,
+  })
+  return [...accountReportLines(accountPlan, options.dryRun), ...rows]
+}
+
+/** The message a failed write phase prints, for the errors it knows by name. */
+const describeRunFailure = async (error: unknown): Promise<string> => {
+  const { SeedWriteError } = await import('./seed-write')
+  const { SeedAccountError } = await import('./seed-accounts')
+  return error instanceof SeedWriteError || error instanceof SeedAccountError
+    ? `Error: ${error.message}`
+    : `Error: seeding failed: ${error instanceof Error ? error.message : String(error)}`
+}
+
+/**
  * Handle `sovrium seed`.
  *
  * Exits 0 when every targeted table was seeded, skipped by `if-empty`, or
@@ -130,6 +231,7 @@ const requireSeedDir = async (raw: string | undefined, configFile: string): Prom
  */
 export const handleSeedCommand = async (options: SeedCommandOptions): Promise<void> => {
   const mode = requireMode(options.mode)
+  const runAt = requireRunAt(options.today)
   const configFile = options.configFile ?? (await discoverConfigFile())
   const app = await requireApp(configFile)
   const seedDir = await requireSeedDir(options.seedDir, configFile)
@@ -142,31 +244,19 @@ export const handleSeedCommand = async (options: SeedCommandOptions): Promise<vo
     files: loaded.files,
     mode,
     requestedTables: options.tables,
-    runAt: new Date(),
+    runAt,
   })
   if (!planned.ok) return refuse(`Error: seed data was refused:\n${indent(planned.errors)}`)
 
-  const { seedTablesOf } = await import('@/application/use-cases/seed/seed-config')
-  // Deferred alongside the imports above, and for the same reason: `seed-write`
-  // drags in the whole database + table layer, which no other verb needs. An
-  // eager import here put that graph — and every module-load side effect in it
-  // — inside `sovrium --help`. It also matters in compiled binary mode, where
-  // native .node modules cannot be resolved from Bun's virtual filesystem.
-  const { SeedWriteError, executeSeedPlan } = await import('./seed-write')
-  const lines = await executeSeedPlan({
+  const accountPlan = await requireAccountPlan(app, loaded, planned.plan, options.as)
+  const lines = await writeRun({
     app,
     plan: planned.plan,
-    tables: seedTablesOf(app),
+    accountPlan,
     mode,
     seedDir,
-    dryRun: options.dryRun,
-  }).catch((error: unknown) =>
-    refuse(
-      error instanceof SeedWriteError
-        ? `Error: ${error.message}`
-        : `Error: seeding failed: ${error instanceof Error ? error.message : String(error)}`
-    )
-  )
+    options,
+  }).catch(async (error: unknown) => refuse(await describeRunFailure(error)))
 
   report(lines)
   // eslint-disable-next-line functional/no-expression-statements

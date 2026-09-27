@@ -31,9 +31,9 @@ Every example is a **directory** with an `app.yaml` entry point. Anything beyond
 - **automation-recipes** — automation cookbook: a webhook capturing leads, a record trigger notifying and logging, a daily-digest cron, and a failure trigger alerting the operator.
 - **company-os** — a whole information system in one config: CRM, project delivery, support tickets and an HR directory, wired together with cross-domain automations and an AI assistant.
 
-Every template checks in its own agent bundle — a `CLAUDE.md` written for that template's domain, plus a starter `app-editor` subagent. Scaffolding is a plain tree copy, so the bundle arrives with the config; there is no second install step, and a bare `sovrium init` with no `--template` gets the same agent, since `hello-world` carries the bundle like every other template.
+Every template checks in a `CLAUDE.md` written for that template's domain, and every scaffold — from a template or the bare `sovrium init` — also gets Sovrium's agent skills under `.claude/skills/`, written from the binary so they describe the version you run. `sovrium skills` refreshes them after an upgrade; **Agent Skills** covers it.
 
-That agent is taught to read the documentation economically — start at the `llms.txt` index, pick one page, fetch only that page rather than pulling the whole corpus — and to treat `sovrium schema` as authoritative whenever the published docs and the local binary disagree. It is also taught to verify its own work instead of declaring it done: boot with `sovrium start app.yaml --watch`, drive the affected page in a real browser, exercise the workflow, and assert on the effect — the row exists, the status changed — iterating against hot reload until it passes.
+The skills teach an assistant to read the documentation economically — `sovrium docs` first, the published `llms.txt` index only when it cannot run commands — and to verify its own work instead of declaring it done: validate, boot with `sovrium start app.yaml --watch`, look at the affected page in a real browser, check the API, and assert on the effect — the row exists, the status changed — in a bounded number of passes.
 
 ## Scaffolding a project
 

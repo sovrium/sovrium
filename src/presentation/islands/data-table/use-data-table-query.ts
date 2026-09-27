@@ -7,14 +7,16 @@
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { createRecordsClient } from '@/presentation/api/client'
+import { createRecordsClient, createViewRecordsClient } from '@/presentation/api/client'
 import {
   buildSystemQueryString,
   fetchSystemEndpoint,
   readAppliedQuery,
 } from '../hooks/use-system-source-fetch'
+import { withSharedFilter } from '../runtime/shared-filter-param'
 import { groupPathKey } from './group-order'
 import { computeRowAggregations } from './summary-aggregate'
+import type { ServerFilterGroup } from './island/island-setup-helpers'
 import type { SummaryAggregations } from './summary-aggregate'
 import type { FetchResult, SystemFetchQuery } from '../hooks/use-system-source-fetch'
 import type { TableRecord } from '../runtime/types'
@@ -71,6 +73,12 @@ export interface GroupCount {
 
 interface UseDataTableQueryParams {
   readonly table: string
+  /**
+   * One of the table's declared views (`dataSource.view`, id or name). When
+   * set, the page is read through `GET /api/tables/:t/views/:v/records`, which
+   * applies the view's filters, sorts and fields on the server.
+   */
+  readonly view?: string
   /**
    * System read-endpoint binding.
    * When present, the grid fetches `system.endpoint` (merging `system.query`
@@ -135,6 +143,23 @@ interface UseDataTableQueryParams {
    * Absent when the grid is not grouped, in which case no grouping runs at all.
    */
   readonly groupByParam?: string
+  /**
+   * Relationship labels the columns name (`?labels=field:relatedField,…`), so
+   * a column showing a related record's name reads it from `_display` even when
+   * the table declares no `displayField`. Absent when no column names one.
+   */
+  readonly labelsParam?: string
+  /**
+   * The grid loads page by page (`pagination.style: loadMore`): each response
+   * says whether a further page exists, as the `nextCursor` a cursor feed
+   * carries, so the one "Load more" control serves both kinds of feed.
+   */
+  readonly loadMore?: boolean
+  /**
+   * The filter-builder's rows, sent with the request rather than applied to
+   * the loaded page — set only for a load-more grid (see `toServerFilterGroup`).
+   */
+  readonly runtimeFilter?: ServerFilterGroup
   /** Optional schema-driven default filter (server-side, applied via ?filter= JSON) */
   readonly dataSourceFilter?: readonly DataFilter[]
   /** Optional schema-driven default sort (server-side, used when user has no sort applied) */
@@ -176,7 +201,9 @@ const REALTIME_FALLBACK_POLL_MS = 3000
 // API client (singleton, created once per browser context)
 // ---------------------------------------------------------------------------
 
-const apiClient = createRecordsClient(typeof window !== 'undefined' ? window.location.origin : '')
+const apiOrigin = typeof window !== 'undefined' ? window.location.origin : ''
+const apiClient = createRecordsClient(apiOrigin)
+const viewsClient = createViewRecordsClient(apiOrigin)
 
 // ---------------------------------------------------------------------------
 // Operator translation: domain → API
@@ -198,14 +225,17 @@ const DOMAIN_TO_API_OPERATOR: Record<string, string> = {
   contains: 'contains',
 }
 
-function buildFilterParam(filters: readonly DataFilter[] | undefined): string | undefined {
-  if (!filters || filters.length === 0) return undefined
-  const conditions = filters.map((f) => ({
+function buildFilterParam(
+  filters: readonly DataFilter[] | undefined,
+  runtimeFilter?: ServerFilterGroup
+): string | undefined {
+  const conditions = (filters ?? []).map((f) => ({
     field: f.field,
     operator: DOMAIN_TO_API_OPERATOR[f.operator] ?? f.operator,
     value: f.value,
   }))
-  return JSON.stringify({ and: conditions })
+  const nodes = runtimeFilter === undefined ? conditions : [...conditions, runtimeFilter]
+  return nodes.length === 0 ? undefined : JSON.stringify({ and: nodes })
 }
 
 function buildDataSourceSortParam(sort: readonly DataSort[] | undefined): string | undefined {
@@ -219,6 +249,8 @@ function buildDataSourceSortParam(sort: readonly DataSort[] | undefined): string
 
 interface FetchQuery {
   readonly table: string
+  /** Read through this declared view rather than the table's own records route. */
+  readonly view?: string
   readonly pagination: PaginationState
   readonly sortParam?: string
   readonly globalFilter: string
@@ -227,26 +259,30 @@ interface FetchQuery {
   readonly aggregateParam?: string
   /** Grouped field (`?groupBy=`) — asks for the whole-view per-group counts. */
   readonly groupByParam?: string
+  /** Relationship labels the columns name (`?labels=`). */
+  readonly labelsParam?: string
+  /** Report whether a further page exists, as a `nextCursor` (load-more grids). */
+  readonly loadMore?: boolean
   /** Raw cross-component shared-filter params appended to the records URL. */
   readonly sharedFilterParams?: Record<string, string>
 }
 
-/**
- * Drop empty-valued keys from a shared-filter param bag. The empty key is kept in
- * the query KEY (for cache-busting on a clear) but never sent as a bare `?k=`.
- */
-function dropEmptyParams(params: Record<string, string> | undefined): Record<string, string> {
-  return Object.fromEntries(Object.entries(params ?? {}).filter(([, value]) => value !== ''))
-}
-
 /** Build the records-API query string for one page fetch. */
 function buildRecordsQuery(q: FetchQuery): Record<string, string> {
+  // A published `filter` NARROWS the grid's own (author + reader) filter —
+  // combined with `and`, as every other subscriber does — and never replaces
+  // it. The other published params ride along as raw query params (e.g. a
+  // sibling publisher's value forwarded as `?status=`); the records query
+  // schema strips unknown keys, so they are inert server-side but observable
+  // on the request. They come FIRST so none can displace a key the grid sets.
+  const shared = withSharedFilter(q.filterParam, q.sharedFilterParams ?? {})
   return {
+    ...shared.extraParams,
     page: String(q.pagination.pageIndex + 1),
     ...(q.pagination.pageSize && { limit: String(q.pagination.pageSize) }),
     ...(q.sortParam && { sort: q.sortParam }),
     ...(q.globalFilter && { q: q.globalFilter }),
-    ...(q.filterParam && { filter: q.filterParam }),
+    ...(shared.filterParam && { filter: shared.filterParam }),
     // Whole-view aggregates for the summary footer, computed in SQL over the
     // same filtered table the page is drawn from — so the footer describes the
     // view and stays put when the reader turns a page.
@@ -254,19 +290,44 @@ function buildRecordsQuery(q: FetchQuery): Record<string, string> {
     // Whole-view per-group counts for the group headers, over the same filtered
     // table — so a header's count describes the view, not the loaded page.
     ...(q.groupByParam && { groupBy: q.groupByParam }),
-    // Shared-filter binding params ride along as raw query params (e.g. a sibling
-    // publisher's value forwarded as `?status=`). The records query schema strips
-    // unknown keys, so they are inert server-side but observable on the request.
-    ...dropEmptyParams(q.sharedFilterParams),
+    // Labels a column names for its relationship field, resolved server-side
+    // under the reader's permissions and returned under `_display`.
+    ...(q.labelsParam && { labels: q.labelsParam }),
   }
+}
+
+/**
+ * The next page a load-more grid may ask for, or `undefined` once every row is
+ * loaded. Spelled as the cursor a cursor feed carries, so the grid's one
+ * continuation control reads both feeds the same way. A numbered grid gets none.
+ */
+function nextPageCursor(q: FetchQuery, pageLength: number, total: number): string | undefined {
+  if (q.loadMore !== true || pageLength === 0) return undefined
+  const { pageIndex, pageSize } = q.pagination
+  return pageIndex * pageSize + pageLength < total ? String(pageIndex + 1) : undefined
+}
+
+/**
+ * One page from the table's records route — or, for a view-bound grid, from
+ * the view's records route, which takes the same query and answers the same
+ * envelope.
+ */
+function requestRecordsPage(fetchQuery: FetchQuery) {
+  const query = buildRecordsQuery(fetchQuery)
+  return fetchQuery.view === undefined
+    ? apiClient.api.tables[':tableId'].records.$get({
+        param: { tableId: fetchQuery.table },
+        query,
+      })
+    : viewsClient.api.tables[':tableId'].views[':viewId'].records.$get({
+        param: { tableId: fetchQuery.table, viewId: fetchQuery.view },
+        query,
+      })
 }
 
 /** Fetch one page of table records from the records API and flatten them. */
 async function fetchTableRecords(fetchQuery: FetchQuery): Promise<DataTableFetchResult> {
-  const res = await apiClient.api.tables[':tableId'].records.$get({
-    param: { tableId: fetchQuery.table },
-    query: buildRecordsQuery(fetchQuery),
-  })
+  const res = await requestRecordsPage(fetchQuery)
 
   if (!res.ok) {
     const body = await res.text()
@@ -288,9 +349,12 @@ async function fetchTableRecords(fetchQuery: FetchQuery): Promise<DataTableFetch
     const { fields, ...rest } = r
     return { ...rest, ...(fields ?? {}) }
   })
+  const total = json.total ?? json.pagination?.total ?? rawRecords.length
+  const nextCursor = nextPageCursor(fetchQuery, rawRecords.length, total)
   return {
     records: flatRecords,
-    total: json.total ?? json.pagination?.total ?? rawRecords.length,
+    total,
+    ...(nextCursor !== undefined && { nextCursor }),
     ...(json.aggregations ? { aggregations: json.aggregations } : {}),
     ...(json.groups ? { groups: json.groups } : {}),
     // The records route's own declaration that it already applied `?q=`, read by
@@ -330,6 +394,7 @@ function resolveRefetchInterval(
 /** The resolved read params for one data-table fetch (system source OR DB table). */
 interface ResolvedQuery {
   readonly table: string
+  readonly view?: string
   readonly system?: DataTableSystemSource
   readonly systemQuery?: Record<string, string>
   readonly sourceId?: string
@@ -342,6 +407,8 @@ interface ResolvedQuery {
   readonly aggregateParam?: string
   readonly summary?: readonly DataTableSummaryItem[]
   readonly groupByParam?: string
+  readonly labelsParam?: string
+  readonly loadMore?: boolean
 }
 
 /**
@@ -354,8 +421,12 @@ function buildQueryKey(q: ResolvedQuery, sortParam: string | undefined): readonl
   return q.system
     ? [
         'system-rows',
-        q.system.endpoint,
-        q.system.query,
+        // The WHOLE binding, not its endpoint + query: `rowsKey`, `idKey` and
+        // `totalKey` each change the normalised answer, and every island on a
+        // page reads one shared cache, so two grids on one endpoint that pick a
+        // different array out of it must not share an entry.
+        q.system,
+        q.sourceId,
         q.systemQuery,
         q.pagination,
         sortParam,
@@ -372,12 +443,17 @@ function buildQueryKey(q: ResolvedQuery, sortParam: string | undefined): readonl
     : [
         'table-records',
         q.table,
+        q.view,
         q.pagination,
         sortParam,
         q.globalFilter,
         q.filterParam,
         q.aggregateParam,
         q.groupByParam,
+        q.labelsParam,
+        // A load-more grid's answer carries a `nextCursor` a numbered grid's
+        // does not, and the page's islands share one cache.
+        q.loadMore,
         q.sharedFilterParams,
       ]
 }
@@ -487,12 +563,15 @@ function runDataTableFetch(q: ResolvedQuery): Promise<DataTableFetchResult> {
     ? runSystemFetch(q, q.system)
     : fetchTableRecords({
         table: q.table,
+        view: q.view,
         pagination: q.pagination,
         sortParam: q.sortParam,
         globalFilter: q.globalFilter,
         filterParam: q.filterParam,
         aggregateParam: q.aggregateParam,
         groupByParam: q.groupByParam,
+        labelsParam: q.labelsParam,
+        loadMore: q.loadMore,
         sharedFilterParams: q.sharedFilterParams,
       })
 }
@@ -530,50 +609,43 @@ function useGroupStats(groups: readonly GroupCount[] | undefined): {
   }, [groups])
 }
 
-export function useDataTableQuery(params: UseDataTableQueryParams) {
-  const {
-    table,
-    system,
-    systemQuery,
-    sourceId,
-    sharedFilterParams,
-    cursor,
-    pagination,
-    sorting,
-    globalFilter,
-    aggregateParam,
-    groupByParam,
-    dataSourceFilter,
-    dataSourceSort,
-    refreshMode,
-    pollIntervalMs,
-  } = params
-
-  // User-applied sort takes precedence; fall back to schema-defined default sort.
+/**
+ * Resolve the hook's parameters into the one request description every fetch
+ * branch, and the query key, read from.
+ *
+ * The user's sort wins over the schema's default sort, which is the fallback
+ * only when no header or overlay sort is applied.
+ */
+function resolveQuery(params: UseDataTableQueryParams): ResolvedQuery {
+  const { sorting, dataSourceSort, cursor } = params
   const userSortParam =
     sorting.length > 0
       ? sorting.map((s) => `${s.id}:${s.desc ? 'desc' : 'asc'}`).join(',')
       : undefined
-  const defaultSortParam = buildDataSourceSortParam(dataSourceSort)
-  const sortParam = userSortParam ?? defaultSortParam
-
-  const filterParam = buildFilterParam(dataSourceFilter)
-
-  const resolved: ResolvedQuery = {
-    table,
-    system,
-    systemQuery,
-    sourceId,
-    sharedFilterParams,
+  return {
+    table: params.table,
+    ...(params.view !== undefined && { view: params.view }),
+    system: params.system,
+    systemQuery: params.systemQuery,
+    sourceId: params.sourceId,
+    sharedFilterParams: params.sharedFilterParams,
     ...(cursor !== undefined && { cursor }),
-    pagination,
-    sortParam,
-    globalFilter,
-    filterParam,
-    aggregateParam,
+    pagination: params.pagination,
+    sortParam: userSortParam ?? buildDataSourceSortParam(dataSourceSort),
+    globalFilter: params.globalFilter,
+    filterParam: buildFilterParam(params.dataSourceFilter, params.runtimeFilter),
+    aggregateParam: params.aggregateParam,
     summary: params.summary,
-    groupByParam,
+    groupByParam: params.groupByParam,
+    labelsParam: params.labelsParam,
+    loadMore: params.loadMore,
   }
+}
+
+export function useDataTableQuery(params: UseDataTableQueryParams) {
+  const { refreshMode, pollIntervalMs } = params
+  const resolved = resolveQuery(params)
+  const { sortParam } = resolved
   const queryKey = buildQueryKey(resolved, sortParam)
   const refetchInterval = resolveRefetchInterval(refreshMode, pollIntervalMs)
 

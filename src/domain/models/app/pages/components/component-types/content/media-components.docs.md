@@ -22,6 +22,12 @@ A responsive image.
 
 Everything else an image needs rides in `props`: `src` (required, and it substitutes `$record.*`), `alt`, `loading: lazy` to defer until near the viewport, `srcset` and `sizes` for responsive selection, `width` and `height` to reserve space against layout shift, and `objectFit` (`cover`, `contain`, `fill`, `none`) for scaling.
 
+**`loading` defaults by the image's role.** An image with no `props.loading` renders `loading="lazy"`, so it is fetched only as the reader scrolls towards it. The exception is `variant: hero`: the largest image in the first screen is typically the page's Largest Contentful Paint element, and deferring it delays the metric search engines measure (2.5 seconds is the "good" threshold), so a hero renders `loading="eager"` with `fetchpriority="high"` and is fetched first. An explicit `props.loading` always wins — set `eager` on a small logo that must paint at once, or `lazy` on a hero pushed below a long introduction.
+
+Give every image `width` and `height`: the browser then reserves its box before the file arrives and nothing below it moves — layout shift is the second of those metrics. They reach the element exactly as written; none are invented when you leave them out.
+
+`alt` renders empty when it is omitted, which marks the image as decorative to a screen reader. Give every image that carries meaning a real `alt`.
+
 A failed load shows a placeholder. Wrap an `image` in a `link` to make it clickable.
 
 ## `icon`

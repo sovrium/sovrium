@@ -6,7 +6,10 @@
  */
 
 import { Context } from 'effect'
-import type { PageRenderResult } from '@/application/ports/services/page-renderer'
+import type {
+  FetchSitemapRecords,
+  PageRenderResult,
+} from '@/application/ports/services/page-renderer'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -127,6 +130,8 @@ export interface ServerFactoryConfig {
    * compile — the Hono `/feed.xml` route 404s when undefined.
    */
   readonly renderRssFeed?: (app: App, baseUrl: string) => Promise<string | undefined>
+  /** Row reader behind the sitemap's record fan-out (optional, like RSS). */
+  readonly fetchSitemapRecords?: FetchSitemapRecords
   /**
    * One-time plaintext bootstrap token, threaded down from `startServer`'s
    * `bootstrapAdminAndToken` when a fresh token was generated this boot. The
@@ -157,6 +162,7 @@ export interface RenderAppConfig {
   readonly renderNotFoundPage: ServerFactoryConfig['renderNotFoundPage']
   readonly renderErrorPage: ServerFactoryConfig['renderErrorPage']
   readonly renderRssFeed?: ServerFactoryConfig['renderRssFeed']
+  readonly fetchSitemapRecords?: ServerFactoryConfig['fetchSitemapRecords']
 }
 
 /**

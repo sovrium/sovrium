@@ -39,6 +39,7 @@ export const TOKENS = {
   border: 'oklch(0.92 0 0)', // neutral-200
   borderStrong: 'oklch(0.87 0 0)', // neutral-300
   borderInverse: 'oklch(0.205 0 0)', // neutral-900
+  borderControl: 'oklch(0.62 0 0)', // off-ramp: the only border that must reach 3:1 (unchecked control)
 
   // ---------- Foreground roles ----------
   fg: 'oklch(0.14 0 0)', // neutral-950

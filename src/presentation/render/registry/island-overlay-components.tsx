@@ -12,7 +12,9 @@ import {
   MENU_TRIGGER_LAYOUT_CLASSES,
   NavChevronDown,
 } from '@/presentation/design/nav-menu-parts'
+import { computeMenuLabelTriggerClasses } from '@/presentation/design/navigation-default-classes'
 import { isZeroJsDialog } from '@/presentation/render/registry/island-component-types'
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import {
   isOpenSpecimen,
   renderOpenMenuPopup,
@@ -112,6 +114,7 @@ export const islandOverlayComponents: Partial<
     return (
       <div
         data-island="dialog"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={propsJson}
         data-testid={elementProps['data-testid'] as string | undefined}
         style={HIDDEN_STYLE}
@@ -134,6 +137,7 @@ export const islandOverlayComponents: Partial<
     return (
       <div
         data-island="alert-dialog"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={propsJson}
         data-testid={elementProps['data-testid'] as string | undefined}
         style={HIDDEN_STYLE}
@@ -159,6 +163,7 @@ export const islandOverlayComponents: Partial<
     return (
       <div
         data-island="tooltip"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
@@ -189,6 +194,7 @@ export const islandOverlayComponents: Partial<
     return (
       <div
         data-island="popover"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
@@ -211,6 +217,7 @@ export const islandOverlayComponents: Partial<
     return (
       <div
         data-island="hover-card"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
@@ -249,6 +256,7 @@ export const islandOverlayComponents: Partial<
     return (
       <div
         data-island="drawer"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
         style={HIDDEN_STYLE}
@@ -310,7 +318,11 @@ export const islandOverlayComponents: Partial<
           // panel below it tell one story rather than two.
           aria-expanded={depicted ? 'true' : undefined}
           aria-haspopup={depicted ? 'menu' : undefined}
-          className={`group ${MENU_TRIGGER_LAYOUT_CLASSES} ${authoredClassName ?? 'text-md rounded-md border px-3 py-2'}`}
+          className={
+            props.triggerChildrenHtml === undefined
+              ? computeMenuLabelTriggerClasses(authoredClassName)
+              : `group ${MENU_TRIGGER_LAYOUT_CLASSES} ${authoredClassName ?? 'text-md rounded-md border px-3 py-2'}`
+          }
         >
           {props.triggerChildrenHtml === undefined ? (
             // A session-bound label ships EMPTY and carries its template, so the
@@ -348,6 +360,7 @@ export const islandOverlayComponents: Partial<
     return (
       <div
         data-island="context-menu"
+        data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >

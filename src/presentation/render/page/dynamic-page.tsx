@@ -6,6 +6,8 @@
  */
 
 import { type ReactElement } from 'react'
+import { resolveDensityStep } from '@/domain/models/app/design/density-service'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { DemoNotice } from '@/presentation/render/page/demo-notice'
 import { PageBodyScripts } from '@/presentation/render/page/page-body-scripts'
 import { hasIslandComponents } from '@/presentation/render/page/page-island-detection'
@@ -30,6 +32,7 @@ import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { Tables } from '@/domain/models/app/tables'
 import type { ResolvedMarkdownPage } from '@/presentation/render/markdown/markdown-page-resolver'
+import type { BadgePlacement } from '@/presentation/render/page/badge-placement'
 import type { ResolvedSidebarSection } from '@/presentation/render/resolve/sidebar-resolver'
 
 type DynamicPageProps = {
@@ -70,13 +73,15 @@ type DynamicPageProps = {
   readonly session?: SessionInfo
   /** Content-versioned stylesheet URL — see `PageHeadProps.cssHref`. */
   readonly cssHref?: string
+  /** Title of the feed this page announces — see `PageHeadProps.feedTitle`. */
+  readonly feedTitle?: string
   /**
-   * "Built with Sovrium" badge toggle — callers pass `isBadgeEnabled(app.badge)`,
-   * threaded like `builtInAnalyticsEnabled`. Undefined renders no badge.
+   * "Built with Sovrium" badge — callers pass `resolveBadge(app.badge)`, which
+   * yields where it sits. Undefined renders no badge.
    */
-  readonly badgeEnabled?: boolean
+  readonly badgePlacement?: BadgePlacement
   /**
-   * Demo context notice toggle. INVERSE default to `badgeEnabled`: undefined
+   * Demo context notice toggle. INVERSE default to `badgePlacement`: undefined
    * means "render if the env enables it", because whether the notice appears at
    * all is decided by `SOVRIUM_DEMO_*` inside `DemoNotice`, not by the caller.
    * Callers pass `false` only to SUPPRESS it on a surface that must stay free of
@@ -116,7 +121,7 @@ type DynamicPageBodyProps = {
   readonly resolvedSidebar?: readonly ResolvedSidebarSection[]
   readonly markdownPayload?: ResolvedMarkdownPage
   readonly session?: SessionInfo
-  readonly badgeEnabled?: boolean
+  readonly badgePlacement?: BadgePlacement
   readonly demoNoticeEnabled?: boolean
 }
 
@@ -256,14 +261,14 @@ function PageToastContainer({
 }
 
 /**
- * Persistent platform chrome: the "Built with Sovrium" badge (bottom-right) and
- * the demo context notice (bottom-left). Extracted from `DynamicPageBody` so the
- * two visibility gates live together — they are one visual system and the pair
- * has to stay clear of each other — and so the body renderer stays under the
- * complexity cap.
+ * Persistent platform chrome: the "Built with Sovrium" badge (bottom-right, or a
+ * footer line) and the demo context notice (bottom-left). Extracted from
+ * `DynamicPageBody` so the two visibility gates live together — they are one
+ * visual system and the pair has to stay clear of each other — and so the body
+ * renderer stays under the complexity cap.
  *
  * The two gates have OPPOSITE defaults, deliberately:
- * - `badgeEnabled` is resolved from per-app config by the caller, so an absent
+ * - `badgePlacement` is resolved from per-app config by the caller, so an absent
  *   value means "no app context" and renders nothing.
  * - `demoNoticeEnabled` is an override, not a source: whether the notice appears
  *   is decided by `SOVRIUM_DEMO_*` inside `DemoNotice`, so absent means "let the
@@ -271,16 +276,21 @@ function PageToastContainer({
  */
 function PlatformChrome({
   lang,
-  badgeEnabled,
+  badgePlacement,
   demoNoticeEnabled,
 }: {
   readonly lang: string
-  readonly badgeEnabled?: boolean
+  readonly badgePlacement?: BadgePlacement
   readonly demoNoticeEnabled?: boolean
 }): Readonly<ReactElement> {
   return (
     <>
-      {badgeEnabled === true && <SovriumBadge lang={lang} />}
+      {badgePlacement !== undefined && (
+        <SovriumBadge
+          lang={lang}
+          placement={badgePlacement}
+        />
+      )}
       {demoNoticeEnabled !== false && <DemoNotice lang={lang} />}
     </>
   )
@@ -307,7 +317,7 @@ function DynamicPageBody({
   resolvedSidebar,
   markdownPayload,
   session,
-  badgeEnabled,
+  badgePlacement,
   demoNoticeEnabled,
 }: DynamicPageBodyProps): Readonly<ReactElement> {
   const dataAttributes = buildDataAttributes(routeParams, page.path)
@@ -364,7 +374,7 @@ function DynamicPageBody({
       )}
       <PlatformChrome
         lang={lang}
-        badgeEnabled={badgeEnabled}
+        badgePlacement={badgePlacement}
         demoNoticeEnabled={demoNoticeEnabled}
       />
 
@@ -417,8 +427,9 @@ export function DynamicPage({
   markdownPayload,
   session,
   cssHref,
-  badgeEnabled,
+  badgePlacement,
   demoNoticeEnabled,
+  feedTitle,
 }: DynamicPageProps): Readonly<ReactElement> {
   // Resolve the locale ONCE, then hand it to the metadata extractor. Both used
   // to derive it independently, which is how `<html lang>` and `<title>` drifted
@@ -435,6 +446,17 @@ export function DynamicPage({
     <html
       lang={langConfig.lang}
       dir={langConfig.direction}
+      // The operator timezone, stamped for the islands: they format dates in it
+      // (`resolvePageTimezone`) without ever reading the environment.
+      data-timezone={parseSovriumTimezone().zoneId}
+      // The density step this page runs at — its zone's, else the app's, else
+      // compact. Written for compact too, so the step is readable in markup;
+      // the ladder's `[data-density]` blocks are what make it paint.
+      data-density={resolveDensityStep(
+        design,
+        page.path,
+        languages?.supported.map((language) => language.code)
+      )}
       {...(page.scripts && { 'data-features': JSON.stringify(page.scripts.features || {}) })}
     >
       <DynamicPageHead
@@ -454,6 +476,7 @@ export function DynamicPage({
         builtInAnalyticsEnabled={builtInAnalyticsEnabled}
         builtInAnalyticsSessionTimeout={builtInAnalyticsSessionTimeout}
         contentDirSeo={markdownPayload?.seo}
+        feedTitle={feedTitle}
       />
       <DynamicPageBody
         page={page}
@@ -472,7 +495,7 @@ export function DynamicPage({
         resolvedSidebar={resolvedSidebar}
         markdownPayload={markdownPayload}
         session={session}
-        badgeEnabled={badgeEnabled}
+        badgePlacement={badgePlacement}
         demoNoticeEnabled={demoNoticeEnabled}
       />
     </html>

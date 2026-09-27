@@ -16,6 +16,11 @@ export class AuthDatabaseError extends Data.TaggedError('AuthDatabaseError')<{
 }> {}
 
 /**
+ * The two per-account operator-email preferences stored on `auth.user`.
+ */
+export type NotificationPreference = 'automationAlerts' | 'weeklyDigest'
+
+/**
  * Auth Repository Port
  *
  * Provides type-safe database operations for authentication-related
@@ -36,6 +41,18 @@ export class AuthRepository extends Context.Service<
     readonly findUserEmailById: (
       userId: string
     ) => Effect.Effect<string | undefined, AuthDatabaseError>
+    /**
+     * A user's display name and email, by id, or `undefined` when no such user
+     * exists. `name` is the account's own display name and may be empty; the
+     * caller decides what to show in its place. Used by the pause and resume
+     * notices, which name the operator who acted and leave them off the list.
+     */
+    readonly findUserContactById: (
+      userId: string
+    ) => Effect.Effect<
+      { readonly name: string; readonly email: string } | undefined,
+      AuthDatabaseError
+    >
     readonly getUserRole: (userId: string) => Effect.Effect<string | undefined, AuthDatabaseError>
     /**
      * Resolve the roles of MANY users in ONE query, keyed by user id.
@@ -60,6 +77,37 @@ export class AuthRepository extends Context.Service<
     readonly getUserRoles: (
       userIds: readonly string[]
     ) => Effect.Effect<ReadonlyMap<string, string>, AuthDatabaseError>
+    /**
+     * The label a read surface prints for each of MANY accounts, in ONE query:
+     * the account's name, or its email when it has none.
+     *
+     * The bulk read behind the `_display` label of a `user` / `created-by` /
+     * `updated-by` / `deleted-by` field. One `IN (...)` per page of records,
+     * never one read per row — a page of rows fanned out per id is the shape
+     * `[internal ref]` forbids.
+     *
+     * Ids that name no account are ABSENT from the map, so the caller keeps
+     * printing the stored id for them. An empty `userIds` answers an empty map
+     * without touching the database.
+     */
+    readonly getUserDisplayLabels: (
+      userIds: readonly string[]
+    ) => Effect.Effect<ReadonlyMap<string, string>, AuthDatabaseError>
+    /**
+     * The accounts a `user` picker offers, each labelled by its name — or, for
+     * an account with none, by its email with the mailbox masked, since the
+     * directory reaches every signed-in visitor — ordered by that label, at
+     * most `limit` of them, in ONE query.
+     *
+     * Only `id`, `name` and `email` are read; nothing else of an account
+     * leaves the table.
+     */
+    readonly listAccountChoices: (
+      limit: number
+    ) => Effect.Effect<
+      ReadonlyArray<{ readonly id: string; readonly label: string }>,
+      AuthDatabaseError
+    >
     readonly updateUserRole: (
       userId: string,
       role: string
@@ -118,15 +166,6 @@ export class AuthRepository extends Context.Service<
      * — callers that treat "no auth" as "no memberships" must catch it.
      */
     readonly getUserGroups: (userId: string) => Effect.Effect<readonly string[], AuthDatabaseError>
-    /**
-     * List the email of every user holding `adminRole`, skipping rows whose
-     * email is null/empty. Unlike {@link findFirstAdmin} (which returns a single
-     * stable admin for the startup banner) this returns the full fan-out set —
-     * used to notify every admin when an automation run fails.
-     */
-    readonly findAdminEmails: (
-      adminRole: string
-    ) => Effect.Effect<readonly string[], AuthDatabaseError>
     readonly getUserSessionToken: (
       userId: string
     ) => Effect.Effect<string | undefined, AuthDatabaseError>
@@ -216,5 +255,23 @@ export class AuthRepository extends Context.Service<
     readonly countActiveAdmins: (
       adminRoles: readonly string[]
     ) => Effect.Effect<number, AuthDatabaseError>
+    /**
+     * The email of every account that should receive one kind of operator email:
+     * holding ANY of `roles`, not banned, and with the named preference still on.
+     *
+     * `preference` names one of the two engine-owned `auth.user` columns —
+     * `automationAlerts` is `notify_automation_alerts`, `weeklyDigest` is
+     * `notify_weekly_digest` — both `NOT NULL DEFAULT true`, so an account that
+     * never touched its profile is included. Banned accounts are excluded with
+     * the same NULL-as-not-banned rule {@link countActiveAdmins} applies: a
+     * banned admin cannot sign in to act on the email.
+     *
+     * An empty `roles` resolves to an empty list WITHOUT touching the database.
+     * Rows with an empty email are skipped.
+     */
+    readonly findNotificationRecipients: (input: {
+      readonly roles: readonly string[]
+      readonly preference: NotificationPreference
+    }) => Effect.Effect<readonly string[], AuthDatabaseError>
   }
 >()('AuthRepository') {}

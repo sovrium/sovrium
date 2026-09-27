@@ -189,7 +189,7 @@ export const FORM_RUNTIME_FILE_HANDLERS_SCRIPT = `
     var body = new FormData()
     var inputs = namedInputs()
     inputs.forEach(function (input) {
-      if (input.type === 'file') return
+      if (input.type === 'file' || input.disabled) return
       if (input.type === 'checkbox') {
         if (input.checked) body.append(input.name, input.value || 'on')
         return
@@ -202,7 +202,7 @@ export const FORM_RUNTIME_FILE_HANDLERS_SCRIPT = `
     })
     fileInputs.forEach(function (input) {
       var name = input.getAttribute('data-form-file-input')
-      if (!name) return
+      if (!name || input.disabled) return
       var stash = fileStash[name] || []
       var multiple = input.hasAttribute('multiple')
       if (multiple) {

@@ -71,6 +71,14 @@ export const automationPauses = systemTable(
     pausedAt: integer('paused_at', { mode: 'timestamp_ms' })
       .notNull()
       .$defaultFn(() => new Date()),
+    /**
+     * Why the automation is paused. `NULL` is a pause an operator set from the
+     * console; `'consecutive-failures'` is a pause the platform set itself after
+     * the automation's last N final failures in a row
+     * (`SOVRIUM_AUTOMATION_AUTOPAUSE`). A column of its own rather than a NULL
+     * `paused_by_user_id`, which already means "that operator was deleted".
+     */
+    reason: text('reason'),
   },
   (table) => [index('automation_pauses_automationName_idx').on(table.automationName)]
 )
@@ -143,6 +151,8 @@ export const automationRunSteps = systemTable(
     completedAt: integer('completed_at', { mode: 'timestamp_ms' }),
     durationMs: integer('duration_ms'),
     error: text('error'),
+    /** `context.log` entries a code step wrote, redacted, in call order. */
+    logs: text('logs', { mode: 'json' }),
   },
   (table) => [index('automation_run_steps_runId_idx').on(table.runId)]
 )
@@ -222,6 +232,13 @@ export const automationApprovalRequests = systemTable(
     approvedById: text('approved_by_id').references(() => users.id, { onDelete: 'set null' }),
     status: text('status').notNull().default('pending'),
     message: text('message'),
+    /**
+     * Who may resolve an automation-step request, as rendered when it was
+     * created: the string `all-admins` or an array of emails and role names.
+     * Null for agent approvals and for requests recorded before the column
+     * existed, both of which read as `all-admins`.
+     */
+    approvers: text('approvers', { mode: 'json' }),
     /** Agent name when this approval is for an AI agent action (null for automation steps) */
     agentName: text('agent_name'),
     /** JSON-encoded agent action descriptor (action, table, recordId, fields) */

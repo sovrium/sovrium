@@ -5,7 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useRecordsQuery, type RecordsDataSource } from '../hooks/use-records-query'
+import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
+import {
+  buildFilterParam,
+  useRecordsQuery,
+  type RecordsDataSource,
+} from '../hooks/use-records-query'
 
 /**
  * Fetches records for the data-timeline component in a single page.
@@ -18,5 +23,12 @@ import { useRecordsQuery, type RecordsDataSource } from '../hooks/use-records-qu
  * fetch.
  */
 export function useTimelineRecords(dataSource: RecordsDataSource | undefined) {
-  return useRecordsQuery('timeline', dataSource)
+  return useRecordsQuery(
+    'timeline',
+    dataSource,
+    useLazySharedFilter(
+      { bindTo: dataSource?.bindTo, sharedFilter: dataSource?.sharedFilter },
+      buildFilterParam(dataSource?.filter)
+    )
+  )
 }

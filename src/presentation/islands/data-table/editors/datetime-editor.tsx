@@ -5,18 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable unicorn/no-null --
-   `null` is the value that CLEARS a column: it is SQL NULL on the wire, while
-   `undefined` is dropped by JSON.stringify and reaches the endpoint as "leave
-   this field alone". The two are not interchangeable here — swapping them turns
-   every clear gesture into a silent no-op. */
-
 /* eslint-disable react-perf/jsx-no-new-function-as-prop --
    Cell-level editor: mounted per open cell, torn down on commit or cancel, and
    its handlers close over the draft instant. */
 
 import { useState } from 'react'
 import { computeTableAddRowInputClasses } from '@/presentation/design/table-default-classes'
+import {
+  fromLocalInputValue,
+  LOCAL_ZONE,
+  toLocalInputValue,
+} from '@/presentation/design/zoned-datetime'
+import { resolvePageLocale } from '../../runtime/page-locale'
 import { editMetaOf, type CellEditorProps } from './editor-contract'
 import { EditorPopover } from './editor-popover'
 import type { ReactElement } from 'react'
@@ -36,61 +36,10 @@ import type { ReactElement } from 'react'
  * `DateTimeFieldSchema` also declares a lowercase `timezone` with no reader
  * anywhere; it is inert, and it is deliberately not forwarded to the browser so
  * that configuring it cannot look like it works.
- */
-
-/** The zone used when the field declares none: the reader's own. */
-const LOCAL_ZONE = 'local'
-
-/**
- * Format an instant as the `YYYY-MM-DDTHH:mm` a `datetime-local` input holds,
- * with the wall-clock reading taken in `zone`.
  *
- * `Intl` is what does the zone arithmetic. Hand-rolling an offset would be
- * wrong twice a year for every zone that observes DST.
+ * The zone arithmetic lives in `design/zoned-datetime`, shared with the form's
+ * `datetime` control so the two surfaces agree on which instant a reading means.
  */
-function toLocalInputValue(value: unknown, zone: string): string {
-  if (value === null || value === undefined || value === '') return ''
-  const instant = new Date(String(value))
-  if (Number.isNaN(instant.getTime())) return ''
-
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    ...(zone !== LOCAL_ZONE && { timeZone: zone }),
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(instant)
-
-  const part = (type: Intl.DateTimeFormatPartTypes): string =>
-    parts.find((p) => p.type === type)?.value ?? ''
-  // `hour12: false` can render midnight as `24` in some ICU builds.
-  const hour = part('hour') === '24' ? '00' : part('hour')
-  return `${part('year')}-${part('month')}-${part('day')}T${hour}:${part('minute')}`
-}
-
-/**
- * Read a `datetime-local` wall-clock reading back as an instant in `zone`.
- *
- * The offset is measured by asking what wall-clock time the naive-UTC reading
- * lands on in the target zone, and correcting by the difference. That is the
- * inverse of {@link toLocalInputValue} and, unlike a fixed offset table, it is
- * right on both sides of a DST boundary.
- */
-function fromLocalInputValue(local: string, zone: string): string | null {
-  if (local.trim() === '') return null
-  const naive = new Date(`${local}Z`)
-  if (Number.isNaN(naive.getTime())) return null
-  if (zone === LOCAL_ZONE) {
-    const asLocal = new Date(local)
-    return Number.isNaN(asLocal.getTime()) ? null : asLocal.toISOString()
-  }
-
-  const asZoned = new Date(toLocalInputValue(naive.toISOString(), zone) + 'Z')
-  const offsetMs = asZoned.getTime() - naive.getTime()
-  return new Date(naive.getTime() - offsetMs).toISOString()
-}
 
 export function DateTimeEditor(props: CellEditorProps): ReactElement {
   const { value, commit, cancel, tabNext, fieldMeta, fieldName } = props
@@ -109,6 +58,8 @@ export function DateTimeEditor(props: CellEditorProps): ReactElement {
       <input
         type="datetime-local"
         name={fieldName}
+        // The picker's month names follow the page, where the browser honours it.
+        lang={resolvePageLocale()}
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         onKeyDown={(e) => {

@@ -98,6 +98,14 @@ export const automationPauses = systemSchema.table(
       onDelete: 'set null',
     }),
     pausedAt: timestamp('paused_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Why the automation is paused. `NULL` is a pause an operator set from the
+     * console; `'consecutive-failures'` is a pause the platform set itself after
+     * the automation's last N final failures in a row
+     * (`SOVRIUM_AUTOMATION_AUTOPAUSE`). A column of its own rather than a NULL
+     * `paused_by_user_id`, which already means "that operator was deleted".
+     */
+    reason: text('reason'),
   },
   (table) => [index('automation_pauses_automationName_idx').on(table.automationName)]
 )
@@ -148,7 +156,7 @@ export const automationRuns = systemSchema.table(
 /**
  * Automation Run Steps Table
  *
- * Per-step execution detail (input, output, duration, error) within a run.
+ * Per-step execution detail (input, output, duration, error, logs) within a run.
  */
 export const automationRunSteps = systemSchema.table(
   'automation_run_steps',
@@ -168,6 +176,8 @@ export const automationRunSteps = systemSchema.table(
     completedAt: timestamp('completed_at', { withTimezone: true }),
     durationMs: integer('duration_ms'),
     error: text('error'),
+    /** `context.log` entries a code step wrote, redacted, in call order. */
+    logs: jsonb('logs'),
   },
   (table) => [index('automation_run_steps_runId_idx').on(table.runId)]
 )
@@ -237,6 +247,13 @@ export const automationApprovalRequests = systemSchema.table(
     approvedById: text('approved_by_id').references(() => users.id, { onDelete: 'set null' }),
     status: text('status').notNull().default('pending'),
     message: text('message'),
+    /**
+     * Who may resolve an automation-step request, as rendered when it was
+     * created: the string `all-admins` or an array of emails and role names.
+     * Null for agent approvals and for requests recorded before the column
+     * existed, both of which read as `all-admins`.
+     */
+    approvers: jsonb('approvers'),
     /** Agent name when this approval is for an AI agent action (null for automation steps) */
     agentName: text('agent_name'),
     /** JSON-encoded agent action descriptor (action, table, recordId, fields) */

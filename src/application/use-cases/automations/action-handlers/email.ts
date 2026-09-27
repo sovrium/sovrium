@@ -93,7 +93,7 @@ const toRecipientArray = (raw: unknown): readonly string[] | undefined => {
  * `email.HTML` to assert formatting. Plain-text-only configs still send
  * (Nodemailer accepts an HTML payload that happens to contain no tags).
  */
-export const handleEmailSend: ActionHandler = (action, _app, _automation) =>
+export const handleEmailSend: ActionHandler = (action, app, _automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const to = stringProp(props, 'to')
@@ -123,7 +123,9 @@ export const handleEmailSend: ActionHandler = (action, _app, _automation) =>
             subject,
             html: sanitizeRichTextHTML(body),
             text: textBody === '' ? body : textBody,
-            ...(fromOverride !== '' ? { from: fromOverride } : {}),
+            // An explicit `from` is the sender, whole; without one the sender
+            // is the operator's SMTP_FROM, displayed under the app's name.
+            ...(fromOverride !== '' ? { from: fromOverride } : { fromName: app.name }),
             ...(cc !== undefined ? { cc: [...cc] } : {}),
             ...(bcc !== undefined ? { bcc: [...bcc] } : {}),
             ...(replyTo !== undefined ? { replyTo: [...replyTo] } : {}),

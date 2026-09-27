@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
+import { HttpQuerySchema } from './query'
 
 /**
  * HTTP PATCH Action (type: http, operator: patch)
@@ -33,6 +34,7 @@ export const HttpPatchActionSchema = Schema.Struct({
     url: TemplateStringSchema.pipe(
       Schema.annotate({ description: 'Request URL (supports template variables)' })
     ),
+    query: Schema.optional(HttpQuerySchema),
     headers: Schema.optional(
       Schema.Record(Schema.String, TemplateStringSchema).pipe(
         Schema.annotate({

@@ -36,8 +36,8 @@
  * offer covering Sovrium-the-product, so a benefit claim here would have no
  * record behind it and is refused at review. Three specific refusals came back
  * named, and each one had a plausible sentence attached to it that is not
- * written below: the product may not be sold on its AI toolchain (`GD-114`), a
- * grant of rights may not be described (`GD-082` — never « no licence », never
+ * written below: the product may not be sold on its AI toolchain, a
+ * grant of rights may not be described (`[internal ref]` — never « no licence », never
  * "free forever"), and a guarantee about where data goes is a legal-class
  * statement the founder writes, not this file.
  *

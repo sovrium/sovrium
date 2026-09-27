@@ -28,7 +28,7 @@ pages:
           loadMore: button
 ```
 
-`itemTemplate` takes `title`, `subtitle`, `image`, `badge` and `metadata`, where `metadata` is an array of `{ field, format }` rendered in the item footer.
+`itemTemplate` takes `title`, `subtitle`, `image`, `badge` and `metadata`, where `metadata` is an array of `{ field, format }` rendered in the item footer. A `format` that names a value format — `currency`, `relative-date`, `short-date`, `long-date`, `datetime`, `compact`, `percentage`, `bytes`, `yes-no` and the rest a table column accepts — is applied in the page's language, exactly as it is in a table cell; any other word leaves the value as stored.
 
 ## Paging is the binding's business, not the display's
 

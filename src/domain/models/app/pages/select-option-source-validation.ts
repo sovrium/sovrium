@@ -38,6 +38,8 @@
  * published docs put form controls in the first place.
  */
 
+import { validateTableOptionSourceBinding } from '../table-option-source-validation'
+
 /** Minimal shape needed to validate select option sources. */
 interface AppForSelectOptionSourceValidation {
   readonly tables?: ReadonlyArray<{
@@ -70,12 +72,6 @@ type FoundSelectBinding =
       readonly hasStaticOptions: boolean
       readonly endpoint: string
     }
-
-/**
- * Implicit primary key present on every table, so a `valueField` naming it is
- * valid even though it is absent from the authored `fields[]`.
- */
-const IMPLICIT_FIELDS: ReadonlySet<string> = new Set(['id'])
 
 const isSelectNode = (record: Readonly<Record<string, unknown>>): boolean =>
   record['type'] === 'select'
@@ -128,16 +124,6 @@ const bindingFrom = (
   }
 }
 
-/** A field name is known when the table declares it, or it is the implicit `id`. */
-const isKnownField = (declared: ReadonlySet<string>, name: string): boolean =>
-  declared.has(name) || IMPLICIT_FIELDS.has(name)
-
-/** Human-readable tail listing the declared table names (or saying there are none). */
-const availableTablesSuffix = (names: readonly string[]): string =>
-  names.length > 0
-    ? `. Available tables: ${names.toSorted().join(', ')}`
-    : '. No tables are declared in app.tables[]'
-
 /** Validate ONE binding; returns an error message, or `undefined` when it resolves. */
 const validateBinding = (
   binding: FoundSelectBinding,
@@ -149,26 +135,13 @@ const validateBinding = (
       : undefined
   }
 
-  const { table, displayField, valueField, hasStaticOptions } = binding
+  const { table, hasStaticOptions } = binding
 
   if (hasStaticOptions) {
     return `Select component binds options to table '${table}' AND declares a static 'options' array — the two are mutually exclusive. Remove one.`
   }
 
-  const matched = tables.find((t) => t.name === table)
-  if (!matched) {
-    const suffix = availableTablesSuffix(tables.map((t) => t.name))
-    return `Select option source references table '${table}' which is not declared in app.tables[]${suffix}`
-  }
-
-  const declared = new Set((matched.fields ?? []).map((f) => f.name))
-  if (!isKnownField(declared, displayField)) {
-    return `Select option source displayField '${displayField}' does not exist on table '${table}'`
-  }
-  if (valueField !== undefined && !isKnownField(declared, valueField)) {
-    return `Select option source valueField '${valueField}' does not exist on table '${table}'`
-  }
-  return undefined
+  return validateTableOptionSourceBinding(binding, tables, 'Select option source')
 }
 
 /**

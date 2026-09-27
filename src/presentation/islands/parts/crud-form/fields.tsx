@@ -18,21 +18,26 @@
    field def. Lifting these out requires restructuring the form state model,
    covered by the future crud-form refactor. */
 
-import { fieldDescribedBy, fieldDescriptionId } from '@/presentation/design/field-display'
+import { nativeInputTypeOf } from '@/presentation/design/field-control-attributes'
+import { fieldDescribedBy } from '@/presentation/design/field-display'
 import { fieldWidgetOf, type FieldWidget } from '@/presentation/design/field-type-behavior'
-import {
-  computeFormControlClasses,
-  computeFormFieldClasses,
-  computeFormFieldLabelClasses,
-  computeFormHelpTextClasses,
-} from '@/presentation/design/form-layout-classes'
 import { readsAsTrue } from '../../runtime/cell-value-semantics'
 import { RecordButton } from '../../runtime/record-button'
 import { CodeFieldBoundary } from './code-field-boundary'
+import { CONTROL_CLASS, LABEL_CLASS } from './field-chrome-classes'
 import { type ConditionRule, type FieldDef, labelOf } from './field-def'
+import { FieldHelpText } from './field-help-text'
 import { FileField } from './file-field'
 import { RecordPickerField } from './record-picker-field'
 import { RichTextFieldBoundary } from './rich-text-field-boundary'
+import {
+  DateField,
+  DateTimeField,
+  MultiSelectField,
+  NumberField,
+  RatingField,
+  UserPickerField,
+} from './typed-fields'
 
 // Re-exported so existing importers of `crud-form/fields` keep working.
 export { type ConditionRule, type FieldDef, labelOf }
@@ -43,54 +48,13 @@ interface FieldInputProps {
   readonly onChange: (name: string, value: string) => void
 }
 
-/**
- * Native `<input type>` per plain-input widget. Keyed by widget rather than by
- * field type so it cannot drift from the SSR skeleton's equivalent map.
- */
-const INPUT_TYPE_BY_WIDGET: Partial<Record<FieldWidget, string>> = {
-  email: 'email',
-  url: 'url',
-}
-
-// Shared design-system token classes for crud-form field chrome. Kept as
-// module-level consts so every per-type field stays consistent and the file
-// remains within the island max-lines cap.
-// - `LABEL_CLASS`: stacked label + control with foreground text. Sourced from
-//   the shared form-layout contract (`computeFormFieldClasses` for the stack,
-//   `computeFormFieldLabelClasses` for the label's typography) so the hydrated
-//   island matches the SSR `CrudFieldShell` exactly — no label→control spacing
-//   jump on hydration. The VALUES are deliberately not restated here: they moved
-//   with the drawings and a copy of them in prose goes stale silently, which is
-//   what this comment did.
-// - `CONTROL_CLASS`: the canonical input/select/textarea surface, from the
-//   shared form-layout contract.
-// - `CHECKBOX_LABEL_CLASS` / `CHECKBOX_CLASS`: inline checkbox row + accent.
-const LABEL_CLASS = `${computeFormFieldClasses()} ${computeFormFieldLabelClasses()}`
-const CONTROL_CLASS = computeFormControlClasses()
-// 12px, like every other form label since the contract moved — a checkbox's
-// label sits BESIDE its box rather than above it, but it is the same caption.
-// `spec-fields.mjs`'s selection row draws it at 12px on a 36px line.
+// Chrome shared with the typed controls lives in `field-chrome-classes` and
+// `field-help-text`.
+// - `CHECKBOX_LABEL_CLASS` / `CHECKBOX_CLASS`: inline checkbox row + accent,
+//   12px like every other form label — a checkbox's label sits BESIDE its box
+//   rather than above it, but it is the same caption.
 const CHECKBOX_LABEL_CLASS = 'text-foreground flex items-center gap-2 text-sm font-medium'
 const CHECKBOX_CLASS = 'accent-primary h-4 w-4'
-const HELP_TEXT_CLASS = `help-text ${computeFormHelpTextClasses()}`
-
-/**
- * The field's persistent guidance, under its control and addressed by the
- * control's `aria-describedby`. Renders NOTHING when the field declares no
- * description — an empty node would be announced as a blank pause. Mirrors the
- * SSR `CrudFieldShell` so hydration does not move the text.
- */
-function FieldHelpText({ field }: { readonly field: FieldDef }) {
-  if (field.description === undefined) return undefined
-  return (
-    <small
-      id={fieldDescriptionId(field.name)}
-      className={HELP_TEXT_CLASS}
-    >
-      {field.description}
-    </small>
-  )
-}
 
 function TextAreaField({
   field,
@@ -364,31 +328,18 @@ const WIDGET_RENDERERS: Record<FieldWidget, (args: FieldRenderArgs) => React.Rea
     />
   ),
   text: (args) => renderTypedInputField(args, 'text'),
-  email: (args) => renderTypedInputField(args, INPUT_TYPE_BY_WIDGET.email ?? 'text'),
-  url: (args) => renderTypedInputField(args, INPUT_TYPE_BY_WIDGET.url ?? 'text'),
-
-  // ── Widgets the FORM has not been given a real control for yet ──────────
-  //
-  // These render as text boxes, which is exactly what they rendered before the
-  // widget vocabulary named them — the form's behaviour is unchanged here. What
-  // changed is that the gap is now VISIBLE: each line below is a control this
-  // form owes its user, rather than a field type quietly resolving to `text`
-  // three files away. The data-table's inline editor implements all five.
-  //
-  // `record-picker` LEFT this list under [internal ref]: a `relationship` column now
-  // renders the same searchable picker on the form that it always did in the
-  // grid, so the form no longer posts a typed label as a foreign key.
-  //
-  // `number` and `date` are deliberate divergences rather than gaps: the grid
-  // gives them native typed inputs, and switching the form to match would
-  // change how every existing numeric and date form field accepts input. That
-  // is its own change with its own specs.
-  number: (args) => renderTypedInputField(args, 'text'),
-  date: (args) => renderTypedInputField(args, 'text'),
-  datetime: (args) => renderTypedInputField(args, 'text'),
-  'multi-select': (args) => renderTypedInputField(args, 'text'),
-  'user-picker': (args) => renderTypedInputField(args, 'text'),
-  rating: (args) => renderTypedInputField(args, 'text'),
+  email: (args) => renderTypedInputField(args, nativeInputTypeOf(args.field.type)),
+  url: (args) => renderTypedInputField(args, nativeInputTypeOf(args.field.type)),
+  // A typed column renders the control the data table edits it with, and the
+  // form sends the column's own kind of value (see `wire-values`). A text box
+  // here LOOKED editable and then posted a string — or an empty string — into
+  // a numeric, temporal or foreign-key column.
+  number: (args) => <NumberField {...args} />,
+  date: (args) => <DateField {...args} />,
+  datetime: (args) => <DateTimeField {...args} />,
+  rating: (args) => <RatingField {...args} />,
+  'multi-select': (args) => <MultiSelectField {...args} />,
+  'user-picker': (args) => <UserPickerField {...args} />,
 }
 
 /**

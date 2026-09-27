@@ -12,6 +12,7 @@ import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
 import { logInfo } from '@/infrastructure/logging/logger'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 
 /**
  * The activity-log retention EXECUTOR.
@@ -57,7 +58,7 @@ const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
  * @returns the number of rows deleted.
  */
 export async function purgeExpiredActivityLogs(now: Date = new Date()): Promise<number> {
-  const cutoff = activityLogRetentionCutoff(now)
+  const cutoff = activityLogRetentionCutoff(now, resolveOperatorTimezone())
   const deleted = await db
     .delete(activityLogs)
     .where(lt(activityLogs.createdAt, cutoff))

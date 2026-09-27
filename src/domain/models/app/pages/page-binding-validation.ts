@@ -385,7 +385,7 @@ function hasListSource(
 }
 
 // ---------------------------------------------------------------------------
-// 3. `breadcrumb` items XOR derive; `labels` / `home` require derive
+// 3. `breadcrumb` items XOR derive; `labels` / `home` / `unlinked` require derive
 // ---------------------------------------------------------------------------
 
 function breadcrumbViolations(
@@ -410,6 +410,11 @@ function breadcrumbViolations(
         ...(node['home'] !== undefined && !hasDerive
           ? [
               `${label} declares a breadcrumb home crumb without derive — an enumerated trail states its own first item, so the root crumb would be a duplicate`,
+            ]
+          : []),
+        ...(node['unlinked'] !== undefined && !hasDerive
+          ? [
+              `${label} declares breadcrumb unlinked without derive — unlinked names DERIVED path segments to keep as text, and an enumerated trail links only the items that carry an href`,
             ]
           : []),
       ]

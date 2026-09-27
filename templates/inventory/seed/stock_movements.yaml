@@ -1,224 +1,218 @@
-# Sample stock ledger — the append-only history behind every stock figure.
+# The stock ledger: every quantity that moved, signed.
 #
-# This file is what makes `products.movement_count` and `products.units_moved`
-# mean something: with no movements, both computed columns render 0 on every row
-# and the demo silently shows nothing about count/rollup fields at all.
+# A receipt is positive, a pick negative; a transfer is a pair of rows under one
+# reference, out of one warehouse and into the other; a count writes the
+# difference it found. Each product's stock on hand is the sum of its rows, so
+# the figures on the Products grid come from here and nowhere else.
 #
-# `quantity` is a POSITIVE MAGNITUDE on every row, including outbound ones — the
-# `direction` column carries the sign. That means the `units_moved` rollup is
-# GROSS throughput (everything that ever crossed the door), not net stock on
-# hand. Signing the outbound rows would make the rollup read as net and look
-# tidier, but it would also make the same number mean two different things
-# depending on which row you looked at, and a demo that teaches the wrong model
-# is worse than one that teaches a plain one.
-#
-# Dates are relative and spread over roughly four months so the ledger has depth
-# — a history where everything happened on the same day is not a history.
+# The opening balances come first, dated the day before the month began: what
+# each warehouse held when the ledger started. The Stock page leaves them out
+# and shows what happened since. Dates are relative to the day the seed runs.
 records:
-  # ── Opening receipts ────────────────────────────────────────────────
-  - key: mv-0001
+  - key: open-01
     fields:
-      reference: GRN-2481
-      product: '@products.rack-shelf-1200'
-      warehouse: '@warehouses.paris-central'
-      direction: Inbound
+      reference: OPEN-01
+      product: '@products.rack-shelf'
+      warehouse: '@warehouses.paris'
+      type: Opening balance
+      quantity: 180
+      moved_at: '{{today-24d}}'
+      note: Balance when the ledger started
+  - key: open-02
+    fields:
+      reference: OPEN-02
+      product: '@products.rack-shelf'
+      warehouse: '@warehouses.lyon'
+      type: Opening balance
+      quantity: 60
+      moved_at: '{{today-24d}}'
+      note: Balance when the ledger started
+  - key: open-03
+    fields:
+      reference: OPEN-03
+      product: '@products.rack-upright'
+      warehouse: '@warehouses.paris'
+      type: Opening balance
+      quantity: 155
+      moved_at: '{{today-24d}}'
+      note: Balance when the ledger started
+  - key: open-04
+    fields:
+      reference: OPEN-04
+      product: '@products.scanner-1d'
+      warehouse: '@warehouses.paris'
+      type: Opening balance
+      quantity: 15
+      moved_at: '{{today-24d}}'
+      note: Balance when the ledger started
+  - key: open-05
+    fields:
+      reference: OPEN-05
+      product: '@products.scanner-2d'
+      warehouse: '@warehouses.paris'
+      type: Opening balance
+      quantity: 78
+      moved_at: '{{today-24d}}'
+      note: Balance when the ledger started
+  - key: open-06
+    fields:
+      reference: OPEN-06
+      product: '@products.tote'
+      warehouse: '@warehouses.paris'
+      type: Opening balance
       quantity: 300
-      unit_cost: 98.00
-      moved_on: '{{today-118d}}'
-      note: Opening receipt against the annual racking contract.
-
-  - key: mv-0002
+      moved_at: '{{today-24d}}'
+      note: Balance when the ledger started
+  - key: open-07
     fields:
-      reference: GRN-2482
-      product: '@products.rack-upright-2400'
-      warehouse: '@warehouses.paris-central'
-      direction: Inbound
-      quantity: 200
-      unit_cost: 66.00
-      moved_on: '{{today-118d}}'
-      note: Same delivery as GRN-2481, separate line on the packing note.
-
-  - key: mv-0003
+      reference: OPEN-07
+      product: '@products.pallet-wrap'
+      warehouse: '@warehouses.paris'
+      type: Opening balance
+      quantity: 96
+      moved_at: '{{today-24d}}'
+      note: Balance when the ledger started
+  - key: open-08
     fields:
-      reference: GRN-2495
-      product: '@products.label-roll-100x150'
-      warehouse: '@warehouses.paris-central'
-      direction: Inbound
-      quantity: 1800
-      unit_cost: 5.05
-      moved_on: '{{today-96d}}'
-      note: Monthly standing order from Valmont.
-
-  - key: mv-0004
+      reference: OPEN-08
+      product: '@products.label-roll'
+      warehouse: '@warehouses.paris'
+      type: Opening balance
+      quantity: 1120
+      moved_at: '{{today-24d}}'
+      note: Balance when the ledger started
+  - key: open-09
     fields:
-      reference: GRN-2496
-      product: '@products.carton-400'
-      warehouse: '@warehouses.lyon-south'
-      direction: Inbound
-      quantity: 800
-      unit_cost: 30.20
-      moved_on: '{{today-92d}}'
-      note: Full pallet, Nordpack. No partials accepted.
-
-  - key: mv-0005
+      reference: OPEN-09
+      product: '@products.label-roll'
+      warehouse: '@warehouses.lille'
+      type: Opening balance
+      quantity: 300
+      moved_at: '{{today-24d}}'
+      note: Balance when the ledger started
+  - key: open-10
     fields:
-      reference: GRN-2503
-      product: '@products.barcode-scanner-2d'
-      warehouse: '@warehouses.paris-central'
-      direction: Inbound
-      quantity: 120
-      unit_cost: 110.00
-      moved_on: '{{today-84d}}'
-      note: Kessler, three weeks late against the confirmed date.
-
-  # ── Outbound against orders ─────────────────────────────────────────
-  - key: mv-0006
+      reference: OPEN-10
+      product: '@products.carton'
+      warehouse: '@warehouses.lyon'
+      type: Opening balance
+      quantity: 520
+      moved_at: '{{today-24d}}'
+      note: Balance when the ledger started
+  - key: open-11
     fields:
-      reference: PICK-8801
-      product: '@products.rack-shelf-1200'
-      warehouse: '@warehouses.paris-central'
-      direction: Outbound
-      quantity: 40
-      moved_on: '{{today-61d}}'
-      note: Picked for the Northwind fit-out.
-
-  - key: mv-0007
+      reference: OPEN-11
+      product: '@products.carton'
+      warehouse: '@warehouses.lille'
+      type: Opening balance
+      quantity: 90
+      moved_at: '{{today-24d}}'
+      note: Balance when the ledger started
+  - key: open-12
     fields:
-      reference: PICK-8802
-      product: '@products.rack-upright-2400'
-      warehouse: '@warehouses.paris-central'
-      direction: Outbound
-      quantity: 24
-      moved_on: '{{today-61d}}'
-
-  - key: mv-0008
+      reference: OPEN-12
+      product: '@products.void-fill'
+      warehouse: '@warehouses.lyon'
+      type: Opening balance
+      quantity: 14
+      moved_at: '{{today-24d}}'
+      note: Balance when the ledger started
+  - key: mv-01
     fields:
-      reference: PICK-8840
-      product: '@products.label-roll-100x150'
-      warehouse: '@warehouses.paris-central'
-      direction: Outbound
-      quantity: 380
-      moved_on: '{{today-44d}}'
-      note: Bulk pull for the wholesale channel.
-
-  - key: mv-0009
-    fields:
-      reference: PICK-8855
-      product: '@products.carton-400'
-      warehouse: '@warehouses.lyon-south'
-      direction: Outbound
-      quantity: 190
-      moved_on: '{{today-38d}}'
-
-  - key: mv-0010
-    fields:
-      reference: PICK-8871
-      product: '@products.barcode-scanner-2d'
-      warehouse: '@warehouses.paris-central'
-      direction: Outbound
-      quantity: 42
-      moved_on: '{{today-27d}}'
-      note: Helios rollout, phase one.
-
-  - key: mv-0011
+      reference: ADJ-0331
+      product: '@products.void-fill'
+      warehouse: '@warehouses.lyon'
+      type: Count
+      quantity: -12
+      moved_at: '{{today-22d}}'
+      note: counted 34, expected 46
+  - key: mv-02
     fields:
       reference: PICK-8890
-      product: '@products.pallet-wrap-500'
-      warehouse: '@warehouses.paris-central'
-      direction: Outbound
-      quantity: 96
-      moved_on: '{{today-16d}}'
-      note: Cleared the last of the wrap. Reorder not raised — this is why it is at zero.
-
-  - key: mv-0012
-    fields:
-      reference: PICK-8894
-      product: '@products.cotton-tote-natural'
-      warehouse: '@warehouses.paris-central'
-      direction: Outbound
-      quantity: 300
-      moved_on: '{{today-9d}}'
-      note: Conference giveaway. Gone in one afternoon.
-
-  - key: mv-0013
-    fields:
-      reference: PICK-8902
-      product: '@products.void-fill-paper'
-      warehouse: '@warehouses.lyon-south'
-      direction: Outbound
-      quantity: 58
-      moved_on: '{{today-6d}}'
-
-  - key: mv-0014
-    fields:
-      reference: PICK-8907
-      product: '@products.scanner-1d-legacy'
-      warehouse: '@warehouses.paris-central'
-      direction: Outbound
-      quantity: 4
-      moved_on: '{{today-3d}}'
-      note: One of the three customers who still reorder this.
-
-  # ── Adjustments ─────────────────────────────────────────────────────
-  - key: mv-0015
-    fields:
-      reference: ADJ-0312
-      product: '@products.label-roll-100x150'
-      warehouse: '@warehouses.paris-central'
-      direction: Adjustment
-      quantity: 12
-      moved_on: '{{today-52d}}'
-      note: Cycle count. Twelve rolls found behind the rack, never booked in.
-
-  - key: mv-0016
-    fields:
-      reference: ADJ-0318
-      product: '@products.printhead-203dpi'
-      warehouse: '@warehouses.paris-central'
-      direction: Adjustment
-      quantity: 1
-      moved_on: '{{today-31d}}'
-      note: Written off. Dropped on the bench; elements cracked.
-
-  - key: mv-0017
-    fields:
-      reference: ADJ-0325
-      product: '@products.carton-400'
-      warehouse: '@warehouses.lille-overflow'
-      direction: Adjustment
-      quantity: 45
-      moved_on: '{{today-22d}}'
-      note: Water damage on the Lille pallet. Site deactivated after this.
-
-  # ── Recent receipts ─────────────────────────────────────────────────
-  - key: mv-0018
+      product: '@products.pallet-wrap'
+      warehouse: '@warehouses.paris'
+      type: Picked
+      quantity: -96
+      moved_at: '{{today-16d}}'
+      note: Lumen Analytics
+  - key: mv-03
     fields:
       reference: GRN-2571
-      product: '@products.printhead-203dpi'
-      warehouse: '@warehouses.paris-central'
-      direction: Inbound
+      product: '@products.printhead'
+      warehouse: '@warehouses.paris'
+      type: Received
       quantity: 4
-      unit_cost: 167.00
-      moved_on: '{{today-14d}}'
-      note: Kessler again. Four of the six ordered; the rest backordered indefinitely.
-
-  - key: mv-0019
+      moved_at: '{{today-14d}}'
+      note: Kessler Elektronik
+  - key: mv-04
+    fields:
+      reference: PICK-8896
+      product: '@products.printhead'
+      warehouse: '@warehouses.paris'
+      type: Picked
+      quantity: -1
+      moved_at: '{{today-12d}}'
+      note: Workshop repair
+  - key: mv-05
+    fields:
+      reference: PICK-8894
+      product: '@products.tote'
+      warehouse: '@warehouses.paris'
+      type: Picked
+      quantity: -300
+      moved_at: '{{today-9d}}'
+      note: Groupe Vauban
+  - key: mv-06
     fields:
       reference: GRN-2578
-      product: '@products.void-fill-paper'
-      warehouse: '@warehouses.lyon-south'
-      direction: Inbound
+      product: '@products.void-fill'
+      warehouse: '@warehouses.lyon'
+      type: Received
       quantity: 90
-      unit_cost: 43.50
-      moved_on: '{{today-8d}}'
-
-  - key: mv-0020
+      moved_at: '{{today-8d}}'
+      note: Nordpack Emballages
+  - key: mv-07
+    fields:
+      reference: PICK-8902
+      product: '@products.void-fill'
+      warehouse: '@warehouses.lyon'
+      type: Picked
+      quantity: -58
+      moved_at: '{{today-6d}}'
+      note: Lumen Analytics
+  - key: mv-08
+    fields:
+      reference: PICK-8907
+      product: '@products.scanner-1d'
+      warehouse: '@warehouses.paris'
+      type: Picked
+      quantity: -4
+      moved_at: '{{today-3d}}'
+      note: Atlas Integrations
+  - key: mv-09
     fields:
       reference: GRN-2584
-      product: '@products.shelf-divider-kit'
-      warehouse: '@warehouses.paris-central'
-      direction: Inbound
+      product: '@products.divider-kit'
+      warehouse: '@warehouses.paris'
+      type: Received
       quantity: 2
-      unit_cost: 0
-      moved_on: '{{today-2d}}'
-      note: Second sample set from Acme, free of charge. Not for sale.
+      moved_at: '{{today-2d}}'
+      note: Acme Components
+  - key: mv-10
+    fields:
+      reference: TRF-0042
+      product: '@products.carton'
+      warehouse: '@warehouses.lille'
+      type: Transfer out
+      quantity: -45
+      moved_at: '{{today-1d}}'
+      note: to Lyon South
+  - key: mv-11
+    fields:
+      reference: TRF-0042
+      product: '@products.carton'
+      warehouse: '@warehouses.lyon'
+      type: Transfer in
+      quantity: 45
+      moved_at: '{{today-1d}}'
+      note: from Lille Overflow

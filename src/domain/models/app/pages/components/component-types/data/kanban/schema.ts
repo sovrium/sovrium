@@ -20,8 +20,9 @@ import { ActionSchema, CrudActionSchema } from '../../../action'
  *
  * @example
  * ```yaml
- * groupBy:
+ * kanbanGroupBy:
  *   field: status
+ *   collapsed: [done]
  * ```
  */
 export const KanbanGroupBySchema = Schema.Struct({
@@ -30,6 +31,23 @@ export const KanbanGroupBySchema = Schema.Struct({
     description:
       'Field name whose distinct values create kanban columns (typically a select/status field)',
   }),
+  /**
+   * Column values drawn folded on first render — the column counterpart of
+   * `swimlanes.collapsed`, with the same reasoning: folding is always
+   * available, so this names a starting state rather than a capability.
+   */
+  collapsed: Schema.optional(
+    Schema.Array(
+      Schema.String.annotate({ description: 'One column value, as the grouping field spells it' })
+    ).pipe(
+      Schema.annotate({
+        description:
+          'Column values that render folded on first load; a folded column keeps its heading and record count, and the reader can expand it',
+        examples: [['Won'], ['Done', 'Cancelled']],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
 }).annotate({
   identifier: 'KanbanGroupBy',
   title: 'Kanban Group By',
@@ -152,8 +170,16 @@ export const KanbanCardFooterItemSchema = Schema.Struct({
   }),
   /** Display format for the value */
   format: Schema.optional(
-    Schema.Literals(['relative-date', 'short-date', 'avatar', 'badge', 'text']).annotate({
-      description: 'How to format the field value in the footer',
+    Schema.Literals([
+      'relative-date',
+      'short-date',
+      'avatar',
+      'badge',
+      'text',
+      'currency',
+    ]).annotate({
+      description:
+        "How to format the field value in the footer — `currency` formats a number with the bound column's own currency, precision and separators",
     })
   ),
 }).annotate({

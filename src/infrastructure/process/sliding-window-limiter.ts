@@ -75,6 +75,19 @@ export interface RetryAfterOptions {
   readonly minSeconds?: number
 }
 
+/**
+ * The outcome of {@link SlidingWindowLimiter.consume}: whether the attempt was
+ * refused, the `Retry-After` it carries, and how many in-window attempts the
+ * key holds once the call returns.
+ */
+export interface SlidingWindowDecision {
+  readonly limited: boolean
+  /** Whole seconds until a slot frees up — at least 1 when limited, 0 otherwise. */
+  readonly retryAfter: number
+  /** In-window attempts recorded for the key, this one included when accepted. */
+  readonly count: number
+}
+
 /** The primitive API returned by {@link createSlidingWindowLimiter}. */
 export interface SlidingWindowLimiter {
   /** Timestamps within `windowMs` for `key` (newest-inclusive). */
@@ -92,6 +105,17 @@ export interface SlidingWindowLimiter {
     windowMs: number,
     options?: Readonly<RetryAfterOptions>
   ) => number
+  /**
+   * Check-and-record in one step, the decision every HTTP limiter makes: over
+   * the ceiling, refuse WITHOUT recording (so sustained traffic cannot keep
+   * pushing its own window forward) and carry a `Retry-After` of at least 1 s,
+   * the floor RFC 7231 requires of the header; otherwise record the attempt.
+   */
+  readonly consume: (
+    key: string,
+    config: SlidingWindowConfig,
+    now?: number
+  ) => SlidingWindowDecision
   /** Drop all recorded history. For test harnesses and audit hooks. */
   readonly clear: () => void
 }
@@ -112,27 +136,44 @@ export const createSlidingWindowLimiter = (): SlidingWindowLimiter => {
     return history.filter((timestamp) => at - timestamp < windowMs)
   }
 
+  const record = (key: string, config: SlidingWindowConfig, now?: number): readonly number[] => {
+    const at = now ?? Date.now()
+    const recent = getRecent(key, config.windowMs, at)
+    const updated = [...recent, at]
+    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- Rate limiting requires mutable state
+    state.set(key, updated)
+    return updated
+  }
+
+  const getRetryAfter = (
+    key: string,
+    windowMs: number,
+    options?: Readonly<RetryAfterOptions>
+  ): number => {
+    const at = options?.now ?? Date.now()
+    const minSeconds = options?.minSeconds ?? 0
+    const recent = getRecent(key, windowMs, at)
+    if (recent.length === 0) return minSeconds
+    const oldestRequest = Math.min(...recent)
+    const resetTime = oldestRequest + windowMs
+    const retryAfterMs = Math.max(0, resetTime - at)
+    return Math.max(minSeconds, Math.ceil(retryAfterMs / 1000))
+  }
+
   return {
     getRecent,
     isExceeded: (key, config, now) =>
       getRecent(key, config.windowMs, now).length >= config.maxRequests,
-    record: (key, config, now) => {
+    record,
+    getRetryAfter,
+    consume: (key, config, now) => {
       const at = now ?? Date.now()
       const recent = getRecent(key, config.windowMs, at)
-      const updated = [...recent, at]
-      // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- Rate limiting requires mutable state
-      state.set(key, updated)
-      return updated
-    },
-    getRetryAfter: (key, windowMs, options) => {
-      const at = options?.now ?? Date.now()
-      const minSeconds = options?.minSeconds ?? 0
-      const recent = getRecent(key, windowMs, at)
-      if (recent.length === 0) return minSeconds
-      const oldestRequest = Math.min(...recent)
-      const resetTime = oldestRequest + windowMs
-      const retryAfterMs = Math.max(0, resetTime - at)
-      return Math.max(minSeconds, Math.ceil(retryAfterMs / 1000))
+      if (recent.length >= config.maxRequests) {
+        const retryAfter = getRetryAfter(key, config.windowMs, { now: at, minSeconds: 1 })
+        return { limited: true, retryAfter, count: recent.length }
+      }
+      return { limited: false, retryAfter: 0, count: record(key, config, at).length }
     },
     clear: () => {
       // eslint-disable-next-line functional/immutable-data -- Rate limiting requires mutable state

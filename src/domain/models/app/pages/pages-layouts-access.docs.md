@@ -61,6 +61,26 @@ pages:
       - { type: text, element: h1, content: 'Billing' }
 ```
 
+## Gating one component on who is reading
+
+A component's `visibility` narrows who receives it without gating the whole page. `when: authenticated` keeps it for signed-in readers and `when: unauthenticated` for signed-out visitors; `roles` keeps it for the listed roles: a `group:<name>` entry matches members of that group, and the app's top role passes a gate naming `admin`. Unlike page `access`, an administrator is not let through a list that does not name `admin` or one of their own roles, so a block written for auditors stays with auditors. When both keys are set, both must pass.
+
+```yaml
+components:
+  - type: container
+    children:
+      - type: text
+        content: 'Salary review calendar'
+        props: { visibility: { roles: [admin] } }
+      - type: text
+        content: 'Press embargo until launch day'
+        props: { visibility: { roles: ['group:communications'] } }
+```
+
+### Gated content is absent, not hidden
+
+A component whose visibility is not met is left out of the server-rendered HTML together with everything inside it, at any depth of the page, including a breakpoint's `responsive` children. Inside `tabs`, a withheld body takes its tab with it. It is not styled invisible: a reader the gate excludes never receives the text, so it cannot be found by viewing the source, searching the page or copying it. The gate configuration itself is not written into the markup either.
+
 ## Gating one component on the caller's powers
 
 `access` gates a whole page on a role NAME. A component's `visibility.capability` gates ONE component on what the caller may actually DO:
@@ -132,7 +152,7 @@ pages:
     path: /assist
     components:
       - type: ai-chat
-        props: { agent: assistant }
+        agent: assistant
         visibility: { runtime: ai }
       - type: command-palette
         visibility: { unlessRuntime: ai }
@@ -140,7 +160,7 @@ pages:
 
 The composer where a model is reachable, the search trigger everywhere else. That is something graceful degradation cannot do: the chat component already tells the truth about itself when no provider is configured, but a component can only degrade its own body — it cannot give way to a different control with a different label, a different keyboard affordance and a different endpoint.
 
-The predicate is a conjunction of both halves: the app declares something that needs a model, AND the deployment can serve one. So an app declaring no AI surface at all takes the `unlessRuntime` branch even on a host with a provider configured — there is nothing to run, and an assistant bound to no agent is as useless as one bound to an unreachable provider. It therefore replaces `declares: agents` for this shape rather than composing with it; write one key, not two.
+The predicate is whether the deployment can serve a model. Every app carries the built-in System Agent — it reads the app's own tables — so an app declaring no AI surface at all still has an assistant to offer wherever a provider is configured, and takes the `runtime` branch there. It therefore replaces `declares: agents` for this shape rather than composing with it; write one key, not two.
 
 The app half is broader than agents alone: an AI field on a table, an `ai` automation action, or a chat component anywhere on any page all count as "this app needs a model".
 

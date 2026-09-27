@@ -1,0 +1,2 @@
+ALTER TABLE "auth"."user" ADD COLUMN "notify_automation_alerts" boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE "auth"."user" ADD COLUMN "notify_weekly_digest" boolean DEFAULT true NOT NULL;

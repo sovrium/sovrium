@@ -289,7 +289,7 @@ const searchTrigger: PageComponent = {
  * the current page; a `source` list does not exist until the reader expands it.
  *
  * Measured on `/tables/journey_subscribers`, `/forms/journey` and
- * `/buckets/default`, same host, one regeneration apart:
+ * `/buckets/system`, same host, one regeneration apart:
  *
  *   | `href` | parent           | children rendered | `aria-current` |
  *   |--------|------------------|-------------------|----------------|

@@ -1,117 +1,170 @@
-# Company OS theming — deep navy.
+# Orrin OS — the design system of this app.
 #
-# The file used to carry `baseline: extend` and nothing else, so the largest
-# template in the tree — eight tables, three automations, seven pages —
-# rendered in the same achromatic baseline as the smallest. Deep navy is
-# assigned centrally: it reads as institutional software rather than as a
-# consumer product, which is what an all-in-one back office should look like,
-# and it sits far enough from the knowledge base's sky blue that the two are
-# not mistaken for each other in the gallery.
+# `baseline: extend` keeps Sovrium's built-in design system and changes only
+# what is declared here. Type stays on the two faces the platform already
+# self-hosts (IBM Plex Sans and JetBrains Mono): no family is pulled from a
+# font CDN, which would leak every visitor's address to a third party.
 #
-# WHY THESE KEY NAMES
-#   `design.colors` accepts any kebab-case key, but only the keys in
-#   `COLOR_TO_SV_TOKEN` (src/infrastructure/css/theme/theme-generators.ts) emit
-#   the `--sv-*` platform tokens every prestyled island consumes. Everything
-#   else emits `--color-*` and does nothing until something cites it — and this
-#   template cites nothing, because it carries no inline styles at all. Every
-#   surface it shows is a prestyled island: data tables on five pages, an agent
-#   chat, a sign-in form. So an off-map key here would be pure decoration in a
-#   file nobody reads.
+# This app puts four modules in one place — sales, delivery, support and the
+# team — and the design's first job is to keep them looking like ONE product:
+# one accent for every module (never one colour per module), one density, one
+# radius. The accent is a navy held at low chroma, so it stays calm across a
+# screen full of figures.
 #
-#   The mapping is not identity, and the traps are worth naming:
-#   `background-raised` → `bg-raised`, `background-overlay` → `bg-overlay`,
-#   `ring` → `focus-ring`, `success` → `success-solid`. `foreground-muted` → `fg-muted`,
-#   which the baseline registers as `--color-muted-foreground`, so the
-#   `text-muted-foreground` utility resolves from it without a second key.
-#
-# WHY THERE IS NO `muted` KEY
-#   `muted` and `background-subtle` BOTH map to `--sv-bg-subtle`, and the
-#   compiler emits one `--sv-*` line per authored key in declaration order — so
-#   declaring both means the later one silently overwrites the earlier, and the
-#   config gives no hint which. Only `background-subtle` is declared. Nothing is
-#   lost: the baseline registers `--color-muted: var(--sv-bg-subtle)`, so the
-#   `bg-muted` utility still resolves, now unambiguously.
-#
-#
-# WHY `background-raised` / `background-overlay` AND NOT `card` / `popover`
-#   The two pairs map to the SAME role tokens (`--sv-bg-raised`,
-#   `--sv-bg-overlay`), so this is not a behaviour change — but `card`, `popover`
-#   and `muted` are listed in `COLORS_NEEDING_FOREGROUND`, which auto-derives a
-#   `<key>-foreground: #ffffff` companion whenever the base key is declared
-#   without one. On a white card that companion is white text on white. Worse,
-#   the derivation runs over the LIGHT block only and is never mirrored into
-#   `darkColors`, so it is a light-surface guess that silently persists into
-#   dark mode. The `background-*` spellings carry no such companion.
-#
-# WHY `primary-foreground` IS SPELLED OUT IN BOTH BLOCKS
-#   `primary` IS in `COLORS_NEEDING_FOREGROUND`, so omitting it derives
-#   `#ffffff` — correct here in light mode, and wrong in dark, where `primary`
-#   lightens and white-on-light is unreadable. The derived companion is not
-#   mirrored into `darkColors`, so the only way to get a legible on-primary ink
-#   in both schemes is to name it twice, which is what happens below.
-# THE SEMANTIC TRIO IS CLAIMED DELIBERATELY
-#   Four of the eight tables carry a `status` field, and `success` / `warning` /
-#   `error` are what a Won deal, a pending time-off request and a rejected one
-#   read as. That is consequence, not decoration — the case ADR-024 reserves
-#   colour for.
-#
-#   Note the per-option `color:` hexes in `config/tables/*.yaml` are a DIFFERENT
-#   channel and are left alone: those are record data (the chip colour of one
-#   select option), not chrome, and they are authored per option rather than per
-#   role. Rewriting them as `var(--color-*)` would collapse five distinct
-#   pipeline stages onto three semantic tokens and lose the distinction the
-#   board is drawn to show.
-#
-# NO `fonts` BLOCK
-#   Only IBM Plex Sans Variable and JetBrains Mono Variable ship self-hosted.
-#   Naming any other family emits `font-family: X, …` with no matching
-#   `@font-face`, dropping the page onto the OS default and locking the shipped
-#   face out of its own stack. Distinctiveness here comes from colour, not type.
+# Colour otherwise means an outcome, and it means the same outcome in every
+# module: a deal won, a task done, a ticket resolved, a request approved; a
+# close date passed or a request waiting on a decision; a deal lost, an overdue
+# task, an urgent ticket still open.
 baseline: extend
 
+# Follow the operating system's light or dark preference. `darkColors` below is
+# what the dark scheme paints; without `colorScheme` it would never render.
+colorScheme: system
+
+# Role keys repaint the prestyled components (boards, grids, charts, buttons,
+# badges) with no class changes anywhere else in the config.
+#
+# Every role is spelled out in BOTH schemes. `primary` and friends derive a
+# white `-foreground` companion in the light scheme only, which reads wrong on
+# a pale dark-mode accent — so the dark block names every companion itself.
+# `primary-active` is declared too: left out, a pressed button would fall back
+# to the platform's achromatic default for a frame.
 colors:
-  primary: '#1e3a8a'
-  primary-hover: '#1e40af'
-  primary-foreground: '#ffffff'
-  primary-subtle: '#dbeafe'
-  ring: '#3b5bdb'
-  background: '#ffffff'
-  background-subtle: '#f6f8fc'
-  foreground: '#0b1220'
-  foreground-muted: '#475372'
-  foreground-subtle: '#78829c'
-  background-raised: '#ffffff'
-  background-overlay: '#ffffff'
-  border: '#dde3ef'
-  success: '#047857'
-  warning: '#b45309'
-  error: '#be123c'
+  primary: oklch(0.52 0.12 260)
+  primary-hover: oklch(0.46 0.112 260)
+  primary-active: oklch(0.42 0.105 260)
+  primary-foreground: oklch(0.985 0.003 260)
+  primary-subtle: oklch(0.95 0.03 260)
+  primary-subtle-foreground: oklch(0.38 0.09 260)
+  ring: oklch(0.6 0.12 260)
+  background: oklch(0.985 0.003 260)
+  background-subtle: oklch(0.967 0.005 260)
+  background-raised: oklch(1 0 0)
+  background-overlay: oklch(1 0 0)
+  background-inset: oklch(0.925 0.008 260)
+  foreground: oklch(0.21 0.008 260)
+  foreground-muted: oklch(0.45 0.012 260)
+  foreground-subtle: oklch(0.51 0.012 260)
+  foreground-disabled: oklch(0.71 0.012 260)
+  foreground-inverse: oklch(0.985 0.003 260)
+  border: oklch(0.925 0.008 260)
+  success: oklch(0.52 0.12 155)
+  warning: oklch(0.5 0.12 75)
+  error: oklch(0.53 0.17 25)
+  destructive-foreground: oklch(0.985 0.003 260)
 
-# Rendered only when the app declares `design.colorScheme` or ships a
-# `theme-toggle`; the stylesheet carries it either way, under
-# `html:is(.dark, [data-theme='dark'])`. `primary` lightens sharply here: navy
-# on a near-black background is unreadable, so dark mode borrows the lighter end
-# of the same hue rather than the brand value.
 darkColors:
-  primary: '#93b4fd'
-  primary-hover: '#bfd4fe'
-  primary-foreground: '#080c15'
-  primary-subtle: '#16244a'
-  ring: '#60a5fa'
-  background: '#080c15'
-  background-subtle: '#101725'
-  foreground: '#e6ebf5'
-  foreground-muted: '#a7b2ca'
-  foreground-subtle: '#7d879f'
-  background-raised: '#101725'
-  background-overlay: '#101725'
-  border: '#212c42'
-  success: '#34d399'
-  warning: '#fbbf24'
-  error: '#fb7185'
+  primary: oklch(0.78 0.09 260)
+  primary-hover: oklch(0.83 0.068 260)
+  primary-active: oklch(0.87 0.053 260)
+  primary-foreground: oklch(0.16 0.006 260)
+  primary-subtle: oklch(0.28 0.045 260)
+  primary-subtle-foreground: oklch(0.9 0.045 260)
+  ring: oklch(0.72 0.098 260)
+  background: oklch(0.16 0.006 260)
+  background-subtle: oklch(0.19 0.007 260)
+  background-raised: oklch(0.21 0.008 260)
+  background-overlay: oklch(0.23 0.008 260)
+  background-inset: oklch(0.13 0.005 260)
+  foreground: oklch(0.95 0.005 260)
+  foreground-muted: oklch(0.75 0.01 260)
+  foreground-subtle: oklch(0.68 0.012 260)
+  foreground-disabled: oklch(0.45 0.01 260)
+  foreground-inverse: oklch(0.16 0.006 260)
+  border: oklch(0.3 0.01 260)
+  success: oklch(0.75 0.12 155)
+  warning: oklch(0.8 0.12 75)
+  error: oklch(0.72 0.14 25)
+  destructive-foreground: oklch(0.16 0.006 260)
 
+# What each colour is for. Writing the usage down is what stops the accent from
+# becoming a module's colour, and a status colour from becoming decoration.
+colorRoles:
+  primary:
+    usage: The one accent, shared by every module. Primary action fill, the current nav entry, the focus ring, the first chart series, today on the calendar. Never a module's colour and never a status.
+    pairsWith: primary-foreground
+  primary-subtle:
+    usage: Selected and current states on quiet surfaces — the current page, the record opened in a drawer.
+    pairsWith: primary-subtle-foreground
+  success:
+    usage: A deal Won, a task Done, a ticket Resolved, a request Approved — the outcome each module calls finished.
+    pairsWith: foreground
+  warning:
+    usage: A close date passed on an open deal, a request waiting on a decision.
+    pairsWith: foreground
+  error:
+    usage: A deal Lost, an overdue task, an Urgent ticket still open, a failed save, a destructive action.
+    pairsWith: foreground
+
+# A calm type ladder: body text at 14px, headings close to it, and the
+# monospace face for amounts, dates and counts so a column of figures lines up.
+typeScale:
+  families:
+    sans:
+      family: "'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    mono:
+      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+  steps:
+    display: { size: 2rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.02em }
+    h1: { size: 1.375rem, lineHeight: 1.2, weight: 600, letterSpacing: -0.01em }
+    h2: { size: 1.0625rem, lineHeight: 1.3, weight: 600 }
+    h3: { size: 0.875rem, lineHeight: 1.35, weight: 600 }
+    lead: { size: 0.9375rem, lineHeight: 1.5 }
+    body: { size: 0.875rem, lineHeight: 1.5 }
+    bodySmall: { size: 0.8125rem, lineHeight: 1.45 }
+    caption: { size: 0.75rem, lineHeight: 1.4 }
+    overline: { size: 0.6875rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em, font: mono }
+
+# Standard corners: small enough to keep a dense grid crisp, round enough that a
+# card reads as something you can pick up and move.
 radius:
   sm: 0.25rem
   md: 0.5rem
   lg: 0.75rem
   full: 9999px
+
+# Cards carry a one-pixel lift; overlays float clearly above the page.
+elevation:
+  none: none
+  sm: 0 1px 2px rgb(20 20 30 / 0.06)
+  md: 0 4px 12px rgb(20 20 30 / 0.08)
+  lg: 0 12px 32px rgb(20 20 30 / 0.14)
+
+# The person running the company reads four modules on one screen, so rows are
+# tight: the compact step. The three steps are the platform's own values,
+# written out so one number can be tuned.
+density:
+  default: compact
+  steps:
+    compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }
+    cozy: { rowY: 8px, controlH: 40px, buttonH: 32px, gap: 10px, text: 13px }
+    roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
+
+# How the app speaks. Nothing reads these at runtime; they are the brief anyone
+# writing a label, an empty state or an error message for this app follows.
+voice:
+  personality:
+    - composed
+    - direct
+    - cross-functional
+  pronoun: you
+  prefer:
+    - 'Lead a button with its verb: Add deal, Open project, Approve.'
+    - Name the client by name in every module, never by a number.
+    - Every empty state names the one next action.
+  avoid:
+    - No exclamation marks, no "all-in-one" boasting on the page itself.
+    - Never a module's internal jargon on another module's page.
+    - No ids in place of names — not a client number, not a project number.
+  tone:
+    empty: Say what this module will hold, then the one action that fills it.
+    loading: Name what is loading — the pipeline, the projects — never a bare spinner.
+    error: State what did not save and the one thing that fixes it; keep what the person typed.
+    success: Confirm in past tense with the record's name and what moved in the other modules.
+    destructive: Name the record, the modules it appears in and whether it comes back.
+
+principles:
+  - One client, one name, seen the same way from every module.
+  - The home answers "what needs me" across modules before "how are we doing".
+  - Colour means an outcome — won, done, resolved, approved, late, lost — in every module the same way.
+  - Modules are grouped in the navigation, never flattened into one row of links.

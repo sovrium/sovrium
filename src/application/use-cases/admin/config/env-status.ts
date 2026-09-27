@@ -59,6 +59,7 @@
  * @see src/application/use-cases/automations/resolve-env-vars.ts — `buildEnvLookup`
  */
 
+import { isEnvVarRequired } from '@/application/use-cases/env/validate-required-env-vars'
 import { ENV_VALUE_MASK } from '@/domain/models/api/admin/env'
 import type { EnvDefaultState, EnvValueSource, EnvVarStatus } from '@/domain/models/api/admin/env'
 import type { App } from '@/domain/models/app'
@@ -118,9 +119,9 @@ function statusOf(
     key: envVar.key,
     // Verbatim: an operator-authored description is an identifier, not a value.
     ...(envVar.description === undefined ? {} : { description: envVar.description }),
-    // `required` defaults to true per `EnvVarSchema`, resolved here so consumers
-    // never branch on undefined.
-    required: envVar.required ?? true,
+    // Resolved to its documented default of true by `isEnvVarRequired` — the
+    // same reading the boot check uses — so consumers never branch on undefined.
+    required: isEnvVarRequired(envVar),
     // Presence, unconditionally — the diagnostic that must keep working for the
     // withheld majority.
     hasDefault: envVar.default !== undefined,

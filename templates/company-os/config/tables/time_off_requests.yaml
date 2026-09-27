@@ -1,3 +1,6 @@
+# Time off: who is away, from when to when, and whether it is decided. Anyone
+# files a request; an admin approves it (see
+# config/automations/approve-time-off.yaml).
 id: 8
 name: time_off_requests
 fields:
@@ -6,6 +9,7 @@ fields:
     type: relationship
     relatedTable: employees
     relationType: many-to-one
+    displayField: name
     required: true
   - id: 2
     name: start_date
@@ -15,21 +19,50 @@ fields:
     name: end_date
     type: date
     required: true
+  # Approved is the outcome; Pending is a decision still waiting, in the
+  # warning colour.
   - id: 4
     name: status
     type: status
     options:
       - value: Pending
-        color: '#F59E0B'
+        color: '#8A5700'
       - value: Approved
-        color: '#10B981'
+        color: '#187C49'
       - value: Rejected
-        color: '#EF4444'
+        color: '#BA3535'
     default: Pending
   - id: 5
     name: created_at
     type: created-at
+  - id: 6
+    name: type
+    type: single-select
+    options:
+      - Holiday
+      - Parental leave
+      - Family
+      - Moving day
+      - Sick leave
+    default: Holiday
+  # The person's name, read through the relationship, so the calendar and the
+  # pending list label each absence by name.
+  - id: 7
+    name: employee_name
+    type: lookup
+    relationshipField: employee
+    relatedField: name
 
+aiAccess:
+  description: >-
+    Time-off requests. Use this when the user asks who is away, when, or which
+    requests wait on a decision.
+  operations:
+    - read
+    - list
+  fieldExposure: permissioned
+
+# Anyone signed in files a request; only an admin changes or removes one.
 permissions:
   read: authenticated
   create:

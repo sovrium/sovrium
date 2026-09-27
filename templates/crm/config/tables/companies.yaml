@@ -34,7 +34,7 @@ fields:
   - id: 6
     name: annual_revenue
     type: currency
-    currency: USD
+    currency: EUR
     precision: 0
     thousandsSeparator: comma
   - id: 7
@@ -54,6 +54,15 @@ fields:
 # Opt this table in to AI-agent access (the records-assistant agent). Combined
 # with the agent's `tools` allowlist, this is the second gate that lets the
 # agent read, create, and edit company records.
+# The list the Companies page reads. A grid bound to a view is read-only:
+# nobody edits a cell by accident while scanning, and a record is changed in its
+# drawer instead, where every field is labelled.
+views:
+  - id: companies_directory
+    name: Accounts
+    sorts:
+      - { field: name, direction: asc }
+
 aiAccess:
   description: >-
     Company accounts. Use this when the user asks about organizations,
@@ -65,8 +74,8 @@ aiAccess:
     - update
   fieldExposure: permissioned
 
-# Role-based access: everyone signed in can read; members/admins can write;
-# only admins can hard-delete.
+# Every signed-in rep reads and edits the accounts; only an admin deletes one,
+# because a company carries its contacts and deals with it.
 permissions:
   read: authenticated
   create:

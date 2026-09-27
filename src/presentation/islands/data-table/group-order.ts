@@ -6,6 +6,7 @@
  */
 
 import { optionValue, type SelectOptionLike } from '@/domain/models/app/tables/select-option'
+import { readDisplayLabel } from '../runtime/record-display-label'
 import type { DataTableRow } from './island/table-features'
 
 /** One grouping level, resolved: the field it partitions on and how it reads. */
@@ -28,8 +29,13 @@ export interface GroupLevel {
  * fine enough to describe them.
  */
 export interface GroupNode {
-  /** This group's own value, stringified. */
+  /** This group's own value, stringified. The group's IDENTITY — keys, paths, counts. */
   readonly value: string
+  /**
+   * What the header reads. A relationship whose table declares a `displayField`
+   * names the related record ("Acme Robotics"); every other field reads its value.
+   */
+  readonly label: string
   /** The value before stringification — kept for `data-group-value`. */
   readonly rawValue: unknown
   /** Ancestor values, outermost first, ending in this group's own. */
@@ -61,11 +67,27 @@ function rowValueAt(row: DataTableRow, field: string): string {
 }
 
 /**
- * Compare two group values that carry no declared order. Numeric-aware so a
- * grouping on a bare number renders 2 before 10.
+ * The header a group reads: the related record's resolved label when the row
+ * carries one for this field, the value itself otherwise. Only a to-one label
+ * names a group — a to-many field's value is a link SET, not one record.
  */
-function compareGroupValues(a: string, b: string): number {
-  return a.localeCompare(b, undefined, { numeric: true })
+function labelAt(row: DataTableRow | undefined, field: string, value: string): string {
+  const display = row ? readDisplayLabel(row.original, field) : undefined
+  return typeof display === 'string' && display !== '' ? display : value
+}
+
+/** Orders two header strings. */
+type CompareGroupText = (a: string, b: string) => number
+
+/**
+ * The comparison for group values that carry no declared order, in the PAGE
+ * locale — the one the grid's cells already format in — rather than the
+ * browser's default, since collation differs by language (a Swedish page sorts
+ * "Örebro" after "Zeta"; an English one sorts it beside "Oslo"). Numeric-aware
+ * so a grouping on a bare number renders 2 before 10.
+ */
+function groupTextComparator(locale: string): CompareGroupText {
+  return new Intl.Collator(locale, { numeric: true }).compare
 }
 
 /**
@@ -75,13 +97,14 @@ function compareGroupValues(a: string, b: string): number {
  */
 function orderByDeclaredOptions(
   values: readonly string[],
-  declaredOptions: readonly SelectOptionLike[]
+  declaredOptions: readonly SelectOptionLike[],
+  compare: CompareGroupText
 ): readonly string[] {
   const rank = new Map(declaredOptions.map((option, index) => [optionValue(option), index]))
   const declared = values
     .filter((value) => rank.has(value))
     .toSorted((a, b) => (rank.get(a) ?? 0) - (rank.get(b) ?? 0))
-  const undeclared = values.filter((value) => !rank.has(value)).toSorted(compareGroupValues)
+  const undeclared = values.filter((value) => !rank.has(value)).toSorted(compare)
   return [...declared, ...undeclared]
 }
 
@@ -96,7 +119,10 @@ function orderByDeclaredOptions(
  *     on "Negotiation". Kanban already reads a declaration this way
  *     (`resolveKanbanGroupByOptions`), and a grid and a board grouped on the
  *     same field must not disagree about that field's order.
- *  2. **Otherwise an explicit `direction` sorts by value**, numeric-aware.
+ *  2. **Otherwise an explicit `direction` sorts by what the header READS**,
+ *     numeric-aware — the related record's label for a labelled relationship,
+ *     the value for everything else; the key breaks a tie between two records
+ *     sharing a label, so they stay two groups in a stable order.
  *  3. **Otherwise the encounter order is left alone** — with no declaration and
  *     no stated preference there is nothing to honour, and reordering would
  *     only churn the runtime Group menu's output.
@@ -110,24 +136,41 @@ function orderByDeclaredOptions(
  */
 function orderGroupValues(
   values: readonly string[],
-  direction: 'asc' | 'desc' | undefined,
-  declaredOptions: readonly SelectOptionLike[] | undefined
+  level: GroupLevel,
+  labelOf: (value: string) => string,
+  compare: CompareGroupText
 ): readonly string[] {
+  const { direction, declaredOptions } = level
   const ordered =
     declaredOptions && declaredOptions.length > 0
-      ? orderByDeclaredOptions(values, declaredOptions)
+      ? orderByDeclaredOptions(values, declaredOptions, compare)
       : direction === undefined
         ? values
-        : values.toSorted(compareGroupValues)
+        : values.toSorted((a, b) => compare(labelOf(a), labelOf(b)) || compare(a, b))
   return direction === 'desc' ? ordered.toReversed() : ordered
 }
 
-/** Distinct values at one level, in the order the rows first present them. */
-function distinctValues(rows: readonly DataTableRow[], field: string): readonly string[] {
-  return rows.reduce<readonly string[]>((acc, row) => {
-    const value = rowValueAt(row, field)
-    return acc.includes(value) ? acc : [...acc, value]
-  }, [])
+/**
+ * Distinct values at one level, in the order the rows first present them, each
+ * with the first row carrying it — the row its header label is read from.
+ *
+ * One pass each way, no per-value rebuild: the `Set` keeps first-encounter
+ * order, and feeding the pairs to a `Map` in REVERSE lets the first row of each
+ * value be the last one written, so it is the one that stays.
+ */
+function distinctFirstRows(
+  rows: readonly DataTableRow[],
+  field: string
+): ReadonlyMap<string, DataTableRow> {
+  const pairs = rows.map((row) => [rowValueAt(row, field), row] as const)
+  const firstRowOf = new Map(pairs.toReversed())
+  const order = new Set(pairs.map(([value]) => value))
+  return new Map(
+    [...order].flatMap((value) => {
+      const row = firstRowOf.get(value)
+      return row ? [[value, row] as const] : []
+    })
+  )
 }
 
 /**
@@ -147,21 +190,29 @@ function distinctValues(rows: readonly DataTableRow[], field: string): readonly 
 export function buildGroupTree(
   rows: readonly DataTableRow[],
   levels: readonly GroupLevel[],
-  parentPath: readonly string[] = []
+  locale: string
+): readonly GroupNode[] {
+  return buildLevel(rows, levels, [], groupTextComparator(locale))
+}
+
+function buildLevel(
+  rows: readonly DataTableRow[],
+  levels: readonly GroupLevel[],
+  parentPath: readonly string[],
+  compare: CompareGroupText
 ): readonly GroupNode[] {
   const level = levels[parentPath.length]
   if (!level) return []
-  const ordered = orderGroupValues(
-    distinctValues(rows, level.field),
-    level.direction,
-    level.declaredOptions
-  )
+  const firstRows = distinctFirstRows(rows, level.field)
+  const labelOf = (value: string): string => labelAt(firstRows.get(value), level.field, value)
+  const ordered = orderGroupValues([...firstRows.keys()], level, labelOf, compare)
   return ordered.map((value) => {
     const members = rows.filter((row) => rowValueAt(row, level.field) === value)
     const path = [...parentPath, value]
-    const children = buildGroupTree(members, levels, path)
+    const children = buildLevel(members, levels, path, compare)
     return {
       value,
+      label: labelOf(value),
       rawValue: (members[0]?.original as Record<string, unknown> | undefined)?.[level.field],
       path,
       level: path.length,

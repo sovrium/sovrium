@@ -1,27 +1,37 @@
+# The way in. Sign-up is closed (config/auth.yaml), so this page only signs
+# people in; an admin adds new accounts with `sovrium admin create`.
 name: sign-in
 path: /sign-in
 meta:
-  title: Sign In
-  description: Sign in to your CRM account
+  title: Sign in · Kestrel CRM
+  description: Sign in to Kestrel CRM.
 components:
   - type: container
-    element: section
+    element: main
     props:
-      className: py-12 px-6
-      style:
-        backgroundColor: '#f8fafc'
+      className: flex min-h-screen items-center justify-center bg-background-subtle px-5 py-12
     children:
       - type: container
         props:
-          className: max-w-md mx-auto
+          className: flex w-full max-w-sm flex-col gap-6 rounded-lg border border-border bg-background-raised p-6 shadow-sm
         children:
+          - type: container
+            props:
+              className: flex items-center gap-2.5 text-sm font-semibold text-foreground
+            children:
+              - type: icon
+                props:
+                  name: kanban
+                  size: 14
+                  className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+              - type: text
+                element: span
+                content: Kestrel CRM
           - type: text
             element: h1
             props:
-              className: text-4xl font-bold mb-6 text-center
-              style:
-                color: '#0f172a'
-            content: Sign In
+              className: text-[22px] font-semibold tracking-tight text-foreground
+            content: Sign in
           - type: form
             props:
               id: sign-in-form

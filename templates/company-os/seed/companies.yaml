@@ -1,43 +1,48 @@
-# Customer accounts — the root of the CRM half of this template. Contacts,
-# deals and projects all hang off these six rows, so they are seeded first and
-# every other file references them by key.
+# The six clients of Orrin & Co. Every module links here: a deal, a project and
+# a ticket all name one of these, so a client reads the same way everywhere.
 #
-# Six industries are available and five are used. Leaving one option unclaimed
-# is deliberate: a demo where every select option has a row cannot show what an
-# empty filter looks like.
+# `key` names a record inside these files so the other tables can link to it
+# before any row has a database id. It is never written to a column.
 records:
   - key: northwind
     fields:
       name: Northwind Logistics
       industry: Retail
-      website: https://northwind.example.com
-
+      website: https://northwind.example
+      account_manager: '@user:hannah.okonkwo@orrin.example'
+      status: Client
   - key: helios
     fields:
       name: Helios Health Group
       industry: Healthcare
-      website: https://helios-health.example.com
-
+      website: https://helios.example
+      account_manager: '@user:hannah.okonkwo@orrin.example'
+      status: Client
   - key: lumen
     fields:
       name: Lumen Analytics
       industry: Technology
-      website: https://lumen.example.com
-
+      website: https://lumen.example
+      account_manager: '@user:hannah.okonkwo@orrin.example'
+      status: Client
   - key: cardinal
     fields:
       name: Cardinal Mutual
       industry: Finance
-      website: https://cardinal-mutual.example.com
-
+      website: https://cardinal.example
+      account_manager: '@user:dan.whitfield@orrin.example'
+      status: Dormant
   - key: fernbank
     fields:
       name: Fernbank Academy Trust
       industry: Education
-      website: https://fernbank.example.org
-
+      website: https://fernbank.example
+      account_manager: '@user:dan.whitfield@orrin.example'
+      status: Client
   - key: atlas
     fields:
       name: Atlas Freight
-      industry: Retail
-      website: https://atlasfreight.example.com
+      industry: Logistics
+      website: https://atlas.example
+      account_manager: '@user:dan.whitfield@orrin.example'
+      status: Client

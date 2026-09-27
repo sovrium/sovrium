@@ -8,6 +8,7 @@
 export * from './state-action'
 
 export * from './delete'
+export * from './filter-new'
 export * from './get'
 export * from './increment'
 export * from './list'

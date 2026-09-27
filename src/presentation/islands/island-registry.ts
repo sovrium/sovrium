@@ -144,6 +144,7 @@ const loadSidebarGroups = () => import('./navigation/sidebar-groups-island')
 const loadSidebarBadge = () => import('./navigation/sidebar-badge-island')
 const loadSidebarDisclosure = () => import('./navigation/sidebar-disclosure-island')
 const loadSidebarCurrent = () => import('./navigation/sidebar-current-island')
+const loadSidebarDrawer = () => import('./navigation/sidebar-drawer-island')
 const loadRecordPicker = () => import('./parts/record-picker/record-picker-island')
 const loadRecordDrawer = () => import('./overlays/record-drawer-island')
 const loadPageRecordSystem = () => import('./page-record-system-island')
@@ -176,6 +177,11 @@ export const PRIORITY_ISLAND_LOADERS: Readonly<Record<string, IslandLoader>> = {
   // mounted, and that announcement is the ONLY event ever sent for that move —
   // miss it and the mark is stale for the rest of the session.
   'sidebar-current': loadSidebarCurrent,
+  // The FIRST gesture on a folded navigation is the press on its menu button,
+  // which the server renders disabled until the island can open the drawer — so
+  // a drawer that mounts one Suspense boundary later holds the reader on a
+  // button that does not respond yet.
+  'sidebar-drawer': loadSidebarDrawer,
   'record-drawer': loadRecordDrawer,
   'admin-spa-nav': loadAdminSpaNav,
   'command-palette': loadAdminCommandPalette,
@@ -268,6 +274,12 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // attribute would ship the icon set to the browser. Mounted only when the
   // sidebar declares `trackNavigation`. Lazy (eco R2).
   'sidebar-current': lazy(loadSidebarCurrent),
+  // `sidebar-drawer` — the menu button and modal drawer of a navigation folded
+  // below a breakpoint (`sidebar.drawer`, and the docs layout's navigation below
+  // `lg`). Renders nothing: it lifts the server-rendered navigation into a
+  // native `<dialog>` and back, so its entries, icons and nested islands stay
+  // the server's. Lazy (eco R2) — a handful of listeners.
+  'sidebar-drawer': lazy(loadSidebarDrawer),
   // `record-field-system` (CAP-2) — a `record-field` with its OWN
   // `dataSource.system` SELF-binds to a system DETAIL endpoint: it fetches ONE
   // record (the route id injected into the `:param` slot) and renders `props.field`

@@ -92,9 +92,10 @@ function HoverBar({
   readonly onHover: ((state: TooltipState | undefined) => void) | undefined
 }): ReactElement {
   const { key, value } = datum
+  const label = datum.label ?? key
   const handleEnter = useCallback(() => {
-    onHover?.({ x: x + width / 2, y: calloutAnchorY(barY), label: key, value, format })
-  }, [onHover, x, width, barY, key, value, format])
+    onHover?.({ x: x + width / 2, y: calloutAnchorY(barY), label, value, format })
+  }, [onHover, x, width, barY, label, value, format])
   const handleLeave = useCallback(() => onHover?.(undefined), [onHover])
   const enter = onHover ? handleEnter : undefined
   const leave = onHover ? handleLeave : undefined
@@ -104,7 +105,7 @@ function HoverBar({
       y={barY}
       width={width}
       height={innerHeight - barY}
-      fill={PRIMARY_SERIES_PAINT}
+      fill={datum.color ?? PRIMARY_SERIES_PAINT}
       rx={CHART_BAR_RADIUS}
       data-bar-key={key}
       onMouseEnter={enter}

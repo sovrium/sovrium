@@ -1,0 +1,241 @@
+# The home page. It answers "what needs me" across the four modules before "how
+# are we doing": one figure per module, the open pipeline by stage and by
+# client, and a list of what waits on the operator — an urgent ticket, a late
+# task, a passed close date, the time off waiting on a decision.
+name: home
+path: /
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Home · Orrin OS
+  description: One figure from every module, and what needs you across all four.
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Home
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Add deal
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-deal-dialog
+          - $ref: ./_add-deal.yaml
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              # One figure per module, each computed from its table on every
+              # visit, never typed in. Two by two on a phone, where the
+              # figures step down a size so a full amount still fits.
+              - type: grid
+                props:
+                  className: grid grid-cols-2 gap-3 lg:grid-cols-4 max-md:[&_[data-role=kpi-value]]:text-2xl
+                children:
+                  - type: kpi
+                    label: Open pipeline
+                    dataSource:
+                      table: deals
+                      filter:
+                        - { field: stage, operator: in, value: [Prospect, Qualified, Proposal] }
+                    kpiAggregate: { function: sum, field: value }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+                  - type: kpi
+                    label: Active projects
+                    dataSource:
+                      table: projects
+                      filter:
+                        - { field: status, operator: eq, value: Active }
+                    kpiAggregate: { function: count }
+                    kpiFormat: { type: number }
+                  - type: kpi
+                    label: Open tickets
+                    dataSource:
+                      table: tickets
+                      filter:
+                        - { field: status, operator: in, value: [New, Open] }
+                    kpiAggregate: { function: count }
+                    kpiFormat: { type: number }
+                  - type: kpi
+                    label: Waiting on a decision
+                    dataSource:
+                      table: time_off_requests
+                      filter:
+                        - { field: status, operator: eq, value: Pending }
+                    kpiAggregate: { function: count }
+                    kpiFormat: { type: number }
+              - type: grid
+                props:
+                  className: grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.15fr)]
+                children:
+                  # Open deals only, in the order deals move: the chart follows
+                  # the stage field's options, so Prospect comes before
+                  # Qualified whatever the alphabet says.
+                  - type: container
+                    element: section
+                    props:
+                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-background-raised px-4 py-3.5
+                    children:
+                      - type: text
+                        element: h2
+                        props:
+                          className: text-[15px] font-semibold text-foreground
+                        content: Pipeline by stage
+                      - type: text
+                        element: p
+                        props:
+                          className: -mt-2 text-xs text-foreground-muted
+                        content: Open deals, in the order they move
+                      - type: chart
+                        chartType: bar
+                        dataSource:
+                          table: deals
+                          filter:
+                            - { field: stage, operator: in, value: [Prospect, Qualified, Proposal] }
+                        chartAggregate:
+                          function: sum
+                          field: value
+                          groupBy: stage
+                          order: option
+                        yAxis: { field: value, format: currency }
+                        emptyMessage: Open deals appear here by stage. Add a deal to start.
+                  # The same open pipeline by client, grouped on the client's
+                  # name read through the deal's relationship.
+                  - type: container
+                    element: section
+                    props:
+                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-background-raised px-4 py-3.5
+                    children:
+                      - type: text
+                        element: h2
+                        props:
+                          className: text-[15px] font-semibold text-foreground
+                        content: Open pipeline by client
+                      - type: text
+                        element: p
+                        props:
+                          className: -mt-2 text-xs text-foreground-muted
+                        content: The same clients as in Delivery and Support
+                      # The legend names every client; the ring itself stays
+                      # unlabelled so four names never overlap on a small slice.
+                      - type: chart
+                        chartType: donut
+                        props:
+                          className: '[&_svg_text]:hidden'
+                        dataSource:
+                          table: deals
+                          filter:
+                            - { field: stage, operator: in, value: [Prospect, Qualified, Proposal] }
+                        chartAggregate:
+                          function: sum
+                          field: value
+                          groupBy: company_name
+                          order: value-desc
+                        legend: { position: bottom, visible: true }
+                        emptyMessage: Each client's open deals appear here once a deal has a client.
+                  # What waits on the operator, one short list per module. Each
+                  # reads its own table, so nothing here is typed in by hand. On a
+                  # phone it comes straight after the figures, before the charts.
+                  - type: container
+                    element: section
+                    props:
+                      className: flex min-w-0 flex-col gap-2 max-md:order-first rounded-lg border border-border bg-background-raised px-4 py-3.5
+                    children:
+                      - type: text
+                        element: h2
+                        props:
+                          className: text-[15px] font-semibold text-foreground
+                        content: Waiting on you
+                      - type: text
+                        element: p
+                        props:
+                          className: -mt-1.5 text-xs text-foreground-muted
+                        content: Across the four modules, most urgent first
+                      - type: list
+                        props:
+                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
+                        dataSource:
+                          table: tickets
+                          filter:
+                            - { field: priority, operator: eq, value: Urgent }
+                            - { field: status, operator: in, value: [New, Open] }
+                          limit: 5
+                        listDisplay:
+                          emptyMessage: No urgent ticket is open.
+                          itemTemplate:
+                            title: $record.subject
+                            badge: Urgent ticket
+                            metadata:
+                              - { field: company_name, format: text }
+                              - { field: assignee, format: text }
+                      - type: list
+                        props:
+                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
+                        dataSource:
+                          table: project_tasks
+                          filter:
+                            - { field: schedule, operator: eq, value: Overdue }
+                          sort:
+                            - { field: due_date, direction: asc }
+                          limit: 5
+                        listDisplay:
+                          emptyMessage: No task is late.
+                          itemTemplate:
+                            title: $record.title
+                            badge: Overdue task
+                            metadata:
+                              - { field: project_name, format: text }
+                              - { field: due_date, format: short-date }
+                      - type: list
+                        props:
+                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
+                        dataSource:
+                          table: deals
+                          filter:
+                            - { field: health, operator: eq, value: Close date passed }
+                          limit: 5
+                        listDisplay:
+                          emptyMessage: No open deal is past its close date.
+                          itemTemplate:
+                            title: $record.name
+                            badge: Close date passed
+                            metadata:
+                              - { field: company_name, format: text }
+                      - type: list
+                        props:
+                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
+                        dataSource:
+                          table: time_off_requests
+                          filter:
+                            - { field: status, operator: eq, value: Pending }
+                          sort:
+                            - { field: start_date, direction: asc }
+                          limit: 5
+                        listDisplay:
+                          emptyMessage: No time off waits on a decision.
+                          itemTemplate:
+                            title: $record.employee_name
+                            badge: Time off to decide
+                            metadata:
+                              - { field: type, format: text }
+                              - { field: start_date, format: short-date }

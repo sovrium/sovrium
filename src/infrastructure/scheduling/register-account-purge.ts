@@ -12,6 +12,7 @@ import {
   resolvePurgeTableAuthorship,
 } from '@/infrastructure/database/account-purge'
 import { logError } from '@/infrastructure/logging/logger'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -101,7 +102,7 @@ export const registerAccountPurgeScheduler = (
             Effect.catch(() => Effect.void),
             Effect.asVoid
           ),
-        { jobId: PURGE_JOB_ID, timezone: 'UTC' }
+        { jobId: PURGE_JOB_ID, timezone: resolveOperatorTimezone() }
       )
       .pipe(
         Effect.catch((err) =>

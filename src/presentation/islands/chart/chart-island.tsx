@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useMemo } from 'react'
 import { ChartCanvas } from './chart-canvas'
 import {
   ChartEmpty,
@@ -16,7 +17,7 @@ import {
 } from './chart-states'
 import { useChartRecords } from './use-chart-records'
 import { useChartSystemRecords } from './use-chart-system-records'
-import type { ChartAggregateConfig } from './chart-aggregate'
+import type { ChartAggregateConfig, ChartCategoryOption } from './chart-aggregate'
 import type {
   ChartAxisConfig,
   ChartLegendConfig,
@@ -25,6 +26,7 @@ import type {
 } from './chart-canvas'
 import type { ChartSeriesConfig } from './chart-series-shared'
 import type { TableRecord } from '../runtime/types'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { ChartSystemSource } from '@/domain/models/app/pages/components/component-types/data/chart'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { ReactElement } from 'react'
@@ -66,6 +68,10 @@ interface ChartIslandProps {
    * default empty placeholder (purely additive — absent keeps the plain empty).
    */
   readonly emptyState?: ChartEmptyStateConfig
+  /** The grouping field's declared options, resolved server-side (see `ChartFieldContext`). */
+  readonly categoryOptions?: readonly ChartCategoryOption[]
+  /** The plotted field's currency display, resolved server-side. */
+  readonly valueCurrency?: CurrencyDisplayOptions
 }
 
 /**
@@ -188,8 +194,14 @@ export default function ChartIsland({
   emptyMessage,
   emptyState,
   ariaLabel: accessibleName,
+  categoryOptions,
+  valueCurrency,
 }: ChartIslandProps): ReactElement {
   const { records, isLoading, isError, error } = useChartData(dataSource)
+  const fields = useMemo(
+    () => ({ categoryOptions, valueCurrency }),
+    [categoryOptions, valueCurrency]
+  )
 
   const guard = evaluateChartGuards({
     dataSource,
@@ -217,6 +229,7 @@ export default function ChartIsland({
       tooltip={tooltip}
       chartAggregate={chartAggregate}
       accessibleName={accessibleName}
+      fields={fields}
     />
   )
 }

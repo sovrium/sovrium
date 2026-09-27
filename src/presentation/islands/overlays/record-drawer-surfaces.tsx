@@ -25,9 +25,16 @@
  * one shared body, so the trio (CAP-1 actions / CAP-2 role+name / CAP-3 structured
  * fields) composes uniformly. A system source forces the body read-only (no
  * "Enregistrer", no PATCH) via the island's `canEdit: false`.
+ *
+ * An OPEN surface is the element that names the component's type
+ * (`data-component-type="drawer"`), so the element found by its type is the
+ * one holding the opened record; the island names it while closed (see
+ * `ClosedDrawerName`). The host cannot carry the name — the surface is portaled
+ * out of it — and naming both would name the drawer twice.
  */
 
 import { Dialog } from '@base-ui/react/dialog'
+import { useCallback, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { computeDrawerPopupClasses, computeOverlayBackdropClasses } from './overlay-default-classes'
 import type { ReactElement } from 'react'
@@ -47,19 +54,24 @@ export function RegionSurface({
   title,
   body,
   closeLabel,
+  open,
   onClose,
 }: {
   readonly title: string
   readonly body: ReactElement
   /** Interpreter string (SSR-resolved): the icon button's whole accessible name. */
   readonly closeLabel: string
+  /** Closed, the landmark is not drawn; only the drawer's name stays. */
+  readonly open: boolean
   readonly onClose: () => void
 }): ReactElement {
+  if (!open) return <ClosedDrawerName />
   return createPortal(
     <section
       role="region"
       aria-label={title}
       className={POPUP_CLASS}
+      data-component-type="drawer"
     >
       <div className={PANEL_CLASS}>
         <h2 className={TITLE_CLASS}>{title}</h2>
@@ -93,30 +105,55 @@ export function DialogSurface({
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
 }): ReactElement {
+  // The popup stays mounted through its exit transition, still carrying the
+  // name — so the closed marker waits until the close has COMPLETED, or the
+  // drawer would be named twice for the length of the animation.
+  const [settledClosed, setSettledClosed] = useState(!open)
+  const onOpenChangeComplete = useCallback((isOpen: boolean) => setSettledClosed(!isOpen), [])
   return (
-    <Dialog.Root
-      modal
-      open={open}
-      onOpenChange={onOpenChange}
-    >
-      <Dialog.Portal>
-        <Dialog.Backdrop className={computeOverlayBackdropClasses()} />
-        <Dialog.Popup
-          className={POPUP_CLASS}
-          aria-label={title}
-        >
-          <div className={PANEL_CLASS}>
-            <Dialog.Title className={TITLE_CLASS}>{title}</Dialog.Title>
-            {body}
-            <Dialog.Close
-              aria-label={closeLabel}
-              className={CLOSE_CLASS}
-            >
-              ✕
-            </Dialog.Close>
-          </div>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <>
+      {!open && settledClosed && <ClosedDrawerName />}
+      <Dialog.Root
+        modal
+        open={open}
+        onOpenChange={onOpenChange}
+        onOpenChangeComplete={onOpenChangeComplete}
+      >
+        <Dialog.Portal>
+          <Dialog.Backdrop className={computeOverlayBackdropClasses()} />
+          <Dialog.Popup
+            className={POPUP_CLASS}
+            aria-label={title}
+            data-component-type="drawer"
+          >
+            <div className={PANEL_CLASS}>
+              <Dialog.Title className={TITLE_CLASS}>{title}</Dialog.Title>
+              {body}
+              <Dialog.Close
+                aria-label={closeLabel}
+                className={CLOSE_CLASS}
+              >
+                ✕
+              </Dialog.Close>
+            </div>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </>
+  )
+}
+
+/**
+ * The drawer's name while it is CLOSED: an empty, hidden element inside the
+ * island host carrying `data-component-type="drawer"`, so a closed drawer is
+ * found by its type exactly once. It is not rendered while the drawer is open,
+ * when the surface itself carries the name.
+ */
+function ClosedDrawerName(): ReactElement {
+  return (
+    <span
+      hidden
+      data-component-type="drawer"
+    />
   )
 }

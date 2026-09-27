@@ -145,6 +145,41 @@ const EMBEDDED_CONFIG_TYPES_REL = 'infrastructure/assets/embedded-config-types.g
  */
 const DEFAULT_DESIGN_FLAT_REL = 'domain/models/app/design/default-design.generated.ts'
 
+/**
+ * The `sovrium library` catalogue (`src/library/`, [internal ref] A1) is DATA the
+ * binary ships, not markup it renders: blocks, connections and recipes that
+ * `sovrium library add` COPIES into an author's config. Nothing renders an
+ * entry from here — only the `library` commands and the docs renderer import
+ * it, and neither produces a page.
+ *
+ * Scanning it would put every catalogue block's classes into the builtin
+ * stylesheet that EVERY app is served, whether or not it installed a single
+ * block. Measured 2026-09-24 when the first blocks landed: ~9 KB on the
+ * island-free default render, which took `[internal ref]`
+ * and `[internal ref]` over their ceilings. An installed
+ * block loses nothing by the exclusion: its classes now live in the app's own
+ * config, where `collectAppCandidates` finds them and
+ * `appAddsCandidatesBeyondBuiltin` routes the app to a per-app compile.
+ */
+const LIBRARY_CATALOGUE_REL = 'library/**'
+
+/**
+ * A booted app's data directory. `bun run app:admin` (and `app:template`) write
+ * gitignored runtime state beside the config they serve, including
+ * `src/admin/.sovrium/history/*.ts` — config SNAPSHOTS, i.e. `.ts` files full of
+ * class strings from whatever the config held when it was saved. None of it is
+ * source, and a corpus built from a worktree that had booted a preview would
+ * differ from one that had not.
+ *
+ * oxide honours `.gitignore` (which lists both names), so on a normal checkout
+ * this negation changes nothing — measured 2026-09-25: a probe file under
+ * `src/admin/.sovrium/history/` moved the candidate count by 0 with and without
+ * it. It is here so the exclusion does not DEPEND on ignore-file discovery: in a
+ * scratch tree with no `.gitignore`, the same scanner call harvested the probe
+ * without the negation and dropped it with it.
+ */
+const PREVIEW_DATA_DIR_GLOBS = ['**/.sovrium/**', '**/.sovrium-wt/**'] as const
+
 const COPYRIGHT_HEADER = `/**
  * Copyright (c) 2025-2026 ESSENTIAL SERVICES
  *
@@ -181,6 +216,21 @@ function scanCandidates(): readonly string[] {
         pattern: DEFAULT_DESIGN_FLAT_REL,
         negated: true,
       },
+      // The library catalogue is copied into an author's config, never rendered
+      // from here — see LIBRARY_CATALOGUE_REL.
+      {
+        base: join(PROJECT_ROOT, 'src'),
+        pattern: LIBRARY_CATALOGUE_REL,
+        negated: true,
+      },
+      // A booted preview's data dir, in every scan root — see PREVIEW_DATA_DIR_GLOBS.
+      ...SCAN_SOURCES.flatMap((dir) =>
+        PREVIEW_DATA_DIR_GLOBS.map((pattern) => ({
+          base: join(PROJECT_ROOT, dir),
+          pattern,
+          negated: true,
+        }))
+      ),
       // Exclude co-located unit-test files from the candidate scan: their
       // sentinel/arbitrary classes are not part of any rendered page.
       ...TEST_FILE_GLOBS.map((pattern) => ({

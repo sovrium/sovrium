@@ -30,6 +30,11 @@ import { resolveEnvInValue } from '../resolve-env-vars'
 import { resolveTriggerInValue } from '../resolve-trigger-data'
 import { buildNativeActionInvoker, buildTemplateInvoker } from './action-invokers'
 import {
+  isTransientFailure,
+  MAX_RETRY_AFTER_MS,
+  requestedRetryDelayMs,
+} from './retry-classification'
+import {
   resolveRetryForAction,
   retrySchedule,
   truncateError,
@@ -107,6 +112,7 @@ const redactRecord = (
  *   - `error`  → {@link redactString} — a thrown Error may embed a secret
  *   - `output` → {@link redactRecord} — user code can RETURN a secret, e.g.
  *     a code action returning `{ token: context.env.API_KEY }`
+ *   - `logs`   → {@link redactString} per entry — user code can LOG a secret
  *
  * INVARIANT: the only fields safe to copy through verbatim are the identity
  * fields (`name`, `type`, `operator`, `status`) — they come from the config's
@@ -154,6 +160,14 @@ const buildStep = (
       : {}),
     props: redactedProps,
     ...(outcome.output !== undefined ? { output: redactRecord(outcome.output, ctx) } : {}),
+    ...(outcome.logs !== undefined && outcome.logs.length > 0
+      ? {
+          logs: outcome.logs.map((entry) => ({
+            level: entry.level,
+            message: redactString(entry.message, ctx.app, ctx.processEnv),
+          })),
+        }
+      : {}),
   }
 }
 
@@ -238,7 +252,10 @@ const projectRetryResult = (result: RetryOutcome, retry: ResolvedRetryConfig): A
       output: { ...(result.outcome.output ?? {}), attempts: result.attempts },
     }
   }
-  const isExhausted = retry.maxAttempts > 1
+  // Exhausted means the budget was SPENT. A failure the loop declined to retry
+  // (a non-transient 4xx, or a Retry-After longer than the loop will wait)
+  // ends the run as an ordinary failure instead.
+  const isExhausted = retry.maxAttempts > 1 && result.attempts.length >= retry.maxAttempts
   return {
     ...result.outcome,
     output: {
@@ -248,6 +265,30 @@ const projectRetryResult = (result: RetryOutcome, retry: ResolvedRetryConfig): A
       ...(isExhausted ? { exhausted: true } : {}),
     },
   }
+}
+
+/**
+ * Decide what one settled attempt means to the retry loop.
+ *
+ * A failure goes into the error channel — the one `Effect.retry` retries —
+ * only when another attempt could succeed ({@link isTransientFailure}). A
+ * non-transient failure is handed back as a value, which ends the loop at once.
+ * When a `429` or `503` names a `Retry-After`, the loop waits that long before
+ * the next attempt (on top of the schedule's own delay, so never sooner than
+ * asked), and does not retry at all when the wait exceeds
+ * {@link MAX_RETRY_AFTER_MS}. No wait is spent after the last attempt.
+ */
+const settleAttempt = (
+  outcome: ActionOutcome,
+  attemptNumber: number,
+  maxAttempts: number
+): Effect.Effect<ActionOutcome, ActionOutcome> => {
+  if (outcome.status !== 'failure') return Effect.succeed(outcome)
+  if (!isTransientFailure(outcome)) return Effect.succeed(outcome)
+  const requested = requestedRetryDelayMs(outcome, Date.now())
+  if (requested === undefined || attemptNumber >= maxAttempts) return Effect.fail(outcome)
+  if (requested > MAX_RETRY_AFTER_MS) return Effect.succeed(outcome)
+  return Effect.sleep(Duration.millis(requested)).pipe(Effect.andThen(Effect.fail(outcome)))
 }
 
 /**
@@ -279,7 +320,9 @@ const runWithRetrySchedule = (
         Ref.update(log, (prior) => [...prior, buildAttemptRecord(outcome, prior.length + 1)])
       ),
       Effect.flatMap((outcome) =>
-        outcome.status === 'failure' ? Effect.fail(outcome) : Effect.succeed(outcome)
+        Ref.get(log).pipe(
+          Effect.flatMap((prior) => settleAttempt(outcome, prior.length, retry.maxAttempts))
+        )
       )
     )
     const outcome = yield* Effect.retry(attempt, retrySchedule(retry)).pipe(

@@ -71,9 +71,10 @@
  * below. Their geometry still departs from the canvas twice, both times because
  * the DOM composition is laid out differently: the canvas puts its axis at the
  * TOP and hangs the rule beneath it, where this view closes with the axis at the
- * bottom; and the canvas' four connector types (FS / SS / FF / SF) are a
- * vocabulary no shipped config can express, so a link is drawn as the band
- * between the two records' anchor points and nothing finer is invented.
+ * bottom — so the Today tag sits at the rule's foot, in the axis row; and the
+ * canvas' four connector types (FS / SS / FF / SF) are a vocabulary no shipped
+ * config can express, so a link is drawn as the band between the two records'
+ * anchor points and nothing finer is invented.
  *
  * The RESIZE HANDLES remain absent, and remain a capability rather than a
  * restyle: a draggable handle has to commit a new end date back through the
@@ -390,7 +391,11 @@ const TIMELINE_SCALE_AXIS = [
   'mt-2 flex justify-between pt-1',
   'border-t',
   `border-[${v('sv-border', T.border)}]`,
-  'text-2xs',
+  // `leading-4` rather than the step's own line height: the Today tag sits in
+  // this row (see TODAY below) and is `leading-4` itself, so the row has to be
+  // at least that tall for the tag to stay inside it instead of poking up into
+  // the last lane.
+  'text-2xs leading-4',
   `text-[${v('sv-fg-subtle', T.fgSubtle)}]`,
 ].join(' ')
 
@@ -447,11 +452,15 @@ const TIMELINE_TODAY = [
  */
 export const computeTimelineTodayClasses = (): string => TIMELINE_TODAY
 
-// The tag hangs off the top of the rule and is centred on it (`-translate-x-1/2`
-// against a 1px parent). `text-2xs` is the same micro-type rung the lane title
-// and the axis spend, so the chip does not read as content.
+// The tag sits at the FOOT of the rule and is centred on it (`-translate-x-1/2`
+// against a 1px parent). The rule spans the rows AND the axis, and the axis is
+// the last thing in the plot, so `bottom-0` lands the chip inside the axis row —
+// among the dates it is one of. Hung at the top instead, it sat on the first
+// lane and covered the label of any bar starting today, which is exactly the
+// bar a reader looks for next to the marker. `text-2xs` is the same micro-type
+// rung the lane title and the axis spend, so the chip does not read as content.
 const TIMELINE_TODAY_TAG = [
-  'absolute top-0 left-0 -translate-x-1/2 px-1',
+  'absolute bottom-0 left-0 -translate-x-1/2 px-1',
   'text-2xs leading-4 font-medium whitespace-nowrap',
   `rounded-[${v('radius-sm', T.radiusSm)}]`,
   `bg-[${v('sv-primary', T.primary)}]`,

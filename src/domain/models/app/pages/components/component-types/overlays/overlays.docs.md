@@ -28,6 +28,8 @@ A modal dialog. The dialog itself declares no trigger: it is opened by a sibling
 
 `props.id` is the identifier the opener names; `props.title` and `props.description` are the heading and the supporting line; `children` are rendered inside the panel; and `formRef` names a top-level form from `app.forms[]` to render in the body.
 
+A dialog wrapping a form shows one title: its own, or the form's when it declares none.
+
 **Write the heading and the supporting line inside `props`.** The option table above lists `title` and `description` because the schema declares them beside `type` as well, but only the `props` spelling reaches the panel today: a top-level `title` decodes cleanly and draws nothing. `hydrate` and `formRef` are the two keys this type reads from its own level.
 
 ### `hydrate: false` — the dialog without JavaScript
@@ -70,6 +72,8 @@ A panel that slides in from a screen edge.
 Give a drawer a `dataSource` and it becomes record-bound: it fetches one record, renders a control per field, and — unless you turn editing off — saves back through the record API. This is the panel a `table` opens on a row click, and it also self-opens on a `?record=<id>` deep link.
 
 `dataSource` takes `{ table }` for a database record or `{ system }` to fetch one from a read endpoint; a system-bound drawer is read-only, because there is no table to save to. `recordFields` lists the fields to show, each `{ name, type }`, with `label` to rename an entry and `renderAs` to choose the rendering: `text`, the default, stringifies the value, and `json`, `list`, `key-value` and `code` each unpack a nested one. `canEdit: false` renders the record read-only. `actions` are footer buttons firing against the loaded record — `$record.*` resolves at click time, and `confirm` gates the click. `role` is `dialog` by default or `region`, and its accessible name comes from `props.title`. `id` is what a grid's `onRowClick: { action: openDrawer, component: <id> }` names.
+
+A read-only drawer shows a value as the grid does — a multi-select as chips, an amount in its currency.
 
 ```yaml
 tables:
@@ -116,17 +120,68 @@ The container itself renders once; its children render once per element. Inside 
 
 A key holding an **object or an array** is left as its literal `$record.<key>` token instead of being printed. `[object Object]` looks like data, and an empty string is indistinguishable from a null value; a surviving token can only mean "this binding did not resolve", and it names the key that did not.
 
-The one supported position is a record-bound drawer's `children` — that is where a record has been fetched, so it is the only place an array carried by one exists. Five shapes are refused when the app boots, each because the failure would otherwise be silent:
+#### Lists inside a list
 
-| Refused                                                         | Why                                                                                                           |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `repeat` beside `dataSource` on one container                   | Two row sources on one node, and nothing to choose between them.                                              |
-| `repeat` outside a record-bound drawer's `children`             | No record, so nothing to iterate — the container would render its template exactly once.                      |
-| `repeat` inside another `repeat`                                | `$record.<key>` would name a key on the inner element and on the outer one at once.                           |
-| `visibility.record` on or under a `repeat`                      | The per-element gate runs on the server; a repeat expands in the browser, so the gate would apply to nothing. |
-| `dataSource.system` carrying a `$record.` reference in the slot | Expanded server-side against the literal token, it resolves to nothing and fails closed to an empty region.   |
+A repeat may **name** its element with `as`. Inside a named repeat, `$<as>.<key>` reads the element and `$record.<key>` keeps reading the drawer's record, so nothing is hidden. A name is also what lets a second repeat sit inside the first: its `record` names a field of the **enclosing element**, the nearest record in scope.
 
-Linked rows are a different problem, and `repeat` does not solve it. An order's line items or a contact's activity are not _on_ the record — the records API nests values under `fields`, and links are ids — so they need a second read, on a page that knows the id from its own `path`.
+```yaml
+- type: container
+  element: section
+  props: { aria-label: Legs }
+  repeat: { record: legs, as: leg }
+  children:
+    - { type: text, element: h2, content: '$leg.from → $leg.to' }
+    - { type: text, content: 'Traveller: $record.traveller' }
+    - type: container
+      repeat: { record: stops, as: stop }
+      children:
+        - { type: text, element: h3, content: '$stop.city ($stop.minutes min)' }
+        - { type: text, content: 'Leg from $leg.from' }
+```
+
+Each leg draws its own stops, the outer name stays readable inside the inner copies, and a leg whose `stops` list is empty draws none — the container is left with no content at all, so a `:empty` rule can style it. Without `as`, a repeat behaves exactly as described above. Two levels is the limit.
+
+`repeat` has two supported positions: a record-bound drawer's `children`, where a record has been fetched, and a page bound to one record — a page-level `dataSource` of `{ system }` or `{ table, mode: 'single' }` — where the copies are drawn on the server and arrive in the first response. Those are the only places an array carried by a record exists. These shapes are refused when the app boots, each because the failure would otherwise be silent:
+
+| Refused                                                                     | Why                                                                                                                  |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `repeat` beside `dataSource` on one container                               | Two row sources on one node, and nothing to choose between them.                                                     |
+| `repeat` outside a record-bound drawer's `children` and a record-bound page | No record, so nothing to iterate — the container would render its template exactly once.                             |
+| `repeat` inside a `dataSource` row template on a bound page                 | There `$record.` is the row, not the page's record, so the array is a different one on every row.                    |
+| `repeat.as` naming `record`, `param`, `query` or another built-in namespace | The token would mean two things. A name must also be a plain identifier: `my-leg` cannot be spelled as one.          |
+| `repeat` inside a `repeat` that has no `as`                                 | `$record.<key>` would name a key on the inner element and on the outer one at once.                                  |
+| `repeat.as` an enclosing repeat already uses                                | The inner element would silently hide the outer one.                                                                 |
+| `$<as>.<key>` outside the repeat that declares `as`                         | Nothing resolves it there, so it would ship as literal text.                                                         |
+| repeats nested deeper than two                                              | Each level multiplies the copies; two is the same bound the row templates carry.                                     |
+| `visibility.record` on or under a `repeat`                                  | The per-element gate runs only for row templates; a repeat's copies never evaluate it, so it would apply to nothing. |
+| `dataSource.system` carrying a `$record.` reference in the slot             | Expanded server-side against the literal token, it resolves to nothing and fails closed to an empty region.          |
+
+Linked rows are a different problem, and `repeat` does not solve it. An order's line items or a contact's activity are not _on_ the record — the records API nests values under `fields`, and links are ids — so they need a second read, which is what `related` declares.
+
+#### Related records
+
+A record usually has records of its own in other tables: a company's contacts, a project's tasks, an asset's loans. They are not stored on the record — each points back to it through a relationship column — so the drawer reads them separately. `related` declares those reads. Each entry becomes its own section below the record's fields, headed by its `label`, listing the rows of `table` whose `field` points at the record the drawer opened.
+
+```yaml
+- type: drawer
+  id: company-detail
+  dataSource: { table: companies }
+  related:
+    - label: Contacts
+      table: contacts
+      field: company # the relationship column on contacts that points at companies
+      columns:
+        - { field: name, label: Name }
+        - { field: role, label: Role }
+      sort: [{ field: name, direction: asc }]
+      limit: 10
+      emptyMessage: No contact for this company yet.
+      onRowClick: { action: openDrawer, component: contact-detail }
+```
+
+The list is read when the drawer opens, and again each time it opens on another record. It is read-only and compact: no toolbar, no inline editing. It follows the related table's own permissions. A reader who may not read `table` sees no section at all, and the create button appears only for a reader allowed to create in `table`. A click on a row does nothing unless `onRowClick` says so: `openDrawer` opens that row in another drawer on the page, bound to `table`, in place of this one; `navigate` follows a path, with `$record.*` taken from the clicked row.
+
+`field` must be a `relationship` column of `table` whose `relatedTable` is the drawer's own table. Sovrium refuses to start otherwise, naming the entry (`related[0].field`), the column and the table. The same goes for a `table` that does not exist, a `columns` or `sort` field `table` does not have, an `openDrawer` target that is not a drawer on the page bound to `table`, and `related` on a drawer that is not bound to a table. Related lists go one level deep: a related row's own related records are reached by opening it.
 
 **Migrating from `record-drawer`:** rename the `type` to `drawer` and change nothing else. `dataSource`, `recordFields`, `canEdit`, `actions`, `role` and `id` all carry over unchanged, and a drawer additionally accepts `drawerSide` and `drawerSize`. The `dataSource` is what makes it record-bound, so the renamed drawer still answers the same `openDrawer` row-click.
 

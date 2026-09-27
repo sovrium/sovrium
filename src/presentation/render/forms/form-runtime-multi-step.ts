@@ -18,6 +18,7 @@
  *   - `isMultiStep` (boolean)
  *   - `namedInputs` (helper returning `input[name]`-style elements)
  *   - `renderOnError` (inline error rendering helper)
+ *   - `applyConditions` / `accumulatedValues` (live conditions fragment)
  *
  * Defines a no-arg `bindStepNav` function the surrounding code calls
  * once on mount and again after a step replacement, and a
@@ -68,11 +69,15 @@ export const FORM_RUNTIME_MULTI_STEP_SCRIPT = `
       else submitBtn.setAttribute('hidden', '')
     }
     bindStepNav()
+    applyConditions()
   }
+  // A control disabled by a false visibleWhen is skipped: the field is off
+  // screen, so its answer is neither sent nor kept.
   function collectStepValues() {
     var inputs = namedInputs()
     var payload = {}
     inputs.forEach(function (input) {
+      if (input.disabled) return
       if (input.type === 'checkbox') {
         payload[input.name] = input.checked
         return
@@ -84,10 +89,14 @@ export const FORM_RUNTIME_MULTI_STEP_SCRIPT = `
   function handleNext() {
     var stepId = getActiveStepId()
     if (!stepId) return
+    var stepValues = collectStepValues()
+    Object.keys(stepValues).forEach(function (k) {
+      accumulatedValues[k] = stepValues[k]
+    })
     fetch('/api/forms/' + formName + '/steps/' + stepId + '/advance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(collectStepValues()),
+      body: JSON.stringify(stepValues),
     })
       .then(function (response) {
         return response.json().then(function (body) {
@@ -159,6 +168,10 @@ export const FORM_RUNTIME_MULTI_STEP_SCRIPT = `
     namedInputs().forEach(function (input) {
       if (preserve.indexOf(input.name) < 0) return
       seed[input.name] = input.type === 'checkbox' ? input.checked : input.value
+    })
+    accumulatedValues = {}
+    Object.keys(seed).forEach(function (k) {
+      accumulatedValues[k] = seed[k]
     })
     fetch('/api/forms/' + formName + '/draft/reset', {
       method: 'POST',

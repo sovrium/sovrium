@@ -6,7 +6,7 @@ The top-level `env` array documents each environment variable the app depends on
 
 ```yaml
 env:
-  - { key: SLACK_WEBHOOK_URL, description: Slack incoming webhook URL }
+  - { key: SLACK_WEBHOOK_URL, description: Slack incoming webhook URL, required: false }
   - { key: STRIPE_SECRET, description: Stripe API secret, required: true }
   - { key: REGION, description: Default region, required: false, default: eu-west, secret: false }
 ```
@@ -15,7 +15,9 @@ env:
 
 <!-- sovrium:options EnvVarSchema -->
 
-`key` is uppercase snake case and must be unique across the app. `required` defaults to `true`: a required variable that is unset fails validation at boot rather than at the first template that reads it. Where both `required` and `default` are present, the default is the fallback and the boot succeeds.
+`key` is uppercase snake case and must be unique across the app. `required` defaults to `true`, and boot enforces that default: a required variable with no value and no `default` stops the server at startup with an error naming the key, rather than failing at the first template that reads it. Declare an optional variable with `required: false`. Where both `required` and `default` are present, the default is the fallback and the boot succeeds.
+
+> **Upgrading from 0.28 or earlier:** a variable declared without `required` used to be treated as optional at startup. It is now required, so an app that relied on that leniency stops at boot when the variable has no value and no `default`. Mark each genuinely optional variable `required: false`.
 
 `secret` defaults to **`true`**, and that default is the safe direction. Leave it alone and the `default` value is redacted wherever the configuration is reflected back to an operator. Set `secret: false` only for a default that is genuinely harmless — a port, a region, a base URL — so it renders verbatim in the operator console's view of the configuration as booted, instead of as asterisks.
 

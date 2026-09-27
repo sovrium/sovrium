@@ -33,6 +33,8 @@ pages:
 
 **The character limits are schema constraints, not advice.** A `title` over 60 characters, or a `description` over 160, fails `sovrium validate`. This catches a runaway `$record.title` binding offline rather than in a search result.
 
+The numbers themselves are a practice rather than a search-engine rule: Google states no length limit for either, and truncates what it shows by pixel width, not by character count. Sixty and 160 are the lengths that usually survive that truncation on a desktop result, which is why Sovrium enforces them — a shorter title is never penalised, a longer one is simply cut.
+
 Localized metadata is keyed by language, and each entry carries the same limits:
 
 ```yaml
@@ -56,13 +58,15 @@ Either spelling works as a key — the short code, `fr`, or the full locale, `fr
 
 <!-- sovrium:options OpenGraphSchema depth=2 -->
 
-Open Graph metadata for rich social previews. A sharing image of 1200 by 630 pixels is the safe size, and `determiner` is the word preceding the title in a sentence.
+Open Graph metadata for rich social previews, where `determiner` is the word preceding the title in a sentence. `siteName` renders `og:site_name`, which tells a platform the page belongs to a larger site; the flat `og:site_name` key on `meta` is a shorthand for the same tag. In an app that declares more than one language, a page with `openGraph` also lists every other language as an `og:locale:alternate` in `language_TERRITORY` form (`fr_FR`), read from each language's `locale`, so a platform can offer the share in its reader's language; the page's own `og:locale` is never repeated, and a language declared without a territory is left out.
+
+**The sharing image is the part platforms are strictest about.** Use a PNG or JPEG of 1200 by 630 pixels — a 1.91:1 ratio, under 8 MB. WebP is acceptable, since every major platform has rendered it since late 2024. **Never AVIF**: X, LinkedIn, Slack and iMessage all fail to render it, and the link then shares with no image at all, so `sovrium validate` refuses an `openGraph.image` or `twitter.image` whose path ends in `.avif`. Only the path is read, so a query string such as `og.avif?v=2` is refused too. This is the one place the rule for committed images is reversed — imagery on the page itself should be AVIF or WebP, but a sharing card should not. `imageAlt` renders `og:image:alt`; Sovrium does not yet emit the image's width and height, so a platform fetches the image before it can draw the first preview. The refusal covers the two sharing images only: a favicon and an image named in structured data are read by search engines, which render AVIF, so neither is checked.
 
 ## `twitter`
 
 <!-- sovrium:options TwitterCardSchema depth=2 -->
 
-Social-card metadata, where `card` is the only required property. The limits here are tighter than the core `title` and `description` limits, which is why they are separate properties rather than inherited ones.
+Social-card metadata, where `card` is the only required property. The image rules above apply unchanged: `summary_large_image` crops to 2:1, so keep the subject away from the top and bottom edges of a 1200 by 630 image. The limits here are tighter than the core `title` and `description` limits, which is why they are separate properties rather than inherited ones.
 
 ## Elsewhere
 

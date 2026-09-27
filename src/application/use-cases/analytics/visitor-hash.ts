@@ -15,6 +15,8 @@
  * Uses Web Crypto API (crypto.subtle) — zero external dependencies.
  */
 
+import { zonedIsoDate, zonedMinutesSinceMidnight } from '@/domain/kernel/time/zoned-calendar'
+
 /**
  * Convert ArrayBuffer to hex string
  */
@@ -37,19 +39,23 @@ const sha256 = async (input: string): Promise<string> => {
  * Compute a privacy-safe visitor hash.
  *
  * Hash rotates daily (date component), making it impossible to track
- * a visitor across days. No cookies or PII are stored.
+ * a visitor across days. No cookies or PII are stored. The day is the calendar
+ * day of the operator timezone, so the rotation happens at the operator's
+ * midnight rather than at UTC's.
  *
  * @param ip - Client IP address (from X-Forwarded-For or connection)
  * @param userAgent - Client User-Agent string
  * @param salt - Application-specific salt for additional privacy
+ * @param timeZone - IANA zone whose calendar day rotates the hash (operator timezone)
  * @returns SHA-256 hex string (64 characters)
  */
 export const computeVisitorHash = async (
   ip: string,
   userAgent: string,
-  salt: string
+  salt: string,
+  timeZone: string
 ): Promise<string> => {
-  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+  const today = zonedIsoDate(new Date(), timeZone) // YYYY-MM-DD
   return sha256(`${today}|${ip}|${userAgent}|${salt}`)
 }
 
@@ -59,19 +65,25 @@ export const computeVisitorHash = async (
  * Sessions are grouped by time windows based on the configured timeout.
  * A new session starts after the timeout period of inactivity.
  *
+ * The window and the date are both read on the wall clock of `timeZone`. They
+ * used to mix the process zone's hours with the UTC date, so on any host not
+ * running in UTC a window could straddle two different days.
+ *
  * @param visitorHash - The visitor's daily hash
- * @param sessionTimeoutMinutes - Session timeout in minutes (default: 30)
+ * @param sessionTimeoutMinutes - Session timeout in minutes
+ * @param timeZone - IANA zone the windows are counted in (operator timezone)
+ * @param now - the reference instant (injected for tests)
  * @returns SHA-256 hex string (64 characters)
  */
 export const computeSessionHash = async (
   visitorHash: string,
-  sessionTimeoutMinutes: number = 30
+  sessionTimeoutMinutes: number,
+  timeZone: string,
+  now: Readonly<Date> = new Date()
 ): Promise<string> => {
   // Create time windows based on session timeout
   // e.g., with 30min timeout: 0-29min -> window 0, 30-59min -> window 1
-  const now = new Date()
-  const minutesSinceMidnight = now.getHours() * 60 + now.getMinutes()
-  const timeWindow = Math.floor(minutesSinceMidnight / sessionTimeoutMinutes)
-  const dateStr = now.toISOString().slice(0, 10)
+  const timeWindow = Math.floor(zonedMinutesSinceMidnight(now, timeZone) / sessionTimeoutMinutes)
+  const dateStr = zonedIsoDate(now, timeZone)
   return sha256(`${visitorHash}|${dateStr}|${timeWindow}`)
 }

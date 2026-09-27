@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { HttpUrlOrRecordTemplateSchema } from '@/domain/kernel/url/url'
+import { validateSharingImageFormat } from './sharing-image-validation'
 
 // ============================================================================
 // Open Graph
@@ -85,8 +86,9 @@ export const OpenGraphSchema = Schema.Struct({
   ),
   image: Schema.optional(
     HttpUrlOrRecordTemplateSchema.annotate({
-      description: 'Image URL for social sharing (recommended: 1200x630px)',
-    })
+      description:
+        'Image URL for social sharing: PNG, JPEG or WebP, 1200x630px recommended. An AVIF path is refused, because X, LinkedIn, Slack and iMessage do not render AVIF sharing images.',
+    }).pipe(Schema.check(Schema.makeFilter(validateSharingImageFormat('openGraph.image'))))
   ),
   imageAlt: Schema.optional(
     Schema.String.annotate({

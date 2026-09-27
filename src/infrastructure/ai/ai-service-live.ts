@@ -24,6 +24,10 @@ import {
   resolveAiEcoRouting,
   resolveOllamaBaseUrl,
 } from '@/domain/models/process-env/ai/ai-eco-routing'
+import {
+  resolveBaseUrl,
+  type SupportedAiProvider,
+} from '@/domain/models/process-env/ai/ai-providers'
 import { egressRetrySchedule, isRetryableHttpStatus } from '@/infrastructure/egress/egress-retry'
 import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import { traceAiRequest } from '@/infrastructure/telemetry/ai-request-trace'
@@ -68,7 +72,11 @@ interface ChatCompletionPayload {
   readonly choices?: ReadonlyArray<{
     readonly message?: {
       readonly content?: string | null
-      readonly tool_calls?: ReadonlyArray<RawToolCall>
+      /**
+       * Absent, empty, or `null`: Mistral sends `"tool_calls": null` on every
+       * plain reply, where OpenAI omits the key — all three mean "no tool call".
+       */
+      readonly tool_calls?: ReadonlyArray<RawToolCall> | null
     }
   }>
   readonly model?: string
@@ -154,7 +162,7 @@ const serializeMessages = (
  * hard-coded fallback. Both `temperature` and `max_tokens` are always
  * present on the request so behaviour is uniform across providers.
  */
-const buildRequestBody = (
+export const buildRequestBody = (
   model: string,
   defaults: AiDefaults,
   input: ChatInput,
@@ -177,12 +185,13 @@ const buildRequestBody = (
  * Extract the OpenAI-compatible `tool_calls[]` from a chat-completion message
  * into the port's {@link ChatToolCall} shape. The wire format carries each
  * call's `arguments` as a JSON string; a malformed string degrades to an
- * empty object rather than failing the whole turn.
+ * empty object rather than failing the whole turn. A `null` list (Mistral's
+ * shape for a plain reply) is read exactly like an absent one.
  */
-const extractToolCalls = (
-  raw: ReadonlyArray<RawToolCall> | undefined
+export const extractToolCalls = (
+  raw: ReadonlyArray<RawToolCall> | null | undefined
 ): ReadonlyArray<ChatToolCall> | undefined => {
-  if (raw === undefined || raw.length === 0) return undefined
+  if (raw === undefined || raw === null || raw.length === 0) return undefined
   return raw.map((call, index) => {
     const argsString = call.function?.arguments ?? '{}'
     const parsed = ((): Record<string, unknown> => {
@@ -511,9 +520,12 @@ const makeOllamaAdapter = (
  */
 const makeCloudAdapter = (
   config: ReturnType<typeof parseAiEnvConfig>,
-  provider: string
+  provider: SupportedAiProvider
 ): ReturnType<typeof AiService.of> => {
-  const { baseUrl, apiKey } = config
+  const { apiKey } = config
+  // The same resolver `/api/health` reads, so the reported endpoint and the one
+  // calls reach cannot diverge (Mistral's public API is its default).
+  const baseUrl = resolveBaseUrl(provider, process.env)
   const defaultModel = config.model ?? 'mock-model'
   const defaults: AiDefaults = { temperature: config.temperature, maxTokens: config.maxTokens }
   const embeddingModel = process.env.AI_EMBEDDING_MODEL?.trim() || DEFAULT_CLOUD_EMBEDDING_MODEL

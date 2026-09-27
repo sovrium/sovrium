@@ -116,6 +116,7 @@ export const automationActions = defineSection({
       stories: [
         'US-AUTOMATIONS-ACTIONS-DATA',
         'US-AUTOMATIONS-ACTIONS-FILTER',
+        'US-AUTOMATIONS-ACTIONS-POLLING-NEW-ITEMS',
         'US-AUTOMATIONS-ACTIONS-STATE',
       ],
     }),

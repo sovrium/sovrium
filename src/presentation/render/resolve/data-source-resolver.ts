@@ -11,7 +11,8 @@
  * `resolvePageDataSources` walks a page's components and hands each one to
  * `resolveComponent`, which is the ORDER the stages run in: desugar the binding,
  * stamp a nested island, resolve the render plan, validate the prerequisites,
- * resolve the `$currentUser` filters, then dispatch to the mode resolver. Each
+ * then dispatch to the mode resolver. The `$currentUser` filters of the whole
+ * tree are resolved once, before the walk (`current-user-filter-pass.ts`). Each
  * stage lives in a sibling module — the shared vocabulary in
  * `data-source-contracts.ts`, `$record` substitution in `record-substitution.ts`,
  * the per-row expansion and island stamps in `data-source-rows.ts`, the mode
@@ -20,7 +21,8 @@
  */
 
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
-import { hasCurrentUserRef, resolveFilters, scopeTablesOf } from './current-user-resolver'
+import { resolveCurrentUserFiltersInTree } from './current-user-filter-pass'
+import { scopeTablesOf } from './current-user-resolver'
 import {
   desugarSystemSourceRef,
   SINGLE_RECORD_NOT_FOUND,
@@ -31,7 +33,10 @@ import {
 } from './data-source-contracts'
 import {
   checkFieldErrors,
-  emptyDataBoundComponent,
+  denyWhenUnreadable,
+  gateNestedInheritedRecord,
+  gateNestedTableBinding,
+  holdsInheritedRecord,
   resolveByMode,
   resolveRenderPlan,
 } from './data-source-modes'
@@ -59,11 +64,16 @@ function validateDataSourcePrereqs(
   if (!ctx.matchedTable) {
     return withDataSourceError(component, `Error: table "${ctx.tableName}" not found`)
   }
-  // `plan === undefined` is the auth-not-configured full-access model.
-  if (ctx.plan !== undefined && !ctx.plan.allowed) {
-    return emptyDataBoundComponent(component)
-  }
-  return undefined
+  return denyWhenUnreadable(component, ctx.plan)
+}
+
+/** A `table` component whose `dataSource.view` names a view of a table that exists. */
+function readsThroughDeclaredView(component: Component, matchedTable: unknown): boolean {
+  return (
+    matchedTable !== undefined &&
+    component.type === 'table' &&
+    component.dataSource?.view !== undefined
+  )
 }
 
 async function resolveComponent(
@@ -76,7 +86,7 @@ async function resolveComponent(
     readonly db: DataSourceDb
   }
 ): Promise<DataSourceSectionResult> {
-  const { app, routeParams, session, cookies, db } = ctx
+  const { app, routeParams, session, db } = ctx
   // Value-keyed, for the reason given on `stampNestedChild`: a top-level
   // `specimen` must reach the island walk below rather than being mistaken for
   // a template reference. It carries no `dataSource` of its own, so all it
@@ -93,7 +103,9 @@ async function resolveComponent(
   // A layout container carries no binding of its own, but may HOST one: descend
   // to stamp the island props of any data-bound descendant whose island-ness is
   // decided here rather than by its component type (a `list`, above all).
-  if (!component.dataSource) return stampNestedIslands(component, { app, routeParams })
+  if (!component.dataSource) {
+    return resolveNestedSingleRecords(stampNestedIslands(component, { app, routeParams }), ctx)
+  }
 
   // CAP-1/CAP-2: a client-fetching data-bound component (a `list` itemTemplate
   // binding, or a `record-field` self-binding to a system DETAIL endpoint) is
@@ -104,6 +116,13 @@ async function resolveComponent(
 
   const { table: tableName, fields: requestedFields } = component.dataSource
   const matchedTable = (app.tables ?? []).find((t) => t.name === tableName)
+  // A grid bound to one of its table's VIEWS reads through the view's own
+  // records route, and it is that route's grant — the VIEW's, under which a
+  // public view admits a visitor with no account — that decides what it
+  // serves. The table's read plan is therefore not this binding's gate: asking
+  // it would empty a public view's grid for exactly the reader it exists for.
+  // Nothing is resolved here either; the island owns the fetch, read-only.
+  if (readsThroughDeclaredView(component, matchedTable)) return component
   const plan = resolveRenderPlan({
     matchedTable: matchedTable as TableLike | undefined,
     app,
@@ -135,23 +154,11 @@ async function resolveComponent(
   // apply. Only the per-record resolution is skipped.
   if (component.type === 'drawer') return component
 
-  // Z-1 / P-6: Resolve `$currentUser.*` references in dataSource.filter.
-  // - Unauthenticated requests on filters with $currentUser refs return 401
-  //   (defense-in-depth: filter resolution is server-enforced).
-  // - Unrestricted users (admin) bypass assignments-based filters entirely.
-  // - `$currentUser.activeAssignment` requires `scopeTables` so the cookie
-  //   value can be validated against the configured scope set
-  //   (tamper-resistant — see current-user-resolver.ts).
-  const resolvedComponent = await resolveCurrentUserFilters(component, {
-    session,
-    cookies,
-    db,
-    scopeTables: scopeTablesOf(app),
-  })
-  if (resolvedComponent === UNAUTHORIZED) return UNAUTHORIZED
-
+  // Z-1 / P-6: `$currentUser.*` filters were resolved for the whole tree
+  // before this walk began (`resolveCurrentUserFiltersInTree`), so the
+  // binding here already carries concrete values.
   return resolveByMode({
-    component: resolvedComponent,
+    component,
     app,
     table: matchedTable!,
     session,
@@ -161,41 +168,114 @@ async function resolveComponent(
   })
 }
 
+type ResolveContext = Parameters<typeof resolveComponent>[1]
+
 /**
- * Resolves `$currentUser.*` references inside `dataSource.filter[].value`,
- * returning a new component with concrete literal values. Returns
- * `UNAUTHORIZED` when an unauthenticated request hits a filter that
- * contains a `$currentUser` reference.
+ * A record-bound (`mode: 'single'`) component resolves the SAME wherever it is
+ * placed — inline, or one container down.
+ *
+ * The walk above resolves a binding server-side at the top level only, and
+ * stamps nested bindings for their islands (`stampNestedIslands`). That is
+ * right for a list or a table, whose island owns its fetch; it is wrong for a
+ * single-record binding, which has no island fetch at all — its record is read
+ * here or not at all. A form bound to one record and wrapped in a layout
+ * container therefore rendered its fields blank, and a Save would have written
+ * those blanks over the record.
+ *
+ * So this descends through layout containers (nodes with no binding of their
+ * own) and hands each nested `mode: 'single'` node to the same resolver the
+ * top level uses. Every other nested binding is left exactly as the island
+ * stamp returned it, and a bound node's own children — its per-row template —
+ * are never entered. A nested record that does not exist answers the page the
+ * way the same form written inline does.
+ *
+ * The same walk applies a nested table grid's read and write gates
+ * (`gateNestedTableBinding`), for the same reason: it is the one nested pass
+ * that holds the session, and a grid must answer the caller the same way
+ * wherever it sits.
+ *
+ * Identity-preserving: a subtree with nothing to resolve comes back by reference.
  */
-async function resolveCurrentUserFilters(
-  component: Component,
-  ctx: {
-    readonly session: SessionInfo | undefined
-    readonly cookies: Readonly<Record<string, string>> | undefined
-    readonly db: DataSourceDb
-    readonly scopeTables: readonly string[]
-  }
-): Promise<Component | typeof UNAUTHORIZED> {
-  const filters = component.dataSource?.filter
-  if (!hasCurrentUserRef(filters)) return component
+function isRecordBound(node: Component, routeParams: Readonly<Record<string, string>>): boolean {
+  const binding = node.dataSource as { readonly mode?: string; readonly table?: unknown }
+  return (
+    binding.mode === 'single' &&
+    typeof binding.table === 'string' &&
+    resolveIslandShortCircuit(node, routeParams) === undefined
+  )
+}
 
-  const result = await resolveFilters(filters, {
-    session: ctx.session,
-    cookies: ctx.cookies,
-    fetchAssignments: ctx.db.fetchUserAssignments,
-    scopeTables: ctx.scopeTables,
-  })
-  if (result.kind === 'unauthorized') return UNAUTHORIZED
+type NestedChild = Component | ComponentReference | string
+type NestedResult = DataSourceSectionResult | string
+type PageSentinel = typeof UNAUTHORIZED | typeof SINGLE_RECORD_NOT_FOUND
 
-  // Replace the dataSource with a copy where every `$currentUser.*` value
-  // is now a concrete literal (or empty array for missing assignments).
-  return {
-    ...component,
-    dataSource: {
-      ...component.dataSource!,
-      filter: result.filter,
-    },
-  }
+const isSentinel = (value: unknown): value is PageSentinel =>
+  value === UNAUTHORIZED || value === SINGLE_RECORD_NOT_FOUND
+
+/** One nested child: descend a container, resolve a record, gate a grid. */
+async function resolveNestedChild(child: NestedChild, ctx: ResolveContext): Promise<NestedResult> {
+  if (typeof child === 'string' || isComponentReferenceNode(child)) return child
+  const node = child as Component
+  if (!node.dataSource) return resolveNestedSingleRecords(node, ctx)
+  if (isRecordBound(node, ctx.routeParams)) return resolveComponent(node, ctx)
+  if (holdsInheritedRecord(node)) return gateNestedInheritedRecord(node, ctx)
+  return gateNestedTableBinding(node, ctx)
+}
+
+/**
+ * Resolve one child list; the page-level sentinel wins over any tree. An
+ * unchanged list comes back by reference.
+ */
+async function resolveNestedList(
+  children: readonly NestedChild[],
+  ctx: ResolveContext
+): Promise<readonly NestedResult[] | PageSentinel> {
+  const resolved = await Promise.all(children.map((child) => resolveNestedChild(child, ctx)))
+  const sentinel = resolved.find(isSentinel)
+  if (sentinel !== undefined) return sentinel
+  return resolved.some((child, index) => child !== children[index]) ? resolved : children
+}
+
+/**
+ * The same walk over every `responsive.<bp>.children`. A breakpoint's children
+ * are drawn server-side like the node's own (and reference expansion already
+ * inlines templates there), so a grid placed in one must answer the same gates
+ * as the grid written in `children`.
+ */
+async function resolveNestedResponsive(
+  host: Component,
+  ctx: ResolveContext
+): Promise<DataSourceSectionResult> {
+  const { responsive } = host as { readonly responsive?: unknown }
+  if (typeof responsive !== 'object' || responsive === null) return host
+  const entries = Object.entries(responsive as Record<string, unknown>)
+  const variants = await Promise.all(
+    entries.map(async ([, variant]) => {
+      const { children } = (variant ?? {}) as { readonly children?: unknown }
+      if (!Array.isArray(children) || children.length === 0) return variant
+      const resolved = await resolveNestedList(children as readonly NestedChild[], ctx)
+      if (isSentinel(resolved)) return resolved
+      return resolved === children
+        ? variant
+        : { ...(variant as Record<string, unknown>), children: resolved }
+    })
+  )
+  const sentinel = variants.find(isSentinel)
+  if (sentinel !== undefined) return sentinel
+  if (variants.every((variant, index) => variant === entries[index]?.[1])) return host
+  const next = Object.fromEntries(entries.map(([breakpoint], i) => [breakpoint, variants[i]]))
+  return { ...host, responsive: next } as unknown as Component
+}
+
+async function resolveNestedSingleRecords(
+  host: Component,
+  ctx: ResolveContext
+): Promise<DataSourceSectionResult> {
+  const children = host.children as ReadonlyArray<NestedChild> | undefined
+  const own = children && children.length > 0 ? await resolveNestedList(children, ctx) : children
+  if (isSentinel(own)) return own
+  const withOwn = own === children ? host : ({ ...host, children: own } as Component)
+  return resolveNestedResponsive(withOwn, ctx)
 }
 
 /**
@@ -221,6 +301,16 @@ export async function resolvePageDataSources(
   }
 ): Promise<Page | { readonly unauthorized: true } | undefined> {
   if (!page.components || page.components.length === 0) return page
+  // Z-1 / [internal ref]: every `$currentUser.*` filter on the page, at any depth,
+  // becomes a concrete value here — before the island stamps serialise a
+  // binding for the browser. An anonymous request whose page needs one is 401.
+  const components = await resolveCurrentUserFiltersInTree(page.components, {
+    session: ctx.session,
+    cookies: ctx.cookies,
+    db: ctx.db,
+    scopeTables: scopeTablesOf(app),
+  })
+  if (components === UNAUTHORIZED) return { unauthorized: true }
   const componentCtx = {
     app,
     routeParams,
@@ -230,7 +320,7 @@ export async function resolvePageDataSources(
   }
 
   const resolvedComponents = await Promise.all(
-    page.components.map((item) => resolveComponent(item, componentCtx))
+    components.map((item) => resolveComponent(item, componentCtx))
   )
 
   if (resolvedComponents.some((s) => s === UNAUTHORIZED)) return { unauthorized: true }

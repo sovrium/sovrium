@@ -97,6 +97,14 @@ export interface KanbanCellProps {
   readonly colorFieldColors?: Readonly<Record<string, string>>
   /** The column header, on the single-axis board that draws one per column. */
   readonly header?: ReactNode
+  /**
+   * A folded column draws its header and NOT its cards — not rendered-and-
+   * hidden, so `[data-card]` inside it resolves to nothing, exactly as a
+   * collapsed swimlane does. The well stays a drop target.
+   */
+  readonly folded?: boolean
+  /** DOM id of the card well, the target of a foldable header's `aria-controls`. */
+  readonly bodyId?: string
 }
 
 /**
@@ -141,6 +149,8 @@ export function KanbanCell({
   draggableEnabled,
   colorFieldColors,
   header,
+  folded = false,
+  bodyId,
 }: KanbanCellProps): ReactElement {
   // Make the cell itself a droppable target so dragging onto an empty cell (or
   // onto its background, not over a card) still resolves to a valid drop target.
@@ -160,21 +170,28 @@ export function KanbanCell({
       className={`${computeKanbanColumnClasses({ state: isOver ? 'over' : 'default' })} w-72 shrink-0`}
     >
       {header}
-      <SortableContext
-        items={recordIds}
-        strategy={verticalListSortingStrategy}
-      >
-        <div className="flex min-h-[2.5rem] flex-col gap-1.5">
-          <CellBody
-            column={column}
-            emptyMessage={emptyMessage}
-            card={card}
-            draggableEnabled={draggableEnabled}
-            colorFieldColors={colorFieldColors}
-            isOver={showPlaceholder}
-          />
-        </div>
-      </SortableContext>
+      {folded ? (
+        <div id={bodyId} />
+      ) : (
+        <SortableContext
+          items={recordIds}
+          strategy={verticalListSortingStrategy}
+        >
+          <div
+            id={bodyId}
+            className="flex min-h-[2.5rem] flex-col gap-1.5"
+          >
+            <CellBody
+              column={column}
+              emptyMessage={emptyMessage}
+              card={card}
+              draggableEnabled={draggableEnabled}
+              colorFieldColors={colorFieldColors}
+              isOver={showPlaceholder}
+            />
+          </div>
+        </SortableContext>
+      )}
     </div>
   )
 }

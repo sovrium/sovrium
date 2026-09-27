@@ -174,10 +174,18 @@ type ExistingColumnEntry = {
 }
 
 /**
- * SQLite arm of `getExistingColumns` — `pragma_table_info` reports per-column
+ * SQLite arm of `getExistingColumns` — `pragma_table_xinfo` reports per-column
  * name/type/notnull/default. `is_nullable` is normalized to the Postgres-shaped
  * `'YES'`/`'NO'` string so downstream consumers (migration helpers) need no
  * per-dialect branch.
+ *
+ * `xinfo`, not `table_info`: `pragma_table_info` omits GENERATED columns, so a
+ * formula column read as missing and every later migration of its table tried
+ * to `ADD COLUMN` it again (`duplicate column name`). `hidden` is 2 (virtual)
+ * or 3 (stored) for a generated column and 1 only for a virtual table's hidden
+ * column, which is not a column of the table's own. PostgreSQL's
+ * `information_schema.columns` already lists generated columns, so the two
+ * arms now agree.
  */
 const getExistingColumnsSqlite = (
   tx: TransactionLike,
@@ -186,7 +194,8 @@ const getExistingColumnsSqlite = (
   executeSQL(
     tx,
     `SELECT name AS column_name, type AS data_type, "notnull", dflt_value
-     FROM pragma_table_info('${tableName}')`
+     FROM pragma_table_xinfo('${tableName}')
+     WHERE hidden <> 1`
   ).pipe(
     Effect.map((result) => {
       const rows = result as readonly {

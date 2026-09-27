@@ -68,7 +68,7 @@ export const FormSchema = Schema.Struct({
   description: Schema.optional(
     Schema.String.annotate({
       description:
-        'Introduction shown above the first field. Accepts a `$t:` key to use a translated text.',
+        'Introduction shown above the first field. Accepts a `$t:` key to use a translated text. Accepts inline markdown: links (always opened in a new tab), bold, italic, code and line breaks.',
     })
   ),
   /**

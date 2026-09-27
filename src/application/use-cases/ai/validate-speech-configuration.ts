@@ -6,7 +6,11 @@
  */
 
 import { appRequiresAi } from '@/domain/models/app/requires-ai'
-import { parseSpeechEnv, speechPrecedenceRefusal } from '@/domain/models/process-env/ai/speech'
+import {
+  parseSpeechEnv,
+  speechCredentialRefusal,
+  speechPrecedenceRefusal,
+} from '@/domain/models/process-env/ai/speech'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -15,13 +19,15 @@ import type { App } from '@/domain/models/app'
  * `validateAiConfiguration`'s refusal chain, so it runs before the listener
  * binds and fails the boot with the same `AppValidationError`.
  *
- * Two refusals:
+ * Three refusals:
  *
  * - a SET but invalid variable (an unknown `STT_PROVIDER`, a non-URL
  *   `STT_BASE_URL`, a non-numeric limit) — the operator meant to turn speech
  *   on, and a silent inert service would hide the typo;
  * - `ECO_AI_PROVIDER_PRECEDENCE=local-only` with a CLOUD speech provider —
- *   local-only promises that no recording leaves the machine.
+ *   local-only promises that no recording leaves the machine;
+ * - a CLOUD speech provider with no `STT_API_KEY` — every request would be
+ *   rejected by the provider, so the boot names the missing key instead.
  *
  * The precedence refusal is about the app, like `validateEcoAiRouting`'s: an
  * app with no AI surface boots whatever the host's speech settings say. An
@@ -36,5 +42,5 @@ export const speechConfigurationRefusal = (
   if (!parsed.ok) return parsed.error
   const { config } = parsed
   if (config === undefined || !appRequiresAi(app)) return undefined
-  return speechPrecedenceRefusal(config, processEnv)
+  return speechPrecedenceRefusal(config, processEnv) ?? speechCredentialRefusal(config)
 }

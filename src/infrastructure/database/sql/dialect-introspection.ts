@@ -64,7 +64,7 @@ interface PgColumnRow {
   readonly column_default: string | null
 }
 
-/** SQLite `pragma_table_info` projection used here. */
+/** SQLite `pragma_table_xinfo` projection used here. */
 interface SqlitePragmaRow {
   readonly name: string
   readonly type: string
@@ -106,10 +106,14 @@ export const listTableColumns = async (
     }))
   }
 
-  // SQLite — pragma_table_info is a table-valued function; bind the table name.
+  // SQLite — a table-valued pragma; bind the table name. `table_xinfo`, not
+  // `table_info`: the latter omits GENERATED columns, which is what a formula
+  // field is, while `information_schema.columns` lists them on PostgreSQL.
+  // `hidden = 1` marks a virtual table's hidden columns (2 and 3 are the
+  // generated ones, which are real columns of the row and must be listed).
   const rows = (await executeRaw(
     runner,
-    sql`SELECT name, type, "notnull", dflt_value FROM pragma_table_info(${tableName})`
+    sql`SELECT name, type, "notnull", dflt_value FROM pragma_table_xinfo(${tableName}) WHERE hidden <> 1`
   )) as unknown as ReadonlyArray<SqlitePragmaRow>
   return rows.map((row) => ({
     name: row.name,

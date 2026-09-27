@@ -9,6 +9,7 @@ import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
 import { useRecordQuery, type RecordDataSource } from './hooks/use-records-query'
 import { hasDataBinding } from './runtime/data-binding'
 import { resolvePageLocale } from './runtime/page-locale'
+import { resolvePageTimezone } from './runtime/page-timezone'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { ReactElement } from 'react'
 
@@ -76,6 +77,12 @@ export default function RecordFieldSystemIsland({
   }
 
   const value = field !== undefined && data ? data[field] : undefined
-  if (format) return <span>{formatCellValue(value, format, resolvePageLocale())}</span>
+  if (format) {
+    return (
+      <span>
+        {formatCellValue(value, format, resolvePageLocale(), { timeZone: resolvePageTimezone() })}
+      </span>
+    )
+  }
   return <span>{value === undefined || value === null ? '' : String(value)}</span>
 }

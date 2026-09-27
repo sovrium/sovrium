@@ -28,6 +28,7 @@ import {
 import { UploadGlyph } from '@/presentation/design/form-glyphs'
 import { computeFormFieldLabelClasses } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import {
   computeTimePickerAmPmClasses,
   computeTimePickerFieldClasses,
@@ -96,6 +97,7 @@ export function renderFileUploadIsland(config: RenderFileUploadIslandConfig): Re
       data-testid={testId}
       data-component="file-upload"
       data-island="file-upload"
+      data-component-type={hostComponentType(props)}
       data-island-props={JSON.stringify(islandProps)}
       data-dropzone={dropZone ? 'true' : undefined}
     >
@@ -245,6 +247,7 @@ export function renderDatePickerIsland(config: RenderDatePickerIslandConfig): Re
       // would replace this subtree on mount with a CLOSED trigger, so the cell
       // labelled `open` would flash a calendar and then contradict its label.
       data-island={depicted ? undefined : 'date-picker'}
+      data-component-type={hostComponentType(props)}
       data-island-props={depicted ? undefined : JSON.stringify(islandProps)}
       data-specimen-open={depicted ? 'true' : undefined}
     >
@@ -304,6 +307,7 @@ export function renderNumberInputIsland(config: RenderNumberInputIslandConfig): 
       data-testid={testId}
       data-component="number-input"
       data-island="number-input"
+      data-component-type={hostComponentType(props)}
       data-island-props={JSON.stringify(islandProps)}
     >
       {/*

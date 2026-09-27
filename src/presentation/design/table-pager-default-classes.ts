@@ -68,8 +68,11 @@ export const computeTablePagerClasses = ({
 // `w-auto` is explicit rather than implied: a `<select>` in a flex row stretches
 // to its content's widest option unless told otherwise, and the page-size list
 // holds `100 / page`, which is wider than the control needs to be at rest.
+//
+// `select-compact` gives it the small chevron and 24px end inset a 26px control
+// needs; the standard 36px inset is sized for full-height fields.
 const TABLE_PAGER_SELECT = [
-  'h-6 w-auto border px-2 py-0.5 text-xs',
+  'select-compact h-6 w-auto border px-2 py-0.5 text-xs',
   `rounded-[${v('radius-base', T.radiusBase)}]`,
   `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
   `border-[${v('sv-border-strong', T.borderStrong)}]`,

@@ -62,6 +62,7 @@
  */
 
 import { dispatch as dispatchIslandEvent } from './event-bus'
+import { followAddress } from './follow-address'
 import { refreshServerRenderedRegions } from './refetch-server-rendered-region'
 import { saveBlob } from './save-blob'
 import type {
@@ -414,14 +415,21 @@ function substituteRecordInBody(
 /** A successful browser-driven dispatch (navigate) — no HTTP envelope. */
 const DISPATCHED: FetchActionResult = { ok: true, status: 0, body: undefined }
 
-/** Drive the browser to the action's `url` (CSV export, server-driven redirect). */
+/**
+ * Drive the browser to the action's `url` (CSV export, server-driven redirect),
+ * in a new tab when `openInNewTab` asks for one — only once the substituted
+ * address passes the canonical safe-address check.
+ */
 function performNavigate(
   action: FetchAction,
   options: ExecuteFetchActionOptions
 ): FetchActionResult {
   const url = substituteRecord(action.url, options.record)
-  if (typeof window !== 'undefined') window.location.assign(url)
-  return DISPATCHED
+  if (followAddress(url, { openInNewTab: action.openInNewTab })) return DISPATCHED
+  // Not a web address (a row storing `javascript:…`): nothing is followed, and
+  // the action reports the refusal the way a failed request does.
+  renderActionToast(action.onError, options)
+  return { ok: false, status: 0, body: undefined }
 }
 
 /**

@@ -50,7 +50,7 @@ The flag short-circuits the read gate before any permission is consulted, so a d
 | Download         | Served, session or not               |
 | Upload or delete | Gated exactly as on a private bucket |
 
-One carve-out, and it is bounded on purpose: an app that declares **no `auth` block at all** has no session system to gate against, so a public bucket there — including the implicit `default`, which resolves to public precisely when auth is absent — stays anonymously writable. That is what keeps a file-upload form working on an app with no accounts. A bucket declared without `public: true` stays unwritable there, and the way out of the asymmetry is the same explicit lever an auth-enabled app uses: `upload: all`.
+One carve-out, and it is bounded on purpose: an app that declares **no `auth` block at all** has no session system to gate against, so a public bucket there — including the built-in `system` bucket, which resolves to public precisely when auth is absent — stays anonymously writable. That is what keeps a file-upload form working on an app with no accounts. A bucket declared without `public: true` stays unwritable there, and the way out of the asymmetry is the same explicit lever an auth-enabled app uses: `upload: all`.
 
 ## What each refusal answers
 
@@ -74,10 +74,10 @@ Upload's `400` and `413` validations — filename, size, MIME type — run **bef
 
 **`all` on a signing permission still needs a session.** The signing endpoints refuse an anonymous caller before any permission is evaluated, so `sign: all` widens signing to every **signed-in** user rather than to the public. To serve files with no session at all, make the bucket public or list its prefix as a public path — that is the switch for an anonymous read.
 
-## The implicit `default` bucket inherits your strictest role list
+## The `system` bucket inherits your strictest role list
 
-An app that declares buckets still answers on `/api/buckets/default/...`, and storage keys are flat: an object written through one bucket can be named to another. So the implicit bucket adopts, per file operation, the **intersection** of every role array the declared buckets give that operation. A key your declared buckets reserve to `admin` cannot be reached by naming `default` instead.
+An app that declares buckets still answers on `/api/buckets/system/...`, and storage keys are flat: an object written through one bucket can be named to another. So the built-in bucket adopts, per file operation, the **intersection** of every role array the declared buckets give that operation. A key your declared buckets reserve to `admin` cannot be reached by naming `system` instead.
 
-Only role arrays propagate — `all` is looser than the implicit bucket's own posture and cannot tighten it, and `authenticated` would deny everyone on a no-auth app. Signing permissions never propagate, because an undeclared `sign` is already admin-only and inheriting one could only loosen it.
+Only role arrays propagate — `all` is looser than the built-in bucket's own posture and cannot tighten it, and `authenticated` would deny everyone on a no-auth app. Signing permissions never propagate, because an undeclared `sign` is already admin-only and inheriting one could only loosen it.
 
-Declaring `default` in `buckets[]` explicitly overrides all of this: a declared bucket always wins outright.
+The `system` bucket cannot be declared: the name is reserved, and a `buckets[]` entry called `system` fails validation. To give an attachment field its own rules, point the field's `bucket` at a bucket you declare.

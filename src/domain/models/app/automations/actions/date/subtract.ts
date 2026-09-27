@@ -59,12 +59,12 @@ export const DateSubtractActionSchema = Schema.Struct({
 
     ...DurationProps,
 
-    /** IANA timezone the calendar shift is computed in. Default UTC. */
+    /** IANA timezone the calendar shift is computed in. Default: the operator timezone. */
     timezone: Schema.optional(
       TimezoneProp.pipe(
         Schema.annotate({
           description:
-            'IANA timezone the calendar shift is computed in (e.g. "Europe/Paris"). Default "UTC". ' +
+            'IANA timezone the calendar shift is computed in (e.g. "Europe/Paris"). Default: the operator timezone (SOVRIUM_TIMEZONE, UTC when unset). ' +
             'Determines DST behaviour for day-and-larger units.',
         })
       )

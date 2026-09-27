@@ -8,10 +8,12 @@
 import { Effect } from 'effect'
 import { findUserEmailById } from '@/application/use-cases/auth/find-user-email'
 import { revalidateInlinePrefillParent } from '@/application/use-cases/forms/inline-prefill-revalidation'
+import { resolveFormOptionSources } from '@/application/use-cases/forms/resolve-form-option-sources'
 import {
   findFormByName,
   submitFormProgram,
   FormClosedError,
+  FormFieldConstraintError,
   FormFieldForeignKeyError,
   FormFieldFormatError,
   FormFieldRequiredError,
@@ -29,9 +31,15 @@ import {
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
-import { denyFormAccess, evaluateFormAccessForRequest } from '@/presentation/api/forms/access-gate'
+import {
+  denyFormAccess,
+  evaluateFormAccessForRequest,
+  resolveFormOptionVisitor,
+} from '@/presentation/api/forms/access-gate'
+import { checkSubmissionAttachmentReferences } from '@/presentation/api/forms/attachment-reference-guard'
 import {
   FormUploadError,
+  multipartFileFieldNames,
   transformMultipartFiles,
 } from '@/presentation/api/forms/file-upload-handler'
 import {
@@ -39,10 +47,13 @@ import {
   handlePostDraftReset,
   handlePostStepAdvance,
   mergeStepDraftIntoBody,
+  type StepFragmentRenderer,
 } from '@/presentation/api/forms/step-handlers'
 import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import { FieldValidationError } from '@/presentation/api/middleware/validation'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { microphonePolicyHeaders } from '@/presentation/api/runtime/microphone-permission'
+import { formRecordsAudio } from '@/presentation/render/page/page-microphone-detection'
 import {
   formClosed,
   formHoneypotTripped,
@@ -54,6 +65,7 @@ import {
 } from './submission-refusals'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
+import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
 import type { Context, Hono } from 'hono'
 
 /**
@@ -72,6 +84,8 @@ import type { Context, Hono } from 'hono'
 export interface FormPrefillContext {
   readonly query: Readonly<Record<string, string>>
   readonly user?: Readonly<Record<string, unknown>>
+  /** The choices read from tables for this request, keyed by field submit identifier. */
+  readonly optionSets?: FormOptionSets
 }
 
 export interface FormRenderers {
@@ -94,12 +108,7 @@ export interface FormRenderers {
    * endpoint and (later) the advance endpoint when it streams the next
    * step's HTML alongside `{ nextStepId }`.
    */
-  readonly renderStepFragment: (
-    app: Readonly<App>,
-    form: Readonly<Form>,
-    stepId: string,
-    draftValues: Readonly<Record<string, unknown>>
-  ) => string
+  readonly renderStepFragment: StepFragmentRenderer['renderStepFragment']
   /**
    * Render the closed-form HTML for a form whose `availability` window has
    * not yet opened (`reason: 'not-yet-open'`) or has already closed
@@ -110,7 +119,7 @@ export interface FormRenderers {
     app: Readonly<App>,
     form: Readonly<Form>,
     reason: 'not-yet-open' | 'closed',
-    opensAt?: string
+    request?: { readonly activeLang?: string; readonly opensAt?: string }
   ) => string
 }
 
@@ -137,7 +146,7 @@ async function respondWithForm(
   form: Readonly<Form>,
   renderers: FormRenderers
 ): Promise<Response> {
-  const { decision } = await evaluateFormAccessForRequest(c, form)
+  const { decision, session } = await evaluateFormAccessForRequest(c, form)
   const denied = denyFormAccess(c, form.name, decision, 'html')
   if (denied !== undefined) return denied
   const activeLang = c.req.query('lang')
@@ -147,12 +156,33 @@ async function respondWithForm(
   // only the submission endpoint answers 403.
   const windowState = evaluateAvailabilityWindow(form.availability, Date.now())
   if (windowState.kind === 'not-yet-open') {
-    return c.html(renderers.renderClosedForm(app, form, 'not-yet-open', windowState.opensAt))
+    return c.html(
+      renderers.renderClosedForm(app, form, 'not-yet-open', {
+        activeLang,
+        opensAt: windowState.opensAt,
+      })
+    )
   }
   if (windowState.kind === 'closed') {
-    return c.html(renderers.renderClosedForm(app, form, 'closed'))
+    return c.html(renderers.renderClosedForm(app, form, 'closed', { activeLang }))
   }
-  return c.html(renderers.renderForm(app, form, activeLang, await buildPrefillContext(c)))
+  const prefillCtx = await buildPrefillContext(c)
+  // Choices read from tables with the FORM's authority, on every serve — so a
+  // public form lists rows its visitor could never read through the records
+  // API, and a row added since the last load is offered on this one.
+  const optionSets = await runRequestEffect(
+    c,
+    provideDomain(
+      c,
+      resolveFormOptionSources({
+        app,
+        form,
+        visitor: await resolveFormOptionVisitor(c, session),
+      })
+    )
+  )
+  const html = renderers.renderForm(app, form, activeLang, { ...prefillCtx, optionSets })
+  return c.html(html, 200, microphonePolicyHeaders(formRecordsAudio(form)))
 }
 
 /**
@@ -389,6 +419,10 @@ function respondFieldValidation400(
   if (failure instanceof FormFieldForeignKeyError) {
     return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
   }
+  // A unique / CHECK / NOT NULL refusal attributed to one submitted field.
+  if (failure instanceof FormFieldConstraintError) {
+    return respondValidation400(c, isJsonClient, failure.fieldName, failure.message)
+  }
   if (failure instanceof FieldValidationError) {
     return respondValidation400(c, isJsonClient, failure.field ?? '', failure.message)
   }
@@ -505,6 +539,19 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
   if (denied !== undefined) return denied
 
   const rawBody = await readSubmissionBody(c)
+  // An attachment value that NAMES a stored file must name one in the column's
+  // bucket that the submitter can download. Checked on the raw body — before
+  // any multipart file is uploaded, so a refusal orphans nothing — with the
+  // earlier steps' draft answers merged in, since they reach the table too.
+  const referenceError = await checkSubmissionAttachmentReferences({
+    c,
+    app,
+    form,
+    body: mergeStepDraftIntoBody(c, form, name, rawBody),
+    uploadedFields: multipartFileFieldNames(rawBody),
+    session,
+  })
+  if (referenceError) return respondSubmissionFailure(c, isJsonClient, referenceError)
   // F-11 (file-uploads): Multipart bodies may carry `File` instances on
   // attachment fields. Upload each one to the form's resolved bucket and
   // replace the raw File with canonical `{ url, name, size, mimeType }`

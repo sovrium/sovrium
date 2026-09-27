@@ -7,6 +7,7 @@
 
 import { Effect, Data } from 'effect'
 import { toSSG } from 'hono/bun'
+import { defaultExtensionMap } from 'hono/ssg'
 import type { Hono } from 'hono'
 
 /**
@@ -30,7 +31,6 @@ export interface SSGOptions {
   readonly generateSitemap?: boolean
   readonly generateRobotsTxt?: boolean
   readonly hydration?: boolean
-  readonly generateManifest?: boolean
   readonly bundleOptimization?: 'split' | 'none'
   readonly pagePaths?: readonly string[] // Explicit list of page paths to generate
   readonly publicDir?: string // Directory containing static assets to copy
@@ -88,6 +88,22 @@ function shouldExcludeRoute(pathname: string, declaredPages: ReadonlySet<string>
 }
 
 /**
+ * The file extension `toSSG` gives each response, by its `Content-Type`.
+ *
+ * Hono's default map, plus `application/javascript`. The engine serves its
+ * scripts under that type, and Hono resolves an unmapped type through a MIME
+ * table that knows JavaScript only as `text/javascript` — so every script fell
+ * through to the `html` fallback and was written as `assets/client.js.html`,
+ * while each page still asked for `/assets/client.js`, which a static host
+ * then answered 404. Mapped here, a script's route already ends in `.js`, so
+ * it is written under its own name.
+ */
+const SSG_EXTENSION_MAP: Readonly<Record<string, string>> = {
+  ...defaultExtensionMap,
+  'application/javascript': 'js',
+}
+
+/**
  * Normalize file path to be relative to output directory
  */
 function normalizeFilePath(file: string, outputDir: string): string {
@@ -139,6 +155,7 @@ export const generateStaticSite = (
       // Use Hono's toSSG to generate static files
       const result = await toSSG(app as Hono, {
         dir: outputDir,
+        extensionMap: SSG_EXTENSION_MAP,
         beforeRequestHook: (req) => {
           const url = new URL(req.url)
           return shouldExcludeRoute(url.pathname, declaredPages) ? false : req

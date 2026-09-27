@@ -69,6 +69,9 @@ export const connectionTokens = systemTable(
     accessToken: text('access_token').notNull(),
     refreshToken: text('refresh_token'),
     expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
+    // Encrypted JSON of the extra token-response fields the connection keeps
+    // (`tokenFields`, e.g. Salesforce's `instance_url`) — same envelope as the tokens.
+    tokenFields: text('token_fields'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -107,6 +110,12 @@ export const connectionAppTokens = systemTable(
     accessToken: text('access_token').notNull(),
     refreshToken: text('refresh_token'),
     expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
+    // Encrypted JSON of the extra token-response fields the connection keeps
+    // (`tokenFields`, e.g. Salesforce's `instance_url`) — same envelope as the tokens.
+    tokenFields: text('token_fields'),
+    // Hash of the client configuration a client-credentials token was obtained
+    // with; a token whose hash no longer matches the connection is re-requested.
+    grantFingerprint: text('grant_fingerprint'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
       .$defaultFn(() => new Date()),

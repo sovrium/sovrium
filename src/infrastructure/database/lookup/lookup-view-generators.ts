@@ -466,8 +466,11 @@ export const generateLookupViewSQL = (table: Table, allTables: readonly Table[] 
   const computedSelectClause = buildComputedSelectClause(table, allTables)
 
   // Dialect-aware view-replacement keyword: PostgreSQL supports
-  // `CREATE OR REPLACE VIEW`; SQLite has no `OR REPLACE` (the caller drops the
-  // stale view separately), so emit a plain `CREATE VIEW`.
+  // `CREATE OR REPLACE VIEW`; SQLite has no `OR REPLACE`, so emit a plain
+  // `CREATE VIEW`. On a full migration the view is already gone on both
+  // engines: `reconcileViewTopology` drops every lookup view before the base
+  // tables change (Postgres's OR REPLACE cannot drop or reorder a column), and
+  // `createLookupViewsEffect` drops any survivor with `DROP VIEW IF EXISTS`.
   const createView = isSqliteRuntime() ? 'CREATE VIEW' : 'CREATE OR REPLACE VIEW'
 
   const fromClause = `FROM ${sanitized}_base AS base
@@ -508,6 +511,25 @@ export const getBaseTableName = (tableName: string): string => `${tableName}_bas
  */
 export const shouldUseView = (table: Table): boolean =>
   hasLookupFields(table) || hasRollupFields(table) || hasCountFields(table)
+
+/**
+ * The physical relation that holds a table's rows.
+ *
+ * A view-backed table (see {@link shouldUseView}) stores its rows in
+ * `<name>_base` behind a `<name>` VIEW; every other table IS its own relation.
+ * Every DDL statement that changes STORAGE — `ALTER TABLE`, a constraint, an
+ * index, a trigger, a catalog probe — must address this name, never the config
+ * name: `ALTER TABLE <view>` is not a statement any engine accepts, and reading
+ * the view's columns would count its computed fields as stored ones.
+ *
+ * The config name stays the right key for everything the OPERATOR sees
+ * (messages, the previous-schema snapshot, rename detection), because nothing
+ * in the config says `_base`.
+ */
+export const getPhysicalTableName = (table: Table): string => {
+  const sanitized = sanitizeTableName(table.name)
+  return shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
+}
 
 /**
  * Generate INSTEAD OF triggers for a VIEW to make it writable.

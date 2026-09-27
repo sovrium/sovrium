@@ -52,9 +52,14 @@
  * two-path contract is isolated.
  */
 
+import { localizeRunRecord } from '@/domain/models/app/pages/automation-run-status'
 import { buildDetailEndpointUrl } from '@/domain/models/app/pages/system-detail-endpoint'
 import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/data-source-rows'
-import { autoBindCommentComponents } from '@/presentation/render/resolve/page-collection-resolver'
+import {
+  autoBindCommentComponents,
+  injectRecordIntoNestedSingleMode,
+} from '@/presentation/render/resolve/page-collection-resolver'
+import { pageRecordScope } from '@/presentation/render/resolve/record-repeat-expansion'
 import { filterChildrenForRecord } from '@/presentation/render/resolve/record-visibility'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -135,6 +140,14 @@ function buildPageSystemMarker(
  * A node whose predicate fails is dropped from the document rather than hidden,
  * which is the same contract the row path already keeps: a reader's find-in-page
  * must not turn up a section the record does not have.
+ *
+ * ─── THE PAGE SCOPE ─────────────────────────────────────────────
+ *
+ * The walk carries a {@link pageRecordScope}: a `container` `repeat` is expanded
+ * HERE, against the record the page is bound to, so its copies are in the first
+ * response (`record-repeat-expansion.ts`); an object-valued `$record.<key>`
+ * survives as its own literal token rather than printing `[object Object]`; and
+ * a `code` node whose whole content is one such token prints it as JSON.
  */
 function substitutePageComponents(
   components: Page['components'],
@@ -147,13 +160,21 @@ function substitutePageComponents(
     record
   ) as Page['components']
   if (!visible) return visible
+  const scope = pageRecordScope(record)
   return visible.map((item) => {
     if ('component' in item || '$ref' in item) return item
-    return substituteRecordInCollectionTemplate(
+    const substituted = substituteRecordInCollectionTemplate(
       item as Component,
       record as Record<string, unknown>,
-      tableName
+      tableName,
+      scope
     )
+    // The DB arm names its table, so the record also reaches every form on the
+    // page that is bound to it — the same pass the `collection` arm runs. The
+    // `{ system }` arm has no table and nothing to hand a form.
+    return tableName === undefined
+      ? substituted
+      : injectRecordIntoNestedSingleMode(substituted, record as Record<string, unknown>, tableName)
   })
 }
 
@@ -198,9 +219,13 @@ async function bindSystemRecord(
   // are deliberately not told apart (S1, anti-enumeration). The DB arm already
   // answers a row it cannot find this way.
   if (record === undefined) return { kind: 'not-found' }
+  // The same relabelling the browser applies to a system detail read
+  // (`parseSystemDetailEnvelope`), from the same shared table: a run page must
+  // print the words of the grid that links to it, not the engine's.
+  const localized = localizeRunRecord(system.endpoint, record)
   return {
     kind: 'page',
-    page: { ...page, components: substitutePageComponents(page.components, record, undefined) },
+    page: { ...page, components: substitutePageComponents(page.components, localized, undefined) },
   }
 }
 

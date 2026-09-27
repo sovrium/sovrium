@@ -155,7 +155,12 @@ export const computeToggleGroupItemClasses = (): string =>
 // SWITCH (track + thumb)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const SWITCH_TRACK_LAYOUT = 'relative inline-flex shrink-0 items-center border-2 border-transparent'
+/**
+ * A 1px border plus 1px padding keeps the old 2px slot, so the thumb's
+ * offset and travel are unchanged; the border now draws the unchecked
+ * outline (see SWITCH_TRACK_SURFACE).
+ */
+const SWITCH_TRACK_LAYOUT = 'relative inline-flex shrink-0 items-center border p-px'
 
 const SWITCH_TRACK_SIZE: Record<ComponentSize, string> = {
   sm: 'h-4 w-7',
@@ -163,17 +168,25 @@ const SWITCH_TRACK_SIZE: Record<ComponentSize, string> = {
   lg: 'h-6 w-11',
 }
 
+/**
+ * Off: the subtle surface outlined in `--sv-border-control`, the one border
+ * token that reaches 3:1 against the page — the surface alone is 1.06:1, so
+ * an unchecked switch had no visible edge. On: the primary fill, border
+ * transparent (the fill is the edge).
+ */
 const SWITCH_TRACK_SURFACE = [
   `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
+  `border-[${v('sv-border-control', T.borderControl)}]`,
   'data-[checked]:bg-primary',
+  'data-[checked]:border-transparent',
 ].join(' ')
 
 /**
  * Compute the default className for the Switch track (the outer rounded pill).
- * Off state uses the muted body-subtle surface; checked state fills with the
- * canonical `bg-primary` role utility (always minted by the default theme layer,
- * resolving `--color-primary` which the author `theme.colors.primary` bridge
- * recolors) so the on/off cue is unmistakable and the checked track is
+ * Off state uses the muted body-subtle surface outlined in the control border;
+ * checked state fills with the canonical `bg-primary` role utility (always
+ * minted by the default theme layer, resolving `--color-primary` which the
+ * author `theme.colors.primary` bridge recolors) so the on/off cue is unmistakable and the checked track is
  * addressable as `.bg-primary`. Size axis matches the toggle's size scale so a
  * `size: 'lg'` switch lines up visually with a `size: 'lg'` toggle in the same
  * form row.

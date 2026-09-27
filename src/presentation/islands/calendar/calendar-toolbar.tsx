@@ -49,6 +49,7 @@ import {
   computeCalendarTitleClasses,
   computeCalendarToolbarClasses,
 } from '@/presentation/design/calendar-default-classes'
+import type { CalendarCaptions } from './calendar-captions'
 import type { CalendarView } from '@/domain/models/app/pages/components/component-types/data/calendar/schema'
 import type { MouseEvent, ReactElement } from 'react'
 
@@ -82,6 +83,8 @@ export interface CalendarToolbarProps {
   readonly onNext: () => void
   readonly onToday: () => void
   readonly onViewChange: (view: CalendarView) => void
+  /** The words the toolbar writes itself, already resolved for the page language. */
+  readonly captions: CalendarCaptions
 }
 
 /** Narrow an arbitrary dataset string back to the view vocabulary. */
@@ -92,20 +95,22 @@ const isCalendarView = (value: string | undefined): value is CalendarView =>
  * The joined `‹ ›` pair.
  *
  * `aria-label` supplies each button's accessible name — the glyphs alone
- * announce as punctuation. "Next period" still satisfies the spec's
- * `/next|forward|›/i`, and "Previous period" matches none of those three, so
- * the spec's unscoped `getByRole` stays strict-mode-safe with exactly one hit.
+ * announce as punctuation. On an English page "Next period" still satisfies
+ * the spec's `/next|forward|›/i`, and "Previous period" matches none of those
+ * three, so the spec's unscoped `getByRole` stays strict-mode-safe with exactly
+ * one hit.
  */
 function CalendarNavGroup({
   onPrev,
   onNext,
-}: Pick<CalendarToolbarProps, 'onPrev' | 'onNext'>): ReactElement {
+  captions,
+}: Pick<CalendarToolbarProps, 'onPrev' | 'onNext' | 'captions'>): ReactElement {
   return (
     <div className={NAV_GROUP_CLASSES}>
       <button
         type="button"
         className={NAV_PREV_CLASSES}
-        aria-label="Previous period"
+        aria-label={captions.previousPeriod}
         onClick={onPrev}
       >
         &#8249;
@@ -113,7 +118,7 @@ function CalendarNavGroup({
       <button
         type="button"
         className={NAV_NEXT_CLASSES}
-        aria-label="Next period"
+        aria-label={captions.nextPeriod}
         onClick={onNext}
       >
         &#8250;
@@ -126,7 +131,8 @@ function CalendarNavGroup({
 function CalendarViewSwitch({
   activeView,
   onViewChange,
-}: Pick<CalendarToolbarProps, 'activeView' | 'onViewChange'>): ReactElement {
+  captions,
+}: Pick<CalendarToolbarProps, 'activeView' | 'onViewChange' | 'captions'>): ReactElement {
   const handleViewClick = (event: MouseEvent<HTMLButtonElement>): void => {
     const next = event.currentTarget.dataset['calendarView']
     if (isCalendarView(next)) onViewChange(next)
@@ -136,7 +142,7 @@ function CalendarViewSwitch({
     <div
       className={SEGMENTED_CLASSES}
       role="group"
-      aria-label="Calendar view"
+      aria-label={captions.viewGroup}
     >
       {VIEW_ITEMS.map((view, index) => (
         <button
@@ -150,7 +156,7 @@ function CalendarViewSwitch({
           aria-pressed={view === activeView}
           onClick={handleViewClick}
         >
-          {view}
+          {captions.views[view]}
         </button>
       ))}
     </div>
@@ -164,6 +170,7 @@ export function CalendarToolbar({
   onNext,
   onToday,
   onViewChange,
+  captions,
 }: CalendarToolbarProps): ReactElement {
   return (
     <div
@@ -173,13 +180,14 @@ export function CalendarToolbar({
       <CalendarNavGroup
         onPrev={onPrev}
         onNext={onNext}
+        captions={captions}
       />
       <button
         type="button"
         className={TODAY_BUTTON_CLASSES}
         onClick={onToday}
       >
-        today
+        {captions.today}
       </button>
       {/*
         The period caption. Its class list carries the `sv-calendar-title` hook
@@ -190,6 +198,7 @@ export function CalendarToolbar({
       <CalendarViewSwitch
         activeView={activeView}
         onViewChange={onViewChange}
+        captions={captions}
       />
     </div>
   )

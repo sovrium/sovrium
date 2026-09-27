@@ -5,16 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
+
 /**
  * Email template data types for Better Auth integration
  */
 export interface PasswordResetEmailData {
+  /** The operator's app name, printed as the email header. */
+  readonly appName?: string
   readonly userName?: string
   readonly resetUrl: string
   readonly expiresIn?: string
 }
 
 export interface EmailVerificationData {
+  /** The operator's app name, printed as the email header. */
+  readonly appName?: string
   readonly userName?: string
   readonly verifyUrl: string
   readonly expiresIn?: string
@@ -50,6 +56,9 @@ body {
 }
 .content {
   margin-bottom: 30px;
+}
+.content li {
+  margin-bottom: 4px;
 }
 .button {
   display: inline-block;
@@ -90,27 +99,58 @@ body {
 `
 
 /**
+ * The brand an email is headed with when the sending app's name is unknown —
+ * a bare engine with no config. Any app that declares a `name` sends under it:
+ * an operator's app never mails its users as "Sovrium".
+ */
+const FALLBACK_EMAIL_BRAND = 'Sovrium'
+
+/** The name an email speaks under: the app's own, or the fallback when it is unknown. */
+export const resolveBrand = (appName: string | undefined): string =>
+  appName !== undefined && appName.trim() !== '' ? appName : FALLBACK_EMAIL_BRAND
+
+/**
+ * The footer line that differs between an email a person asked for (a reset,
+ * a verification) and one the instance sends on its own (an operator alert).
+ */
+const requestedEmailNotice = (brand: string): string =>
+  `<p>This email was sent by ${escapeHtml(brand)}. If you didn't request this, please ignore this email.</p>`
+
+/** What {@link emailLayout} frames its content with. */
+export interface EmailLayoutOptions {
+  /** The sending app's name; heads the email. Falls back to "Sovrium". */
+  readonly appName?: string
+  /**
+   * Replaces the "if you didn't request this" line. Inserted VERBATIM, so a
+   * caller passing anything derived from data must escape it first.
+   */
+  readonly footerHtml?: string
+}
+
+/**
  * Base email layout wrapper
  *
- * Provides consistent styling for all email templates.
+ * Provides consistent styling for all email templates. The header is the
+ * sending app's name. There is deliberately no copyright line: the email is
+ * the operator's, not the engine vendor's.
  */
-function emailLayout(content: string): string {
-  const year = new Date().getFullYear()
+export function emailLayout(content: string, options: EmailLayoutOptions = {}): string {
+  const brand = escapeHtml(resolveBrand(options.appName))
+  const footerHtml = options.footerHtml ?? requestedEmailNotice(resolveBrand(options.appName))
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sovrium</title>
+  <title>${brand}</title>
   <style>${EMAIL_STYLES}</style>
 </head>
 <body>
   <div class="container">
-    <div class="header"><div class="logo">Sovrium</div></div>
+    <div class="header"><div class="logo">${brand}</div></div>
     ${content}
     <div class="footer">
-      <p>&copy; ${year} ESSENTIAL SERVICES. All rights reserved.</p>
-      <p>This email was sent by Sovrium. If you didn't request this, please ignore this email.</p>
+      ${footerHtml}
     </div>
   </div>
 </body>
@@ -137,19 +177,22 @@ export function passwordResetEmail(data: PasswordResetEmailData): {
   readonly text: string
 } {
   const greeting = data.userName ? `Hi ${data.userName},` : 'Hi,'
+  const htmlGreeting = data.userName ? `Hi ${escapeHtml(data.userName)},` : 'Hi,'
   const expiry = data.expiresIn ?? '1 hour'
+  const brand = resolveBrand(data.appName)
+  const htmlBrand = escapeHtml(brand)
 
   const content = `
     <div class="content">
-      <p>${greeting}</p>
-      <p>We received a request to reset your password for your Sovrium account.</p>
+      <p>${htmlGreeting}</p>
+      <p>We received a request to reset your password for your ${htmlBrand} account.</p>
       <p>Click the button below to reset your password:</p>
       <p style="text-align: center;">
-        <a href="${data.resetUrl}" class="button">Reset Password</a>
+        <a href="${escapeHtml(data.resetUrl)}" class="button">Reset Password</a>
       </p>
       <p class="link-fallback">
         If the button doesn't work, copy and paste this link into your browser:<br>
-        ${data.resetUrl}
+        ${escapeHtml(data.resetUrl)}
       </p>
       <div class="warning">
         This link will expire in ${expiry}. If you didn't request a password reset, you can safely ignore this email.
@@ -160,7 +203,7 @@ export function passwordResetEmail(data: PasswordResetEmailData): {
   const text = `
 ${greeting}
 
-We received a request to reset your password for your Sovrium account.
+We received a request to reset your password for your ${brand} account.
 
 Reset your password by visiting this link:
 ${data.resetUrl}
@@ -168,14 +211,11 @@ ${data.resetUrl}
 This link will expire in ${expiry}.
 
 If you didn't request a password reset, you can safely ignore this email.
-
----
-© ${new Date().getFullYear()} ESSENTIAL SERVICES. All rights reserved.
 `.trim()
 
   return {
-    subject: 'Reset your Sovrium password',
-    html: emailLayout(content),
+    subject: `Reset your ${brand} password`,
+    html: emailLayout(content, { appName: data.appName }),
     text,
   }
 }
@@ -200,22 +240,25 @@ export function emailVerificationEmail(data: EmailVerificationData): {
   readonly text: string
 } {
   const greeting = data.userName ? `Hi ${data.userName},` : 'Hi,'
+  const htmlGreeting = data.userName ? `Hi ${escapeHtml(data.userName)},` : 'Hi,'
   const expiry = data.expiresIn ?? '24 hours'
+  const brand = resolveBrand(data.appName)
+  const htmlBrand = escapeHtml(brand)
 
   const content = `
     <div class="content">
-      <p>${greeting}</p>
-      <p>Welcome to Sovrium! Please verify your email address to complete your registration.</p>
+      <p>${htmlGreeting}</p>
+      <p>Welcome to ${htmlBrand}! Please verify your email address to complete your registration.</p>
       <p>Click the button below to verify your email:</p>
       <p style="text-align: center;">
-        <a href="${data.verifyUrl}" class="button">Verify Email</a>
+        <a href="${escapeHtml(data.verifyUrl)}" class="button">Verify Email</a>
       </p>
       <p class="link-fallback">
         If the button doesn't work, copy and paste this link into your browser:<br>
-        ${data.verifyUrl}
+        ${escapeHtml(data.verifyUrl)}
       </p>
       <div class="warning">
-        This link will expire in ${expiry}. If you didn't create a Sovrium account, you can safely ignore this email.
+        This link will expire in ${expiry}. If you didn't create an account with ${htmlBrand}, you can safely ignore this email.
       </div>
     </div>
   `
@@ -223,22 +266,19 @@ export function emailVerificationEmail(data: EmailVerificationData): {
   const text = `
 ${greeting}
 
-Welcome to Sovrium! Please verify your email address to complete your registration.
+Welcome to ${brand}! Please verify your email address to complete your registration.
 
 Verify your email by visiting this link:
 ${data.verifyUrl}
 
 This link will expire in ${expiry}.
 
-If you didn't create a Sovrium account, you can safely ignore this email.
-
----
-© ${new Date().getFullYear()} ESSENTIAL SERVICES. All rights reserved.
+If you didn't create an account with ${brand}, you can safely ignore this email.
 `.trim()
 
   return {
-    subject: 'Verify your Sovrium email address',
-    html: emailLayout(content),
+    subject: `Verify your ${brand} email address`,
+    html: emailLayout(content, { appName: data.appName }),
     text,
   }
 }

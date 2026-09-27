@@ -70,12 +70,12 @@ export const DateDiffActionSchema = Schema.Struct({
     /** Unit the answer is expressed in. */
     unit: DiffUnitProp,
 
-    /** IANA timezone for calendar-unit boundaries (`day` and larger). Default UTC. */
+    /** IANA timezone for calendar-unit boundaries (`day` and larger). Default: the operator timezone. */
     timezone: Schema.optional(
       TimezoneProp.pipe(
         Schema.annotate({
           description:
-            'IANA timezone used for calendar-unit boundaries (day and larger). Default "UTC". ' +
+            'IANA timezone used for calendar-unit boundaries (day and larger). Default: the operator timezone (SOVRIUM_TIMEZONE, UTC when unset). ' +
             'Ignored for hour, minute, second and millisecond, which are fixed-length.',
         })
       )

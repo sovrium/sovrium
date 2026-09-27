@@ -25,6 +25,7 @@ export const DEFAULT_SV_LIGHT_VALUES: Readonly<Record<string, string>> = {
   'bg-raised': 'oklch(0.995 0 0)',
   'bg-subtle': 'oklch(0.965 0 0)',
   border: 'oklch(0.92 0 0)',
+  'border-control': 'oklch(0.62 0 0)',
   'border-inverse': 'oklch(0.205 0 0)',
   'border-strong': 'oklch(0.87 0 0)',
   'chart-1': '#398ad6',

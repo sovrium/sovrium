@@ -6,6 +6,7 @@
  */
 
 import { Cause, Effect } from 'effect'
+import { resolveActorUserId } from '@/domain/models/app/auth/guest-session'
 import { db, DatabaseError } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
@@ -61,7 +62,9 @@ export function logActivity(config: {
       // eslint-disable-next-line functional/no-expression-statements -- Database insert for logging is an acceptable side effect
       await db.insert(activityLogs).values({
         id: crypto.randomUUID(),
-        userId: session.userId,
+        // A synthetic actor ('system', 'guest') has no auth user row: store NULL
+        // rather than trip the user FK and silently lose the audit row.
+        userId: resolveActorUserId(session.userId),
         action,
         tableName,
         tableId,

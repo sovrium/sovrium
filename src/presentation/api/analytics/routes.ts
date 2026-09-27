@@ -29,6 +29,7 @@ import {
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { handleClick } from '@/presentation/api/analytics/click-handlers'
 import { handleTargets } from '@/presentation/api/analytics/targets-handlers'
 import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
@@ -130,8 +131,7 @@ async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<
   }
 
   // Check Do Not Track header when respectDoNotTrack is enabled
-  const dntHeader = c.req.header('DNT')
-  if (respectDoNotTrack && dntHeader === '1') {
+  if (respectDoNotTrack && c.req.header('DNT') === '1') {
     // eslint-disable-next-line unicorn/no-null
     return c.body(null, 204)
   }
@@ -154,6 +154,7 @@ async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<
             referrerUrl: (body as { readonly r?: string }).r,
             ip,
             userAgent,
+            timeZone: resolveOperatorTimezone(),
             acceptLanguage,
             screenWidth: (body as { readonly sw?: number }).sw,
             screenHeight: (body as { readonly sh?: number }).sh,
@@ -163,7 +164,7 @@ async function handleCollect(c: Context, config: AnalyticsRouteConfig): Promise<
             utmContent: (body as { readonly ux?: string }).ux,
             utmTerm: (body as { readonly ut?: string }).ut,
           }),
-          purgeOldAnalyticsData(appName, retentionDays),
+          purgeOldAnalyticsData(appName, retentionDays, resolveOperatorTimezone()),
         ],
         { concurrency: 'unbounded' }
       )

@@ -7,7 +7,7 @@
 
 import { useEffect, useRef } from 'react'
 import { writeColumnWidthsToCache } from '../../hooks/use-table-preferences'
-import { evaluatePredicate } from './filter-operators'
+import { canonicalizeOperator, evaluatePredicate } from './filter-operators'
 import type { FilterConjunction, FilterRow } from './use-ui-state'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 import type { TableRecord } from '../../runtime/types'
@@ -30,6 +30,127 @@ import type {
 export function buildGroupByParam(groupBy: DataTableGroupBy | undefined): string | undefined {
   if (!groupBy) return undefined
   return [groupBy.field, ...(groupBy.thenBy ?? []).map((level) => level.field)].join(',')
+}
+
+/** The `(field, displayField)` pairs a grid's columns name, in column order. */
+function columnDisplayFields(
+  columns: readonly DataTableColumn[] | undefined
+): readonly (readonly [string, string])[] {
+  return (columns ?? []).flatMap((column) =>
+    'field' in column && typeof column.displayField === 'string' && column.displayField !== ''
+      ? [[column.field, column.displayField] as const]
+      : []
+  )
+}
+
+/**
+ * The `?labels=` value for one grid: `field:relatedField` for every column that
+ * names the field of the related table it shows.
+ *
+ * The server resolves each pair under the reader's permissions and adds the
+ * label under `_display`, beside the stored key, which is what the relationship
+ * cell already renders. Absent when no column names one, so such a grid sends
+ * exactly the request it always sent.
+ */
+export function buildLabelsParam(
+  columns: readonly DataTableColumn[] | undefined
+): string | undefined {
+  const pairs = columnDisplayFields(columns)
+  return pairs.length === 0
+    ? undefined
+    : pairs.map(([field, label]) => `${field}:${label}`).join(',')
+}
+
+/**
+ * `fieldMeta` with each column's `displayField` laid over the field's own.
+ *
+ * The picker searches and labels its candidates by `edit.displayField`; a
+ * column that shows `channels.name` has to search on `name` too, or the reader
+ * types the word the cell shows and the picker matches nothing. The table-level
+ * value stays the default for every field no column overrides.
+ */
+export function withColumnDisplayFields(
+  fieldMeta: FieldMetaMap | undefined,
+  columns: readonly DataTableColumn[] | undefined
+): FieldMetaMap | undefined {
+  const pairs = columnDisplayFields(columns)
+  if (fieldMeta === undefined || pairs.length === 0) return fieldMeta
+  const overrides = pairs.flatMap(([field, displayField]) => {
+    const meta = fieldMeta[field]
+    return meta === undefined
+      ? []
+      : [[field, { ...meta, edit: { ...meta.edit, displayField } }] as const]
+  })
+  return { ...fieldMeta, ...Object.fromEntries(overrides) }
+}
+
+/**
+ * The filter-builder operators the records API can apply itself, keyed by the
+ * builder's canonical spelling. `isBefore` / `isAfter` compare as the API's
+ * ordered comparisons; `isAnyOf` becomes `in`. Anything absent — `between`,
+ * `doesNotContain`, `isNoneOf` — has no server spelling.
+ */
+const SERVER_FILTER_OPERATORS: ReadonlyMap<string, string> = new Map([
+  ['equals', 'equals'],
+  ['notEquals', 'notEquals'],
+  ['greaterThan', 'greaterThan'],
+  ['lessThan', 'lessThan'],
+  ['greaterThanOrEqual', 'greaterThanOrEqual'],
+  ['lessThanOrEqual', 'lessThanOrEqual'],
+  ['contains', 'contains'],
+  ['startsWith', 'startsWith'],
+  ['endsWith', 'endsWith'],
+  ['isBefore', 'lessThan'],
+  ['isAfter', 'greaterThan'],
+  ['isAnyOf', 'in'],
+])
+
+/** One condition as the records API's `?filter=` tree spells it. */
+export interface ServerFilterCondition {
+  readonly field: string
+  readonly operator: string
+  readonly value: unknown
+}
+
+/** The filter-builder's rows as one `and` / `or` group of the records API. */
+export type ServerFilterGroup =
+  | { readonly and: readonly ServerFilterCondition[] }
+  | { readonly or: readonly ServerFilterCondition[] }
+
+const toServerCondition = (row: FilterRow): ServerFilterCondition | undefined => {
+  const canonical = canonicalizeOperator(row.operator)
+  const operator = SERVER_FILTER_OPERATORS.get(canonical)
+  if (operator === undefined) return undefined
+  const value =
+    canonical === 'isAnyOf'
+      ? row.value
+          .split(',')
+          .map((part) => part.trim())
+          .filter((part) => part.length > 0)
+      : row.value
+  return { field: row.field, operator, value }
+}
+
+/**
+ * The filter-builder's rows as a server filter, or `undefined` when there are
+ * none — or when one of them has no server spelling.
+ *
+ * A grid that loads page by page cannot narrow on the client: a filter applied
+ * to the rows already loaded would hide every match that sits on a page not
+ * fetched yet, and "Load more" would then page through rows the filter throws
+ * away. So such a grid sends its filter with the request. A row the API cannot
+ * express makes the whole set fall back to the client, rather than half of an
+ * `or` running on the server and half in the browser.
+ */
+export function toServerFilterGroup(
+  rows: readonly FilterRow[],
+  conjunction: FilterConjunction
+): ServerFilterGroup | undefined {
+  if (rows.length === 0) return undefined
+  const conditions = rows.map(toServerCondition)
+  if (conditions.some((condition) => condition === undefined)) return undefined
+  const defined = conditions as readonly ServerFilterCondition[]
+  return conjunction === 'OR' ? { or: defined } : { and: defined }
 }
 
 /**

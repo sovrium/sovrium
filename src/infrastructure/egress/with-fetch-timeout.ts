@@ -33,13 +33,64 @@
 export async function withFetchTimeout(
   // eslint-disable-next-line functional/prefer-immutable-types -- RequestInfo and URL are Web standard interfaces with setters; immutability lint can't prove our consumers don't mutate them. We don't.
   input: RequestInfo | URL,
-  init: Omit<RequestInit, 'signal'>,
+  init: Readonly<Omit<RequestInit, 'signal'>>,
   timeoutMs: number
 ): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     return await fetch(input, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * `withFetchTimeout` for a response whose BODY is the long part — a download.
+ *
+ * `withFetchTimeout` clears its timer as soon as the headers arrive, so a peer
+ * that answers `200` and then stops sending holds the body read forever. A
+ * total deadline is the wrong cure for a download: a 70 MB archive on a slow
+ * link legitimately takes minutes, and a cap tight enough to catch a stall
+ * would fail an honest slow connection.
+ *
+ * So this deadline is an INACTIVITY one: the request aborts when `stallMs`
+ * passes with no progress — first while waiting for the headers, then between
+ * two chunks of the body. Every chunk re-arms the timer. The body is read by
+ * `read`, inside the deadline, and the timer is cleared once it settles.
+ *
+ * The abort errors the body stream, so `read` rejects with the same
+ * `AbortError` a timed-out `withFetchTimeout` rejects with.
+ */
+export async function withFetchStallTimeout<T>(
+  // eslint-disable-next-line functional/prefer-immutable-types -- RequestInfo and URL are Web standard interfaces with setters; see withFetchTimeout
+  input: RequestInfo | URL,
+  init: Readonly<Omit<RequestInit, 'signal'>>,
+  stallMs: number,
+  read: (response: Response) => Promise<T>
+): Promise<T> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), stallMs)
+  try {
+    const response = await fetch(input, { ...init, signal: controller.signal })
+    // eslint-disable-next-line functional/no-expression-statements -- re-arm: the headers are progress
+    timer.refresh()
+    const watched =
+      response.body === null
+        ? response
+        : new Response(
+            response.body.pipeThrough(
+              new TransformStream<Uint8Array, Uint8Array>({
+                transform(chunk, stream) {
+                  // eslint-disable-next-line functional/no-expression-statements -- re-arm: a chunk is progress
+                  timer.refresh()
+                  stream.enqueue(chunk)
+                },
+              })
+            ),
+            { status: response.status, statusText: response.statusText, headers: response.headers }
+          )
+    return await read(watched)
   } finally {
     clearTimeout(timer)
   }

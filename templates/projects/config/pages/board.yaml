@@ -1,72 +1,136 @@
+# Open work by status across every project. Each card names its project, its
+# due date and its person; drag a card to move the task on. Done is a column
+# too, folded until someone opens it, so finished work is one click away
+# without crowding the board. A card opens its task in a drawer over the board.
 name: board
 path: /board
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Board
-  description: The task kanban — drag work between statuses
+  title: Board · Fernhill Projects
+  description: Open tasks by status, each with its project, due date and assignee.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: Board
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Drag tasks between columns as work progresses.
-
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: border rounded-lg p-5 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: Add a task
-          - type: form
-            dataSource:
-              table: tasks
-            fields:
-              - field: title
-              - field: project
-              - field: status
-              - field: priority
-              - field: due_date
-            action:
-              type: crud
-              operation: create
-              table: tasks
-              onSuccess:
-                navigate: /board
-                toast:
-                  message: Task created
-                  variant: success
-
-      - type: kanban
-        dataSource:
-          table: tasks
-        kanbanGroupBy:
-          field: status
-        emptyColumnMessage: Nothing here.
-        card:
-          children:
-            - type: text
-              element: h3
-              props:
-                className: text-md font-medium
-              content: $record.title
-          footer:
-            - field: due_date
-              format: relative-date
-            - field: priority
-              format: badge
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Board
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Add task
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-task-dialog
+          - $ref: ./_add-task.yaml
+          - type: container
+            props:
+              className: flex flex-col gap-4 px-5 pb-5 pt-4
+            children:
+              - type: filter-bar
+                publishes:
+                  bindTo: board-filter
+                fields:
+                  - { name: title, label: Task, kind: text }
+                  - name: priority
+                    label: Priority
+                    kind: select
+                    options:
+                      - { value: High, label: High }
+                      - { value: Medium, label: Medium }
+                      - { value: Low, label: Low }
+                  - { name: due_date, label: Due date, kind: date }
+              # The three open statuses share the width; the folded Done column
+              # takes only what its heading needs. On a phone every column keeps
+              # a readable width and the board scrolls sideways.
+              - type: container
+                props:
+                  className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Done]]:flex-[0_0_13.75rem]!'
+                children:
+                  - type: kanban
+                    dataSource:
+                      table: tasks
+                      bindTo: board-filter
+                      sharedFilter: {}
+                      sort:
+                        - { field: due_date, direction: asc }
+                    kanbanGroupBy:
+                      field: status
+                      # Done starts folded: it holds finished work, not work in
+                      # progress.
+                      collapsed: [Done]
+                    drag:
+                      enabled: true
+                      persistAction:
+                        type: crud
+                        operation: update
+                        table: tasks
+                    emptyColumnMessage: No task in this status. Drag one here as the work moves.
+                    card:
+                      children:
+                        - type: text
+                          element: h3
+                          props:
+                            className: text-[13px] font-medium leading-snug text-foreground
+                          content: $record.title
+                        - type: text
+                          element: p
+                          props:
+                            className: text-xs text-foreground-muted
+                          content: $record.project
+                      footer:
+                        - { field: due_date, format: short-date }
+                        - { field: priority, format: badge }
+                        - { field: assignee, format: avatar }
+                      onClick:
+                        action: openDrawer
+                        component: task-detail
+              # One task, opened over the board. `/board?record=<id>` opens it
+              # too, so a task can be linked to directly.
+              - type: drawer
+                id: task-detail
+                drawerSide: right
+                drawerSize: md
+                canEdit: false
+                dataSource:
+                  table: tasks
+                props:
+                  title: Task
+                recordFields:
+                  - { name: title, type: single-line-text, label: Task }
+                  - { name: project, type: relationship, label: Project }
+                  - { name: status, type: single-select, label: Status }
+                  - { name: assignee, type: user, label: Assignee }
+                  - { name: due_date, type: date, label: Due }
+                  - { name: priority, type: single-select, label: Priority }
+                  - { name: predecessor, type: relationship, label: Waits on }
+                  - { name: description, type: long-text, label: Notes }
+                related:
+                  - label: Waiting on this task
+                    table: tasks
+                    field: predecessor
+                    columns:
+                      - { field: title, label: Task }
+                      - { field: due_date, label: Due }
+                      - { field: status, label: Status }
+                    sort:
+                      - { field: due_date, direction: asc }
+                    emptyMessage: No task waits on this one.

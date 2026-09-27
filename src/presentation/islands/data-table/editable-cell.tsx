@@ -104,7 +104,7 @@ function SelectEditor({
       defaultValue={String(value ?? '')}
       onChange={(e) => onSave(e.target.value)}
       onKeyDown={handleKeyDown}
-      className="border-primary focus:ring-focus-ring text-md w-full rounded border px-1 py-0.5 focus:ring-1 focus:outline-none"
+      className="select-compact border-primary focus:ring-focus-ring text-md w-full rounded border px-1 py-0.5 focus:ring-1 focus:outline-none"
     >
       {options.map((opt) => (
         <option

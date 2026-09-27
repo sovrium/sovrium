@@ -22,7 +22,7 @@
 // relative order, which is where a route-precedence question belongs.
 
 import agents from './agents'
-import automations from './automations'
+import { automationPages } from './automations'
 import buckets from './buckets'
 import connections from './connections'
 import forms from './forms'
@@ -52,7 +52,7 @@ export const dataPages: readonly PageConfig[] = [
   // the other tab.
   ...pages,
   // Application
-  automations,
+  ...automationPages,
   ...tables,
   ...forms,
   ...buckets,

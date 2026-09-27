@@ -1,14 +1,26 @@
-# Recipe 1 — WEBHOOK trigger. POST {"name": "...", "email": "..."} to this
-# automation's webhook endpoint and the payload becomes a lead row. Creating
-# the lead then fires Recipe 2 (record trigger) — automations chain through
-# the data, not through each other.
+# Recipe 1 — a webhook becomes a lead.
+#
+# POST a JSON body with `name` and `email` (and `company` if you have it) to
+#   /api/automations/capture-lead-from-webhook/webhook
+# with the header `Authorization: Bearer <LEADS_WEBHOOK_TOKEN>`. A request
+# without the token is refused with a 401 and writes nothing, so a form, a
+# shop or any system you give the token to can post leads, and nobody else
+# can.
+#
+# The last step adds this run's line to the activity log. A lead typed in or
+# posted to the records API runs recipe 2; a lead written by this recipe does
+# not yet, because a record written by an automation does not start another
+# automation's record trigger today.
 name: capture-lead-from-webhook
-label: Webhook — capture a lead
-description: Turn an inbound webhook POST into a lead record.
+label: Webhook → record
+description: Turn an authenticated webhook POST into a lead.
 enabled: true
 trigger:
   type: webhook
   method: POST
+  auth:
+    type: bearer
+    token: $env.LEADS_WEBHOOK_TOKEN
 actions:
   - name: createLead
     type: record
@@ -18,4 +30,17 @@ actions:
       data:
         name: '{{trigger.data.body.name}}'
         email: '{{trigger.data.body.email}}'
+        company: '{{trigger.data.body.company}}'
         source: Webhook
+        captured_at: '{{now}}'
+  - name: logRun
+    type: record
+    operator: create
+    props:
+      table: activity_log
+      data:
+        logged_at: '{{now}}'
+        recipe: capture-lead-from-webhook
+        outcome: Succeeded
+        attempts: 1
+        detail: 'POST · lead created: {{trigger.data.body.name}}'

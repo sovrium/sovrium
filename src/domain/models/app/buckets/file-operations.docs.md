@@ -2,7 +2,7 @@
 
 > The three endpoints every bucket exposes — and the ownership record that decides which bucket may read, write or delete a given key.
 
-The bucket segment is a name from your `buckets` array, or `default` for the implicit bucket.
+The bucket segment is a name from your `buckets` array, or `system` for the built-in bucket every app has.
 
 | Method   | Endpoint                            | Result                                          |
 | -------- | ----------------------------------- | ----------------------------------------------- |
@@ -42,7 +42,7 @@ Persist the returned key. It is the only handle to the file.
 An optional `path` field stores the file at that exact key instead, with no generated prefix — which is how a file lands under a prefix an operator has marked public.
 
 ```bash
-curl -X POST https://app.example.com/api/buckets/default/files \
+curl -X POST https://app.example.com/api/buckets/system/files \
   -F "file=@logo.png" -F "path=public/logo.png"
 ```
 

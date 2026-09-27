@@ -38,9 +38,13 @@ curl -H "x-api-key: $SOVRIUM_API_KEY" \
 
 **The documents are served at runtime and fetched, not built.** There is no CLI subcommand that writes an OpenAPI file: to get one on disk, fetch the route as an admin and redirect it. The JSON Schema of the _config_ is the opposite case — that one does have a dedicated command, because it describes the file you are about to write rather than the server you are already running.
 
+The document is titled, described and versioned after your app — its `name`, `description` and `version` — so a client generated from it carries your product's name. The engine release stays readable as `info.x-sovrium-version`. An app that declares no version publishes `0.0.0`.
+
 ## The explorer
 
 Visiting `/api/scalar` in a browser while signed in as an admin gives a searchable view of every endpoint, its request and response schemas, its status codes and the canonical error envelope — and lets you issue authenticated requests from the page.
+
+The reference page is titled `<app name> API reference` and ships without the vendor's client promotion, models panel, AI assistant, MCP control, usage telemetry or web fonts.
 
 ## Feeding external tools
 

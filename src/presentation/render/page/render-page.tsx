@@ -39,6 +39,8 @@ import {
   resolvePageCodeHighlights,
 } from '@/presentation/render/resolve/code-highlight-resolver'
 import { highlightComponentCodeBlocks } from '@/presentation/render/resolve/component-code-highlighter'
+import { expandMatchedPageReferences } from '@/presentation/render/resolve/component-reference-expansion'
+import { stampTemplateIslands } from '@/presentation/render/resolve/data-source-rows'
 import { resolveDerivedBreadcrumbs } from '@/presentation/render/resolve/derived-breadcrumb-resolver'
 import { routeParamsAreServed } from '@/presentation/render/resolve/route-param-allow-list-resolver'
 import { resolveSidebarCurrentEntries } from '@/presentation/render/resolve/sidebar-current-resolver'
@@ -160,7 +162,9 @@ export async function renderPageByPath(
     urlLanguage,
     callerCapabilities,
   } = options ?? {}
-  const found = findDeclaredPage(app, path)
+  // Every page pass below reads the tree with its `{ component: name }`
+  // references already inlined — see `component-reference-expansion.ts`.
+  const found = expandMatchedPageReferences(findDeclaredPage(app, path), app.components)
   if (!found) return undefined
   const { page: matchedPage, params: routeParams, indexBasePathPattern } = found
 
@@ -246,7 +250,7 @@ export async function renderPageByPath(
   // page (the spec accepts either 200 with an access marker OR 403; 200 +
   // marker matches the existing PageRenderResult shape).
   if ('permissionBlocked' in resolvedPage) {
-    return renderPermissionBlockedPage(app, detectedLanguage)
+    return renderPermissionBlockedPage(app, matchedPage.path)
   }
   // P5: turn every `derive: 'path'` breadcrumb into a concrete trail while the
   // REQUEST path is still in hand — the component dispatcher never sees it.
@@ -296,8 +300,10 @@ export async function renderPageByPath(
       app.design?.codeBlock?.theme,
       app.design?.codeBlock?.darkTheme
     ),
+    // A list placed through `{ component: name }` is stamped in its TEMPLATE,
+    // since the renderer expands the reference from this list, not from the page.
     resolveComponentsCodeHighlights(
-      app.components,
+      stampTemplateIslands(app.components, { app, routeParams }),
       app.design?.codeBlock?.theme,
       app.design?.codeBlock?.darkTheme
     ),
@@ -391,8 +397,7 @@ export async function renderPage(
   const result = await renderPageByPath(app, path, options)
   if (result) return result
 
-  // Fallback: render default homepage when path is '/' and no custom page exists
-  if (path === '/') {
+  if (shouldServeDefaultHomePage(app, path, options)) {
     const injectAnalytics = shouldInjectAnalytics(app.analytics, '/')
     const defaultSessionTimeout = extractSessionTimeout(app.analytics)
     const html = renderToString(
@@ -406,4 +411,28 @@ export async function renderPage(
   }
 
   return undefined
+}
+
+/**
+ * Whether `/` falls back to the engine's placeholder homepage.
+ *
+ * Only for a standalone app that declares NO page at `/`. An app that declares
+ * one has said what its homepage is, so when that page refuses to render — its
+ * page-level record is unreadable for this caller, say — the honest answer is
+ * the ordinary 404, the same one any other record-bound page gives. Serving
+ * the placeholder instead turns a data refusal into a 200 that prints the
+ * app's name, version and description as if they were the homepage.
+ *
+ * A mounted app never falls back either: its placeholder could only print the
+ * embedded preset's own identity, which no operator configured. The mount
+ * answers with its own not-found.
+ */
+function shouldServeDefaultHomePage(
+  app: App,
+  path: string,
+  options: { readonly hostApp?: App; readonly basePath?: string } | undefined
+): boolean {
+  if (path !== '/') return false
+  if (options?.hostApp !== undefined || options?.basePath !== undefined) return false
+  return findDeclaredPage(app, '/') === undefined
 }

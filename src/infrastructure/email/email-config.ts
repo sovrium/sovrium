@@ -33,8 +33,10 @@ export interface EmailConfigResult {
  * - SMTP_SECURE: Use SSL/TLS (default: false for port 587, true for port 465)
  * - SMTP_USER: SMTP authentication username
  * - SMTP_PASS: SMTP authentication password
- * - SMTP_FROM: Default "from" email address (default: noreply@sovrium.com)
- * - SMTP_FROM_NAME: Default "from" display name (default: 'Sovrium')
+ *
+ * The sender (`SMTP_FROM` / `SMTP_FROM_NAME`) is NOT part of this config: it is
+ * resolved per message by `getDefaultFrom`, which also knows the sending app's
+ * name. A second default here would be a second answer to the same question.
  */
 
 /**
@@ -83,10 +85,6 @@ export const getEmailConfigFromEffect = (): EmailConfigResult => {
         auth: {
           user: getEnvString('SMTP_USER', ''),
           pass: getEnvString('SMTP_PASS', ''),
-        },
-        from: {
-          email: getEnvString('SMTP_FROM', 'noreply@sovrium.com'),
-          name: getEnvString('SMTP_FROM_NAME', 'Sovrium'),
         },
       },
     }

@@ -8,7 +8,12 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { resolveRecordDrawerFieldProp } from '@/presentation/render/props/resolve-record-drawer-fields'
+import {
+  RELATED_GUEST_CALLER_KEY,
+  resolveRelatedSections,
+} from '@/presentation/render/props/resolve-record-drawer-related'
 import type { ComponentRenderer } from './component-dispatch-config'
+import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement } from 'react'
 
 /**
@@ -36,6 +41,36 @@ function slotMarkup(renderedChildren: readonly ReactElement[]): string | undefin
 }
 
 /**
+ * `false` for a drawer reached ONLY from another drawer's related rows: it is
+ * not the page's primary record surface, so a `?record=` deep link — an id of
+ * the page's own table — must not open it on an id that belongs to another
+ * table. Tagged by `resolveOpenDrawerDispatches`; `undefined` (so the island's
+ * default, `true`) everywhere else, which keeps every other drawer's
+ * serialised props byte-for-byte what they were.
+ */
+function deepLinkProp(rawProps: Readonly<Record<string, unknown>> | undefined): false | undefined {
+  return rawProps?.['_relatedRowTargetOnly'] === true ? false : undefined
+}
+
+/**
+ * The drawer's interpreter-provided control labels: save and close, plus the
+ * CAP-8 related sections' create affordance, worded like the grid's toolbar.
+ */
+function drawerControlLabels(
+  currentLang: string | undefined,
+  languages: Languages | undefined
+): Readonly<Record<string, string>> {
+  const resolve = (key: string) => resolveInterpreterString(key, currentLang, languages)
+  return {
+    saveLabel: resolve('recordDrawer.save'),
+    closeLabel: resolve('recordDrawer.close'),
+    newRecordLabel: resolve('datatable.newRecord'),
+    cancelLabel: resolve('datatable.cancel'),
+    createFailedLabel: resolve('recordDrawer.relatedCreateFailed'),
+  }
+}
+
+/**
  * A `drawer` carrying a `dataSource` — the record-detail/edit surface
  *.
  *
@@ -57,6 +92,7 @@ export const renderRecordBoundDrawer: ComponentRenderer = ({
   tables,
   languages,
   currentLang,
+  session,
 }) => {
   const comp = (component ?? {}) as Record<string, unknown>
   // CAP-2: `props.title` supplies the surface's accessible NAME; the default
@@ -91,11 +127,18 @@ export const renderRecordBoundDrawer: ComponentRenderer = ({
     // the record lands — they cannot be resolved here, because at SSR the drawer
     // does not yet know which record it will be opened for.
     childrenHtml: slotMarkup(renderedChildren),
+    // CAP-8: the related sections, resolved against the related tables' field
+    // schema and the caller's permissions here, where the session is known. A
+    // section the caller may not read is absent, not emptied.
+    related: resolveRelatedSections(comp['related'], tables, {
+      session,
+      guest: rawProps?.[RELATED_GUEST_CALLER_KEY] === true,
+    }),
+    deepLink: deepLinkProp(rawProps),
     canEdit: dataSource?.system === undefined && comp['canEdit'] !== false,
     // Interpreter-provided control labels, resolved server-side so author
     // `languages.translations` overrides apply (the island cannot see them).
-    saveLabel: resolveInterpreterString('recordDrawer.save', currentLang, languages),
-    closeLabel: resolveInterpreterString('recordDrawer.close', currentLang, languages),
+    ...drawerControlLabels(currentLang, languages),
   }
   return (
     <div

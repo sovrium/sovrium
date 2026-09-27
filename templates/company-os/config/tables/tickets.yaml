@@ -1,3 +1,5 @@
+# Support: one row per ticket, raised by a client's contact and held by someone
+# on the team.
 id: 6
 name: tickets
 fields:
@@ -10,28 +12,35 @@ fields:
     type: relationship
     relatedTable: contacts
     relationType: many-to-one
+    displayField: name
+  # Resolved is the outcome; New and Open are grey. Resolving a ticket emails
+  # its contact (config/automations/notify-contact-on-resolved-ticket.yaml).
   - id: 3
     name: status
     type: status
     options:
       - value: New
-        color: '#3B82F6'
+        color: '#6F737A'
       - value: Open
-        color: '#F59E0B'
+        color: '#6F737A'
       - value: Resolved
-        color: '#10B981'
-      - value: Closed
-        color: '#94A3B8'
+        color: '#187C49'
     default: New
+  # Urgent is the one priority that turns red: it is the ticket to read first.
   - id: 4
     name: priority
     type: single-select
     options:
-      - Low
-      - Normal
-      - High
-      - Urgent
+      - value: Low
+        color: '#6F737A'
+      - value: Normal
+        color: '#6F737A'
+      - value: High
+        color: '#6F737A'
+      - value: Urgent
+        color: '#BA3535'
     default: Normal
+  # Who holds the ticket. Empty while it waits to be picked up.
   - id: 5
     name: assignee
     type: user
@@ -39,11 +48,26 @@ fields:
   - id: 6
     name: created_at
     type: created-at
+  # The client the ticket is about. With this link the client's drawer lists
+  # its tickets beside its deals and projects.
+  - id: 7
+    name: company
+    type: relationship
+    relatedTable: companies
+    relationType: many-to-one
+    displayField: name
+  # The client's name, read through the relationship, for the lists that
+  # print a ticket's client as plain text.
+  - id: 8
+    name: company_name
+    type: lookup
+    relationshipField: company
+    relatedField: name
 
 aiAccess:
   description: >-
-    Support tickets, each linked to a CRM contact. Use this when the user
-    asks about open issues or a customer's support history.
+    Support tickets, each raised by a client's contact. Use this when the user
+    asks about open issues, who holds them, or a client's support history.
   operations:
     - read
     - list

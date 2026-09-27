@@ -6,7 +6,7 @@
  */
 
 import { renderToString } from 'react-dom/server'
-import { isBadgeEnabled } from '@/domain/models/app/badge'
+import { resolveBadge } from '@/presentation/render/page/badge-placement'
 import { ErrorPage } from '@/presentation/render/page/error-page'
 import { NotFoundPage } from '@/presentation/render/page/not-found-page'
 import { SovriumBadge } from '@/presentation/render/page/sovrium-badge'
@@ -51,7 +51,7 @@ window.addEventListener("popstate",u);
  * Injects the "Built with Sovrium" badge into a static fallback error page.
  * Mirrors the analytics string-injection technique above — the static
  * NotFoundPage/ErrorPage components carry no app context, so the badge is
- * spliced in before `</body>` only when the app opts in (`isBadgeEnabled`).
+ * spliced in before `</body>` only when the app keeps it (`resolveBadge`).
  * The badge label follows the detected request language (English fallback).
  */
 function injectBadgeIntoErrorPage(
@@ -59,8 +59,14 @@ function injectBadgeIntoErrorPage(
   app: App | undefined,
   detectedLanguage: string | undefined
 ): string {
-  if (app === undefined || !isBadgeEnabled(app.badge)) return docHtml
-  const badgeHtml = renderToString(<SovriumBadge lang={detectedLanguage} />)
+  const placement = app === undefined ? undefined : resolveBadge(app.badge)
+  if (placement === undefined) return docHtml
+  const badgeHtml = renderToString(
+    <SovriumBadge
+      lang={detectedLanguage}
+      placement={placement}
+    />
+  )
   return docHtml.includes('</body>')
     ? docHtml.replace('</body>', `${badgeHtml}</body>`)
     : `${docHtml}${badgeHtml}`

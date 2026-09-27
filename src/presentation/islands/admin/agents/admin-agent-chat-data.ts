@@ -42,7 +42,6 @@
  */
 
 import { useCallback, useState } from 'react'
-import { isDefaultAgentName } from '@/domain/models/app/agents/agent-identity'
 import { dispatch } from '../../runtime/event-bus'
 import type { ChatTurnAction } from './admin-agent-chat-actions'
 
@@ -102,17 +101,15 @@ interface ChatOutcome {
 /**
  * The request body for one turn.
  *
- * The reserved `default` agent is a VIEW over the `agent_name IS NULL` rows, not
- * a declared `app.agents[]` entry — so naming it would 404 as an undeclared
- * agent. Omitting `agent` sends a generic turn, which persists exactly the NULL
- * attribution that view is defined as. Without this the console's LANDING
- * agent is the one agent you cannot talk to.
+ * Every agent the console lists is named on the turn, the built-in `system`
+ * one included: the server resolves it to the read-only System Agent, whose
+ * turns persist with the NULL attribution its conversation view is defined as.
  */
 function chatBody(agentSlug: string, message: string, sessionId: string): Record<string, unknown> {
   return {
     message,
     sessionId,
-    ...(agentSlug.length > 0 && !isDefaultAgentName(agentSlug) ? { agent: agentSlug } : {}),
+    ...(agentSlug.length > 0 ? { agent: agentSlug } : {}),
   }
 }
 

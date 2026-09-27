@@ -41,15 +41,22 @@
  */
 
 import { Effect } from 'effect'
+import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
+import { DatabaseError } from '@/domain/errors'
 import { getManyToManyFieldSpecs, type ManyToManyFieldSpec } from './many-to-many-fields'
 import {
   buildRecordDisplayLabels,
+  buildUserDisplayLabels,
   collectReferencedKeys,
+  collectReferencedUserIds,
   getRelationshipDisplaySpecs,
+  getUserDisplayFieldNames,
+  type LabelReader,
+  type RecordDisplayLabels,
+  type RequestedLabel,
 } from './relationship-display-fields'
 import type { TransformedRecord } from './record-transformer'
-import type { DatabaseError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 
 type ManyToManyWriteLink = {
@@ -197,8 +204,60 @@ export const enrichRecordsWithManyToMany = (
     )
   }).pipe(Effect.withSpan('tables.enrich-records-with-many-to-many'))
 
+/** The relationship part of each record's labels, keyed by record id (empty when none). */
+const readRelationshipLabels = (
+  app: App | undefined,
+  tableName: string,
+  records: readonly TransformedRecord[],
+  audience: { readonly reader: LabelReader; readonly requested?: readonly RequestedLabel[] }
+): Effect.Effect<ReadonlyMap<string, RecordDisplayLabels>, DatabaseError, TableRepository> =>
+  Effect.gen(function* () {
+    const specs = getRelationshipDisplaySpecs(app, tableName, audience.reader, audience.requested)
+    const requests = specs.length === 0 ? [] : collectReferencedKeys(specs, records)
+    if (requests.length === 0) return new Map<string, RecordDisplayLabels>()
+    const repo = yield* TableRepository
+    const labels = yield* repo.readRelatedLabels(requests)
+    return new Map(
+      records.flatMap((record) => {
+        const display = buildRecordDisplayLabels(specs, record.fields, labels)
+        return display ? [[String(record.id), display] as const] : []
+      })
+    )
+  })
+
 /**
- * Attach the `_display` label block to a page of records.
+ * The user-field part of each record's labels: the account's name, or
+ * its email when it has none, for every `user` / `created-by` / `updated-by` /
+ * `deleted-by` value on the page — read in ONE query through the auth
+ * repository, never from the user table directly.
+ */
+const readUserLabels = (
+  app: App | undefined,
+  tableName: string,
+  records: readonly TransformedRecord[]
+): Effect.Effect<ReadonlyMap<string, RecordDisplayLabels>, DatabaseError, AuthRepository> =>
+  Effect.gen(function* () {
+    const fieldNames = getUserDisplayFieldNames(app, tableName)
+    const ids = fieldNames.length === 0 ? [] : collectReferencedUserIds(fieldNames, records)
+    if (ids.length === 0) return new Map<string, RecordDisplayLabels>()
+    const auth = yield* AuthRepository
+    const labels = yield* auth
+      .getUserDisplayLabels(ids)
+      .pipe(
+        Effect.mapError((error) => new DatabaseError('Failed to read account labels', error.cause))
+      )
+    return new Map(
+      records.flatMap((record) => {
+        const display = buildUserDisplayLabels(fieldNames, record.fields, labels)
+        return display ? [[String(record.id), display] as const] : []
+      })
+    )
+  })
+
+/**
+ * Attach the `_display` label block to a page of records: the label of every
+ * relationship key whose field declared one, and the name of every account a
+ * user field stores.
  *
  * Runs AFTER the many-to-many enrich, because a many-to-many column has no base
  * column — its keys only exist on the record once the junction has been read,
@@ -207,21 +266,36 @@ export const enrichRecordsWithManyToMany = (
  *
  * The stored keys are untouched: `_display` sits beside `fields`, so a caller
  * that wants the identifier still finds it where it always was.
+ *
+ * `audience.reader` is required rather than optional: every label is a value of
+ * another table, and resolving one without knowing who will read it is how an
+ * admin-only column reached viewers one hop away. `audience.requested` carries the
+ * `?labels=` pairs a page column asked for.
  */
 export const enrichRecordsWithRelatedLabels = (
   app: App | undefined,
   tableName: string,
-  records: readonly TransformedRecord[]
-): Effect.Effect<readonly TransformedRecord[], DatabaseError, TableRepository> =>
+  records: readonly TransformedRecord[],
+  audience: {
+    readonly reader: LabelReader
+    readonly requested?: readonly RequestedLabel[]
+  }
+): Effect.Effect<readonly TransformedRecord[], DatabaseError, TableRepository | AuthRepository> =>
   Effect.gen(function* () {
-    const specs = getRelationshipDisplaySpecs(app?.tables, tableName)
-    if (specs.length === 0 || records.length === 0) return records
-    const requests = collectReferencedKeys(specs, records)
-    if (requests.length === 0) return records
-    const repo = yield* TableRepository
-    const labels = yield* repo.readRelatedLabels(requests)
+    if (records.length === 0) return records
+    const [related, users] = yield* Effect.all(
+      [
+        readRelationshipLabels(app, tableName, records, audience),
+        readUserLabels(app, tableName, records),
+      ],
+      { concurrency: 1 }
+    )
+    if (related.size === 0 && users.size === 0) return records
     return records.map((record) => {
-      const display = buildRecordDisplayLabels(specs, record.fields, labels)
-      return (display ? { ...record, _display: display } : record) as TransformedRecord
+      const key = String(record.id)
+      const display = { ...related.get(key), ...users.get(key) }
+      return (
+        Object.keys(display).length > 0 ? { ...record, _display: display } : record
+      ) as TransformedRecord
     })
   }).pipe(Effect.withSpan('tables.enrich-records-with-related-labels'))

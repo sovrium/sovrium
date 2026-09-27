@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolvePageLocale } from '../runtime/page-locale'
 import { KpiCard, type KpiTrendConfig } from './kpi-card'
 import {
   aggregateKpi,
@@ -19,6 +20,7 @@ import {
 import { KpiError, KpiLoading, KpiMissingTable } from './kpi-states'
 import { useKpiRecords } from './use-kpi-records'
 import { KPI_NEUTRAL_VALUE, useKpiSystemValue } from './use-kpi-system-value'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { KpiSystemSource } from '@/domain/models/app/pages/components/component-types/data/kpi'
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
 import type { ReactElement } from 'react'
@@ -50,6 +52,8 @@ interface KpiIslandProps extends KpiPresentationProps {
   readonly kpiAggregate?: KpiAggregateConfig
   readonly thresholds?: readonly KpiThresholdConfig[]
   readonly sparkline?: KpiSparklineConfig
+  /** The aggregated field's currency display, resolved server-side from `app.tables`. */
+  readonly valueCurrency?: CurrencyDisplayOptions
 }
 
 /** Narrowing guard: is this data source the system read-endpoint variant? */
@@ -76,7 +80,7 @@ function KpiSystemTile({
   const { data } = useKpiSystemValue(system)
   const value =
     data?.kind === 'value'
-      ? formatKpiValue(data.value, kpiFormat)
+      ? formatKpiValue(data.value, kpiFormat, resolvePageLocale())
       : data?.kind === 'template'
         ? data.value
         : KPI_NEUTRAL_VALUE
@@ -106,11 +110,13 @@ function KpiTableTile({
   trend,
   thresholds,
   sparkline,
+  valueCurrency,
 }: KpiPresentationProps & {
   readonly source: KpiTableSource
   readonly kpiAggregate?: KpiAggregateConfig
   readonly thresholds?: readonly KpiThresholdConfig[]
   readonly sparkline?: KpiSparklineConfig
+  readonly valueCurrency?: CurrencyDisplayOptions
 }): ReactElement {
   const { data, isLoading, isError, error } = useKpiRecords(source)
 
@@ -126,7 +132,7 @@ function KpiTableTile({
   const rows = data?.records ?? []
   const aggregate: KpiAggregateConfig = kpiAggregate ?? { function: 'count' }
   const metric = aggregateKpi(rows, aggregate)
-  const formatted = formatKpiValue(metric, kpiFormat)
+  const formatted = formatKpiValue(metric, kpiFormat, resolvePageLocale(), valueCurrency)
   const thresholdColor = resolveKpiThresholdColor(metric, thresholds)
   const sparklineSeries = sparkline ? computeSparklineSeries(rows, sparkline) : undefined
 
@@ -164,6 +170,7 @@ export default function KpiIsland({
   trend,
   thresholds,
   sparkline,
+  valueCurrency,
 }: KpiIslandProps): ReactElement {
   if (isSystemSource(dataSource)) {
     return (
@@ -190,6 +197,7 @@ export default function KpiIsland({
         trend={trend}
         thresholds={thresholds}
         sparkline={sparkline}
+        valueCurrency={valueCurrency}
       />
     )
   }

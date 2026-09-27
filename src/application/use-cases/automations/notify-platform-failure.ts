@@ -8,35 +8,59 @@
 /**
  * Platform failure notifications.
  *
- * When an automation fails after exhausting its retry budget, the platform
- * sends an email to every user with the `admin` role so failures are never
- * silently lost. Analogous to Zapier's built-in "Zap failed" email — no
- * configuration knob, always active when `app.auth` is configured.
+ * When an automation run ends in failure — its retry budget exhausted, or its
+ * whole-run `timeout` exceeded — the platform emails the people who operate the
+ * instance, so a failure is never silently lost. Analogous to Zapier's built-in
+ * "Zap failed" email.
  *
- * Contract assertions ([internal ref]..005):
- *   - Fires only AFTER all retries are exhausted (the engine calls this
- *     from `executeAutomationRun` once per run, at the same dispatch site
- *     as `dispatchFailureHandlers`).
- *   - Subject contains the automation name (search query `subject:<name>`).
- *   - Body contains the automation name, the error message, and a link
- *     matching `/api/automations/<name>/runs/<runId>` so operators can
- *     jump to the run detail via the runs API.
- *   - One email per admin per failed run (callers must dispatch once).
+ * Contract ([internal ref]..005, -018..-024):
+ *   - Fires once per run, only AFTER all retries are exhausted (the engine calls
+ *     this from the run's post-run dispatch, beside `dispatchFailureHandlers`).
+ *   - Recipients: the app's admin-tier accounts, not banned, who left their
+ *     "Automation alerts" preference on — plus every address in
+ *     `SOVRIUM_NOTIFY_TO`, which is the whole audience of an app with no `auth:`
+ *     block. `SOVRIUM_NOTIFY_AUTOMATIONS=off` silences it for the instance.
+ *   - Subject: `[<app> v<ver> (Sovrium v<engine>)] Automation failed: <name>`
+ *     (`Automation timed out: <name>` for a timed-out run), so the automation
+ *     name is searchable and the app is named before the email is opened.
+ *   - Body: the automation, the error (escaped in the HTML part — an error
+ *     message is data an upstream may have echoed), when it happened, and an
+ *     ABSOLUTE link to the console's automations page built from `BASE_URL`.
+ *     Without `BASE_URL` there is no address a mail client could open, so the
+ *     run id is printed instead of a link that cannot work.
+ *   - The footer links to the profile page, where each operator switches the
+ *     email off for themselves.
+ * - Grouped: a final failure is emailed
+ *     at once only when no OTHER final failure of the same automation completed
+ *     in the hour before it. The rest are held back for the hourly roll-up
+ *     (`send-failure-rollup.ts`), so an automation failing every minute sends
+ *     one email, then one summary an hour — not sixty. The rule is read from
+ *     the run history itself, so the roll-up recomputes it without anything
+ *     being recorded here. An interrupted run is always emailed at once: it is
+ *     the server's event, not the automation's.
  *
- * Failures inside this helper are swallowed: a broken admin-email path
- * MUST NOT re-fail the already-failed run (that would mask the real
- * automation error in logs and tests).
+ * Failures inside this helper are swallowed and logged: a broken email path
+ * MUST NOT re-fail the already-failed run (that would mask the real automation
+ * error in logs and tests).
  */
 
-import { Data, Effect } from 'effect'
-import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import { sendEmail } from '@/infrastructure/email/email-service'
+import { Effect } from 'effect'
+import { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
+import {
+  FAILURE_ALERT_WINDOW_MS,
+  qualifiesForImmediateAlert,
+} from '@/domain/models/app/automations/automation-run-outcome-service'
+import { summariseRunError } from '@/domain/models/app/automations/failure-summary-service'
 import { logError } from '@/infrastructure/logging/logger'
+import { deliverAutomationNotice, type AutomationNoticeContent } from './automation-notice'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { App } from '@/domain/models/app'
 
-class AdminEmailSendError extends Data.TaggedError('AdminEmailSendError')<{
-  readonly cause: unknown
-}> {}
+/**
+ * How the run ended. A timed-out run is told as such, not as a generic failure;
+ * an interrupted run is one the server stopped under, closed at the next boot.
+ */
+export type PlatformFailureKind = 'failed' | 'timed-out' | 'interrupted'
 
 interface NotifyPlatformFailureInput {
   readonly app: App
@@ -44,112 +68,107 @@ interface NotifyPlatformFailureInput {
   readonly runId: string
   readonly error: string
   readonly failedAt: string
+  readonly kind: PlatformFailureKind
+  /** The environment to read; defaults to the process environment. */
+  readonly env?: Readonly<Record<string, string | undefined>>
 }
 
-/**
- * Build the run-detail URL embedded in the notification email.
- *
- * Tests assert `/api/automations/<name>/runs/<runId>` — a relative path
- * is sufficient (the regression matcher is `/\/api\/automations\/.*\/runs\//`).
- * Operators reading the email in a real deployment can prepend their own
- * host; encoding a server-side `BASE_URL` would couple the use-case to an
- * env var the test fixture doesn't set.
- */
-const buildRunLink = (automationName: string, runId: string): string =>
-  `/api/automations/${automationName}/runs/${runId}`
-
-/**
- * Render the plain-text body of the failure notification.
- *
- * Subject is intentionally `"Automation failed: <name>"` so the Mailpit
- * search query `subject:<name>` (used by the spec fixture) matches.
- */
-const renderFailureEmail = (
+/** The title and first sentence of the alert, per way the run ended. */
+const describeFailure = (
   input: NotifyPlatformFailureInput
-): { readonly subject: string; readonly body: string } => {
-  const runLink = buildRunLink(input.automationName, input.runId)
-  const subject = `Automation failed: ${input.automationName}`
-  const body = [
-    `Automation: ${input.automationName}`,
-    `Error: ${input.error}`,
-    `Failed at: ${input.failedAt}`,
-    `Run details: ${runLink}`,
-  ].join('\n')
-  return { subject, body }
+): { readonly title: string; readonly intro: string; readonly at: string } => {
+  const name = input.automationName
+  if (input.kind === 'timed-out') {
+    return {
+      title: `Automation timed out: ${name}`,
+      intro: `The automation "${name}" timed out: the run took longer than its time limit and was stopped.`,
+      at: 'Timed out at',
+    }
+  }
+  if (input.kind === 'interrupted') {
+    return {
+      title: `Automation interrupted: ${name}`,
+      intro: `A run of the automation "${name}" never finished: the server stopped while it was running, so it was closed as failed when the server started again.`,
+      at: 'Closed at',
+    }
+  }
+  return {
+    title: `Automation failed: ${name}`,
+    intro: `The automation "${name}" failed after using all of its retries.`,
+    at: 'Failed at',
+  }
+}
+
+/** What the alert says. Pure: every value it prints arrives as a parameter. */
+const failureNotice = (input: NotifyPlatformFailureInput): AutomationNoticeContent => {
+  const { title, intro, at } = describeFailure(input)
+  return {
+    title,
+    intro,
+    sections: [
+      {
+        lines: [
+          `Automation: ${input.automationName}`,
+          `Error: ${summariseRunError(input.error)}`,
+          `${at}: ${input.failedAt}`,
+        ],
+      },
+    ],
+    // Without BASE_URL no link can be built, so the run id is what an operator
+    // searches the console's run history for.
+    fallbackLines: [`Run: ${input.runId}`],
+  }
 }
 
 /**
- * Load every admin user's email via `AuthRepository.findAdminEmails`.
- *
- * `AuthRepository` is DECLARED rather than bound (standing rule E1). The only
- * caller is the run loop's failure path, which already runs under the
- * automation runtime — and that runtime has carried `AuthRepositoryLive` all
- * along, so the layer this used to build per notification was a second copy of
- * one the fiber was already holding.
- *
- * A lookup failure degrades to "no admins" — a broken admin-email path MUST NOT
- * re-fail the already-failed run and mask the real automation error.
+ * Whether this failure is emailed at once, or held back for the hourly
+ * roll-up because another final failure of the same automation completed in
+ * the hour before it. An unreadable history degrades to sending: a duplicate
+ * email is a nuisance, a lost alert is the failure this exists to prevent.
  */
-const loadAdminEmails = (): Effect.Effect<readonly string[], never, AuthRepository> =>
+const isImmediate = (
+  input: NotifyPlatformFailureInput
+): Effect.Effect<boolean, never, AutomationRunOutcomeRepository> =>
   Effect.gen(function* () {
-    const repo = yield* AuthRepository
-    return yield* repo.findAdminEmails('admin')
-  }).pipe(
-    Effect.catch((error) => {
-      // Unwrap to the raw driver error, matching the payload this line logged
-      // before the lookup moved behind the port.
-      logError('[notify-platform-failure] admin email lookup failed', error.cause)
-      return Effect.succeed([] as readonly string[])
+    if (input.kind === 'interrupted') return true
+    const completedAt = new Date(input.failedAt)
+    const repository = yield* AutomationRunOutcomeRepository
+    const recent = yield* repository.listFinalFailures({
+      automationName: input.automationName,
+      from: new Date(completedAt.getTime() - FAILURE_ALERT_WINDOW_MS),
+      to: new Date(completedAt.getTime() + 1),
     })
-  )
-
-/**
- * Send the failure notification email to a single admin. Failures are
- * swallowed (a broken SMTP must not re-fail the parent run) but logged so
- * operators can investigate.
- */
-const sendOneNotification = (
-  to: string,
-  subject: string,
-  body: string
-): Effect.Effect<void, never> =>
-  Effect.tryPromise({
-    try: () => sendEmail({ to, subject, text: body, html: body.replaceAll('\n', '<br>') }),
-    catch: (cause) => new AdminEmailSendError({ cause }),
+    const self = {
+      id: input.runId,
+      automationName: input.automationName,
+      completedAt,
+      error: input.error,
+    }
+    return qualifiesForImmediateAlert(self, recent)
   }).pipe(
-    Effect.catch((err) => {
-      logError('[notify-platform-failure] sendEmail failed', err.cause, { to })
-      return Effect.void
-    }),
-    Effect.asVoid
+    Effect.tapCause((cause) =>
+      Effect.sync(() => logError('[notify-platform-failure] failure history unreadable', cause))
+    ),
+    // effect-swallow: see the doc comment — an unreadable history sends the alert.
+    Effect.orElseSucceed(() => true)
   )
 
 /**
- * SMTP-send fan-out width for admin failure notifications. Not pool work —
- * these are outbound emails — but the recipient list is data-dependent (every
- * admin), so the width is stated rather than `'unbounded'`.
- */
-const NOTIFICATION_SEND_CONCURRENCY = 2
-
-/**
- * Dispatch the platform admin-notification email after a failed automation
- * run. No-op when `app.auth` is not configured (no users → no admins to
- * notify, and the test fixture's auth gate would have already rejected the
- * trigger request anyway).
+ * Dispatch the platform failure alert after a failed, timed-out or interrupted
+ * run.
  *
- * Intentionally exhausts both arms of the `app.auth` guard via early-return
- * so the happy path stays straight-line — keeps complexity below the cap.
+ * Both requirements are DECLARED rather than bound (standing rule E1): the run
+ * loop's failure path already runs under the automation runtime, and the boot
+ * sweep and its trigger route under the server's.
  */
 export const notifyPlatformFailure = (
   input: NotifyPlatformFailureInput
-): Effect.Effect<void, never, AuthRepository> =>
+): Effect.Effect<void, never, AuthRepository | AutomationRunOutcomeRepository> =>
   Effect.gen(function* () {
-    if (!input.app.auth) return
-    const adminEmails = yield* loadAdminEmails()
-    if (adminEmails.length === 0) return
-    const { subject, body } = renderFailureEmail(input)
-    yield* Effect.forEach(adminEmails, (email) => sendOneNotification(email, subject, body), {
-      concurrency: NOTIFICATION_SEND_CONCURRENCY,
-      discard: true,
+    if (!(yield* isImmediate(input))) return
+    yield* deliverAutomationNotice({
+      app: input.app,
+      content: failureNotice(input),
+      env: input.env,
     })
   }).pipe(Effect.withSpan('automations.notify-platform-failure'))

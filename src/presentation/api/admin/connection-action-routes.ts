@@ -192,7 +192,11 @@ const resolveAuthorizeProps = async (
   // REC-3: the schema marks authorizationUrl/tokenUrl/redirectUri optional
   // (clientCredentials only needs tokenUrl). Enforce them so we never call
   // new URL(undefined).
-  const fieldsCheck = requireAuthCodeFields(c, resolvedProps)
+  const fieldsCheck = requireAuthCodeFields(
+    c,
+    resolvedProps,
+    `/api/admin/connections/${String(row['name'])}/callback`
+  )
   if ('response' in fieldsCheck) return { response: fieldsCheck.response }
   return { props: fieldsCheck.props }
 }
@@ -367,7 +371,11 @@ async function resolveCallback(
   // clientId/clientSecret/tokenUrl/redirectUri sent to the provider are the
   // real values, not literal `$env.…` strings.
   const resolvedProps = resolveOAuth2PropsEnv(conn.props as unknown as OAuth2Props, app)
-  const fieldsCheck = requireAuthCodeFields(c, resolvedProps)
+  const fieldsCheck = requireAuthCodeFields(
+    c,
+    resolvedProps,
+    `/api/admin/connections/${inputs.name}/callback`
+  )
   if ('response' in fieldsCheck) return { response: fieldsCheck.response }
 
   const lookup = await lookupConnection(c, { by: 'name', value: inputs.name })
@@ -400,6 +408,7 @@ const persistToken = (input: {
   readonly scope: 'app' | 'user'
   readonly tokens: OAuthTokenResponse
   readonly accessToken: string
+  readonly tokenFields: Readonly<Record<string, string>> | undefined
 }) =>
   Effect.gen(function* () {
     const tokenRepo = yield* ConnectionTokenRepository
@@ -412,11 +421,12 @@ const persistToken = (input: {
       ...(typeof input.tokens.expires_in === 'number'
         ? { expiresAt: new Date(Date.now() + input.tokens.expires_in * 1000) }
         : {}),
+      ...(input.tokenFields !== undefined ? { tokenFields: input.tokenFields } : {}),
     }
     const write =
       input.scope === 'app'
-        ? tokenRepo.upsertForApp(common)
-        : tokenRepo.upsertForUser({ ...common, userId: input.userId })
+        ? Effect.asVoid(tokenRepo.upsertForApp(common))
+        : Effect.asVoid(tokenRepo.upsertForUser({ ...common, userId: input.userId }))
     yield* write.pipe(
       Effect.mapError(
         (cause) => new AdminConnectionActionError({ operation: 'persistToken', cause })
@@ -447,6 +457,7 @@ async function handleCallback(c: Context, app: App): Promise<Response> {
       scope: ctx.scope,
       tokens: exchange.tokens,
       accessToken,
+      tokenFields: exchange.fields,
     })
   )
   if (persistResult._tag === 'Failure') {

@@ -14,7 +14,6 @@ import {
   resolvePreferredLanguage,
   validateLanguageSubdirectory,
 } from '@/domain/models/app/languages/language-detection'
-import { buildRobotsTxt, buildSitemapXml } from '@/domain/models/app/pages/sitemap-builder'
 import { logError } from '@/infrastructure/logging/logger'
 import { isProduction as isProductionEnv } from '@/infrastructure/process/env'
 import { varyOnAcceptLanguage, varyOnCookie } from '@/presentation/api/runtime/vary'
@@ -83,6 +82,23 @@ const preferredLanguageFor = (
 }
 
 /**
+ * The language a not-found page is composed in when the path carried NO
+ * declared `/{lang}/` segment: the remembered preference first, then the
+ * browser. A 404 is still read by someone, and a French operator who mistyped
+ * an address is owed the French page.
+ */
+const notFoundLanguage = (
+  config: HonoAppConfig,
+  c: Context,
+  request: {
+    readonly session: SessionInfo | undefined
+    readonly cookies: Readonly<Record<string, string>>
+  }
+): string | undefined =>
+  preferredLanguageFor(config, request.cookies, c, request.session) ??
+  detectLanguageIfEnabled(config.app, c.req.header('Accept-Language'))
+
+/**
  * The `/{lang}/` segment a remembered choice should be READ at, or `undefined`
  * when the bare path is already the right address for it.
  *
@@ -123,7 +139,7 @@ const preferredAddressFor = (
  * Setup homepage route
  */
 export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfig): Readonly<Hono> {
-  const { app, renderErrorPage } = config
+  const { app, renderErrorPage, renderNotFoundPage } = config
 
   return honoApp.get('/', async (c) => {
     try {
@@ -140,9 +156,12 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
       }
       // Both non-redirecting exits below are the same one; naming it once keeps
       // them from drifting apart and keeps this handler inside its complexity
-      // budget now that a third branch shares it.
+      // budget now that a third branch shares it. A root that renders nothing —
+      // a declared homepage whose own record this caller cannot read — is the
+      // ordinary 404, exactly as any other path that renders nothing.
       const renderRoot = async (): Promise<Response> =>
-        (await renderTracedPage(c, config, '/', reqCtx)) ?? c.html('')
+        (await renderTracedPage(c, config, '/', reqCtx)) ??
+        c.html(await renderNotFoundPage(app, urlLanguage), 404)
 
       // A remembered choice names its own address, whatever detection is doing.
       // This sits ABOVE the guard below on purpose: that guard is a statement
@@ -246,10 +265,10 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
       )
       if (exact) return exact
       if (!urlLanguage) {
-        return c.html(await renderNotFoundPage(app, detectedLanguage), 404)
+        return c.html(await renderNotFoundPage(app, notFoundLanguage(config, c, base)), 404)
       }
       const lang = await renderWithCache(config, '/', { ...base, detectedLanguage: urlLanguage }, c)
-      return lang ?? c.html('')
+      return lang ?? c.html(await renderNotFoundPage(app, urlLanguage), 404)
     } catch (error) {
       logError(`[server] GET ${c.req.path} → ${ERROR_PAGE_STATUS} Error rendering homepage`, error)
       const detectedLang = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
@@ -289,7 +308,7 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
       )
       if (exact) return exact
       if (!urlLanguage) {
-        return c.html(await renderNotFoundPage(app, detectedLanguage), 404)
+        return c.html(await renderNotFoundPage(app, notFoundLanguage(config, c, base)), 404)
       }
       const pathWithoutLang = path.replace(`/${urlLanguage}`, '') || '/'
       const lang = await renderWithCache(
@@ -349,7 +368,10 @@ export function setupDynamicPageRoutes(
       },
       c
     )
-    return response ?? c.html(await renderNotFoundPage(app, detectedLanguage), 404)
+    // A path that names no page is still read by someone: the not-found page
+    // speaks the reader's remembered language before the browser's guess, the
+    // same rank every declared page applies.
+    return response ?? c.html(await renderNotFoundPage(app, urlLanguage ?? detectedLanguage), 404)
   })
 }
 
@@ -390,53 +412,6 @@ export function setupRssFeedRoute(honoApp: Readonly<Hono>, config: HonoAppConfig
       logError(`[server] GET /feed.xml → ${ERROR_PAGE_STATUS} Error rendering RSS feed`, error)
       return c.html(await renderErrorPage(app), ERROR_PAGE_STATUS)
     }
-  })
-}
-
-/**
- * Setup the `/sitemap.xml` endpoint.
- *
- * Generates an XML sitemap from the app's pages, honouring each page's
- * per-page `sitemap` config (priority, changefreq, or `false` to exclude).
- *
- * Mounted BEFORE the language routes (`/:lang/*`) and the dynamic-page
- * catch-all (`*`) for the same reason as the RSS feed: `/:lang/*` would
- * otherwise match `/sitemap.xml` with `:lang = sitemap.xml`.
- */
-export function setupSitemapRoute(honoApp: Readonly<Hono>, config: HonoAppConfig): Readonly<Hono> {
-  const { app } = config
-
-  return honoApp.get('/sitemap.xml', (c) => {
-    const url = new URL(c.req.url)
-    const baseUrl = `${url.protocol}//${url.host}`
-    // Clock injected at the boundary so the domain builder stays a pure
-    // function of its inputs.
-    const xml = buildSitemapXml(app.pages ?? [], baseUrl, new Date())
-    return c.body(xml, 200, {
-      'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=300',
-    })
-  })
-}
-
-/**
- * Setup the `/robots.txt` endpoint ([internal ref] — [internal ref]).
- *
- * Auto-generates robots.txt with a reference to `/sitemap.xml`. Registered
- * before the language and catch-all routes for the same routing reason as
- * the sitemap endpoint.
- */
-export function setupRobotsRoute(honoApp: Readonly<Hono>, config: HonoAppConfig): Readonly<Hono> {
-  const { app } = config
-
-  return honoApp.get('/robots.txt', (c) => {
-    const url = new URL(c.req.url)
-    const baseUrl = `${url.protocol}//${url.host}`
-    const body = buildRobotsTxt(app.pages ?? [], baseUrl)
-    return c.body(body, 200, {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'public, max-age=300',
-    })
   })
 }
 
@@ -523,14 +498,8 @@ export function setupPageRoutes(
             // swallow it. The mount is independent of, and never shadowed by,
             // the operator's config.
             setupAdminMountRoutes(
-              setupRobotsRoute(
-                setupSitemapRoute(
-                  setupRssFeedRoute(
-                    setupTestErrorRoute(setupHomepageRoute(honoApp, config), config),
-                    config
-                  ),
-                  config
-                ),
+              setupRssFeedRoute(
+                setupTestErrorRoute(setupHomepageRoute(honoApp, config), config),
                 config
               ),
               config

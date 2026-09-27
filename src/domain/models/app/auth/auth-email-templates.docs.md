@@ -4,7 +4,7 @@
 
 Authentication emails are the part of a product a user reads before they have ever seen the app. `emailTemplates` replaces the defaults with your own wording.
 
-Every template is optional: a sensible default ships for each, so an app that sets none still sends working mail.
+Every template is optional: a sensible default ships for each, so an app that sets none still sends working mail. The defaults speak for your app, not for Sovrium: their subjects and greetings use the app's `name` — `Reset your MyApp password`, `Verify your MyApp email address`, `Welcome to MyApp!` — and an invitation reads `You are invited to join <organisation> on MyApp`.
 
 ```yaml
 auth:
@@ -13,7 +13,7 @@ auth:
     - type: magicLink
   emailTemplates:
     verification:
-      subject: Verify your email for MyApp
+      subject: Verify your email for $appName
       text: 'Hi $name, confirm your email: $url'
     resetPassword:
       subject: Reset your password
@@ -62,6 +62,7 @@ Subjects and bodies substitute `$variable` references. Which ones carry a value 
 | `$codes`            | The recovery codes, in `twoFactorBackupCodes`              |
 | `$organizationName` | The organisation's name, in an invitation                  |
 | `$inviterName`      | The name of the admin who sent an invitation               |
+| `$appName`          | The app's `name`, in every email                           |
 
 That is the whole list. A reference outside it is left in place verbatim — writing `$code` puts the characters `$code` in the reader's inbox where the sign-in code should be, which is why the two code variables are spelled out separately above rather than sharing one name.
 

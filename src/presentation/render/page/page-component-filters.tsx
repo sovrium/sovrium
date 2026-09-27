@@ -20,9 +20,15 @@
  */
 
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import { checkPageAccess } from '@/domain/models/app/pages/page-access-check'
+import { findDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
 import { resolvePageQueryValues } from '@/domain/models/app/pages/query-props'
-import { expandFormRefs } from '@/presentation/render/forms/form-ref-resolver'
+import {
+  expandFormRefs,
+  type FormRefExpansionContext,
+} from '@/presentation/render/forms/form-ref-resolver'
 import { resolvePageLanguage } from '@/presentation/render/page/page-lang-resolver'
+import { markRelatedGuestCaller } from '@/presentation/render/props/resolve-record-drawer-related'
 import { expandFieldSpecimens } from '@/presentation/render/resolve/field-specimen-resolver'
 import { resolveOpenDrawerDispatches } from '@/presentation/render/resolve/open-drawer-dispatch-resolver'
 import { resolveRuntimeCapabilities } from '@/presentation/render/resolve/runtime-capability-resolver'
@@ -38,6 +44,41 @@ import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
+import type { FormRefOptionSets } from '@/presentation/render/forms/form-ref-option-sources'
+
+/**
+ * The one "may this caller open that page?" question every palette page list
+ * asks — the same `checkPageAccess` the page route applies. A misconfigured
+ * `access` (an unknown role or group) is not `allowed`, so it drops the page.
+ */
+const mayOpenPage = (page: Page, app: App, session: SessionInfo | undefined): boolean =>
+  checkPageAccess(page.access, app, session).allowed
+
+/**
+ * Filter an AUTHORED palette's `props.pages` list for this caller.
+ *
+ * An author's list is the candidate set, never an allow-list: an entry that
+ * resolves to a declared page (by `path`, else by `name`) the caller may not
+ * open is dropped, so a gated page's title never reaches the markup of a page
+ * an anonymous visitor renders. An entry naming no declared page is kept — it
+ * points at nothing the engine gates.
+ */
+const filterAuthoredPages = (
+  pages: unknown,
+  app: App,
+  session: SessionInfo | undefined
+): unknown => {
+  if (!Array.isArray(pages)) return pages
+  return pages.filter((entry: unknown) => {
+    if (typeof entry !== 'object' || entry === null) return true
+    const { path, name } = entry as { readonly path?: unknown; readonly name?: unknown }
+    const declared =
+      typeof path === 'string'
+        ? findDeclaredPage(app, path)?.page
+        : (app.pages ?? []).find((page) => typeof name === 'string' && page.name === name)
+    return declared === undefined || mayOpenPage(declared, app, session)
+  })
+}
 
 /**
  * Applies all component filters to a page: auth stripping, OAuth filtering,
@@ -57,11 +98,18 @@ import type { CallerCapability } from '@/domain/models/app/pages/components/visi
  * `props.pages` so the palette runtime can offer "Go to <page>" quick actions
  * without an extra API call. Tables reach the renderer separately via the
  * component-dispatch `tables` config.
+ *
+ * Only the pages THIS caller may open are listed, decided by the same
+ * `checkPageAccess` the page route applies (roles, the admin tier, groups,
+ * `authenticated`, `all`). The palette is rendered per request, so unlike the
+ * sitemap or the feed it can follow the session — and a page the caller
+ * cannot open must not be named in the markup that carries the palette.
  */
-const buildCommandPaletteComponent = (app: App): Component => {
+const buildCommandPaletteComponent = (app: App, session: SessionInfo | undefined): Component => {
   // Resolve `$t:` tokens in page titles.
   const navigablePages = (app.pages ?? [])
     .filter((page) => typeof page.path === 'string' && !page.path.includes(':'))
+    .filter((page) => mayOpenPage(page, app, session))
     .map((page) => ({
       name: page.name,
       path: page.path,
@@ -101,10 +149,15 @@ const hasAuthoredPalette = (items: ReadonlyArray<Component | string> | undefined
  * which only the app knows — so an authored palette declaring no `search` would
  * otherwise offer an empty list purely for having been placed by hand. A
  * search-mode palette is left alone: it has no page list, by design.
+ *
+ * An author-written `props.pages` wins over the injected list but is filtered
+ * for this caller first — see `filterAuthoredPages`.
  */
 const withNavigablePages = (
   items: ReadonlyArray<Component | string>,
-  synthesized: Component
+  synthesized: Component,
+  app: App,
+  session: SessionInfo | undefined
 ): ReadonlyArray<Component | string> =>
   items.map((item) => {
     if (typeof item === 'string') return item
@@ -117,12 +170,21 @@ const withNavigablePages = (
     if (node.type === 'command-palette') {
       if (node.search !== undefined) return item
       const injected = (synthesized as { readonly props?: Record<string, unknown> }).props ?? {}
-      return { ...node, props: { ...injected, ...(node.props ?? {}) } } as unknown as Component
+      const authored = node.props ?? {}
+      const props =
+        'pages' in authored
+          ? {
+              ...injected,
+              ...authored,
+              pages: filterAuthoredPages(authored['pages'], app, session),
+            }
+          : { ...injected, ...authored }
+      return { ...node, props } as unknown as Component
     }
     if (node.children === undefined) return item
     return {
       ...node,
-      children: withNavigablePages(node.children, synthesized),
+      children: withNavigablePages(node.children, synthesized, app, session),
     } as unknown as Component
   })
 
@@ -155,10 +217,31 @@ interface PageComponentFilterInput {
    * `visibility-filter.ts` for why the POWERS travel and the session does not.
    */
   readonly callerCapabilities?: readonly CallerCapability[]
+  /** The table-backed choices of each embedded form, read before this pass. */
+  readonly formOptions?: FormRefOptionSets
+}
+
+/**
+ * What an embedded `formRef` needs from the host request, with every absent
+ * input left out rather than set to `undefined`.
+ */
+function formRefContext(
+  input: PageComponentFilterInput,
+  activeLang: string
+): FormRefExpansionContext {
+  const { parentRecord, requestQuery, formOptions, session } = input
+  return {
+    ...(parentRecord !== undefined ? { parentRecord } : {}),
+    session,
+    activeLang,
+    // GAP-3 / [internal ref]: host request query for embedded `$query` prefill.
+    ...(requestQuery !== undefined ? { query: requestQuery } : {}),
+    ...(formOptions !== undefined ? { formOptions } : {}),
+  }
 }
 
 export function applyPageComponentFilters(input: PageComponentFilterInput): Page {
-  const { rawPage, app, session, parentRecord, detectedLanguage, requestQuery, urlLanguage } = input
+  const { rawPage, app, session, detectedLanguage, requestQuery, urlLanguage } = input
   const authStripped = stripAuthActionsIfUnconfigured(rawPage.components, !!app.auth)
   const oauthFiltered = stripUnconfiguredOAuthForms(authStripped, app)
   // P10: the CALLER-power gate runs before the three session gates below and
@@ -183,11 +266,9 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
   // one gate whose answer the renderer cannot compute for itself — the env half
   // is a fact about the DEPLOYMENT. It is resolved HERE, once per request,
   // rather than inside the gate: `isAiProviderConfigured` takes its snapshot as
-  // an argument so it stays trivially testable, and `appRequiresAi` walks the
-  // whole component tree, a cost that belongs to the request rather than to
-  // every node of the gate's recursion. The app half reads `hostApp`, never the
-  // preset — a mounted console asking its own preset whether the operator
-  // declares AI would answer about the console.
+  // an argument so it stays trivially testable. The resolver is handed
+  // `hostApp`, never the preset — a mounted console must answer about the
+  // operator's app, not about itself.
   const hostApp = input.hostApp ?? app
   const capabilityGated = applyCallerCapabilityGate(oauthFiltered, {
     session,
@@ -199,7 +280,7 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
       ? { grantedCapabilities: input.callerCapabilities }
       : {}),
   })
-  const visibilityFiltered = applyVisibilityToComponents(capabilityGated, session)
+  const visibilityFiltered = applyVisibilityToComponents(capabilityGated, session, app)
   const createPermFiltered = applyCrudCreatePermissions(visibilityFiltered, app.tables, session)
   const updatePermFiltered = applyCrudUpdatePermissions(createPermFiltered, app.tables, session)
   // P9: resolve the host page's active language the SAME way the page's own
@@ -207,13 +288,7 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
   // default) so an embedded `formRef` localizes its `$t:` title/label/onSuccess
   // to match the rest of the page rather than always the default locale.
   const activeLang = resolvePageLanguage(rawPage, app.languages, detectedLanguage, urlLanguage).lang
-  const expanded = expandFormRefs(updatePermFiltered, app, {
-    ...(parentRecord !== undefined ? { parentRecord } : {}),
-    session,
-    activeLang,
-    // GAP-3 / [internal ref]: host request query for embedded `$query` prefill.
-    ...(requestQuery !== undefined ? { query: requestQuery } : {}),
-  })
+  const expanded = expandFormRefs(updatePermFiltered, app, formRefContext(input, activeLang))
   // The design-system catalog's field-type specimens: render-time-only
   // descriptors the admin surface builder emits, expanded into the control the
   // crud form draws for that field type. Runs AFTER `expandFormRefs` (a
@@ -237,7 +312,13 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
   // 'openDrawer'` with `_openDrawerDispatchedById` so its island starts
   // closed (defaultOpen=false). The data-table row-click handler dispatches
   // a `sovrium:open-drawer` CustomEvent to open the matching drawer.
-  const withDrawerDispatches = resolveOpenDrawerDispatches(withToc ?? [])
+  // A drawer's `related` sections must answer an anonymous caller the way the
+  // records API does, and only this pass knows whether the app has auth — see
+  // `RELATED_GUEST_CALLER_KEY`.
+  const withDrawerDispatches = markRelatedGuestCaller(
+    resolveOpenDrawerDispatches(withToc ?? []),
+    app.auth !== undefined && session === undefined
+  )
   // The platform Cmd+K command palette is appended to every page by default.
   // An app may opt out via `palette: { enabled: false }` — e.g. when it
   // ships its own search overlay also bound to Cmd+K, so both would otherwise
@@ -248,11 +329,16 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
   }
   // A page that AUTHORS a palette carries exactly the one it declared. The
   // engine appends nothing on top — see `hasAuthoredPalette`.
-  const synthesized = buildCommandPaletteComponent(app)
+  const synthesized = buildCommandPaletteComponent(app, session)
   if (hasAuthoredPalette(withDrawerDispatches)) {
     return {
       ...rawPage,
-      components: withNavigablePages(withDrawerDispatches, synthesized) as Page['components'],
+      components: withNavigablePages(
+        withDrawerDispatches,
+        synthesized,
+        app,
+        session
+      ) as Page['components'],
     }
   }
   return {

@@ -1,0 +1,32 @@
+# The "Add task" dialog, shared by every page whose bar carries the button, so
+# the fields, their order and the success step never drift between pages.
+#
+# A new task starts in To do (the status field's default) and lands on the
+# Board, which is where the reader goes next. A field left empty is simply not
+# sent, so a task may be added before its project or person is known.
+type: dialog
+props:
+  id: add-task-dialog
+  title: Add task
+  description: Give it a person and a date so it shows on the timeline and the calendar.
+children:
+  - type: form
+    dataSource:
+      table: tasks
+    fields:
+      - { field: title, label: Title }
+      - { field: project, label: Project }
+      - { field: assignee, label: Assignee }
+      - { field: start_date, label: Start date }
+      - { field: due_date, label: Due date }
+      - { field: priority, label: Priority }
+    action:
+      type: crud
+      operation: create
+      table: tasks
+      submitLabel: Add task
+      onSuccess:
+        navigate: /board
+        toast:
+          message: Task added
+          variant: success

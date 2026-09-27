@@ -33,6 +33,64 @@ export const connectionUserStatusSchema = Schema.Literals([
 
 export type ConnectionUserStatus = typeof connectionUserStatusSchema.Type
 
+// ─── Connection Status (caller's own) ────────────────────────────────────────
+
+/**
+ * The caller's own authorization state for one connection, as
+ * `GET /api/connections/{name}/status` reports it.
+ *
+ *   - `connected`        — a usable token: valid, or expired but renewable
+ *     with its refresh token on the next call.
+ *   - `expired`          — the token is past its expiry and the runtime will
+ *     try its refresh token on the next call.
+ *   - `reconnect-needed` — the provider issued no refresh token (LinkedIn,
+ *     Meta) and the token expires within 7 days or already has: nothing will
+ *     renew it, so the caller has to authorize again.
+ *   - `disconnected`     — no token at all.
+ * @public
+ */
+export const connectionCallerStatusSchema = Schema.Literals([
+  'connected',
+  'expired',
+  'reconnect-needed',
+  'disconnected',
+]).annotate({
+  description:
+    "The caller's authorization state. `connected` = a usable token; `expired` = past its expiry, renewed from its refresh token on the next call; `reconnect-needed` = no refresh token and the token expires within 7 days or has expired, so authorize again; `disconnected` = no token.",
+})
+
+/** @public */
+export type ConnectionCallerStatus = typeof connectionCallerStatusSchema.Type
+
+/**
+ * Response of `GET /api/connections/{name}/status`. Carries no token material:
+ * the state, the connection's name and type, and when the token expires.
+ * @public
+ */
+export const connectionStatusResponseSchema = Schema.Struct({
+  name: Schema.String.annotate({ description: 'The connection name, as declared in the config.' }),
+  type: Schema.String.annotate({
+    description: 'The connection type: `oauth2`, `apiKey`, `basic` or `bearer`.',
+  }),
+  status: connectionCallerStatusSchema,
+  connected: Schema.Boolean.annotate({
+    description: 'Whether a token is stored for the caller, whatever its state.',
+  }),
+  expiresAt: Schema.NullOr(
+    looseIsoDateTime({
+      description:
+        'ISO 8601 timestamp when the stored access token expires. `null` when no token is stored or the provider recorded no expiry.',
+    })
+  ),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'ConnectionStatusResponse',
+})
+
+/** @public */
+export type ConnectionStatusResponse = typeof connectionStatusResponseSchema.Type
+
 // ─── Connection User Entry ───────────────────────────────────────────────────
 
 /**

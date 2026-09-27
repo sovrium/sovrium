@@ -40,6 +40,7 @@ import { clearTransformCache } from '@/infrastructure/storage/transform-cache'
 import { handleGetAuditLog } from '@/presentation/api/admin/audit-log-routes'
 import { createHandleGetAdminRoles } from '@/presentation/api/admin/roles-handlers'
 import { createHandleGetTablesOverview } from '@/presentation/api/admin/tables-overview-handlers'
+import { conditionalRead } from '@/presentation/api/runtime/conditional-read'
 import { getSessionContext, requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -268,7 +269,8 @@ function createHandleGetOverview(app: App) {
       )
     }
 
-    c.header('Cache-Control', 'no-store')
+    // Cache headers come from `conditionalRead()` on the route: private,
+    // revalidated by ETag after the admin guard.
     return c.json(parsed.data, 200)
   }
 }
@@ -401,12 +403,12 @@ function createHandleGetSearch(app: App) {
  */
 export function chainAdminRoutes<T extends Hono>(honoApp: T, app: App): T {
   return honoApp
-    .get('/api/admin/overview', createHandleGetOverview(app))
+    .get('/api/admin/overview', conditionalRead(), createHandleGetOverview(app))
     .get('/api/admin/attention', createHandleGetAttention(app))
     .get('/api/admin/search', createHandleGetSearch(app))
     .get('/api/admin/storage/status', handleGetStorageStatus)
     .get('/api/admin/config/version', handleGetConfigVersion)
-    .get('/api/admin/roles', createHandleGetAdminRoles(app))
+    .get('/api/admin/roles', conditionalRead(), createHandleGetAdminRoles(app))
     .get('/api/admin/tables/overview', createHandleGetTablesOverview(app))
     .get('/api/admin/audit-log', handleGetAuditLog)
     .on('DELETE', '/api/admin/storage/transform-cache', handleDeleteTransformCache) as T

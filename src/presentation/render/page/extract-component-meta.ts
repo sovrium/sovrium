@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
+import {
+  expandedReferenceOf,
+  isComponentReferenceNode,
+} from '@/presentation/render/resolve/component-reference'
 import type { ComponentMeta } from './structured-data-from-component'
 import type { Components } from '@/domain/models/app/components'
 import type {
@@ -67,6 +70,26 @@ function extractOpenGraphFromComponentMeta(
 }
 
 /**
+ * The template a section was placed from, and the vars it was placed with.
+ *
+ * The VALUE, not the key — see `isComponentReferenceNode`. A `specimen` matched
+ * the key test and then looked up a template named `[object Object]`, which
+ * found nothing; correct output, wrong reason. An EXPANDED reference (inlined
+ * by the page pipeline) still names its template and remembers its vars.
+ */
+function templateReferenceOf(
+  section: Component | SimpleComponentReference | ComponentReference
+): { readonly name: string; readonly vars: unknown } | undefined {
+  const expanded = expandedReferenceOf(section)
+  if (expanded !== undefined) return expanded
+  if (!isComponentReferenceNode(section)) return undefined
+  const reference = section as SimpleComponentReference | ComponentReference
+  return 'component' in reference
+    ? { name: reference.component, vars: 'vars' in reference ? reference.vars : undefined }
+    : { name: reference.$ref, vars: reference.vars }
+}
+
+/**
  * Extracts component meta from page sections
  *
  * Processes all sections to find component references, resolves them, and extracts
@@ -84,24 +107,20 @@ export function extractComponentMetaFromSections(
 
   // Use functional map/filter instead of loop with mutation
   const openGraphParts = sections
-    .filter(
-      // The VALUE, not the key — see `isComponentReferenceNode`. A `specimen`
-      // matched the key test and then looked up a template named
-      // `[object Object]`, which found nothing; correct output, wrong reason.
-      (section): section is SimpleComponentReference | ComponentReference =>
-        isComponentReferenceNode(section)
-    )
     .map((section) => {
-      const componentName = 'component' in section ? section.component : section.$ref
-      const vars = 'vars' in section ? section.vars : undefined
+      const reference = templateReferenceOf(section)
+      if (reference === undefined) return undefined
 
       // Find the component template definition
-      const template = components.find((b) => b.name === componentName)
+      const template = components.find((b) => b.name === reference.name)
       if (!template?.props?.meta) return undefined
 
       // Extract Open Graph meta from component meta
       const meta = template.props.meta as ComponentMeta | undefined
-      return extractOpenGraphFromComponentMeta(meta, vars)
+      return extractOpenGraphFromComponentMeta(
+        meta,
+        reference.vars as Record<string, string | number | boolean> | undefined
+      )
     })
     .filter((og): og is Partial<OpenGraph> => og !== undefined)
 

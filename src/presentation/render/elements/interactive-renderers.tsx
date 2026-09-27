@@ -10,6 +10,7 @@ import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { SearchGlyph } from '@/presentation/design/form-glyphs'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import { computeFormClasses } from '../../design/forms-default-classes'
 import {
   computePageSearchFieldClasses,
@@ -433,6 +434,8 @@ export interface RenderPageSearchConfig {
   readonly props: ElementProps
   readonly placeholder?: string
   readonly maxResults?: number
+  /** `index: 'session'` — the island queries `GET /api/search/pages` per keystroke. */
+  readonly sessionIndex?: boolean
 }
 
 /**
@@ -453,7 +456,7 @@ export interface RenderPageSearchConfig {
  * regardless of JS availability).
  */
 export function renderPageSearch(config: RenderPageSearchConfig): ReactElement {
-  const { props, placeholder, maxResults } = config
+  const { props, placeholder, maxResults, sessionIndex } = config
   const id = props.id as string | undefined
   const className = props.className as string | undefined
   const testId = props['data-testid'] as string | undefined
@@ -473,6 +476,7 @@ export function renderPageSearch(config: RenderPageSearchConfig): ReactElement {
   const islandProps = {
     placeholder: effectivePlaceholder,
     ...(typeof maxResults === 'number' ? { maxResults } : {}),
+    ...(sessionIndex === true ? { index: 'session' } : {}),
     ...(id !== undefined ? { id } : {}),
     ...(className !== undefined ? { className } : {}),
     ...(testId !== undefined ? { 'data-testid': testId } : {}),
@@ -485,6 +489,7 @@ export function renderPageSearch(config: RenderPageSearchConfig): ReactElement {
       className={containerClassName}
       data-testid={testId}
       data-island="search-input"
+      data-component-type={hostComponentType(props)}
       data-island-props={propsJson}
     >
       <SearchGlyph className={computeSearchInputIconClasses({ scope: 'page' })} />

@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { validateSharingImageFormat } from './sharing-image-validation'
 
 // ============================================================================
 // Twitter Card
@@ -110,9 +111,10 @@ export const TwitterCardSchema = Schema.Struct({
   ),
   image: Schema.optional(
     Schema.String.annotate({
-      description: 'Image URL (min 144x144px for summary, 300x157px for large)',
+      description:
+        'Image URL: PNG, JPEG or WebP (min 144x144px for summary, 300x157px for large). An AVIF path is refused, because X does not render AVIF card images.',
       format: 'uri',
-    })
+    }).pipe(Schema.check(Schema.makeFilter(validateSharingImageFormat('twitter.image'))))
   ),
   imageAlt: Schema.optional(
     Schema.String.pipe(Schema.check(Schema.isMaxLength(420))).annotate({

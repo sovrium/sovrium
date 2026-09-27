@@ -1,71 +1,116 @@
+# Support: tickets by status, each with the contact who raised it, the client
+# they belong to — the same client names as in Sales and Delivery — and who
+# holds it. Resolved tickets fold away until someone opens the column.
 name: support
 path: /support
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Support
-  description: The ticket kanban — resolutions email the CRM contact
+  title: Tickets · Orrin OS
+  description: Open tickets by status, with the contact, the client and who holds each one.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: Support
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Tickets link to CRM contacts — resolving one emails the contact automatically.
-
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: border rounded-lg p-5 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: New ticket
-          - type: form
-            dataSource:
-              table: tickets
-            fields:
-              - field: subject
-              - field: contact
-              - field: status
-              - field: priority
-            action:
-              type: crud
-              operation: create
-              table: tickets
-              onSuccess:
-                navigate: /support
-                toast:
-                  message: Ticket created
-                  variant: success
-
-      - type: kanban
-        dataSource:
-          table: tickets
-        kanbanGroupBy:
-          field: status
-        emptyColumnMessage: No tickets here.
-        card:
-          children:
-            - type: text
-              element: h3
-              props:
-                className: text-md font-medium
-              content: $record.subject
-          footer:
-            - field: priority
-              format: badge
-            - field: created_at
-              format: relative-date
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Tickets
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: New ticket
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: new-ticket-dialog
+          - type: dialog
+            props:
+              id: new-ticket-dialog
+              title: New ticket
+              description: It lands in New until someone picks it up.
+            children:
+              - type: form
+                dataSource:
+                  table: tickets
+                fields:
+                  - { field: subject, label: Subject }
+                  - { field: company, label: Client }
+                  - { field: contact, label: Contact }
+                  - { field: priority, label: Priority }
+                  - { field: assignee, label: Held by }
+                action:
+                  type: crud
+                  operation: create
+                  table: tickets
+                  submitLabel: Add ticket
+                  onSuccess:
+                    navigate: /support
+                    toast:
+                      message: Ticket added
+                      variant: success
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: filter-bar
+                publishes:
+                  bindTo: ticket-filter
+                fields:
+                  - { name: subject, label: Subject, kind: text }
+                  - name: priority
+                    label: Priority
+                    kind: select
+                    options:
+                      - { value: Urgent, label: Urgent }
+                      - { value: High, label: High }
+                      - { value: Normal, label: Normal }
+                      - { value: Low, label: Low }
+              - type: kanban
+                props:
+                  className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Resolved]]:flex-[0_0_8rem]!'
+                dataSource:
+                  table: tickets
+                  bindTo: ticket-filter
+                  sharedFilter: {}
+                kanbanGroupBy:
+                  field: status
+                  # Resolved tickets are done; they stay one click away.
+                  collapsed: [Resolved]
+                drag:
+                  enabled: true
+                  persistAction:
+                    type: crud
+                    operation: update
+                    table: tickets
+                emptyColumnMessage: No tickets here.
+                card:
+                  children:
+                    - type: text
+                      element: h3
+                      props:
+                        className: text-[13px] font-medium leading-snug text-foreground
+                      content: $record.subject
+                    - type: text
+                      element: p
+                      props:
+                        className: text-xs text-foreground-muted
+                      content: $record.contact · $record.company
+                  footer:
+                    - { field: priority, format: badge }
+                    - { field: assignee, format: avatar }

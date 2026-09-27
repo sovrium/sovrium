@@ -25,8 +25,10 @@
  *   1. ensure the repo exists (creation requires --create) and reconcile
  *      metadata: is_template, description, homepage, topics (idempotent).
  *   2. build the publish tree: `templates/<slug>/.` verbatim (including the
- * template's own `CLAUDE.md` and `[internal ref]`) plus a
- *      stamped `.sovrium-version`.
+ *      template's own `CLAUDE.md`) plus a stamped `.sovrium-version`. No agent
+ *      file rides along: the Agent Skills are embedded in the binary and
+ *      written into a project by `sovrium init` / `sovrium skills`, never
+ * checked into a template ([internal ref] A2).
  *   3. push as ONE incremental commit on main (`sovrium <version>`) + tag
  *      `v<version>` — diffable release-to-release, idempotent no-op when the
  *      tree is unchanged, never force-pushed.
@@ -115,13 +117,17 @@ export function readCatalog(root: string = TEMPLATES_ROOT): Readonly<Record<stri
     CatalogEntry
   >
   for (const [slug, entry] of Object.entries(raw)) {
-    // Every published mirror must carry the full Claude Code bundle. Checked
+    // Every published mirror must carry a config and its CLAUDE.md. Checked
     // here rather than at copy time so an incomplete template fails the run
-    // before any repo is touched.
-    for (const required of ['app.yaml', 'CLAUDE.md', '.claude/agents/app-editor.md']) {
-      if (!existsSync(join(root, slug, required))) {
-        throw new Error(`catalog.json lists "${slug}" but templates/${slug}/${required} is missing`)
-      }
+    // before any repo is touched. The config is `app.yaml` or `app.ts` — a
+    // typed template ships the latter.
+    if (!['app.yaml', 'app.ts'].some((config) => existsSync(join(root, slug, config)))) {
+      throw new Error(
+        `catalog.json lists "${slug}" but templates/${slug}/ has neither app.yaml nor app.ts`
+      )
+    }
+    if (!existsSync(join(root, slug, 'CLAUDE.md'))) {
+      throw new Error(`catalog.json lists "${slug}" but templates/${slug}/CLAUDE.md is missing`)
     }
     if (!entry.description) throw new Error(`catalog.json entry "${slug}" has no description`)
   }
@@ -135,10 +141,10 @@ const STRIP = new Set(['.DS_Store', '.env', '.sovrium'])
  * Build the publish tree for one slug into `destDir`: the template directory
  * verbatim, minus runtime residue, plus the release pin.
  *
- * The recursive copy carries the template's checked-in `CLAUDE.md` and
- * `[internal ref]` along with everything else — `STRIP` filters
- * on basename and never matches `.claude`, so the bundle reaches the mirror
- * without a special case.
+ * The recursive copy carries the template's checked-in `CLAUDE.md` and any
+ * dot-directory (a `[internal ref]` settings folder, say) along with everything
+ * else — `STRIP` filters on basename and never matches a directory name it
+ * does not list, so nothing needs a special case.
  */
 export function buildPublishTree(
   slug: string,

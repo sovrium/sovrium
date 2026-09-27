@@ -45,29 +45,6 @@
  * next consumer will not find.
  */
 
-/** Glyph pairs `[filled, hollow]` that a rating's declared `style` selects between. */
-const RATING_GLYPHS: Readonly<Record<string, readonly [string, string]>> = {
-  stars: ['★', '☆'],
-  hearts: ['♥', '♡'],
-  circles: ['●', '○'],
-}
-
-/** The scale length used when the field declares no `max`. */
-export const DEFAULT_RATING_MAX = 5
-
-/**
- * The `[filled, hollow]` glyph pair for a declared `style`, falling back to
- * stars for an unknown one.
- *
- * A function rather than the bare map so neither caller has to re-derive the
- * fallback — both previously spelled it `?? RATING_GLYPHS.stars!`, and a
- * non-null assertion repeated at every call site is an invariant asking to be
- * broken.
- */
-export function ratingGlyphsFor(style: string | undefined): readonly [string, string] {
-  return RATING_GLYPHS[style ?? 'stars'] ?? RATING_GLYPHS['stars']!
-}
-
 /**
  * Read a stored value as a boolean.
  *

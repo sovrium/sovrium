@@ -16,6 +16,7 @@ import {
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspection'
 import { withTransaction } from '@/infrastructure/database/transaction'
+import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
 import { buildUpdateSetClauseCRUD } from '../mutation-helpers/update-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
@@ -45,10 +46,18 @@ async function updateSingleRecord(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordId: string,
-  params: { readonly fields: Record<string, unknown>; readonly fieldsToMergeOn: readonly string[] }
+  params: {
+    readonly fields: Record<string, unknown>
+    readonly fieldsToMergeOn: readonly string[]
+    readonly insertOnlyFields: readonly string[]
+  }
 ): Promise<Record<string, unknown> | undefined> {
+  // A merge key is already equal, and an insert-only column (creation date,
+  // created-by author) describes the row's creation, which happened once: an
+  // update rewrites neither. SQLite has no trigger to restore `created_at`, so
+  // dropping it here is what keeps the rule on both engines.
   const updateEntries = Object.entries(params.fields).filter(
-    ([key]) => !params.fieldsToMergeOn.includes(key)
+    ([key]) => !params.fieldsToMergeOn.includes(key) && !params.insertOnlyFields.includes(key)
   )
   if (updateEntries.length === 0) return undefined
 
@@ -111,6 +120,7 @@ function handleUpsertUpdate(
     readonly tableName: string
     readonly fields: Record<string, unknown>
     readonly fieldsToMergeOn: readonly string[]
+    readonly insertOnlyFields: readonly string[]
     readonly existing: Record<string, unknown>
     readonly acc: UpsertResult
   }
@@ -122,6 +132,7 @@ function handleUpsertUpdate(
         updateSingleRecord(tx, params.tableName, recordId, {
           fields: params.fields,
           fieldsToMergeOn: params.fieldsToMergeOn,
+          insertOnlyFields: params.insertOnlyFields,
         }),
       catch: (error) => new DatabaseError(`Failed to update record in ${params.tableName}`, error),
     })
@@ -164,17 +175,27 @@ function handleUpsertCreate(
 ): Effect.Effect<UpsertResult, DatabaseError | ValidationError> {
   return Effect.gen(function* () {
     const created = yield* Effect.tryPromise({
-      try: async () =>
-        createSingleRecord(
+      try: async () => {
+        // The literal `created_by`/`updated_by` columns get the session's
+        // author, exactly as batch create does — without it an upsert into a
+        // table with a NOT NULL author column could never insert.
+        const fields = await injectCreateAuthorship(
+          params.fields,
+          params.session.userId,
+          tx,
+          params.tableName
+        )
+        return createSingleRecord(
           tx,
           params.tableName,
-          params.fields,
+          fields,
           // Same array-encoding resolution the batch-create path uses. Scoped
           // to this record because upsert interleaves creates with updates, so
           // there is no batch-wide column union to hoist; the lookup skips its
           // round-trip when nothing here is array-shaped.
-          await resolveArrayColumnTypes(tx, params.tableName, [params.fields])
-        ),
+          await resolveArrayColumnTypes(tx, params.tableName, [fields])
+        )
+      },
       catch: (error) => {
         // If this is a ValidationError, propagate it as-is
         if (error instanceof ValidationError) {
@@ -212,6 +233,7 @@ function processSingleUpsert(
     readonly tableName: string
     readonly fields: Record<string, unknown>
     readonly fieldsToMergeOn: readonly string[]
+    readonly insertOnlyFields: readonly string[]
     readonly acc: UpsertResult
   }
 ): Effect.Effect<UpsertResult, DatabaseError | ValidationError> {
@@ -274,8 +296,9 @@ async function validateRequiredFieldsInRecord(
     .filter((col) => !col.isNullable && col.columnDefault === null)
     .map((col) => col.name)
 
-  // System fields that are auto-generated (exclude from validation)
-  const autoFields = new Set(['id', 'created_at', 'updated_at'])
+  // System fields that are auto-generated (exclude from validation). The
+  // literal author columns are filled by `injectCreateAuthorship` on insert.
+  const autoFields = new Set(['id', 'created_at', 'updated_at', 'created_by', 'updated_by'])
 
   const missingFields = requiredFields.filter(
     (field) => !autoFields.has(field) && !(field in record)
@@ -327,8 +350,12 @@ export function upsertRecords(
   session: Readonly<Session>,
   tableName: string,
   recordsData: readonly Record<string, unknown>[],
-  fieldsToMergeOn: readonly string[]
+  options: {
+    readonly fieldsToMergeOn: readonly string[]
+    readonly insertOnlyFields?: readonly string[]
+  }
 ): Effect.Effect<UpsertResult, DatabaseError | BatchValidationError | ValidationError> {
+  const { fieldsToMergeOn, insertOnlyFields = [] } = options
   return Effect.gen(function* () {
     validateTableName(tableName)
 
@@ -345,7 +372,7 @@ export function upsertRecords(
     // Validate merge fields are present in all records BEFORE processing
     yield* validateMergeFieldsPresent(recordsData, fieldsToMergeOn)
 
-    // Execute upsert in a transaction
+    const merge = { fieldsToMergeOn, insertOnlyFields }
     const result = yield* withTransaction(
       db,
       (tx) =>
@@ -355,8 +382,7 @@ export function upsertRecords(
           return yield* Effect.reduce(
             recordsData,
             () => ({ records: [], created: 0, updated: 0 }) as UpsertResult,
-            (acc, fields) =>
-              processSingleUpsert(tx, { session, tableName, fields, fieldsToMergeOn, acc })
+            (acc, fields) => processSingleUpsert(tx, { session, tableName, fields, ...merge, acc })
           )
         }),
       (error) => {

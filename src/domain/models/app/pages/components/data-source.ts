@@ -6,6 +6,8 @@
  */
 
 import { Schema } from 'effect'
+import { MAX_PAGE_SIZE } from '@/domain/kernel/sql/page-window'
+import { isWithinPageWindow } from './pagination'
 
 /**
  * Filter operator for data source queries
@@ -255,10 +257,10 @@ export const PaginationSchema = Schema.Struct({
   /** Number of records per page */
   pageSize: Schema.Finite.pipe(
     Schema.annotate({
-      description: 'Number of records per page',
+      description: `Number of records per page, at most ${MAX_PAGE_SIZE} — the rows per page the records API serves`,
       examples: [10, 20, 50],
     }),
-    Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
+    Schema.check(Schema.isInt(), Schema.isGreaterThan(0), isWithinPageWindow('pageSize'))
   ),
   /** Pagination UI style — omitted means `numbered`, never "no control" */
   style: Schema.optional(PaginationStyleSchema),
@@ -570,6 +572,22 @@ export const DataSourceSchema = Schema.Struct({
       'Table to bind to: a declared name (validated against app.tables), or a $param.<name> route reference declared by the page path',
     examples: ['posts', '$param.table'],
   }),
+  /**
+   * One of the bound table's declared `views[]`, by id or name.
+   *
+   * Only the `table` component reads through it: the reference against
+   * `tables[].views[]`, and the refusals beside `system` and on every other
+   * component type, are checked at config load
+   * (`data-source-view-validation.ts`), and the grid then reads
+   * `/api/tables/:t/views/:v/records`, read-only.
+   */
+  view: Schema.optional(
+    Schema.String.annotate({
+      description:
+        "Id or name of one of the table's declared views. The grid then reads through that view: its filters, sorts and fields apply on the server, and a public view lets a page with no access rule show the table to visitors who are not signed in.",
+      examples: ['open_campaigns'],
+    })
+  ),
   /** Optional subset of fields to fetch (validated against table schema) */
   fields: Schema.optional(
     Schema.Array(

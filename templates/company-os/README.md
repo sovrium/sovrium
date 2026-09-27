@@ -1,6 +1,6 @@
-# Sovrium Company OS
+# Orrin OS
 
-> An entire information system in one config.
+> A small company's sales, delivery, support and team in one app, around one list of clients.
 
 Built with [Sovrium](https://sovrium.com) — a configuration-as-code interpreter: one config
 file in, a complete self-hosted web application out.
@@ -14,15 +14,33 @@ history, yours to modify), or scaffold it locally:
 
 ```bash
 curl -fsSL https://sovrium.com/install | sh
-sovrium init my-company-os --template company-os
+sovrium init my-company --template company-os
 ```
 
 ## What's inside
 
-The flagship: CRM pipeline, project delivery, support tickets, and an HR directory with time-off approvals — eight tables, three cross-domain automations, and an ops assistant AI agent, all in one config.
+Four modules sharing one database, grouped in the sidebar — and every one of them names a
+client the same way, because there is only one list of clients:
 
-Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
-no application code. Edit the config, restart, done.
+- **Home** (`/`) — one figure per module (open pipeline, active projects, open tickets, time
+  off waiting on a decision), the open pipeline by stage and by client, and what waits on
+  you across all four: an urgent ticket, a late task, a passed close date, the requests to
+  decide.
+- **Sales** — the **Pipeline**, open deals by stage with their client, value, close date and
+  owner; Won and Lost are folded columns. **Companies** lists every client with its account
+  manager, and opens one in a drawer with its deals, projects and tickets.
+- **Delivery** — every **project** with its client, owner, dates and progress, and a board of
+  the tasks. Winning a deal opens its project here by itself.
+- **Support** — **tickets** by status, each with the contact who raised it, the client and who
+  holds it. Resolving a ticket emails its contact.
+- **People** — **team and time off**: who is away this month, by name, the requests waiting on
+  a decision, and the team. A new request asks the admins to approve it.
+- **Assistant** — one AI assistant that reads every module, so "what is open with Northwind,
+  and who holds its tickets?" is one question.
+
+Sign-up is closed: an admin adds each account. Everything is declared in
+[`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no application code. Edit the
+config, restart, done.
 
 ## Run locally
 
@@ -32,11 +50,32 @@ sovrium start app.yaml
 
 Zero-config: embedded SQLite, local file storage, no env vars required to boot. See
 [`.env.example`](./.env.example) for the optional variables (database, auth bootstrap,
-email, AI).
+email, AI, demo data).
 
-> The built-in AI assistant needs an AI provider (`AI_PROVIDER` + `AI_API_KEY`, or a local
-> [Ollama](https://ollama.com) via `AI_BASE_URL`). Without one, deploy anyway — the rest of
-> the app works and the assistant stays off.
+## What to try
+
+Load the demo data first. It creates nine accounts — the team of Orrin & Co, a small agency —
+six clients, nine deals, six projects, eight tasks, eight tickets and five time-off
+requests, dated relative to today:
+
+```bash
+SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+sovrium start app.yaml
+```
+
+Sign in as **priya.raghunathan@orrin.example** (admin, runs operations) or
+**hannah.okonkwo@orrin.example** (member, an account manager), with the password you chose.
+Then:
+
+1. On **Home**, read the four figures and what waits on you: Northwind's urgent ticket, a task
+   eleven days late, a deal past its close date, three time-off requests.
+2. On the **Pipeline**, drag "Helios — clinical systems pilot" to Won.
+3. Open **Projects**: the project that win opened is on top, for Helios Health Group.
+4. Open **Companies** and click Northwind Logistics: its two deals, its planned project and
+   its two open tickets, in one drawer.
+5. On **Tickets**, expand the folded Resolved column; on **Team & time off**, see who is away
+   this month.
+6. Sign in as Hannah: a member works every module, but only an admin deletes a client.
 
 ## Deploy
 

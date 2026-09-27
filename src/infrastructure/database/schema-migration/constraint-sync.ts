@@ -49,6 +49,15 @@ import type { Table } from '@/domain/models/app/tables'
  * no-op: the constraints are always reconciled by (re)creation, never by ALTER.
  *
  * The PostgreSQL arms below are unchanged (byte-for-byte).
+ *
+ * ## Which name each statement uses
+ *
+ * Every helper takes an optional `physicalTableName`. A view-backed table keeps
+ * its rows in `<name>_base` behind a `<name>` VIEW, so the `ALTER TABLE` target
+ * and every `information_schema` probe must name the base table. The CONSTRAINT
+ * names do not move: they are derived from the config name at CREATE time
+ * (`<name>_<field>_key`, `<name>_<field>_fkey`) whichever relation carries them,
+ * so re-deriving them from the config name here finds the same constraints.
  */
 
 /**
@@ -57,7 +66,8 @@ import type { Table } from '@/domain/models/app/tables'
 const getUniqueConstraintDropStatements = (
   table: Table,
   previousSchema: { readonly tables: readonly object[] } | undefined,
-  currentUniqueFields: readonly string[]
+  currentUniqueFields: readonly string[],
+  physicalTableName: string
 ): readonly string[] => {
   if (!previousSchema) return []
 
@@ -83,7 +93,7 @@ const getUniqueConstraintDropStatements = (
 
   return removedFields.map((fieldName) => {
     const constraintName = `${table.name}_${fieldName}_key`
-    return `ALTER TABLE ${table.name} DROP CONSTRAINT IF EXISTS ${constraintName}`
+    return `ALTER TABLE ${physicalTableName} DROP CONSTRAINT IF EXISTS ${constraintName}`
   })
 }
 
@@ -92,7 +102,8 @@ const getUniqueConstraintDropStatements = (
  */
 const buildUniqueConstraintAddStatements = (
   table: Table,
-  uniqueFields: readonly string[]
+  uniqueFields: readonly string[],
+  physicalTableName: string
 ): readonly string[] => {
   // Single-field constraints
   const singleFieldStatements = uniqueFields.map((fieldName) => {
@@ -102,11 +113,11 @@ const buildUniqueConstraintAddStatements = (
       BEGIN
         IF NOT EXISTS (
           SELECT 1 FROM information_schema.table_constraints
-          WHERE table_name = '${table.name}'
+          WHERE table_name = '${physicalTableName}'
             AND constraint_type = 'UNIQUE'
             AND constraint_name = '${constraintName}'
         ) THEN
-          ALTER TABLE ${table.name} ADD CONSTRAINT ${constraintName} UNIQUE (${fieldName});
+          ALTER TABLE ${physicalTableName} ADD CONSTRAINT ${constraintName} UNIQUE (${fieldName});
         END IF;
       END$$;
     `
@@ -125,7 +136,8 @@ const buildUniqueConstraintAddStatements = (
 export const syncUniqueConstraints = (
   tx: TransactionLike,
   table: Table,
-  previousSchema?: { readonly tables: readonly object[] }
+  previousSchema?: { readonly tables: readonly object[] },
+  physicalTableName: string = table.name
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     // SQLite: UNIQUE constraints are inline in CREATE TABLE; reconciled by
@@ -137,8 +149,13 @@ export const syncUniqueConstraints = (
     // — so the ADD below failed on the second boot of an app that booted fine
     // the first time.
     const uniqueFields = table.fields.filter(isBtreeUniqueField).map((f) => f.name)
-    const dropStatements = getUniqueConstraintDropStatements(table, previousSchema, uniqueFields)
-    const addStatements = buildUniqueConstraintAddStatements(table, uniqueFields)
+    const dropStatements = getUniqueConstraintDropStatements(
+      table,
+      previousSchema,
+      uniqueFields,
+      physicalTableName
+    )
+    const addStatements = buildUniqueConstraintAddStatements(table, uniqueFields, physicalTableName)
 
     yield* executeSQLStatements(tx, [...dropStatements, ...addStatements])
   })
@@ -154,7 +171,8 @@ export const syncUniqueConstraints = (
 export const syncForeignKeyConstraints = (
   tx: TransactionLike,
   table: Table,
-  tableUsesView?: ReadonlyMap<string, boolean>
+  tableUsesView?: ReadonlyMap<string, boolean>,
+  physicalTableName: string = table.name
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     // SQLite: FOREIGN KEY constraints are inline in CREATE TABLE; reconciled by
@@ -184,17 +202,17 @@ export const syncForeignKeyConstraints = (
             JOIN information_schema.key_column_usage kcu
               ON tc.constraint_name = kcu.constraint_name
               AND tc.table_schema = kcu.table_schema
-            WHERE tc.table_name = '${table.name}'
+            WHERE tc.table_name = '${physicalTableName}'
               AND tc.constraint_type = 'FOREIGN KEY'
               AND kcu.column_name = '${columnName}'
           LOOP
-            EXECUTE 'ALTER TABLE ${table.name} DROP CONSTRAINT ' || constraint_rec.constraint_name;
+            EXECUTE 'ALTER TABLE ${physicalTableName} DROP CONSTRAINT ' || constraint_rec.constraint_name;
           END LOOP;
         END$$;
       `
 
       // Add constraint with updated referential actions
-      const addStatement = `ALTER TABLE ${table.name} ADD ${constraint}`
+      const addStatement = `ALTER TABLE ${physicalTableName} ADD ${constraint}`
 
       return [dropStatement, addStatement]
     })
@@ -240,7 +258,8 @@ export const syncForeignKeyConstraints = (
  */
 export const syncCheckConstraints = (
   tx: TransactionLike,
-  table: Table
+  table: Table,
+  physicalTableName: string = table.name
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     // SQLite: CHECK constraints are inline in CREATE TABLE; reconciled by
@@ -281,15 +300,15 @@ export const syncCheckConstraints = (
           BEGIN
             IF EXISTS (
               SELECT 1 FROM information_schema.table_constraints
-              WHERE table_name = '${table.name}'
+              WHERE table_name = '${physicalTableName}'
                 AND constraint_type = 'CHECK'
                 AND constraint_name = '${constraintName}'
             ) THEN
-              ALTER TABLE ${table.name} DROP CONSTRAINT ${constraintName};
+              ALTER TABLE ${physicalTableName} DROP CONSTRAINT ${constraintName};
             END IF;
           END$$;
         `,
-        `ALTER TABLE ${table.name} ADD ${constraint} NOT VALID`,
+        `ALTER TABLE ${physicalTableName} ADD ${constraint} NOT VALID`,
       ]
     })
 

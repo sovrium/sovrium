@@ -183,10 +183,13 @@ export const computeSidebarGroupClasses = (): string => SIDEBAR_GROUP_LAYOUT
  * unpainted rather than removed, for the reason the entry labels are: the
  * section is still named for a reader who never sees either.
  */
-export const computeSidebarGroupLabelClasses = (below?: SidebarRailBreakpoint): string =>
+export const computeSidebarGroupLabelClasses = (
+  below?: SidebarRailBreakpoint,
+  drawer?: SidebarRailBreakpoint
+): string =>
   below === undefined
     ? SIDEBAR_GROUP_LABEL_CLASS
-    : `${SIDEBAR_GROUP_LABEL_CLASS} ${RAIL_CLASSES[below].heading}`
+    : `${SIDEBAR_GROUP_LABEL_CLASS} ${railClassesFor(below, drawer).heading}`
 
 /** Compute the className for a group's `<ul>` of entries. */
 export const computeSidebarGroupListClasses = (): string => SIDEBAR_GROUP_LIST_LAYOUT
@@ -246,10 +249,13 @@ export type SidebarRailBreakpoint = 'sm' | 'md' | 'lg' | 'xl' | '2xl'
  * checked for. The small chevron button beside a LINK matches too and is
  * unaffected: it is already centred and has no direct `span` child to unpaint.
  */
-const RAIL_CLASSES: Record<
-  SidebarRailBreakpoint,
-  { readonly box: string; readonly nav: string; readonly heading: string }
-> = {
+interface RailClasses {
+  readonly box: string
+  readonly nav: string
+  readonly heading: string
+}
+
+const RAIL_CLASSES: Record<SidebarRailBreakpoint, RailClasses> = {
   sm: {
     box: 'max-sm:w-14',
     nav: 'max-sm:[&_a]:justify-center max-sm:[&_a>span]:sr-only max-sm:[&_button]:justify-center max-sm:[&_button>span]:sr-only',
@@ -286,15 +292,93 @@ const RAIL_CLASSES: Record<
  * does: a sidebar declaring no rail renders exactly the classes it always did,
  * at every width.
  */
-export const computeSidebarRailBoxClasses = (below: SidebarRailBreakpoint | undefined): string =>
-  below === undefined ? '' : RAIL_CLASSES[below].box
+/**
+ * The rail's classes when a DRAWER is declared beside it, keyed
+ * `<drawer>-<rail>`.
+ *
+ * Below `drawer.below` the navigation leaves the page and reappears inside the
+ * drawer, where it must read in full: a rail rule left on the `max-<rail>:`
+ * range alone would still match at a phone width and paint the drawer's rows as
+ * bare glyphs. So beside a drawer the rail holds the RANGE between the two
+ * breakpoints, `<drawer>:max-<rail>:`, and nothing below it. Only the pairs the
+ * boot rule accepts are listed — a drawer at or above its rail is refused
+ * before a page renders — and they are spelled literally for the same reason
+ * the rail's own rows are.
+ */
+const RAIL_BESIDE_DRAWER_CLASSES: Readonly<Record<string, RailClasses>> = {
+  'sm-md': {
+    box: 'sm:max-md:w-14',
+    nav: 'sm:max-md:[&_a]:justify-center sm:max-md:[&_a>span]:sr-only sm:max-md:[&_button]:justify-center sm:max-md:[&_button>span]:sr-only',
+    heading: 'sm:max-md:sr-only',
+  },
+  'sm-lg': {
+    box: 'sm:max-lg:w-14',
+    nav: 'sm:max-lg:[&_a]:justify-center sm:max-lg:[&_a>span]:sr-only sm:max-lg:[&_button]:justify-center sm:max-lg:[&_button>span]:sr-only',
+    heading: 'sm:max-lg:sr-only',
+  },
+  'sm-xl': {
+    box: 'sm:max-xl:w-14',
+    nav: 'sm:max-xl:[&_a]:justify-center sm:max-xl:[&_a>span]:sr-only sm:max-xl:[&_button]:justify-center sm:max-xl:[&_button>span]:sr-only',
+    heading: 'sm:max-xl:sr-only',
+  },
+  'sm-2xl': {
+    box: 'sm:max-2xl:w-14',
+    nav: 'sm:max-2xl:[&_a]:justify-center sm:max-2xl:[&_a>span]:sr-only sm:max-2xl:[&_button]:justify-center sm:max-2xl:[&_button>span]:sr-only',
+    heading: 'sm:max-2xl:sr-only',
+  },
+  'md-lg': {
+    box: 'md:max-lg:w-14',
+    nav: 'md:max-lg:[&_a]:justify-center md:max-lg:[&_a>span]:sr-only md:max-lg:[&_button]:justify-center md:max-lg:[&_button>span]:sr-only',
+    heading: 'md:max-lg:sr-only',
+  },
+  'md-xl': {
+    box: 'md:max-xl:w-14',
+    nav: 'md:max-xl:[&_a]:justify-center md:max-xl:[&_a>span]:sr-only md:max-xl:[&_button]:justify-center md:max-xl:[&_button>span]:sr-only',
+    heading: 'md:max-xl:sr-only',
+  },
+  'md-2xl': {
+    box: 'md:max-2xl:w-14',
+    nav: 'md:max-2xl:[&_a]:justify-center md:max-2xl:[&_a>span]:sr-only md:max-2xl:[&_button]:justify-center md:max-2xl:[&_button>span]:sr-only',
+    heading: 'md:max-2xl:sr-only',
+  },
+  'lg-xl': {
+    box: 'lg:max-xl:w-14',
+    nav: 'lg:max-xl:[&_a]:justify-center lg:max-xl:[&_a>span]:sr-only lg:max-xl:[&_button]:justify-center lg:max-xl:[&_button>span]:sr-only',
+    heading: 'lg:max-xl:sr-only',
+  },
+  'lg-2xl': {
+    box: 'lg:max-2xl:w-14',
+    nav: 'lg:max-2xl:[&_a]:justify-center lg:max-2xl:[&_a>span]:sr-only lg:max-2xl:[&_button]:justify-center lg:max-2xl:[&_button>span]:sr-only',
+    heading: 'lg:max-2xl:sr-only',
+  },
+  'xl-2xl': {
+    box: 'xl:max-2xl:w-14',
+    nav: 'xl:max-2xl:[&_a]:justify-center xl:max-2xl:[&_a>span]:sr-only xl:max-2xl:[&_button]:justify-center xl:max-2xl:[&_button>span]:sr-only',
+    heading: 'xl:max-2xl:sr-only',
+  },
+}
+
+/** The rail row that applies, given the drawer (if any) declared beside it. */
+const railClassesFor = (
+  below: SidebarRailBreakpoint,
+  drawer: SidebarRailBreakpoint | undefined
+): RailClasses =>
+  (drawer === undefined ? undefined : RAIL_BESIDE_DRAWER_CLASSES[`${drawer}-${below}`]) ??
+  RAIL_CLASSES[below]
+
+export const computeSidebarRailBoxClasses = (
+  below: SidebarRailBreakpoint | undefined,
+  drawer: SidebarRailBreakpoint | undefined = undefined
+): string => (below === undefined ? '' : railClassesFor(below, drawer).box)
 
 /**
  * Compute the extra className the navigation ROOT takes on for a rail: centre
  * every glyph, and stop painting anything a reader would read.
  */
-export const computeSidebarRailNavClasses = (below: SidebarRailBreakpoint | undefined): string =>
-  below === undefined ? '' : RAIL_CLASSES[below].nav
+export const computeSidebarRailNavClasses = (
+  below: SidebarRailBreakpoint | undefined,
+  drawer: SidebarRailBreakpoint | undefined = undefined
+): string => (below === undefined ? '' : railClassesFor(below, drawer).nav)
 
 /**
  * Compute the className for a single top-level navigation entry `<a>`. Ink
@@ -452,3 +536,76 @@ export const computeSidebarDisclosureListClasses = (): string => SIDEBAR_DISCLOS
 
 /** Compute the className for a fetched list's loading, empty or error line. */
 export const computeSidebarDisclosureStateClasses = (): string => SIDEBAR_DISCLOSURE_STATE_CLASS
+
+// ──────────────────────────────────────────────────────────────────────────────
+// SIDEBAR DRAWER — `sidebar.drawer: { below }`, and the docs navigation
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The two breakpoint-keyed class lists a drawer needs.
+ *
+ * `body` takes the sidebar out of the layout below the breakpoint and `trigger`
+ * takes the menu button out above it. Both are `display: none` rather than
+ * off-screen: a role query, a screen reader and the tab order all skip a
+ * `display: none` subtree, so "the sidebar is not here" is true for every
+ * reader at once — and the breakpoint is a CSS media query rather than a
+ * render-time decision, so one page narrowed or widened in place switches with
+ * no reload.
+ *
+ * Spelled literally for the reason the rail's rows are: the CSS compiler
+ * harvests its candidates from the source text.
+ */
+const DRAWER_CLASSES: Record<
+  SidebarRailBreakpoint,
+  { readonly trigger: string; readonly body: string }
+> = {
+  sm: { trigger: 'sm:hidden', body: 'max-sm:hidden' },
+  md: { trigger: 'md:hidden', body: 'max-md:hidden' },
+  lg: { trigger: 'lg:hidden', body: 'max-lg:hidden' },
+  xl: { trigger: 'xl:hidden', body: 'max-xl:hidden' },
+  '2xl': { trigger: '2xl:hidden', body: 'max-2xl:hidden' },
+}
+
+/** The menu button: a quiet bordered control carrying a glyph and its name. */
+const SIDEBAR_DRAWER_TRIGGER_CLASS = [
+  'inline-flex items-center gap-2 self-start',
+  'rounded-md border px-2 py-1.5 text-md transition-colors',
+  `border-[${v('sv-border', T.border)}]`,
+  `text-[${v('sv-fg', T.fg)}]`,
+  `[&>svg]:text-[${v('sv-fg-muted', T.fgMuted)}]`,
+  `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
+].join(' ')
+
+/**
+ * The drawer panel: a native modal `<dialog>` pinned to the start edge at full
+ * height, on the deeper floating plane a dialog takes, over the scrim every
+ * modal in the product dims the page with.
+ *
+ * `m-0` and `max-h-none` undo the user-agent centring of a modal dialog; the
+ * width leaves a strip of the page visible beside the panel, which is both the
+ * reader's cue that the page is still there and the backdrop they tap to leave.
+ */
+const SIDEBAR_DRAWER_PANEL_CLASS = [
+  'm-0 h-full max-h-none w-72 max-w-[85vw] overflow-y-auto border-r p-4',
+  `bg-[${v('sv-bg', T.bg)}]`,
+  `text-[${v('sv-fg', T.fg)}]`,
+  `border-[${v('sv-border', T.border)}]`,
+  `shadow-[${v('shadow-lg', T.shadowLg)}]`,
+  `backdrop:bg-[${v('sv-scrim', T.scrim)}]/50`,
+].join(' ')
+
+/** Compute the className for the menu button: shown only below the breakpoint. */
+export const computeSidebarDrawerTriggerClasses = (below: SidebarRailBreakpoint): string =>
+  `${SIDEBAR_DRAWER_TRIGGER_CLASS} ${DRAWER_CLASSES[below].trigger}`
+
+/**
+ * Compute the className for the inline sidebar body: out of the layout below
+ * the breakpoint, and `display: contents` at and above it — the wrapper exists
+ * only so the drawer has one node to lift its children from, so it must not
+ * become a box of its own that re-flows what the sidebar laid out before it.
+ */
+export const computeSidebarDrawerBodyClasses = (below: SidebarRailBreakpoint): string =>
+  `contents ${DRAWER_CLASSES[below].body}`
+
+/** Compute the className for the drawer panel (`<dialog>`). */
+export const computeSidebarDrawerPanelClasses = (): string => SIDEBAR_DRAWER_PANEL_CLASS

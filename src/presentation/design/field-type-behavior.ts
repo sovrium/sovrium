@@ -23,8 +23,8 @@ import type { FieldType } from '@/domain/models/app/tables/fields'
  * copy is gone; the widgets below are what replaced it.
  *
  * A widget names a CONTROL CLASS, not a rendering. Each surface still owns its
- * own total widget → control table, and they legitimately differ: the grid
- * gives `number` an `<input type="number">` while the form keeps a text box.
+ * own total widget → control table, and they may differ in chrome — the grid
+ * opens a `user` picker in a popover where the form draws an inline combobox.
  * What they cannot do is disagree about WHICH class a field type belongs to.
  */
 export type FieldWidget =
@@ -301,4 +301,31 @@ export function omitsEmptyValue(field: EmptyValueField): boolean {
   const policy = fieldTypeBehavior(field.type).emptyValuePolicy
   if (policy === 'omit-when-formatted') return (field.format ?? '') !== ''
   return policy === 'omit'
+}
+
+/**
+ * A stored record value as the text a form control holds.
+ *
+ * `null`/`undefined` read as empty; an object or array is JSON-encoded, because
+ * `String()` would turn it into `"[object Object]"` and a save would then write
+ * that string back over the stored value. This is the hydrated form's own
+ * record-to-initial-value rule, and the ONE place it lives.
+ */
+export function recordValueText(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  return typeof value === 'object' ? JSON.stringify(value) : String(value)
+}
+
+/**
+ * The text a pre-mount form SKELETON writes into a control for `value`.
+ *
+ * The skeleton's values become the hydrated form's initial values, so for a
+ * `json` field it must agree with {@link recordValueText}. Every other type
+ * keeps its long-standing `String()` coercion: an `array` or `multi-select`
+ * value still reaches its control as a comma list, which is what those
+ * controls have always read.
+ */
+export function skeletonValueText(type: string | undefined, value: unknown): string {
+  if (type === 'json') return recordValueText(value)
+  return value === null || value === undefined ? '' : String(value)
 }

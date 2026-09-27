@@ -45,10 +45,10 @@ import { agentsListResponseSchema } from '@/domain/models/api/admin/agents/list'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { type SafeDecodeResult, decodeSafe } from '@/domain/models/api/combinators/decode'
 import {
-  DEFAULT_AGENT_NAME,
+  SYSTEM_AGENT_NAME,
   declaredAgentNames,
   isConversationSourceAgent,
-  isDefaultAgentName,
+  isSystemAgentName,
 } from '@/domain/models/app/agents/agent-identity'
 import { logError } from '@/infrastructure/logging/logger'
 import {
@@ -135,7 +135,7 @@ const parseAgentsLimit = (c: Context): number => {
 async function handleListAgents(c: Context, app: App): Promise<Response> {
   const session = (c as ContextWithSession).var.session!
   const names = declaredAgentNames(app.agents)
-  const items = names.map((name) => ({ name, isDefault: isDefaultAgentName(name) }))
+  const items = names.map((name) => ({ name, isSystem: isSystemAgentName(name) }))
 
   const limit = parseAgentsLimit(c)
   const cursor = c.req.query('cursor')
@@ -160,7 +160,7 @@ async function handleListAgents(c: Context, app: App): Promise<Response> {
   await emitAuditEvent({
     action: AUDIT_ACTIONS.AGENT_LIST_QUERIED,
     actor,
-    resourceId: DEFAULT_AGENT_NAME,
+    resourceId: SYSTEM_AGENT_NAME,
     severity: 'info',
     result: 'success',
   })

@@ -31,6 +31,7 @@ import {
 } from '@/application/use-cases/analytics/visitor-hash'
 import { PROXY_COUNTRY_HEADERS, parseAcceptLanguage } from '@/domain/models/app/links/link-resolver'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import type { App } from '@/domain/models/app'
 import type { ResolvableLink, VisitorContext } from '@/domain/models/app/links/link-resolver'
@@ -155,11 +156,11 @@ export const recordClick = (
     const repository = yield* AnalyticsRepository
     // effect-promise: total -- both hash helpers wrap `crypto.subtle.digest('SHA-256', …)` over a `TextEncoder` result; SHA-256 is always available and the input is always a valid BufferSource, so the digest has no rejection path.
     const visitorHash = yield* Effect.promise(() =>
-      computeVisitorHash(getRequestClientIp(c), userAgent, app.name)
+      computeVisitorHash(getRequestClientIp(c), userAgent, app.name, resolveOperatorTimezone())
     )
     // effect-promise: total -- both hash helpers wrap `crypto.subtle.digest('SHA-256', …)` over a `TextEncoder` result; SHA-256 is always available and the input is always a valid BufferSource, so the digest has no rejection path.
     const sessionHash = yield* Effect.promise(() =>
-      computeSessionHash(visitorHash, sessionTimeout(app))
+      computeSessionHash(visitorHash, sessionTimeout(app), resolveOperatorTimezone())
     )
     const agent = parseUserAgent(userAgent)
     const referrer = c.req.header('referer') ?? c.req.header('referrer')

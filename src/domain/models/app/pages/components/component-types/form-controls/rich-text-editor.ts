@@ -163,7 +163,7 @@ export const richTextEditorFields = {
       Schema.annotate({
         title: 'Image Bucket',
         description:
-          'Bucket the image button and the paste handler upload into (default: `default`). The uploaded URL is inserted, never base64. Unread — INERT, not refused — under a `toolbar` that omits `image`, since there is then no button to upload from.',
+          'Bucket the image button and the paste handler upload into (default: the built-in `system` bucket). The uploaded URL is inserted, never base64. Unread — INERT, not refused — under a `toolbar` that omits `image`, since there is then no button to upload from.',
         examples: ['attachments'],
       }),
       Schema.check(Schema.isMinLength(1))

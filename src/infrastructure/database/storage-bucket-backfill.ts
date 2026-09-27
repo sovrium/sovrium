@@ -24,8 +24,14 @@
  *   avatar this instance issued.
  * - a `storeMetadata` attachment cell holds `/api/buckets/<bucket>/files/<key>`.
  * - a plain attachment cell holds the bare key, and its COLUMN declares the
- *   bucket (falling back to the implicit `default`) — the same resolution the
+ *   bucket (falling back to the built-in `system`) — the same resolution the
  *   read path uses to build the URL.
+ *
+ * A second, narrower repair rides on the same step: objects a prior binary
+ * recorded under the retired implicit `default` bucket are re-attributed to the
+ * built-in `system` bucket that replaced it. Reads and deletes compare the
+ * recorded bucket with the one a URL names, so an object left under `default`
+ * would be reachable through no bucket at all.
  *
  * What stays dark: an object referenced from nowhere the config can name — an
  * orphan, or one written straight to the object store out of band. That is the
@@ -49,7 +55,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { AVATAR_BUCKET_NAME, avatarStorageKeyFromUrl } from '@/domain/models/app/auth/avatar-url'
-import { DEFAULT_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
+import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { db } from '@/infrastructure/database'
 import {
@@ -57,6 +63,7 @@ import {
   fileStorageMetadataTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import { logError, logInfo } from '@/infrastructure/logging/logger'
+import { declaresLegacyDefaultBucket, LEGACY_DEFAULT_BUCKET } from './attachment-url-backfill'
 import { getBaseTableName, shouldUseView } from './lookup/lookup-view-generators'
 import { executeRaw } from './sql/dialect-execute'
 import { shouldCreateDatabaseColumn } from './sql/sql-field-predicates'
@@ -66,12 +73,16 @@ import type { App, Table } from '@/domain/models/app'
 const BUCKET_URL_PATTERN = /^\/api\/buckets\/([^/]+)\/files\/(.+)$/
 
 /** One attachment column that may name objects needing attribution. */
-interface AttachmentColumn {
+export interface AttachmentColumn {
+  /** The table's config name, as the app declares it. */
+  readonly table: string
   /** The PHYSICAL relation — the `_base` table when the table is a view. */
   readonly relation: string
+  /** Row identity — `table.primaryKey?.field`, not `id` unconditionally. */
+  readonly primaryKey: string
   /** `field.name` IS the column name; there is no mapper. */
   readonly column: string
-  /** The bucket the column declares, or the implicit `default`. */
+  /** The bucket the column declares, or the built-in `system`. */
   readonly bucket: string
 }
 
@@ -126,13 +137,16 @@ export const collectAttachmentColumns = (app: Readonly<App>): readonly Attachmen
   (app.tables ?? []).flatMap((table: Readonly<Table>) => {
     const sanitized = sanitizeTableName(table.name)
     const relation = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
+    const primaryKey = table.primaryKey?.field ?? 'id'
     return table.fields
       .filter(shouldCreateDatabaseColumn)
       .filter((f) => f.type === 'single-attachment' || f.type === 'multiple-attachments')
       .map((f) => ({
+        table: table.name,
         relation,
+        primaryKey,
         column: f.name,
-        bucket: resolveFieldBucket(app, table.name, f.name) ?? DEFAULT_BUCKET_NAME,
+        bucket: resolveFieldBucket(app, table.name, f.name) ?? SYSTEM_BUCKET_NAME,
       }))
   })
 
@@ -194,6 +208,24 @@ const recoverColumn = async (target: Readonly<AttachmentColumn>): Promise<number
 }
 
 /**
+ * Re-attribute every object recorded under the retired `default` bucket to the
+ * built-in `system` bucket. Anchored on the exact value `default`, so a declared
+ * bucket's objects are never touched — and skipped entirely when the app
+ * declares an ordinary bucket named `default`, whose objects legitimately carry
+ * that value. Idempotent: a settled install matches no row.
+ */
+const reattributeLegacyDefaultBucket = async (app: Readonly<App>): Promise<number> => {
+  if (declaresLegacyDefaultBucket(app)) return 0
+  const files = fileStorageMetadataTable()
+  const updated = await db
+    .update(files)
+    .set({ bucket: SYSTEM_BUCKET_NAME })
+    .where(eq(files.bucket, LEGACY_DEFAULT_BUCKET))
+    .returning({ key: files.key })
+  return updated.length
+}
+
+/**
  * Post-schema startup entry point: attribute every stored object whose owning
  * bucket the config can still name.
  *
@@ -201,6 +233,14 @@ const recoverColumn = async (target: Readonly<AttachmentColumn>): Promise<number
  * the rest, and no failure may block startup.
  */
 export const runStorageBucketBackfill = async (app: Readonly<App>): Promise<void> => {
+  const reattributed = await reattributeLegacyDefaultBucket(app).catch((error: unknown) => {
+    logError('[storage-bucket-backfill] re-attribution of the default bucket failed', error)
+    return 0
+  })
+  if (reattributed > 0) {
+    logInfo(`[storage-bucket-backfill] moved ${reattributed} stored object(s) to the system bucket`)
+  }
+
   const pending = await hasUnattributedObjects().catch((error: unknown) => {
     logError('[storage-bucket-backfill] could not probe for unattributed objects', error)
     return false

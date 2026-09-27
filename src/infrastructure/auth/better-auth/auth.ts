@@ -14,7 +14,6 @@ import {
   type AuthTriggerEvent,
   // eslint-disable-next-line boundaries/dependencies -- Better Auth databaseHooks fire from within the auth library's lifecycle; the infrastructure-auth layer is the only point where we can observe signUp/emailVerified events. The application-layer use case is the dispatch contract that routes through the AU-02 scheduler — same shape as the record-event trigger bridge.
 } from '@/application/use-cases/automations/trigger-auth-event'
-import { stripHtmlToText } from '@/domain/kernel/sanitize/html-sanitization'
 import { getStrategy, hasStrategy } from '@/domain/models/app/auth'
 import { resolvePasswordPolicy } from '@/domain/models/app/auth/password-policy'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
@@ -25,11 +24,16 @@ import * as authSchemaSqlite from '@/infrastructure/database/drizzle/schema-sqli
 import { logError } from '@/infrastructure/logging/logger'
 import { isTransportRelaxed } from '@/infrastructure/process/security-posture'
 import { runOnDomain } from '@/infrastructure/server/domain-runtime'
+import {
+  ACCOUNT_PREFERENCE_FIELDS,
+  applyAccountPreferenceGuards,
+  writablePreferenceLanguages,
+} from './account-preferences'
 import { withDriverErrorMessages } from './adapter-errors'
 import { applyAdminRoleGuards } from './admin-role-guards'
 import { applyAvatarUrlGuard } from './avatar-url-guard'
+import { applyDisplayNameGuard } from './display-name-guard'
 import { createEmailHandlers } from './email-handlers'
-import { applyLanguagePreferenceGuard } from './language-preference-guard'
 import { SOVRIUM_ORGANIZATION_ID, ensureMembership, ensureOrganization } from './org-team-seeder'
 import { buildAdminPlugin } from './plugins/admin'
 import { buildApiKeyPlugin } from './plugins/api-key'
@@ -257,20 +261,6 @@ type AuthMiddlewareCtx = Parameters<typeof createAuthMiddleware>[0] extends (
   : never
 
 /**
- * Sanitize the name field in request body to prevent XSS.
- * Strips all HTML tags from the name before it reaches Better Auth via the
- * canonical `stripHtmlToText` (parser-based — no ad-hoc regex sanitiser).
- */
-// eslint-disable-next-line functional/prefer-immutable-types
-function sanitizeNameField(ctx: AuthMiddlewareCtx) {
-  const body = ctx.body as { name?: string }
-  if (typeof body?.name === 'string') {
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
-    ;(ctx.body as { name: string }).name = stripHtmlToText(body.name)
-  }
-}
-
-/**
  * Validate admin create-user password length (Better Auth Issue #4651 workaround).
  * The admin plugin doesn't respect emailAndPassword validation settings.
  *
@@ -418,9 +408,9 @@ export function buildAuthHooks(
   const roleApp: AdminRoleResolvable = { auth: authConfig }
   return {
     before: createAuthMiddleware(async (ctx) => {
-      if (ctx.path === '/sign-up/email') {
-        sanitizeNameField(ctx)
-      }
+      // Strip markup from `name` on every path that writes it (sign-up, the
+      // self-service update and both admin routes).
+      applyDisplayNameGuard(ctx)
       if (ctx.path === '/admin/create-user') {
         await validateAdminCreateUserPassword(ctx)
       }
@@ -429,11 +419,12 @@ export function buildAuthHooks(
       // it into OTHER users' browsers, so this `before` hook is the only point
       // at which the value can be rejected before the row changes.
       applyAvatarUrlGuard(ctx)
-      // Refuse a language this app does not declare, on every path that can
-      // write it. Better Auth stores a DECLARED additional field verbatim, so
-      // without this the column would keep a value nothing can honour — and the
+      // Refuse a language this app does not declare, and an operator-email
+      // switch from an account that is not admin-tier, on every path that can
+      // write them. Better Auth stores a DECLARED additional field verbatim, so
+      // without this a column would keep a value nothing can honour — and the
       // account export would publish it.
-      applyLanguagePreferenceGuard(ctx, languages)
+      await applyAccountPreferenceGuards(ctx, languages, roleApp)
       await applyAdminRoleGuards(ctx, roleApp, deps)
     }),
     after: createAuthMiddleware(async (ctx) => {
@@ -517,6 +508,8 @@ type AppMetaForOrg = {
    * value legal belongs to the APP being served.
    */
   readonly languages?: App['languages']
+  /** `admin: false` removes the console, and its languages, from the write door. */
+  readonly admin?: App['admin']
 }
 
 /**
@@ -692,7 +685,7 @@ export function createAuthInstance(
   domainContext?: DomainContext
 ) {
   const hookContext: AuthHookContext = { appMeta, domainContext }
-  const handlers = createEmailHandlers(authConfig)
+  const handlers = createEmailHandlers(authConfig, appMeta?.name)
   const emailAndPasswordConfig = buildEmailAndPasswordConfig(authConfig, handlers)
   const { requireEmailVerification } = emailAndPasswordConfig
 
@@ -722,16 +715,18 @@ export function createAuthInstance(
       // `input: true` lets a person set their own through `/update-user`; the
       // VALUE is then checked against the app's declared languages by
       // `applyLanguagePreferenceGuard`, because Better Auth validates an
-      // additional field's type and nothing more.
-      additionalFields: { language: { type: 'string', required: false, input: true } },
+      // additional field's type and nothing more. The two operator-email
+      // switches are engine-owned the same way — see `account-preferences.ts`.
+      additionalFields: ACCOUNT_PREFERENCE_FIELDS,
     },
     socialProviders: buildSocialProviders(authConfig),
     plugins: buildAuthPlugins(handlers, authConfig),
     rateLimit: buildRateLimitConfig(),
     // `deps` is undefined here on purpose: the admin-role guards resolve their
     // own database access, and only the LANGUAGE guard needs anything from the
-    // app — the vocabulary a written preference has to belong to.
-    hooks: buildAuthHooks(handlers, authConfig, undefined, appMeta?.languages),
+    // app — the vocabulary a written preference has to belong to (the host's
+    // languages plus the mounted console's, [internal ref]).
+    hooks: buildAuthHooks(handlers, authConfig, undefined, writablePreferenceLanguages(appMeta)),
     databaseHooks: buildDatabaseHooks(handlers, authConfig, connections, hookContext),
   })
 }

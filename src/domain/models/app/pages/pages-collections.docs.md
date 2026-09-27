@@ -31,7 +31,7 @@ pages:
       - { type: text, content: '$record.body', props: { format: markdown } }
 ```
 
-The generated record is exposed as `$record.*` to the whole tree, including `meta` — so per-record SEO comes for free. A URL matching no record returns `404`.
+The generated record is exposed as `$record.*` to the whole tree, including `meta` — so per-record SEO comes for free. A URL matching no record returns `404`, and so does the URL of a deleted record. The record follows the visitor's own read permissions: a field they may not read resolves to nothing, in the components and in `meta` alike, so its value never reaches the page. A visitor the table's `read` refuses gets `404` for every record, as does a visitor who is not signed in when the table has a row-level `read` rule. The `$collection.previous.*` and `$collection.next.*` neighbours follow the same permissions: their unreadable fields resolve to nothing, and a record the visitor may not see is skipped for the nearest one they may.
 
 ## `markdown`
 
@@ -54,6 +54,10 @@ pages:
 
 YAML frontmatter between `---` delimiters is parsed and exposed as `$frontmatter.*`, usable in `meta` and sibling properties. Rendered markdown HTML is sanitized, consistently with the `text` and `alert` content components.
 
+`layout` picks the wrapper: `prose` (the default — a centred reading column), `docs`, `full`, or `none` for raw HTML. `prose` and `docs` share the same typography, so headings, lists, code and quotes read the same in both.
+
+A `::: callout` block renders an alert inside the article. Name its kind with `type`: `::: callout type="warning"`. The kinds are `info` (the default), `note`, `tip`, `warning` and `danger`; an unknown type renders as `info`. A callout keeps its own look — a panel with a rule down its left edge, coloured by its kind — and does not take the look of the `alert` component.
+
 ## `contentDir`
 
 <!-- sovrium:options ContentDirSchema depth=2 -->
@@ -61,6 +65,8 @@ YAML frontmatter between `---` delimiters is parsed and exposed as `$frontmatter
 `contentDir` is a **page-level** property. It fans one page definition out over every markdown file in a directory and derives a navigation sidebar from their frontmatter — the way this manual's published twin is built.
 
 `nav` accepts `enabled`, `groupBy` — the frontmatter key that buckets articles into sidebar groups — and `labelFrom`, the frontmatter key supplying each link's label, plus `groupLabels`, `groupIcons`, `collapsed` and `tabs` for presentation.
+
+The previous and next links at the foot of each article follow the sidebar: they walk its groups in the order it lists them, so the last article of one group leads to the first article of the next. Articles the sidebar leaves out, such as drafts excluded by `filter`, are skipped.
 
 ```yaml
 name: my-docs

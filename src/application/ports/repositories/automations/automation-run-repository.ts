@@ -49,6 +49,8 @@ export interface PersistedStep {
   readonly completedAt: string | null
   readonly durationMs: number | null
   readonly error: string | null
+  /** `context.log` entries of a code step (redacted), or `null` when it logged nothing. */
+  readonly logs: unknown
 }
 
 /**
@@ -89,6 +91,8 @@ export interface CreateStepInput {
   readonly completedAt?: Date
   readonly durationMs?: number
   readonly error?: string
+  /** Redacted `context.log` entries of a code step. */
+  readonly logs?: unknown
 }
 
 /**
@@ -141,11 +145,15 @@ export class AutomationRunRepository extends Context.Service<
     /**
      * Update the `status` column of a persisted run. Used by the cancel
      * endpoint to mark in-flight runs as
-     * `'cancelled'`. Returns `undefined` when no row matches the id.
+     * `'cancelled'`, and by the scheduler to promote an admitted run to
+     * `'running'` — which is when `startedAt` is written: a run starts when it
+     * is admitted, not when it is queued (`createdAt` keeps the enqueue
+     * instant). Returns `undefined` when no row matches the id.
      */
     readonly updateStatus: (input: {
       readonly id: string
       readonly status: string
+      readonly startedAt?: Date
     }) => Effect.Effect<PersistedRun | undefined, AutomationRunDatabaseError>
     /**
      * Finalise a run that was previously inserted as `'queued'` / `'running'`:

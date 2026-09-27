@@ -6,6 +6,11 @@
  */
 
 import { formatByteCount } from '@/domain/kernel/format/byte-format'
+import {
+  formatCurrencyValue,
+  type CurrencyDisplayOptions,
+} from '@/domain/kernel/format/currency-format'
+import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { type AggregateFunction, reduceAggregate } from '../runtime/aggregate-functions'
 import type { TableRecord } from '../runtime/types'
 
@@ -52,38 +57,89 @@ export function aggregateKpi(records: readonly TableRecord[], config: KpiAggrega
 /**
  * Formats the aggregated metric value for display.
  *
- * - `currency` renders via `Intl.NumberFormat` with the `currency` option
- *   (defaults to USD) — e.g. `1500` -> `$1,500.00`.
+ * - `currency` writes the amount in the page language. Over a field that
+ *   declares its currency display (`display`, resolved server-side from the
+ *   aggregated field), it goes through the shared currency formatter, so the
+ *   field's precision and any declared separator hold — `€667,000` for a
+ *   whole-euro field, `667 000 €` on a French page. `options.currency` names
+ *   the currency when declared (defaults to the field's, then USD).
  * - `percentage` suffixes a `%` and inserts grouping separators. An optional
  *   `options.scale` multiplier scales the raw value before formatting — pass
  *   `scale: '100'` to render a 0–1 fraction as a percent (e.g. `0.95` -> `95 %`).
- * - `compact` uses compact notation (e.g. `12000` -> `12K`).
+ * - `compact` uses the page language's compact notation (`12K`, `1,2 M` in French).
  * - `bytes` renders a byte count as a compact human-readable string
  *   (binary `B/KB/MB/GB`) — e.g. `0` -> `0 B`, `1536` -> `2 KB`. THE SAME
  *   `formatByteCount` a column / `record-field` `format: 'bytes'` spends, so a
  *   tile and a row on one page cannot print one number two ways.
- * - `number` (default) inserts thousands separators.
+ * - `number` (default) inserts thousands separators in the page's language
+ *   (`locale`, read from `<html lang>` by the island) and applies the declared
+ *   `minimumFractionDigits` / `maximumFractionDigits` options — so a French
+ *   page writes an average of 493.875 with one fraction digit as `493,9`.
  */
-export function formatKpiValue(value: number, format: KpiFormatConfig | undefined): string {
-  if (!format || format.type === 'number') {
-    return new Intl.NumberFormat('en-US').format(value)
+export function formatKpiValue(
+  value: number,
+  format: KpiFormatConfig | undefined,
+  locale = 'en-US',
+  display?: CurrencyDisplayOptions
+): string {
+  const options = format?.options
+  const tag = usableLocale(locale)
+  const formatters: Readonly<Record<KpiFormatType, () => string>> = {
+    number: () => new Intl.NumberFormat(tag, fractionDigits(options)).format(value),
+    currency: () => formatKpiCurrency(value, options?.currency, tag, display),
+    percentage: () => formatPercentage(value, options?.scale),
+    bytes: () => formatByteCount(value),
+    compact: () => new Intl.NumberFormat(tag, { notation: 'compact' }).format(value),
   }
+  return formatters[format?.type ?? 'number']()
+}
 
-  if (format.type === 'currency') {
-    const currency = format.options?.currency ?? 'USD'
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(value)
+/**
+ * A currency KPI. With the aggregated field's display known, the shared
+ * formatter applies its precision and separators in the page language; with
+ * none (a count, or a plain number field), `Intl` writes the amount in the
+ * page language with the currency's own digits.
+ */
+function formatKpiCurrency(
+  value: number,
+  currency: string | undefined,
+  locale: string,
+  display: CurrencyDisplayOptions | undefined
+): string {
+  if (display !== undefined) {
+    return formatCurrencyValue(
+      value,
+      { ...display, currency: currency ?? display.currency ?? 'USD' },
+      locale
+    )
   }
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: currency ?? 'USD',
+  }).format(value)
+}
 
-  if (format.type === 'percentage') {
-    return formatPercentage(value, format.options?.scale)
+/**
+ * The fraction-digit options a `number` format declares, as `Intl` options.
+ * They arrive as strings (the option bag is `Record<string, string>`); a value
+ * that is not a whole number in `Intl`'s 0–100 range is ignored rather than
+ * allowed to throw a `RangeError` and take the card down with it.
+ */
+function fractionDigits(
+  options: Readonly<Record<string, string>> | undefined
+): Intl.NumberFormatOptions {
+  const digits = (raw: string | undefined): number | undefined => {
+    const n = Number(raw)
+    return raw !== undefined && Number.isInteger(n) && n >= 0 && n <= 100 ? n : undefined
   }
-
-  if (format.type === 'bytes') {
-    return formatByteCount(value)
+  const max = digits(options?.maximumFractionDigits)
+  const requestedMin = digits(options?.minimumFractionDigits)
+  const min =
+    requestedMin !== undefined && max !== undefined ? Math.min(requestedMin, max) : requestedMin
+  return {
+    ...(min !== undefined ? { minimumFractionDigits: min } : {}),
+    ...(max !== undefined ? { maximumFractionDigits: max } : {}),
   }
-
-  // compact
-  return new Intl.NumberFormat('en-US', { notation: 'compact' }).format(value)
 }
 
 /**

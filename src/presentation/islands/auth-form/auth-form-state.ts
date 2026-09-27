@@ -25,6 +25,8 @@ import {
  */
 export interface AuthFormStateInput {
   readonly method: AuthMethod
+  /** The action's `strategy`; `magicLink` turns a login into a mailed link. */
+  readonly strategy?: string
   readonly fields: readonly AuthFormField[]
   readonly redirectUrl?: string
   readonly successToast?: ToastConfig
@@ -56,7 +58,7 @@ export interface AuthFormStateResult {
  * submits populate the inline and summary error maps without dispatching.
  */
 export function useAuthFormState(input: AuthFormStateInput): AuthFormStateResult {
-  const { method, fields, redirectUrl, successToast, errorToast } = input
+  const { method, strategy, fields, redirectUrl, successToast, errorToast } = input
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [summaryErrors, setSummaryErrors] = useState<FieldErrors>({})
   const [state, setState] = useState<AuthState>({ isPending: false })
@@ -82,6 +84,7 @@ export function useAuthFormState(input: AuthFormStateInput): AuthFormStateResult
     if (Object.keys(validationErrors).length > 0) return
     void submitAuthForm({
       method,
+      strategy,
       fields,
       values: current,
       redirectUrl,

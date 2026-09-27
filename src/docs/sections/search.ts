@@ -134,6 +134,7 @@ export const section = defineSection({
         'US-PAGES-PUBLIC-SEARCH-007',
         'US-PAGES-PUBLIC-SEARCH-008',
         'US-PAGES-PUBLIC-SEARCH-009',
+        'US-PAGES-PUBLIC-SEARCH-010',
       ],
     }),
   ],

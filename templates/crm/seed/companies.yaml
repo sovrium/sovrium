@@ -1,18 +1,17 @@
-# Sample companies for the CRM demo.
+# The accounts the Kestrel sales team works with.
 #
-# `key` is file-local — it exists so contacts and deals can name a company
-# before either row has a database id. It is never written to a column.
+# `key` names a record inside these files so contacts, deals and tasks can link
+# to it before any row has a database id. It is never written to a column.
 records:
-  - key: northwind
+  - key: cardinal
     fields:
-      name: Northwind Trading
-      industry: Retail
+      name: Cardinal Freight
+      industry: Other
       size: '201-1000'
-      website: https://northwind.example
-      annual_revenue: 48000000
+      website: https://cardinal-freight.example
+      annual_revenue: 64000000
       is_active: true
-      notes: <p>Renewal owner is Priya. Wants the multi-warehouse rollout scoped before Q4.</p>
-
+      notes: <p>Lost the fleet-tracking deal on price; the security review is a fresh start.</p>
   - key: helios
     fields:
       name: Helios Health
@@ -21,8 +20,7 @@ records:
       website: https://helios-health.example
       annual_revenue: 210000000
       is_active: true
-      notes: <p>Procurement is slow but the clinical team is a strong champion.</p>
-
+      notes: <p>Procurement is slow, but the clinical team is a strong champion.</p>
   - key: lumen
     fields:
       name: Lumen Analytics
@@ -31,24 +29,45 @@ records:
       website: https://lumen-analytics.example
       annual_revenue: 12500000
       is_active: true
-      notes: <p>Migrating off a spreadsheet stack. Fast mover, small budget.</p>
-
-  - key: cardinal
+      notes: <p>Signed the analytics add-on in September; expanding to a second team.</p>
+  - key: marlow
     fields:
-      name: Cardinal Freight
-      industry: Manufacturing
-      size: '201-1000'
-      website: https://cardinalfreight.example
-      annual_revenue: 76000000
+      name: Marlow & Finch
+      industry: Finance
+      size: '11-50'
+      website: https://marlow-finch.example
+      annual_revenue: 4200000
       is_active: true
-      notes: <p>Expansion blocked on a security review. Revisit after the audit.</p>
-
+  - key: northwind
+    fields:
+      name: Northwind Trading
+      industry: Retail
+      size: '201-1000'
+      website: https://northwind.example
+      annual_revenue: 48000000
+      is_active: true
+      notes: <p>Renewal owner is Priya. Wants the warehouse rollout scoped before year end.</p>
+  - key: osprey
+    fields:
+      name: Osprey Dental
+      industry: Healthcare
+      size: '11-50'
+      website: https://osprey-dental.example
+      annual_revenue: 3100000
+      is_active: true
   - key: pinewood
     fields:
       name: Pinewood Academy
       industry: Education
-      size: '11-50'
-      website: https://pinewood.example
-      annual_revenue: 3200000
-      is_active: false
-      notes: <p>Churned last year on price. Worth a look once the tiering lands.</p>
+      size: '51-200'
+      website: https://pinewood-academy.example
+      annual_revenue: 9800000
+      is_active: true
+  - key: tidewater
+    fields:
+      name: Tidewater Labs
+      industry: Technology
+      size: '51-200'
+      website: https://tidewater-labs.example
+      annual_revenue: 18700000
+      is_active: true

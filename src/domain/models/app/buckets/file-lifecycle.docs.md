@@ -48,7 +48,7 @@ curl https://app.example.com/api/admin/buckets/overview \
 
 The endpoint is open to the admin and operator roles, and reports what is stored **right now** rather than what is allowed — compare the total against your own quota to know how much headroom is left.
 
-Both the byte total and the file count are read live from the storage backend rather than tracked in a counter, so deleting files lowers them immediately. The bucket count reflects what the configuration declares; an app declaring none reports the single virtual default bucket, and one whose provider does not resolve reports zero.
+Both the byte total and the file count are read live from the storage backend rather than tracked in a counter, so deleting files lowers them immediately. The bucket count is the built-in `system` bucket plus every bucket the configuration declares, and one whose provider does not resolve reports zero.
 
 ### Upload history
 

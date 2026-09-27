@@ -1,0 +1,15 @@
+# The two people of Kerlo, a three-person studio, created as sign-in accounts
+# before any table is filled.
+#
+# Maëlle runs the automations (admin): she reads the runs, and she is the one
+# who may delete a lead or a line of the log. Jules follows the leads up
+# (member): he reads everything and deletes nothing. No password is written
+# here: every account takes `SOVRIUM_SEED_PASSWORD` from the environment, so a
+# password never lands in a file you might commit.
+users:
+  - email: maelle.kerlo@kerlo.example
+    name: Maëlle Kerlo
+    role: admin
+  - email: jules.morvan@kerlo.example
+    name: Jules Morvan
+    role: member

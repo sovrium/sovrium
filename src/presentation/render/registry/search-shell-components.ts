@@ -49,7 +49,16 @@ export const searchShellComponents: Partial<Record<DispatchableComponentType, Co
       if (c['scope'] === 'page') {
         const placeholder = c['placeholder'] as string | undefined
         const maxResults = c['maxResults'] as number | undefined
-        return Renderers.renderPageSearch({ props: elementProps, placeholder, maxResults })
+        // `index: 'session'` asks the server per query instead of reading the
+        // static public index; anything else — including an omitted key — is
+        // the public index.
+        const sessionIndex = c['index'] === 'session'
+        return Renderers.renderPageSearch({
+          props: elementProps,
+          placeholder,
+          maxResults,
+          sessionIndex,
+        })
       }
       const debounceMs = c['debounceMs'] as number | undefined
       const minQueryLength = c['minQueryLength'] as number | undefined

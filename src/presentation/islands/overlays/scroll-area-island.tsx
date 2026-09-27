@@ -7,6 +7,7 @@
 
 import { ScrollArea } from '@base-ui/react/scroll-area'
 import { useMemo } from 'react'
+import { useLiveInjectedMarkup } from './live-injected-markup'
 import {
   computeScrollAreaScrollbarClasses,
   computeScrollAreaThumbClasses,
@@ -20,6 +21,21 @@ interface ScrollAreaIslandProps {
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
+}
+
+/**
+ * The scrollable content, brought to life. The island replaces its SSR host, so
+ * the content is injected again on mount — after the page's first-load pass —
+ * and its scripts and island markers would otherwise stay inert: a form in a
+ * scroll area would submit natively. They are run and mounted here, and
+ * unmounted with the island.
+ *
+ * SECURITY: `html` is server-rendered from the app's configuration, not user
+ * input.
+ */
+function ScrollAreaChildren({ html }: { readonly html: string }): ReactElement {
+  const ref = useLiveInjectedMarkup(html)
+  return <div ref={ref} />
 }
 
 /**
@@ -56,10 +72,7 @@ export default function ScrollAreaIsland({
         style={viewportStyle}
       >
         <ScrollArea.Content>
-          {childrenHtml && (
-            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- preserves SSR skeleton HTML on initial paint
-            <div dangerouslySetInnerHTML={{ __html: childrenHtml }} />
-          )}
+          {childrenHtml && <ScrollAreaChildren html={childrenHtml} />}
         </ScrollArea.Content>
       </ScrollArea.Viewport>
 

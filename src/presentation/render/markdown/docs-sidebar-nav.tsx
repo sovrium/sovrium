@@ -7,7 +7,17 @@
 
 import { type ReactElement } from 'react'
 import { resolveLucideIcon } from '@/presentation/render/elements/lucide-resolver'
-import { type DocsNavTab, hasDocsTabs, sectionIsClaimed } from './docs-sidebar-tabs'
+import {
+  SIDEBAR_DRAWER_ROOT_ATTRIBUTE,
+  SidebarDrawerFrame,
+} from '@/presentation/render/registry/sidebar-drawer'
+import {
+  bucketByGroup,
+  type DocsNavTab,
+  groupsForTab,
+  hasDocsTabs,
+  type NavGroup,
+} from './docs-sidebar-tabs'
 import type {
   CollectionNavData,
   CollectionNavEntry,
@@ -52,53 +62,8 @@ const renderSectionIcon = (iconName: string | undefined): Readonly<ReactElement>
  */
 interface DocsSidebarNavProps {
   readonly nav: CollectionNavData
-}
-
-interface NavGroup {
-  /** Raw `groupBy` key used as the section identifier (`data-nav-group`). */
-  readonly name: string | undefined
-  /** Resolved display label (groupLabels override or humanized key). */
-  readonly label: string | undefined
-  /** Configured Lucide icon name (`nav.groupIcons[group]`), undefined if unset. */
-  readonly icon: string | undefined
-  readonly entries: readonly CollectionNavEntry[]
-}
-
-/**
- * Bucket entries by `group` (preserving insertion order). When `groupBy` is
- * unset every entry has `group === undefined`, collapsing into a single
- * implicit "default" bucket — the renderer then omits the `[data-nav-group]`
- * wrapper so spec 080 still passes (the ungrouped flat-list case).
- *
- * Each bucket carries the resolved `label` (from the first entry's
- * `groupLabel`, which the lister derives from `nav.groupLabels` or a
- * humanized fallback) so the section heading shows the display label, never
- * the raw key. The `icon` (from the first entry's `groupIcon`, derived from
- * `nav.groupIcons`) drives the decorative leading glyph; undefined renders
- * label-only.
- */
-const bucketByGroup = (entries: readonly CollectionNavEntry[]): readonly NavGroup[] => {
-  const orderedNames = entries.reduce<readonly string[]>((acc, entry) => {
-    const name = entry.group
-    if (name === undefined) return acc
-    if (acc.includes(name)) return acc
-    return [...acc, name]
-  }, [])
-  const grouped = orderedNames.map((name) => {
-    const groupEntries = entries.filter((entry) => entry.group === name)
-    return {
-      name,
-      label: groupEntries[0]?.groupLabel ?? name,
-      icon: groupEntries[0]?.groupIcon,
-      entries: groupEntries,
-    }
-  })
-  const ungrouped = entries.filter((entry) => entry.group === undefined)
-  if (ungrouped.length === 0) return grouped
-  // Mix ungrouped entries in only when no groups exist (homogeneous flat list).
-  if (grouped.length === 0)
-    return [{ name: undefined, label: undefined, icon: undefined, entries: ungrouped }]
-  return [...grouped, { name: undefined, label: undefined, icon: undefined, entries: ungrouped }]
+  /** Accessible name of the menu button that opens the navigation below `lg`. */
+  readonly menuLabel: string
 }
 
 const ENTRY_BASE_CLASS =
@@ -208,27 +173,7 @@ const renderGroup = (
 // heights change. The height budget subtracts the same 6.5rem so the sidebar
 // fills to the viewport bottom.
 const NAV_WRAPPER_CLASS =
-  'border-border sticky top-[6.5rem] hidden h-[calc(100dvh-6.5rem)] w-60 shrink-0 self-start overflow-y-auto border-r py-8 pr-4 text-md lg:block'
-
-/**
- * The groups a declared tab renders, in order: its `sections` array drives the
- * group order WITHIN the tab (orthogonal to `contentDir.sort`, which orders the
- * links inside each group). The FIRST tab additionally adopts every group no tab
- * claims — appended after its declared sections, in sidebar order — so an IA gap
- * can never make an article unreachable through the sidebar.
- */
-const groupsForTab = (
-  groups: readonly NavGroup[],
-  tab: DocsNavTab,
-  tabs: CollectionNavTabs,
-  isFirst: boolean
-): readonly NavGroup[] => {
-  const declared = tab.sections.flatMap((section) =>
-    groups.filter((group) => group.name === section)
-  )
-  if (!isFirst) return declared
-  return [...declared, ...groups.filter((group) => !sectionIsClaimed(group.name, tabs))]
-}
+  'border-border shrink-0 overflow-y-auto text-md lg:sticky lg:top-[6.5rem] lg:h-[calc(100dvh-6.5rem)] lg:w-60 lg:self-start lg:border-r lg:py-8 lg:pr-4'
 
 /**
  * Resolve the active tab for a set of groups: the tab owning the current
@@ -252,7 +197,37 @@ const resolveActiveZone = (
   return { zone: active.id, groups: groupsFor(active) }
 }
 
-export function DocsSidebarNav({ nav }: DocsSidebarNavProps): Readonly<ReactElement> {
+/**
+ * The collection navigation, folded into a drawer below `lg`.
+ *
+ * Below `lg` a docs page has no column to spare, and before the drawer existed
+ * the navigation simply left the layout — a reader on a phone could reach the
+ * page they landed on and its two neighbours, and nothing else. The docs nav has
+ * no schema, so the fold is unconditional: the same frame the `sidebar`
+ * component's `drawer` key draws, with its breakpoint fixed at `lg`, where the
+ * docs column already returned. The `nav` itself moves into the dialog, so its
+ * landmark and its name are the same at every width.
+ *
+ * The frame's root is `display: contents`, so at `lg` and above the `nav` is a
+ * flex item of the docs row exactly as it was before — sticky, full height.
+ */
+export function DocsSidebarNav({ nav, menuLabel }: DocsSidebarNavProps): Readonly<ReactElement> {
+  return (
+    <div
+      {...{ [SIDEBAR_DRAWER_ROOT_ATTRIBUTE]: '' }}
+      className="contents"
+    >
+      <SidebarDrawerFrame
+        below="lg"
+        label={menuLabel}
+      >
+        {renderDocsNav(nav)}
+      </SidebarDrawerFrame>
+    </div>
+  )
+}
+
+function renderDocsNav(nav: CollectionNavData): Readonly<ReactElement> {
   const groups = bucketByGroup(nav.sidebar)
   const collapsed = nav.collapsed === true
   // Zone filtering applies only to a collection that DECLARES its tabs

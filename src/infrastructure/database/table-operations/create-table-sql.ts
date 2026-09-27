@@ -5,10 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
-import { isViewComputedFormula } from '../formula/formula-utils'
-import { shouldUseView, getBaseTableName } from '../lookup/lookup-view-generators'
-import { shouldCreateDatabaseColumn } from '../sql/sql-field-predicates'
+import { getPhysicalTableName } from '../lookup/lookup-view-generators'
+import { isPhysicalColumnField } from '../sql/sql-field-predicates'
 import { generateColumnDefinition, generateTableConstraints } from '../sql/sql-generators'
 import {
   generateIdColumn,
@@ -77,10 +75,8 @@ export type TableDdlInputs = {
  */
 export const generateCreateTableSQL = (table: Table, options: TableDdlInputs): string => {
   const { tablePrimaryKeyTypes, tableUsesView, skipForeignKeys, hasAuthConfig = true } = options
-  // Sanitize table name for PostgreSQL (lowercase, underscores)
-  const sanitized = sanitizeTableName(table.name)
-  // Determine table name (add _base suffix if using VIEW for lookup fields)
-  const tableName = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
+  // The physical relation: `<name>_base` when the table is view-backed.
+  const tableName = getPhysicalTableName(table)
 
   // Identify primary key fields
   const primaryKeyFields =
@@ -99,13 +95,7 @@ export const generateCreateTableSQL = (table: Table, options: TableDdlInputs): s
   // that reference them don't exist as columns in the base table — they are
   // computed in the VIEW's CTE instead.
   const columnDefinitions = table.fields
-    .filter(
-      (field) =>
-        shouldCreateDatabaseColumn(field) &&
-        field.type !== 'lookup' &&
-        field.type !== 'rollup' &&
-        !isViewComputedFormula(field, table.fields)
-    )
+    .filter((field) => isPhysicalColumnField(field, table.fields))
     .map((field) => {
       // Only add inline PRIMARY KEY for single-field composite keys (handled by generateSerialColumn)
       // Multi-field composite keys must have PRIMARY KEY at table level to avoid "multiple primary keys" error

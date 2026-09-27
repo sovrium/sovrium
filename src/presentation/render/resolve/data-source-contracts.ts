@@ -54,16 +54,19 @@ export interface DataSourceDb {
       readonly sort?: readonly DataSort[]
       readonly pageSize?: number
       readonly page?: number
+      readonly liveOnly?: boolean
     }
   ) => Promise<readonly Record<string, unknown>[]>
 
   readonly countRecords: (tableName: string, filter?: readonly DataFilter[]) => Promise<number>
 
+  // eslint-disable-next-line max-params -- positional signature kept for its existing callers; `options` is an optional fifth argument
   readonly fetchSingleRecord: (
     tableName: string,
     paramField: string,
     paramValue: string,
-    fields?: readonly string[]
+    fields?: readonly string[],
+    options?: { readonly liveOnly?: boolean }
   ) => Promise<Record<string, unknown> | undefined>
 
   /**
@@ -89,6 +92,15 @@ export interface DataSourceDb {
    * Bug 2.
    */
   readonly fetchUserAccessRoles?: (userId: string) => Promise<readonly string[]>
+
+  /**
+   * Optional — the accounts a `user` picker offers a signed-in visitor, each
+   * with its label (name, else its masked email), ordered by label, at most `limit`.
+   * Absent, an embedded form's user picker offers no account.
+   */
+  readonly fetchAccountChoices?: (
+    limit: number
+  ) => Promise<ReadonlyArray<{ readonly id: string; readonly label: string }>>
 }
 
 /** Injects a _dataSourceError prop into a component's props. */

@@ -6,6 +6,7 @@
  */
 
 import { computeCalendarToolbarClasses } from '@/presentation/design/calendar-default-classes'
+import { hostClassName } from '@/presentation/render/registry/island-host-attributes'
 import { renderComponentSearchBar } from './component-search-bar'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
@@ -125,6 +126,7 @@ export const islandCalendarComponent: ComponentRenderer = ({ elementProps }) => 
       data-component="calendar"
       data-component-type="calendar"
       data-testid={elementProps['data-testid'] as string | undefined}
+      className={hostClassName(elementProps)}
     >
       {renderComponentSearchBar(elementProps.search)}
       {renderCalendarSkeleton()}

@@ -1,0 +1,43 @@
+# The twelve people of Meridian, created as sign-in accounts before any table
+# is filled, so each person's row in the directory can name their account.
+#
+# Noor runs HR and is the admin; everyone else is a member. No password is
+# written here: every account takes `SOVRIUM_SEED_PASSWORD` from the
+# environment, so a password never lands in a file you might commit.
+users:
+  - email: priya.raman@meridian.example
+    name: Priya Raman
+    role: member
+  - email: tomas.ferreira@meridian.example
+    name: Tomás Ferreira
+    role: member
+  - email: ines.lambert@meridian.example
+    name: Inès Lambert
+    role: member
+  - email: samuel.adeyemi@meridian.example
+    name: Samuel Adeyemi
+    role: member
+  - email: hannah.vogt@meridian.example
+    name: Hannah Vogt
+    role: member
+  - email: dmitri.sokolov@meridian.example
+    name: Dmitri Sokolov
+    role: member
+  - email: aiko.tanaka@meridian.example
+    name: Aiko Tanaka
+    role: member
+  - email: marcus.bell@meridian.example
+    name: Marcus Bell
+    role: member
+  - email: fatima.elamrani@meridian.example
+    name: Fatima El Amrani
+    role: member
+  - email: liam.osullivan@meridian.example
+    name: "Liam O'Sullivan"
+    role: member
+  - email: sofia.marchetti@meridian.example
+    name: Sofia Marchetti
+    role: member
+  - email: noor.haddad@meridian.example
+    name: Noor Haddad
+    role: admin

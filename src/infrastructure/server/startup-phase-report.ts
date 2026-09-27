@@ -30,6 +30,7 @@ import {
   collectAiListenerPhases,
   collectAiProviderPhases,
   collectPublicDirPhases,
+  collectSignUpExposurePhases,
   collectStoragePhases,
   collectTelemetryPhases,
 } from '@/infrastructure/server/startup-degradation-phases'
@@ -125,6 +126,10 @@ const collectInfraPhases = (
     // environment did not supply. See collectAiProviderPhases.
     const aiProviderPhases = collectAiProviderPhases(app)
 
+    // Open sign-up exposure — which tables a stranger reaches by registering.
+    // See collectSignUpExposurePhases.
+    const signUpExposurePhases = collectSignUpExposurePhases(app)
+
     // Storage check — see collectStoragePhases for the contract.
     const storagePhases = collectStoragePhases(app)
 
@@ -153,6 +158,7 @@ const collectInfraPhases = (
         ...adminPhases,
         ...smtpPhases,
         ...aiProviderPhases,
+        ...signUpExposurePhases,
         ...storagePhases,
         ...telemetryPhases,
         ...aiListenerPhases,

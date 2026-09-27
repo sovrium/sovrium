@@ -27,7 +27,7 @@ import {
   renderInlineScriptTag,
   renderScriptTag,
 } from '@/presentation/render/scripts/script-renderers'
-import { HreflangSection } from './page-head-seo'
+import { HeadAlternateLinks } from './page-head-seo'
 import { ThemeColorSchemeScript } from './theme-color-scheme-script'
 import type { GroupedScripts } from './page-scripts'
 import type { Components } from '@/domain/models/app/components'
@@ -66,6 +66,8 @@ type PageHeadProps = {
    * per-file slug.
    */
   readonly contentDirSeo?: ContentDirSeoMeta
+  /** Title of the RSS feed this page publishes, or `undefined` — see `HeadAlternateLinks`. */
+  readonly feedTitle?: string
 }
 
 /**
@@ -367,7 +369,7 @@ function computeHeadMeta(props: PageHeadProps): {
 export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
   const { page, design, directionStyles, title, description, keywords, lang, languages, scripts } =
     props
-  const { components, contentDirSeo } = props
+  const { components } = props
   const hasCustomViewport = hasCustomViewportMeta(page.meta?.customElements)
   const normalizedFavicons = normalizeFavicons(page.meta?.favicons)
   const { openGraphData, effectiveCanonical, synthesizedJsonLd } = computeHeadMeta(props)
@@ -406,11 +408,7 @@ export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
       />
       <PreloadLinks preload={page.meta?.preload} />
       <DnsPrefetchLinks dnsPrefetch={page.meta?.dnsPrefetch} />
-      <HreflangSection
-        page={page}
-        languages={languages}
-        contentDirSeo={contentDirSeo}
-      />
+      <HeadAlternateLinks {...props} />
       <AnalyticsHead analytics={page.meta?.analytics} />
       <CustomElementsHead customElements={page.meta?.customElements} />
       <FaviconLink favicon={page.meta?.favicon} />

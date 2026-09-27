@@ -67,3 +67,48 @@ export const isComponentReferenceNode = (node: unknown): boolean => {
   const candidate = node as ReferenceShape
   return typeof candidate.component === 'string' || typeof candidate.$ref === 'string'
 }
+
+/**
+ * The render-time field an EXPANDED reference carries: the template name and
+ * the variables it was placed with.
+ *
+ * `expandPageReferences` inlines every `{ component: name }` / `{ $ref: name }`
+ * of a page before the page passes run, so the node the renderer finally draws
+ * is no longer a reference — but the template name is still what the rendered
+ * element is NAMED by (`data-component`, the `component-<name>` test id, the
+ * Open Graph meta a template declares). It travels here, beside `props`, where
+ * nothing is spread into the DOM.
+ */
+export const EXPANDED_REFERENCE_KEY = '_expandedReference'
+
+/** What an expanded reference remembers about the reference it replaced. */
+export interface ExpandedReference {
+  readonly name: string
+  readonly vars: Readonly<Record<string, unknown>> | undefined
+}
+
+/**
+ * The template an expanded node was placed from, or `undefined` for a node
+ * that was written inline.
+ */
+export const expandedReferenceOf = (node: unknown): ExpandedReference | undefined => {
+  if (typeof node !== 'object' || node === null) return undefined
+  const marker = (node as Record<string, unknown>)[EXPANDED_REFERENCE_KEY]
+  if (typeof marker !== 'object' || marker === null) return undefined
+  const { name } = marker as { readonly name?: unknown }
+  return typeof name === 'string' ? (marker as ExpandedReference) : undefined
+}
+
+/**
+ * The template name a node stands for — a reference's own name, or the name
+ * an expanded reference remembers. `undefined` for an inline component.
+ */
+export const referenceNameOf = (node: unknown): string | undefined => {
+  if (isComponentReferenceNode(node)) {
+    const candidate = node as { readonly component?: unknown; readonly $ref?: unknown }
+    return typeof candidate.component === 'string'
+      ? candidate.component
+      : (candidate.$ref as string)
+  }
+  return expandedReferenceOf(node)?.name
+}

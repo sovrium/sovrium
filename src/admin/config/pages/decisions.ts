@@ -182,9 +182,13 @@ const OPEN_ACTION = {
 /**
  * The register's columns.
  *
- * Every `label` is a LITERAL. The grid is island-hosted, so its column labels
- * and `valueLabels` are serialized into `data-island-props` verbatim and a `$t:`
- * token would ship the raw key into a table header.
+ * Every `label` here is still a LITERAL, but no longer because it has to be.
+ * Since 2026-09-18 the component translation pass
+ * (`resolveComponentTranslationTokens`) resolves a table's column labels,
+ * `valueLabels`, placeholders and empty copy BEFORE the island props are
+ * serialized, so a `$t:` key would reach the header translated — the
+ * automations and connections grids rely on exactly that. Keying these is a
+ * translation pass this surface has not had yet, not a platform limit.
  *
  * `touches` is an ARRAY, and it prints comma-joined: neither the cell renderer
  * nor `$record.` substitution has a separator to give it, and iterating an array

@@ -63,6 +63,26 @@ export const breadcrumbFields = {
     })
   ),
   /**
+   * Segments of a derived trail rendered as plain text rather than a link.
+   *
+   * A derived crumb links to its own path prefix, and not every prefix has a
+   * page: `/automations/runs/:id` has no page at `/automations/runs`, so its
+   * middle crumb would link to a 404. Naming the segment here keeps it in the
+   * trail, where it still tells the reader where they are, without the link.
+   * `labels` still applies to it.
+   *
+   * Requires `derive`, like `labels`: an enumerated trail omits `href` on an
+   * item instead.
+   */
+  unlinked: Schema.optional(
+    Schema.Array(Schema.String)
+      .annotate({
+        description:
+          'Segments of a derived trail rendered as plain text instead of a link, for a path prefix with no page of its own. Requires derive.',
+      })
+      .pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  /**
    * Prepend a crumb linking to the app root, ahead of the derived segments.
    *
    * A derived trail starts at the first path segment, so a page at

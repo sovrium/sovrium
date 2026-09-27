@@ -45,6 +45,8 @@ Only the tokens that need to change have to appear. A token you leave out keeps 
 
 Which palette a first-time visitor gets, before any preference of theirs is known: `light` and `dark` force one regardless of the operating-system setting, and `system` follows whatever the operating system reports.
 
+Leave it out and the answer depends on the palette: an app that declares `darkColors` follows the operating system — `system` is the default — and an app with a single palette stays light. A palette you designed for the dark is shown to the visitors who asked for it; a design you never drew for the dark is never forced into it.
+
 A visitor who has since made a choice always overrides this — the stored preference wins on every subsequent visit. `colorScheme` is the default, not the policy.
 
 It is applied before the page's content renders, so a dark-first app does not flash a white page on load.

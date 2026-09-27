@@ -12,19 +12,38 @@ import {
   AdminBucketFilesRepository,
   type AdminBucketFileRow,
   type AdminBucketFilesListFilters,
+  type AdminBucketFilesScope,
 } from '@/application/ports/repositories/buckets/admin-bucket-files-repository'
 import { STORAGE_KEY_UUID_PREFIX_LENGTH } from '@/domain/kernel/identity/storage-key'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import { listRecordAttachmentLinks } from '@/infrastructure/database/record-attachment-links'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import {
   searchAnyColumn,
   startsWithLiteral,
 } from '@/infrastructure/database/sql/dialect-sql-helpers'
+import { isInValueSet } from '@/infrastructure/database/sql/value-set-membership'
 
 /** Wrap a DB promise, adapting failures to AdminBucketFilesDatabaseError. */
 const wrap = makeDbWrap((cause) => new AdminBucketFilesDatabaseError({ cause }))
+
+/**
+ * The rows one bucket listing covers: those recorded under the bucket, plus —
+ * for the built-in `system` bucket — the linked keys, whichever bucket holds
+ * them. The key list is bound as ONE JSON parameter (S3), never spliced — and
+ * never one placeholder per key, because the linked-key count grows with the
+ * data and would cross the engine's placeholder cap (SQLite 32,766, PostgreSQL
+ * 65,535), failing the whole listing. See {@link isInValueSet}.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- drizzle's `SQL` is an upstream, structurally mutable type; this builder returns it untouched
+const scopeCondition = (scope: AdminBucketFilesScope): SQL => {
+  const files = fileStorageMetadataTable()
+  const own = eq(files.bucket, scope.bucket)
+  const alsoKeys = scope.alsoKeys ?? []
+  return alsoKeys.length === 0 ? own : (or(own, isInValueSet(files.key, alsoKeys)) ?? own)
+}
 
 /**
  * Build the optional mimeType filter condition list. A `typePrefix` (`image/`)
@@ -229,6 +248,7 @@ const listFilesImpl = async (
   // MATCHES — so `nextCursor` walks the match stream and terminates on it,
   // rather than offering pages a six-result search does not have.
   const conditions = [
+    scopeCondition(filters.scope),
     ...buildTypeConditions(filters),
     ...buildSearchConditions(filters),
     ...buildCursorConditions(filters),
@@ -245,6 +265,7 @@ const listFilesImpl = async (
     .select({
       id: files.id,
       key: files.key,
+      bucket: files.bucket,
       filename: files.filename,
       mimeType: files.mimeType,
       size: files.size,
@@ -254,7 +275,7 @@ const listFilesImpl = async (
     .orderBy(...orderBy)
     .limit(filters.limit + 1)
 
-  const rows = conditions.length > 0 ? await query.where(and(...conditions)) : await query
+  const rows = await query.where(and(...conditions))
   return rows as ReadonlyArray<AdminBucketFileRow>
 }
 
@@ -269,22 +290,41 @@ const listFilesImpl = async (
  * (PG `system.file_storage_metadata` vs SQLite flat
  * `system_file_storage_metadata`).
  *
- * Sovrium today backs every named bucket with a single virtual "default"
- * bucket, so the listing reads ALL metadata rows — the per-named-bucket
- * projection is a Phase-1 concern. This replicates the legacy basic handler's
- * "all keys" semantics (the spec asserts non-empty / shape / ordering, not
- * per-bucket scoping).
+ * Every listing is scoped to one bucket (the `bucket` column each upload
+ * records); the built-in `system` bucket's scope also takes the keys linked to
+ * a record, whichever bucket holds them.
  */
 export const AdminBucketFilesRepositoryLive = Layer.succeed(AdminBucketFilesRepository, {
   listFiles: (filters) => wrap(async () => listFilesImpl(filters)),
 
-  sumTotalBytes: wrap(async () => {
+  sumTotalBytes: (scope) =>
+    wrap(async () => {
+      const files = fileStorageMetadataTable()
+      const rows = (await db
+        .select({ total: sql<number | string | null>`COALESCE(SUM(${files.size}), 0)` })
+        .from(files)
+        .where(scopeCondition(scope))) as ReadonlyArray<{ total: number | string | null }>
+      return toFiniteCount(rows[0]?.total)
+    }),
+
+  usageByBucket: wrap(async () => {
     const files = fileStorageMetadataTable()
-    const rows = (await db
-      .select({ total: sql<number | string | null>`COALESCE(SUM(${files.size}), 0)` })
-      .from(files)) as ReadonlyArray<{ total: number | string | null }>
-    return toFiniteCount(rows[0]?.total)
+    const rows = await db
+      .select({
+        bucket: files.bucket,
+        fileCount: sql<unknown>`count(*)`,
+        totalBytes: sql<unknown>`coalesce(sum(${files.size}), 0)`,
+      })
+      .from(files)
+      .groupBy(files.bucket)
+    return rows.map((row) => ({
+      bucket: row.bucket,
+      fileCount: toFiniteCount(row.fileCount),
+      totalBytes: toFiniteCount(row.totalBytes),
+    }))
   }),
+
+  listRecordAttachmentLinks,
 
   listUploadsSince: (since) =>
     wrap(async () => {
@@ -300,5 +340,18 @@ export const AdminBucketFilesRepositoryLive = Layer.succeed(AdminBucketFilesRepo
         size: number
         createdAt: Date | string | number
       }>
+    }),
+
+  summariseUploadsBetween: ({ from, to }) =>
+    wrap(async () => {
+      const files = fileStorageMetadataTable()
+      const rows = await db
+        .select({
+          files: sql<unknown>`count(*)`,
+          bytes: sql<unknown>`coalesce(sum(${files.size}), 0)`,
+        })
+        .from(files)
+        .where(and(gte(files.createdAt, from), lt(files.createdAt, to)))
+      return { files: toFiniteCount(rows[0]?.files), bytes: toFiniteCount(rows[0]?.bytes) }
     }),
 })

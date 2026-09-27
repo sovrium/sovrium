@@ -7,13 +7,14 @@ How tight is a table row? Before this key the answer was `py-[5px]`, written int
 ```yaml
 design:
   density:
+    default: cozy
     steps:
       compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }
       cozy: { rowY: 8px, controlH: 40px, buttonH: 32px, gap: 10px, text: 13px }
       roomy: { rowY: 14px, controlH: 44px, buttonH: 36px, gap: 16px, text: 14px }
 ```
 
-Those are the shipped values. Copying them changes nothing, which makes the block a useful starting point: edit one number and see exactly what it moves.
+The three steps are the shipped values, so copying the ladder alone changes nothing, which makes the block a useful starting point: edit one number and see exactly what it moves. The `default: cozy` line is the one that does move something — every page now runs one step looser than the `compact` it had before.
 
 <!-- sovrium:options DensitySchema depth=2 -->
 
@@ -31,7 +32,7 @@ Every value is a **number followed by `px` or `rem`**. Nothing else decodes — 
 
 ## Which step you get
 
-`compact` is the default. It is not merely first in the list: it is the step emitted on `:root`, so every surface renders at `compact` unless something has explicitly asked for another.
+`default` names the step every page runs at, and `byZone` overrides it for the zones it names. A page in a zone that `byZone` names runs at that zone's step; any other page runs at `default`; an app declaring neither runs at `compact`, exactly as before. Every page carries its step as `data-density` on `<html>`, `compact` included, so the step a page runs at is readable in its markup.
 
 ```css
 :root {
@@ -59,7 +60,7 @@ Three of the five properties are read by shipped recipes, so declaring a ladder 
 
 **Not the same as the table's density control.** A `table` toolbar can expose a `density` button letting a _reader_ switch row height for themselves, and that preference is theirs and per-viewer. `design.density` is the app-level ladder those surfaces are drawn from. One is a runtime choice by whoever is looking; the other is a design decision by whoever wrote the config.
 
-## `byZone` — declared, not yet wired
+## `byZone` — a step per zone
 
 `byZone` assigns a step to a zone, so a product surface can be tighter than a marketing one. It decodes and it is validated: a zone name `design.zones` does not declare is refused at boot, listing the zones that do exist.
 
@@ -78,7 +79,7 @@ design:
       marketing: roomy
 ```
 
-**It does not change anything yet.** Nothing writes the `[data-density]` attribute onto a rendered element, so the `cozy` and `roomy` blocks are emitted and never matched. That is why all three steps are emitted regardless of what `byZone` says — it makes the remaining work a wiring change rather than a stylesheet change, and it means a ladder you declare today starts applying without you rewriting it.
+A zone is found the way the zone map ranks its patterns: the most specific wins, and `everything else` comes last. A zone owns its pattern and every path below it, so a `/` pattern governs every page; give the zone you mean a narrower pattern, or make it the catch-all.
 
 ## `floors`
 

@@ -6,55 +6,9 @@
  */
 
 import { Schema } from 'effect'
+import { SpeechLanguageSchema, SpeechQualitySchema } from '../../../speech'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
-
-/**
- * Speech quality tier — shared by every surface that transcribes audio.
- *
- * The tier is the author's INTENT; the model behind it is the operator's
- * infrastructure. `fast` resolves to `STT_MODEL_FAST` and `accurate` to
- * `STT_MODEL_ACCURATE`, each falling back to `STT_MODEL` when unset — the same
- * "infra in env, intent in config" split the language-model surfaces follow
- * (a plain `model` string per surface, the provider in `AI_*`).
- *
- * Exported for reuse by the form `recordAudio` and chat `voiceInput` options,
- * which are not built yet. It carries no `identifier` on purpose: each
- * surface re-annotates it with its OWN default (`accurate` here, `fast` for
- * chat), and one identifier shared by nodes with different descriptions would
- * collapse into a single published `$defs` entry.
- */
-export const SpeechQualitySchema = Schema.Literals(['fast', 'accurate']).pipe(
-  Schema.annotate({
-    title: 'Speech Quality',
-    description:
-      'Which speech-to-text tier to use: "fast" favours latency (live dictation), "accurate" favours fidelity (archived recordings). The operator maps each tier to a model with STT_MODEL_FAST and STT_MODEL_ACCURATE; an unset tier falls back to STT_MODEL.',
-  })
-)
-
-/** @public */
-export type SpeechQuality = Schema.Schema.Type<typeof SpeechQualitySchema>
-
-/**
- * Spoken language hint — a two-letter ISO 639-1 code, lowercase.
- *
- * Deliberately carries NO `identifier`: a `Schema.check` on an identified node
- * either mints no `$defs` entry or drops its description, depending on order.
- * The description is annotated BEFORE the check so it survives in the
- * published JSON Schema.
- */
-export const SpeechLanguageSchema = Schema.String.pipe(
-  Schema.annotate({
-    title: 'Speech Language',
-    description:
-      'Language spoken in the recording, as a two-letter lowercase ISO 639-1 code (e.g. "fr", "en", "de"). When omitted the speech engine detects the language itself.',
-    examples: ['fr', 'en', 'de'],
-  }),
-  Schema.check(Schema.isPattern(/^[a-z]{2}$/))
-)
-
-/** @public */
-export type SpeechLanguage = Schema.Schema.Type<typeof SpeechLanguageSchema>
 
 /**
  * AI Transcribe Action (type: ai, operator: transcribe)
@@ -99,7 +53,7 @@ export const AiTranscribeActionSchema = Schema.Struct({
       Schema.String.pipe(
         Schema.annotate({
           description:
-            'Bucket holding the recording, when it is not in the bucket of the attachment field or the implicit "default" bucket (must name an app.buckets[] entry).',
+            'Bucket holding the recording, when it is not in the bucket of the attachment field or the built-in `system` bucket (must name an app.buckets[] entry).',
         }),
         Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/), Schema.isMaxLength(63))
       )

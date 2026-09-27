@@ -8,6 +8,7 @@
 import type { Languages } from '@/domain/models/app/languages'
 import type { VisibleWhenCondition } from '@/domain/models/app/pages/components/component-types/data/form'
 import type { FieldType } from '@/domain/models/app/tables/fields'
+import type { TypedColumnConfig } from '@/presentation/design/field-control-attributes'
 
 /**
  * A success-page action button (`reset` or `navigate`). Mirrors the
@@ -62,7 +63,7 @@ export type CrudFormAction = {
  * Includes a `displayLabel` (humanized or user-overridden) and per-field flags
  * like `placeholder`, `readOnly`, `defaultValue`, and `hidden` from `fields[]`.
  */
-export type ResolvedFieldDef = {
+export type ResolvedFieldDef = TypedColumnConfig & {
   readonly name: string
   /** Narrowed to the domain field-type union so every dispatch over it is total. */
   readonly type: FieldType
@@ -122,7 +123,7 @@ export type ResolvedFieldDef = {
   /**
    * Storage bucket DECLARED on the bound attachment column. Uploads and
    * previews target this bucket; omitted when the column declares none, in
-   * which case the field falls back to the implicit 'default'..
+   * which case the field falls back to the built-in `system` bucket.
    */
   readonly bucket?: string
   // ── relationship (record picker) pass-throughs ─────────────────────────

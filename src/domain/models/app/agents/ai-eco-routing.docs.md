@@ -51,7 +51,7 @@ The runtime checks whether the configured local endpoint actually responds befor
 
 ## Auditing the decision
 
-The health endpoint reports the active routing under `ai`:
+The health endpoint reports the active routing under `ai` — to an admin session, or to every caller in an app without authentication:
 
 | Field              | Means                                                       |
 | ------------------ | ----------------------------------------------------------- |

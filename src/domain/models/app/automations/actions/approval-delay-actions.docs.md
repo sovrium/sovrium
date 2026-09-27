@@ -23,7 +23,11 @@ One operator. It suspends the run, notifies the approvers, and resumes once a de
     notifyVia: email
 ```
 
-`approvers` is either `all-admins` or an array of addresses and role names, and it is required, as is `message`. `options` needs at least two choices and defaults to approve and reject; the chosen `value` becomes the step's output. `timeout` is a duration such as `24h` or `7d`, with no timeout by default. `notifyVia` defaults to email.
+`approvers` is either `all-admins` or an array of addresses and role names; `message` is required. `options` needs at least two choices and defaults to approve and reject; the chosen `value` becomes the step's output. `timeout` is a duration such as `24h` or `7d`, with no timeout by default. `notifyVia` defaults to email.
+
+### Who may resolve it
+
+Only an approver the request names can resolve it: with `all-admins`, any admin-tier role; with a list, a caller whose email (case ignored) or role appears in it. Leaving `approvers` out means `all-admins`. Anyone else is answered `404`, exactly as for an approval that does not exist, and a caller with no session `401`; the run stays paused. An app without an `auth` block has no sessions, so nobody can resolve its approval requests. `GET /api/automations/approvals?status=pending` lists the requests waiting on the signed-in person, each with its `runId` and `approvalId`, so a page can put an Approve and a Reject button on every row.
 
 ### Decide what a timeout means
 

@@ -38,10 +38,14 @@ export const buildHonoAppFromConfig = (
     publicDir: config.publicDir,
     configHash: config.configHash ?? '',
     domainContext,
+    ...(config.staticRender === true ? { staticRender: true } : {}),
     renderPage: config.renderPage,
     renderNotFoundPage: config.renderNotFoundPage,
     renderErrorPage: config.renderErrorPage,
     ...(config.renderRssFeed !== undefined ? { renderRssFeed: config.renderRssFeed } : {}),
+    ...(config.fetchSitemapRecords !== undefined
+      ? { fetchSitemapRecords: config.fetchSitemapRecords }
+      : {}),
   })
 
 /**

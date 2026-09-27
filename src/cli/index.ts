@@ -49,16 +49,17 @@
  * - `SOVRIUM_GENERATE_SITEMAP` (optional) - Generate sitemap.xml (true/false)
  * - `SOVRIUM_GENERATE_ROBOTS` (optional) - Generate robots.txt (true/false)
  * - `SOVRIUM_HYDRATION` (optional) - Enable client-side hydration (true/false)
- * - `SOVRIUM_GENERATE_MANIFEST` (optional) - Generate manifest.json (true/false)
  * - `SOVRIUM_BUNDLE_OPTIMIZATION` (optional) - Bundle optimization strategy
  */
 
 import { Effect, Console } from 'effect'
 import { handleAdminCommand } from '@/cli/commands/admin'
 import { handleBuildCommand } from '@/cli/commands/build'
+import { handleChangelogCommand } from '@/cli/commands/changelog'
 import { handleDesignSystemCommand } from '@/cli/commands/design-system'
 import { handleDocsCommand } from '@/cli/commands/docs'
 import { handleInitCommand } from '@/cli/commands/init'
+import { handleLibraryCommand } from '@/cli/commands/library'
 import { handleMcpCommand } from '@/cli/commands/mcp'
 import { handleMigrateCommand } from '@/cli/commands/migrate'
 import { handleReloadCommand } from '@/cli/commands/reload'
@@ -66,6 +67,7 @@ import { handleRestartCommand } from '@/cli/commands/restart'
 import { handleSchemaCommand } from '@/cli/commands/schema'
 import { handleSecretCommand } from '@/cli/commands/secret'
 import { handleSeedCommand } from '@/cli/commands/seed'
+import { handleSkillsCommand } from '@/cli/commands/skills'
 import { handleStartCommand } from '@/cli/commands/start'
 import { handleStopCommand } from '@/cli/commands/stop'
 import { handleTypesCommand } from '@/cli/commands/types'
@@ -105,9 +107,12 @@ const HELP_TEXT = [
   '  sovrium init [dir]            Scaffold a new project (in [dir], or cwd)',
   '  sovrium schema                Print JSON Schema to stdout',
   '  sovrium types                 Emit sovrium.d.ts + tsconfig.json for a .ts config',
+  "  sovrium skills                Write this version's agent skills into .claude/skills/",
   '  sovrium validate <config>     Validate a config file against AppSchema',
   '  sovrium design-system         Export the design system as an agent brief or DTCG JSON',
   '  sovrium docs [address]        Read the platform manual out of this binary',
+  '  sovrium changelog [version]   Read the release notes this binary carries',
+  '  sovrium library <verb>        Browse and install ready-made blocks, connections, recipes',
   '  sovrium seed [config]         Load seed/<table>.yaml data into the tables',
   '  sovrium migrate [config]      Bring the database schema forward, without booting',
   '  sovrium mcp [--project <dir>] Serve the config read tools to an AI client over stdio',
@@ -122,23 +127,38 @@ const HELP_TEXT = [
   '  --help, -h                    Show this help message',
   '  --version, -v                 Show version number',
   '  --watch, -w                   Watch config file and hot reload (start)',
-  '  --output <path>               Write to a file (schema, design-system) or dir (types)',
+  '  --output <path>               Write to a file (schema, design-system) or dir (types, skills)',
   '  --typescript                  Scaffold a typed app.ts instead of app.yaml (init)',
-  '  --format <md|json|llms>       Export format (design-system, docs; default: md)',
+  '  --format <md|json|llms>       Export format (design-system, docs, changelog; default: md)',
   '  --full                        Print the whole manual (docs)',
   '  --list-sections               Print the section slugs and exit (docs)',
   '  --lang <code>                 Manual locale — `en` only (docs)',
   '  --section <slug>              Restrict to one section, repeatable (docs)',
+  '  --list                        List every release, newest first (changelog)',
+  '  --since <version>             Every release after <version>, breaking first (changelog)',
   '  --template <name>             Bundled template, or <owner>/<repo>[#ref] from GitHub (init)',
   '  --name <name>                 App name (init)',
   '  --password <value>            Admin password (admin create; else prompted)',
-  '  --force                       Overwrite existing files (init)',
+  '  --force                       Overwrite existing files (init), edited skill files (skills)',
+  '  --target <name>               claude | agents | all (skills; default: claude)',
   '  --dir <path>                  Seed-file directory (seed; default: <config>/seed)',
   '  --mode <mode>                 if-empty | upsert | replace (seed; default: if-empty)',
   '  --table <name>                Restrict to one table, repeatable (seed)',
+  '  --today <YYYY-MM-DD>          The day {{today}} resolves against (seed)',
   '  --dry-run                     Report the plan and write nothing (seed, migrate)',
-  '  --check                       Report whether the database is safe to migrate (migrate)',
+  '  --check                       Report and write nothing (migrate, skills)',
+  '  --allow-destructive           Let migrate drop a table still holding rows',
   '  --project <dir>               Directory to read the config from (mcp)',
+  '  --kind <kind>                 block | connection | recipe (library list)',
+  '  --set <key=value>             Fill an entry parameter, repeatable (library add)',
+  '  --as <name>                   Install an entry under another name (library add)',
+  '  --as <email>                  Write every seeded row as this account (seed)',
+  '  --into <config>               The config to install into (library add)',
+  '  --no-wire                     Write the fragment, print the wiring line (library add)',
+  '  --tag <group>                 Install one operation group of a provider (library add)',
+  '  --all                         Install every operation of a provider (library add)',
+  '  --yes                         Confirm --all above 50 operations (library add)',
+  '  --limit <n>                   The most results to print (library search)',
   '',
   'Environment variables (all optional — Sovrium runs zero-config):',
   '  DATABASE_URL                  Postgres connection (omit → embedded SQLite)',
@@ -160,7 +180,10 @@ const HELP_TEXT = [
   '  sovrium design-system app.ts --output DESIGN.md    # Brief an agent can read',
   '  sovrium docs search llms                           # Find the article for a topic',
   '  sovrium docs config tables[].fields[].type         # Look one option up',
+  '  sovrium changelog --since 0.26.0                   # What changed since an upgrade',
+  '  sovrium library add connection/qonto               # Install a ready-made connection',
   '  sovrium types                                      # Types for a .ts config, zero npm',
+  '  sovrium skills --target all                        # Skills for Claude Code and other agents',
   '  sovrium init ./my-app --typescript                 # Scaffold a typed app.ts',
   '  sovrium init ./my-app --template blog              # Scaffold from template',
   '  sovrium init ./my-app --template sovrium/crm-template  # Scaffold from a GitHub repo',
@@ -211,12 +234,22 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       configFile: parsed.configFile,
       dryRun: parsed.dryRun ?? false,
       check: parsed.check ?? false,
+      allowDestructive: parsed.allowDestructive ?? false,
     }),
   // An EXIT command, not a persistent one. It looks like a server and is not:
   // it binds no port and owns no lifetime of its own — the CLIENT owns the
   // lifetime, and the verb ends when that client closes the pipe. Exiting 0 on
   // EOF is what makes "the client quit" a success rather than a crash.
   mcp: async () => handleMcpCommand({ projectDir: parsed.projectDir }),
+  changelog: async () =>
+    handleChangelogCommand({
+      args: parsed.positionalArgs ?? [],
+      format: parsed.format,
+      outputPath: parsed.outputPath,
+      list: parsed.changelogList ?? false,
+      sinceRequested: parsed.changelogSinceRequested ?? false,
+      since: parsed.changelogSince,
+    }),
   '--version': async () => showVersion(),
   version: async () => showVersion(),
   '--help': async () => showHelp(),
@@ -237,6 +270,13 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
   build: async () => handleBuildCommand(parsed.configFile, parsed.publicDir),
   schema: async () => handleSchemaCommand(parsed.outputPath),
   types: async () => handleTypesCommand({ outputDir: parsed.outputPath }),
+  skills: async () =>
+    handleSkillsCommand({
+      outputDir: parsed.outputPath,
+      target: parsed.skillsTarget,
+      check: parsed.check ?? false,
+      force: parsed.forceFlag,
+    }),
   validate: async () => handleValidateCommand(parsed.configFile, parsed.json),
   'design-system': async () =>
     handleDesignSystemCommand({
@@ -257,6 +297,22 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
       exportDir: parsed.exportDir,
       force: parsed.forceFlag,
     }),
+  library: async () =>
+    handleLibraryCommand({
+      args: parsed.positionalArgs ?? [],
+      kind: parsed.libraryKind,
+      category: parsed.libraryCategory,
+      format: parsed.format,
+      sets: parsed.librarySets ?? [],
+      as: parsed.libraryAs,
+      into: parsed.libraryInto,
+      dryRun: parsed.dryRun ?? false,
+      noWire: parsed.noWire ?? false,
+      tag: parsed.libraryTag,
+      limit: parsed.libraryLimit,
+      all: parsed.libraryAll ?? false,
+      yes: parsed.libraryYes ?? false,
+    }),
   seed: async () =>
     handleSeedCommand({
       configFile: parsed.configFile,
@@ -264,6 +320,8 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
       mode: parsed.seedMode,
       tables: parsed.seedTables ?? [],
       dryRun: parsed.dryRun ?? false,
+      as: parsed.seedAs,
+      today: parsed.seedToday,
     }),
 }
 

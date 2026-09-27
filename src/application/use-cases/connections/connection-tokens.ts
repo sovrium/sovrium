@@ -29,6 +29,7 @@
 import { Effect } from 'effect'
 import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
+import { needsReconnect } from '@/domain/models/app/admin/connection-status'
 import { isSentinelAccessToken } from '@/infrastructure/connections/sentinel-tokens'
 import { effectiveScope } from './connection-definition'
 import { ConnectionStoreError } from './errors'
@@ -39,12 +40,16 @@ export interface IssuedCredential {
   readonly accessToken: string
   readonly refreshToken: string | undefined
   readonly expiresAt: Date | undefined
+  /** Token-response fields the connection keeps (`tokenFields`), stored encrypted. */
+  readonly tokenFields?: Readonly<Record<string, string>> | undefined
 }
 
 /** What the status endpoint reports about one (connection, user) pair. */
 export interface ConnectionStatus {
   readonly connected: boolean
   readonly expiresAt: Date | undefined
+  /** Whether the provider issued a refresh token the runtime can renew the token with. */
+  readonly hasRefreshToken: boolean
 }
 
 /**
@@ -98,11 +103,14 @@ export const persistConnectionToken = (input: {
       ...(input.credential.expiresAt === undefined
         ? {}
         : { expiresAt: input.credential.expiresAt }),
+      ...(input.credential.tokenFields === undefined
+        ? {}
+        : { tokenFields: input.credential.tokenFields }),
     }
     const write =
       input.scope === 'app'
-        ? tokenRepo.upsertForApp(common)
-        : tokenRepo.upsertForUser({ ...common, userId: input.userId })
+        ? Effect.asVoid(tokenRepo.upsertForApp(common))
+        : Effect.asVoid(tokenRepo.upsertForUser({ ...common, userId: input.userId }))
     yield* write.pipe(
       Effect.mapError((cause) => new ConnectionStoreError({ operation: 'persistToken', cause }))
     )
@@ -134,7 +142,7 @@ export const readConnectionStatus = (input: {
         Effect.mapError((cause) => new ConnectionStoreError({ operation: 'findByName', cause }))
       )
     if (row === undefined) {
-      return { connected: false, expiresAt: undefined }
+      return { connected: false, expiresAt: undefined, hasRefreshToken: false }
     }
     const tokenRepo = yield* ConnectionTokenRepository
     const token = yield* tokenRepo
@@ -143,9 +151,13 @@ export const readConnectionStatus = (input: {
         Effect.mapError((cause) => new ConnectionStoreError({ operation: 'findForUser', cause }))
       )
     if (token === undefined || isSentinelAccessToken(token.accessToken)) {
-      return { connected: false, expiresAt: undefined }
+      return { connected: false, expiresAt: undefined, hasRefreshToken: false }
     }
-    return { connected: true, expiresAt: token.expiresAt }
+    return {
+      connected: true,
+      expiresAt: token.expiresAt,
+      hasRefreshToken: token.refreshToken !== undefined && token.refreshToken !== '',
+    }
   }).pipe(Effect.withSpan('connections.read-status'))
 
 /**
@@ -154,11 +166,20 @@ export const readConnectionStatus = (input: {
  * `expired` means a token row exists but its `expiresAt` has passed — the
  * automation runtime treats that as an opportunity to refresh rather than as a
  * disconnection, which is why it is a third value and not just `disconnected`.
+ *
+ * `reconnect-needed` is the case the runtime cannot heal: the provider issued
+ * no refresh token (LinkedIn, Meta) and the token is past its expiry or within
+ * the console's 7-day expiring-soon window, so only a new authorization will
+ * restore it. It is reported ahead of the lapse, so the caller reconnects in
+ * time.
  */
 export const deriveConnectionState = (
   status: Readonly<ConnectionStatus>
-): 'connected' | 'disconnected' | 'expired' => {
+): 'connected' | 'disconnected' | 'expired' | 'reconnect-needed' => {
   if (!status.connected) return 'disconnected'
+  if (needsReconnect({ expiresAt: status.expiresAt, hasRefreshToken: status.hasRefreshToken })) {
+    return 'reconnect-needed'
+  }
   if (status.expiresAt !== undefined && status.expiresAt.getTime() < Date.now()) return 'expired'
   return 'connected'
 }

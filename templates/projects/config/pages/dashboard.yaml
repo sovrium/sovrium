@@ -1,146 +1,228 @@
+# The home page. It answers "what needs me this week" before "how are we
+# doing": four figures, open work by status and by person, the tasks already
+# late, and then every project with its owner, dates, progress and budget.
 name: dashboard
 path: /
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Dashboard
-  description: Portfolio health at a glance — projects, open work, and budget
+  title: Dashboard · Fernhill Projects
+  description: What needs the team this week, and how every project is doing.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: Dashboard
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Portfolio health at a glance. Jump to the board to move work forward.
-
-      # KPI row — three live aggregates over the same tables the views use.
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: kpi
-            label: Active projects
-            dataSource:
-              table: projects
-              mode: list
-              filter:
-                - field: status
-                  operator: eq
-                  value: Active
-            kpiAggregate:
-              function: count
-          - type: kpi
-            label: Open tasks
-            dataSource:
-              table: tasks
-              mode: list
-              filter:
-                - field: status
-                  operator: neq
-                  value: Done
-            kpiAggregate:
-              function: count
-          - type: kpi
-            label: Committed budget
-            dataSource:
-              table: projects
-              mode: list
-            kpiAggregate:
-              function: sum
-              field: budget
-            # `options.currency` is NOT optional in practice. `kpiFormat.type:
-            # currency` alone falls back to USD (kpi-compute.ts:71), so this tile
-            # read "$630,000.00" while every budget in the table below read
-            # "€58000" — the two disagreed on the same column. The KPI does not
-            # inherit the currency declared on the `budget` field, so it has to
-            # be restated here; if that field's currency changes, change both.
-            kpiFormat:
-              type: currency
-              options:
-                currency: EUR
-
-      # Tasks by status — one bar per kanban column.
-      - type: container
-        props:
-          className: border rounded-lg p-5 mb-8
-        children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: Tasks by status
-          - type: chart
-            chartType: bar
-            dataSource:
-              table: tasks
-              mode: list
-            chartAggregate:
-              function: count
-              groupBy: status
-            emptyMessage: No tasks yet — add the first one on the board.
-
-      - type: text
-        element: h2
-        props:
-          className: text-lg font-semibold mb-4
-        content: All projects
-      - type: form
-        dataSource:
-          table: projects
-        fields:
-          - field: name
-          - field: status
-          - field: start_date
-          - field: end_date
-          - field: budget
-        action:
-          type: crud
-          operation: create
-          table: projects
-          onSuccess:
-            navigate: /
-            toast:
-              message: Project created
-              variant: success
-      - type: table
-        dataSource:
-          table: projects
-          sort:
-            - field: start_date
-              direction: asc
-        columns:
-          - field: name
-            label: Project
-            sortable: true
-          - field: status
-            label: Status
-            sortable: true
-          - field: owner
-            label: Owner
-          - field: start_date
-            label: Start
-            format: short-date
-            sortable: true
-          - field: end_date
-            label: End
-            format: short-date
-            sortable: true
-          - field: progress
-            label: Progress
-          - field: budget
-            label: Budget
-            format: currency
-        pagination:
-          pageSize: 10
-        emptyMessage: No projects yet — create the first one above.
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Dashboard
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Add task
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-task-dialog
+          - $ref: ./_add-task.yaml
+          - type: dialog
+            props:
+              id: new-project-dialog
+              title: New project
+              description: It starts as Planned. Give it an owner and its dates.
+            children:
+              - type: form
+                dataSource:
+                  table: projects
+                fields:
+                  - { field: name, label: Name }
+                  - { field: owner, label: Owner }
+                  - { field: start_date, label: Start date }
+                  - { field: end_date, label: End date }
+                  - { field: budget, label: Budget }
+                action:
+                  type: crud
+                  operation: create
+                  table: projects
+                  submitLabel: Create project
+                  onSuccess:
+                    navigate: /
+                    toast:
+                      message: Project created
+                      variant: success
+          - type: container
+            props:
+              className: flex flex-col gap-4 px-5 pb-5 pt-4
+            children:
+              # Four figures, each computed from the tables on every visit,
+              # never typed in.
+              - type: grid
+                props:
+                  className: grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4
+                children:
+                  - type: kpi
+                    label: Active projects
+                    dataSource:
+                      table: projects
+                      filter:
+                        - { field: status, operator: eq, value: Active }
+                    kpiAggregate: { function: count }
+                    kpiFormat: { type: number }
+                  - type: kpi
+                    label: Open tasks
+                    dataSource:
+                      table: tasks
+                      filter:
+                        - { field: status, operator: neq, value: Done }
+                    kpiAggregate: { function: count }
+                    kpiFormat: { type: number }
+                  - type: kpi
+                    label: Overdue
+                    dataSource:
+                      table: tasks
+                      filter:
+                        - { field: schedule, operator: eq, value: Overdue }
+                    kpiAggregate: { function: count }
+                    kpiFormat: { type: number }
+                  # The KPI restates the budget field's currency: a figure does
+                  # not inherit it from the column it sums.
+                  - type: kpi
+                    label: Budget committed
+                    dataSource:
+                      table: projects
+                    kpiAggregate: { function: sum, field: budget }
+                    kpiFormat: { type: currency, options: { currency: EUR } }
+              - type: grid
+                props:
+                  className: grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.25fr)]
+                children:
+                  # Open work only, in the order work moves: the chart follows
+                  # the status field's options and paints Blocked in its colour.
+                  - type: container
+                    element: section
+                    props:
+                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-background-raised px-4 py-3.5
+                    children:
+                      - type: text
+                        element: h2
+                        props:
+                          className: text-sm font-semibold text-foreground
+                        content: Open tasks by status
+                      - type: text
+                        element: p
+                        props:
+                          className: -mt-2 text-xs text-foreground-muted
+                        content: In the order work moves
+                      - type: chart
+                        chartType: bar
+                        dataSource:
+                          table: tasks
+                          filter:
+                            - { field: status, operator: neq, value: Done }
+                        chartAggregate:
+                          function: count
+                          groupBy: status
+                          order: option
+                        emptyMessage: Open tasks appear here by status. Add a task to start.
+                  - type: container
+                    element: section
+                    props:
+                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-background-raised px-4 py-3.5
+                    children:
+                      - type: text
+                        element: h2
+                        props:
+                          className: text-sm font-semibold text-foreground
+                        content: Open tasks per person
+                      - type: text
+                        element: p
+                        props:
+                          className: -mt-2 text-xs text-foreground-muted
+                        content: Who carries the work
+                      - type: chart
+                        chartType: bar
+                        dataSource:
+                          table: tasks
+                          filter:
+                            - { field: status, operator: neq, value: Done }
+                        chartAggregate:
+                          function: count
+                          groupBy: assignee
+                          order: value-desc
+                        emptyMessage: Each person's open tasks appear here once tasks have an assignee.
+                  - type: container
+                    element: section
+                    props:
+                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-background-raised px-4 py-3.5
+                    children:
+                      - type: text
+                        element: h2
+                        props:
+                          className: text-sm font-semibold text-foreground
+                        content: Needs attention
+                      - type: text
+                        element: p
+                        props:
+                          className: -mt-2 text-xs text-foreground-muted
+                        content: Open tasks past their due date, oldest first
+                      - type: list
+                        dataSource:
+                          table: tasks
+                          filter:
+                            - { field: schedule, operator: eq, value: Overdue }
+                          sort:
+                            - { field: due_date, direction: asc }
+                          limit: 5
+                        listDisplay:
+                          emptyMessage: Nothing is late. Tasks past their due date appear here first.
+                          itemTemplate:
+                            title: $record.title
+                            subtitle: $record.project_name
+                            metadata:
+                              - { field: assignee, format: text }
+                              - { field: due_date, format: short-date }
+              - type: container
+                props:
+                  className: flex items-center gap-3 pt-2
+                children:
+                  - type: text
+                    element: h2
+                    props:
+                      className: grow text-[17px] font-semibold text-foreground
+                    content: Projects
+                  - type: button
+                    variant: outline
+                    content: New project
+                    props:
+                      className: h-7 px-3 text-[13px]
+                      interactions:
+                        click:
+                          modal: new-project-dialog
+              - type: table
+                dataSource:
+                  table: projects
+                  view: portfolio
+                columns:
+                  - { field: name, label: Project, sortable: true }
+                  - { field: status, label: Status, sortable: true }
+                  - { field: owner, label: Owner }
+                  - { field: start_date, label: Start, format: short-date, sortable: true }
+                  - { field: end_date, label: End, format: short-date, sortable: true }
+                  - { field: progress, label: Progress }
+                  - { field: budget, label: Budget, format: currency }
+                emptyMessage: Your projects appear here with their dates, progress and budget. Create the first one to start.

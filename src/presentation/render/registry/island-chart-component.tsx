@@ -6,6 +6,7 @@
  */
 
 import { computeChartShellClasses } from '@/presentation/design/chart-default-classes'
+import { hostClassName } from '@/presentation/render/registry/island-host-attributes'
 import type { ComponentRenderer } from './component-dispatch-config'
 
 /**
@@ -39,6 +40,11 @@ function extractChartProps(elementProps: Record<string, unknown>): Record<string
     legend: elementProps.legend,
     tooltip: elementProps.tooltip,
     chartAggregate: elementProps.chartAggregate,
+    // What `app.tables` says about the fields the chart names: the grouping
+    // field's options (order, labels, colours) and the plotted field's
+    // currency. Absent when the chart names no such field.
+    categoryOptions: elementProps.categoryOptions,
+    valueCurrency: elementProps.valueCurrency,
     emptyMessage: elementProps.emptyMessage,
     // Optional NAMED empty-state region config
     //: forwarded so the
@@ -70,6 +76,7 @@ export const islandChartComponent: ComponentRenderer = ({ elementProps }) => {
       data-component-type="chart"
       data-chart-type={chartType}
       data-testid={elementProps['data-testid'] as string | undefined}
+      className={hostClassName(elementProps)}
     >
       {/* Loading skeleton — preserved as Suspense fallback.
        * [internal ref]: shell chrome (border + radius + raised surface + the canvas'

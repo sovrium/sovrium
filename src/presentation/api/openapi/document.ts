@@ -120,6 +120,29 @@ const assertNoDanglingRefs = (document: unknown, declared: ReadonlySet<string>):
 const COMPONENT_REF = '#/components/schemas/'
 
 /**
+ * The document's `info` block, which belongs to the app rather than the engine.
+ *
+ * A client generated from this document carries `info.title` and `info.version`
+ * into its package name and version, so both are the app's own. The engine
+ * release stays readable as the `x-sovrium-version` extension. The app-absent
+ * static export keeps an engine-named title, and an app that declares no
+ * version publishes `0.0.0`, since OpenAPI requires the key.
+ */
+const buildInfo = (appConfig?: App) => ({
+  title: appConfig?.name ?? 'Sovrium API',
+  version: appConfig?.version ?? (appConfig === undefined ? APP_VERSION : UNVERSIONED_APP),
+  ...(appConfig?.description !== undefined
+    ? { description: appConfig.description }
+    : appConfig === undefined
+      ? { description: 'REST API of a Sovrium application, generated from its configuration.' }
+      : {}),
+  'x-sovrium-version': APP_VERSION,
+})
+
+/** The `info.version` an app publishes when its config declares none. */
+const UNVERSIONED_APP = '0.0.0'
+
+/**
  * Build the OpenAPI document from scratch. Expensive — instantiates a fresh
  * `OpenAPIHono` and registers every route group; prefer the memoized
  * `getOpenAPIDocument`.
@@ -127,16 +150,7 @@ const COMPONENT_REF = '#/components/schemas/'
 const buildDocument = (appConfig?: App) => {
   const document = createOpenApiApp(appConfig).getOpenAPI31Document({
     openapi: '3.1.0',
-    info: {
-      title: 'Sovrium API',
-      version: APP_VERSION,
-      description:
-        'REST API specification for Sovrium application.\n\n' +
-        '**Generated Schema**: This schema is automatically generated from the runtime implementation. ' +
-        'It reflects the currently implemented endpoints and their schemas.\n\n' +
-        '**Design Specs**: Hand-written OpenAPI specs in `docs/specifications/app/` define the complete API design. ' +
-        'Comparing this generated schema with the design specs shows implementation progress.',
-    },
+    info: buildInfo(appConfig),
     // Build-time default only. The `/api/openapi.json` handler REPLACES this with
     // the instance's resolved origin on a per-request shallow copy, so a served
     // document never advertises this address. It survives for the app-absent

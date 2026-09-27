@@ -79,7 +79,7 @@
 
 import { Schema } from 'effect'
 import { adminEnvelopeSchema } from '@/domain/models/api/admin/envelope/admin-envelope'
-import { runSchema, runStatusSchema } from '@/domain/models/api/automations'
+import { runSchema, runStatusSchema, stepLogEntrySchema } from '@/domain/models/api/automations'
 import { booleanFlag } from '@/domain/models/api/combinators/coerce'
 import {
   cursorPaginationQuerySchema,
@@ -272,6 +272,16 @@ export const adminRunStepSchema = Schema.Struct({
   error: Schema.NullOr(
     Schema.String.annotate({ description: 'Error message if the step failed.' })
   ),
+  /**
+   * Always present, even for a silent step: the console lists the array and
+   * draws its own "nothing logged" line, so absence would be a second empty
+   * state to handle. Malformed stored entries are dropped by the use-case
+   * before they reach this schema, never surfaced as a failed read.
+   */
+  logs: Schema.Array(stepLogEntrySchema).annotate({
+    description:
+      'Entries the step wrote with context.log, in call order, secrets masked; empty when the step logged nothing.',
+  }),
 }).annotate({ identifier: 'AdminRunStep' })
 
 /** @public */

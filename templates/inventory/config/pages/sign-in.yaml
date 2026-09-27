@@ -1,28 +1,37 @@
+# The way in. Sign-up is closed (config/auth.yaml), so this page only signs
+# people in; an admin adds new accounts with `sovrium admin create`.
 name: sign-in
 path: /sign-in
 meta:
-  title: Sign in
-  description: Sign in to the inventory workspace
+  title: Sign in · Brunel Stock
+  description: Sign in to Brunel Stock.
 components:
   - type: container
-    element: section
+    element: main
     props:
-      className: py-12 px-6
+      className: flex min-h-screen items-center justify-center bg-background-subtle px-5 py-12
     children:
       - type: container
         props:
-          className: max-w-md mx-auto
+          className: flex w-full max-w-sm flex-col gap-6 rounded-lg border border-border bg-background-raised p-6 shadow-sm
         children:
+          - type: container
+            props:
+              className: flex items-center gap-2.5 text-sm font-semibold text-foreground
+            children:
+              - type: icon
+                props:
+                  name: package
+                  size: 14
+                  className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+              - type: text
+                element: span
+                content: Brunel Stock
           - type: text
             element: h1
             props:
-              className: text-3xl font-bold mb-2 text-center
+              className: text-[22px] font-semibold tracking-tight text-foreground
             content: Sign in
-          - type: text
-            element: p
-            props:
-              className: text-md mb-6 text-center
-            content: The first account to register becomes the admin.
           - type: form
             props:
               id: sign-in-form

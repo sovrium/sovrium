@@ -1,6 +1,6 @@
 {
-  "name": "Sovrium CRM",
-  "description": "A sales CRM — pipeline kanban, grids, calendar.",
+  "name": "Kestrel CRM",
+  "description": "A sales CRM for a small team: pipeline board, contacts, tasks, assistant.",
   "repository": "https://github.com/sovrium/crm-template",
   "logo": "https://sovrium.com/logo.png",
   "website": "https://sovrium.com/apps/crm",

@@ -1,34 +1,73 @@
+# The plan on a time axis: every task as a bar from its start date to its due
+# date, grouped under its project, with a link to the task it waits on and a
+# rule at today. A late task is the bar that ends left of that rule.
 name: timeline
 path: /timeline
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: Timeline
-  description: Projects as Gantt-style bars from start to end date
+  title: Timeline · Fernhill Projects
+  description: Every task on a time axis, grouped by project, with what it waits on.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
         props:
-          className: text-3xl font-bold mb-1
-        content: Timeline
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: Each project drawn from its start date to its end date.
-
-      - type: timeline
-        dataSource:
-          table: projects
-        props:
-          startField: start_date
-          endField: end_date
-          labelField: name
-          defaultZoom: month
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Timeline
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Add task
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-task-dialog
+          - $ref: ./_add-task.yaml
+          - type: container
+            props:
+              className: flex flex-col gap-4 px-5 pb-5 pt-4
+            children:
+              - type: filter-bar
+                publishes:
+                  bindTo: timeline-filter
+                fields:
+                  - { name: title, label: Task, kind: text }
+                  - { name: start_date, label: Start date, kind: date }
+                  - { name: due_date, label: Due date, kind: date }
+              # `colorField: status` paints a Blocked bar and a Done bar in the
+              # colours the status field declares; the other bars stay neutral.
+              - type: timeline
+                dataSource:
+                  table: tasks
+                  bindTo: timeline-filter
+                  sharedFilter: {}
+                  sort:
+                    - { field: start_date, direction: asc }
+                props:
+                  startField: start_date
+                  endField: due_date
+                  labelField: title
+                  groupBy: project_name
+                  colorField: status
+                  dependencyField: predecessor
+                  showDependencies: true
+                  showToday: true
+                  defaultZoom: month
+                  emptyMessage: Tasks with a start and a due date appear here as bars, grouped by project. Give a task its dates to place it.

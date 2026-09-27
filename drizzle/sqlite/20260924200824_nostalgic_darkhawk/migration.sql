@@ -1,0 +1,1 @@
+ALTER TABLE `system_automation_pauses` ADD `reason` text;

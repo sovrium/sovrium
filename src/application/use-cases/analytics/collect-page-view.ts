@@ -28,6 +28,8 @@ export interface CollectPageViewInput {
   readonly screenHeight?: number
   readonly ip: string
   readonly userAgent: string
+  /** IANA zone whose calendar day rotates the visitor hash (the operator timezone). */
+  readonly timeZone: string
   readonly acceptLanguage?: string
   readonly sessionTimeoutMinutes?: number
 }
@@ -77,11 +79,11 @@ export const collectPageView = (
     // Compute privacy-safe visitor and session hashes
     // effect-promise: total -- the hash helper wraps `crypto.subtle.digest('SHA-256', …)` over a `TextEncoder` result; SHA-256 is always available and the input is always a valid BufferSource, so the digest has no rejection path.
     const visitorHash = yield* Effect.promise(() =>
-      computeVisitorHash(input.ip, input.userAgent, input.appName)
+      computeVisitorHash(input.ip, input.userAgent, input.appName, input.timeZone)
     )
     // effect-promise: total -- the hash helper wraps `crypto.subtle.digest('SHA-256', …)` over a `TextEncoder` result; SHA-256 is always available and the input is always a valid BufferSource, so the digest has no rejection path.
     const sessionHash = yield* Effect.promise(() =>
-      computeSessionHash(visitorHash, input.sessionTimeoutMinutes ?? 30)
+      computeSessionHash(visitorHash, input.sessionTimeoutMinutes ?? 30, input.timeZone)
     )
 
     // Parse device information from User-Agent

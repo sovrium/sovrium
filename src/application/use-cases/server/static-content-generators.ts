@@ -6,7 +6,11 @@
  */
 
 import { validateLanguageSubdirectory } from '@/domain/models/app/languages/language-detection'
+import { isPublicPage } from '@/domain/models/app/pages/is-public'
 import {
+  SITEMAP_MAX_URLS,
+  buildSitemapIndexXml,
+  chunkSitemapEntries,
   isPageInSitemap,
   resolveSitemapChangefreq,
   resolveSitemapPriority,
@@ -16,6 +20,13 @@ import {
   readContentDirBodies,
   type ContentDirEntry,
 } from '@/infrastructure/markdown/content-dir-enumerator'
+import {
+  expandCollectionRecords,
+  toSitemapLastmod,
+  type CollectionRecordIndex,
+  type RecordPath,
+} from './sitemap-record-fan-out'
+import type { FetchSitemapRecords } from '@/application/ports/services/page-renderer'
 import type { App, Page } from '@/domain/models/app'
 import type { Options } from 'prettier'
 
@@ -210,15 +221,15 @@ const generateHardcodedLangHreflangLinks = (
  */
 const buildUrlEntry = (
   loc: string,
-  lastmod: string,
+  lastmod: string | undefined,
   page: Page,
   hreflangSection: string
 ): string => {
   const priority = resolveSitemapPriority(page)
   const changefreq = resolveSitemapChangefreq(page)
+  const lastmodLine = lastmod === undefined ? '' : `\n    <lastmod>${lastmod}</lastmod>`
   return `  <url>
-    <loc>${loc}</loc>${hreflangSection}
-    <lastmod>${lastmod}</lastmod>
+    <loc>${loc}</loc>${hreflangSection}${lastmodLine}
     <priority>${priority.toFixed(1)}</priority>
     <changefreq>${changefreq}</changefreq>
   </url>`
@@ -236,20 +247,48 @@ const buildUrlEntry = (
  *    dropped (it would otherwise leak a `:param` into a `<loc>`).
  *  - A static (or `:lang`-only) page passes through unchanged.
  */
-const expandPagePaths = async (page: Page): Promise<readonly string[]> => {
+const expandPagePaths = async (
+  page: Page,
+  resolveRecords: ResolveRecordPaths
+): Promise<readonly ExpandedPath[]> => {
+  const recordPaths = await resolveRecords(page)
+  if (recordPaths !== undefined) return recordPaths
   if (page.contentDir) {
     const entries = await enumerateContentDir(page.contentDir, page.path)
-    return entries.map((entry) => entry.path)
+    return entries.map((entry) => ({
+      path: entry.path,
+      lastmod: toSitemapLastmod(entry.modifiedAt),
+    }))
   }
   const withoutLang = page.path.replace(/(^|\/):lang(\/|$)/, '$1$2')
   if (/:[a-zA-Z0-9_]+/.test(withoutLang)) return []
-  return [page.path]
+  return [{ path: page.path, lastmod: undefined }]
 }
 
-/** A concrete sitemap entry: the source page plus its resolved URL path. */
-interface ExpandedPage {
-  readonly page: Page
+/**
+ * A concrete URL path plus its `<lastmod>`, when one is actually known.
+ *
+ * A page declared in config has no modification date the engine could know, so
+ * it carries none: Google trusts `lastmod` only from a site whose dates prove
+ * accurate, and stamping every entry with the generation date is the fastest
+ * way to lose that trust. A content-directory article carries its file's
+ * modification time.
+ */
+interface ExpandedPath {
   readonly path: string
+  readonly lastmod: string | undefined
+}
+
+/**
+ * The record entries of one page, or `undefined` when it is not a listed
+ * collection page — read live (the served route) or from an enumeration the
+ * caller already made (the static build).
+ */
+type ResolveRecordPaths = (page: Page) => Promise<readonly RecordPath[] | undefined>
+
+/** A concrete sitemap entry: the source page plus its resolved URL path. */
+interface ExpandedPage extends ExpandedPath {
+  readonly page: Page
 }
 
 /**
@@ -264,19 +303,24 @@ interface ExpandedPage {
  * sitemap it writes beside it hands every crawler a guaranteed 404. One
  * predicate means they cannot disagree again.
  */
-const collectExpandedPages = async (pages: readonly Page[]): Promise<readonly ExpandedPage[]> => {
+const collectExpandedPages = async (
+  pages: readonly Page[],
+  resolveRecords: ResolveRecordPaths
+): Promise<readonly ExpandedPage[]> => {
   const indexablePages = pages.filter(isPageInSitemap)
   const expanded = await Promise.all(
-    indexablePages.map(async (page) => ({ page, paths: await expandPagePaths(page) }))
+    indexablePages.map(async (page) => ({
+      page,
+      paths: await expandPagePaths(page, resolveRecords),
+    }))
   )
-  return expanded.flatMap(({ page, paths }) => paths.map((path) => ({ page, path })))
+  return expanded.flatMap(({ page, paths }) => paths.map((entry) => ({ page, ...entry })))
 }
 
 /** Inputs for {@link buildSitemapEntries}. */
 interface SitemapEntriesInput {
   readonly expandedPages: readonly ExpandedPage[]
   readonly baseUrl: string
-  readonly lastmod: string
   readonly languages: readonly string[] | undefined
   readonly hreflangConfig: HreflangConfig | undefined
 }
@@ -290,7 +334,6 @@ const renderHreflangSection = (links: readonly string[]): string => {
 /** Shared per-language context threaded through the entry builders. */
 interface LanguageEntryContext {
   readonly baseUrl: string
-  readonly lastmod: string
   readonly languages: readonly string[]
   readonly hreflangConfig: HreflangConfig | undefined
 }
@@ -302,13 +345,13 @@ interface LanguageEntryContext {
  * alternates pairing it to its sibling-locale URLs.
  */
 const buildHardcodedLangEntry = (expanded: ExpandedPage, ctx: LanguageEntryContext): string => {
-  const { baseUrl, lastmod, languages, hreflangConfig } = ctx
+  const { baseUrl, languages, hreflangConfig } = ctx
   const links = hreflangConfig
     ? generateHardcodedLangHreflangLinks(baseUrl, expanded.path, languages, hreflangConfig)
     : []
   return buildUrlEntry(
     `${baseUrl}${expanded.path}`,
-    lastmod,
+    expanded.lastmod,
     expanded.page,
     renderHreflangSection(links)
   )
@@ -323,14 +366,14 @@ const buildLanguageAgnosticEntries = (
   expanded: ExpandedPage,
   ctx: LanguageEntryContext
 ): readonly string[] => {
-  const { baseUrl, lastmod, languages, hreflangConfig } = ctx
+  const { baseUrl, languages, hreflangConfig } = ctx
   return languages.map((lang) => {
     const links = hreflangConfig
       ? generateHreflangLinks(baseUrl, expanded.path, languages, hreflangConfig)
       : []
     return buildUrlEntry(
       buildLanguageUrl(baseUrl, lang, expanded.path),
-      lastmod,
+      expanded.lastmod,
       expanded.page,
       renderHreflangSection(links)
     )
@@ -348,16 +391,15 @@ const buildLanguageAgnosticEntries = (
 const buildSitemapEntries = ({
   expandedPages,
   baseUrl,
-  lastmod,
   languages,
   hreflangConfig,
 }: SitemapEntriesInput): readonly string[] => {
   if (languages === undefined || languages.length === 0) {
-    return expandedPages.map(({ page, path }) =>
+    return expandedPages.map(({ page, path, lastmod }) =>
       buildUrlEntry(`${baseUrl}${path}`, lastmod, page, '')
     )
   }
-  const ctx: LanguageEntryContext = { baseUrl, lastmod, languages, hreflangConfig }
+  const ctx: LanguageEntryContext = { baseUrl, languages, hreflangConfig }
   return expandedPages.flatMap((expanded) =>
     leadingLanguageSegment(expanded.path, languages) !== undefined
       ? [buildHardcodedLangEntry(expanded, ctx)]
@@ -365,32 +407,53 @@ const buildSitemapEntries = ({
   )
 }
 
-/**
- * Generate sitemap.xml content.
- *
- * Async because `contentDir` pages are expanded into one URL per markdown file
- * (file I/O via the content-dir enumerator). Static pages incur no I/O.
- */
-export const generateSitemapContent = async (
+/** Options shared by the sitemap generators. */
+export interface SitemapOptions {
+  readonly languages?: readonly string[]
+  readonly hreflangConfig?: HreflangConfig
+  /**
+   * The app and a row reader. When both are given, a collection page
+   * over an anonymously readable table fans out to one entry per record; when
+   * absent, and no `collectionRecords` is given either, such a page is left out.
+   */
+  readonly app?: App
+  readonly fetchRecords?: FetchSitemapRecords
+  /**
+   * The records a static build already enumerated. When given it wins over
+   * `fetchRecords`: the build lists exactly the records it writes pages for,
+   * read once, so the sitemap and the pages cannot disagree.
+   */
+  readonly collectionRecords?: CollectionRecordIndex
+}
+
+/** How the entries read a page's records, given the options. */
+const recordResolver = (options: SitemapOptions | undefined): ResolveRecordPaths => {
+  const index = options?.collectionRecords
+  if (index !== undefined) return (page) => Promise.resolve(index.get(page.path))
+  const records =
+    options?.fetchRecords !== undefined && options.app !== undefined
+      ? { app: options.app, fetchRecords: options.fetchRecords }
+      : undefined
+  return (page) => expandCollectionRecords(page, records)
+}
+
+/** Every `<url>` entry, plus whether the `xhtml` namespace is needed. */
+const collectSitemapEntries = async (
   pages: readonly Page[],
   baseUrl: string,
-  options?: { readonly languages?: readonly string[]; readonly hreflangConfig?: HreflangConfig }
-): Promise<string> => {
-  const expandedPages = await collectExpandedPages(pages)
-  const lastmod = new Date().toISOString().split('T')[0] ?? ''
+  options: SitemapOptions | undefined
+): Promise<{ readonly entries: readonly string[]; readonly hasHreflang: boolean }> => {
+  const expandedPages = await collectExpandedPages(pages, recordResolver(options))
   const languages = options?.languages
   const hreflangConfig = options?.hreflangConfig
   const hasHreflang =
     languages !== undefined && languages.length > 0 && hreflangConfig !== undefined
+  const entries = buildSitemapEntries({ expandedPages, baseUrl, languages, hreflangConfig })
+  return { entries, hasHreflang }
+}
 
-  const entries = buildSitemapEntries({
-    expandedPages,
-    baseUrl,
-    lastmod,
-    languages,
-    hreflangConfig,
-  })
-
+/** Wrap entries in a `<urlset>` document. */
+const renderUrlset = (entries: readonly string[], hasHreflang: boolean): string => {
   const xmlnsAttr = hasHreflang
     ? ' xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n        xmlns:xhtml="http://www.w3.org/1999/xhtml"'
     : ' xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'
@@ -399,6 +462,65 @@ export const generateSitemapContent = async (
 <urlset${xmlnsAttr}>
 ${entries.join('\n')}
 </urlset>`
+}
+
+/**
+ * Generate the `/sitemap.xml` document.
+ *
+ * Async because `contentDir` pages are expanded into one URL per markdown file
+ * and collection pages into one URL per record. Up to 5 000 entries it is a
+ * `<urlset>`; past that it is a `<sitemapindex>` naming `/sitemap-1.xml`,
+ * `/sitemap-2.xml`, … — see {@link generateSitemapChildContent}.
+ */
+export const generateSitemapContent = async (
+  pages: readonly Page[],
+  baseUrl: string,
+  options?: SitemapOptions
+): Promise<string> => {
+  const { entries, hasHreflang } = await collectSitemapEntries(pages, baseUrl, options)
+  if (entries.length <= SITEMAP_MAX_URLS) return renderUrlset(entries, hasHreflang)
+  return buildSitemapIndexXml(baseUrl, chunkSitemapEntries(entries).length)
+}
+
+/**
+ * Every document a static build writes for its sitemap, from ONE read of the
+ * entries: `sitemap` is `/sitemap.xml` (a `<urlset>`, or a `<sitemapindex>`
+ * past 5 000 entries) and `children[i]` is `/sitemap-{i + 1}.xml` — empty when
+ * the sitemap is not split. Each document is byte-identical to what
+ * {@link generateSitemapContent} and {@link generateSitemapChildContent} return
+ * for the same entries.
+ */
+export const generateSitemapDocuments = async (
+  pages: readonly Page[],
+  baseUrl: string,
+  options?: SitemapOptions
+): Promise<{ readonly sitemap: string; readonly children: readonly string[] }> => {
+  const { entries, hasHreflang } = await collectSitemapEntries(pages, baseUrl, options)
+  if (entries.length <= SITEMAP_MAX_URLS) {
+    return { sitemap: renderUrlset(entries, hasHreflang), children: [] }
+  }
+  const chunks = chunkSitemapEntries(entries)
+  return {
+    sitemap: buildSitemapIndexXml(baseUrl, chunks.length),
+    children: chunks.map((chunk) => renderUrlset(chunk, hasHreflang)),
+  }
+}
+
+/**
+ * Generate child sitemap `index` (1-based) of an app whose sitemap is split,
+ * or `undefined` when there is no such child — including every child of an
+ * app small enough to fit in one `/sitemap.xml`.
+ */
+export const generateSitemapChildContent = async (
+  pages: readonly Page[],
+  baseUrl: string,
+  index: number,
+  options?: SitemapOptions
+): Promise<string | undefined> => {
+  const { entries, hasHreflang } = await collectSitemapEntries(pages, baseUrl, options)
+  if (entries.length <= SITEMAP_MAX_URLS) return undefined
+  const chunk = chunkSitemapEntries(entries)[index - 1]
+  return chunk === undefined ? undefined : renderUrlset(chunk, hasHreflang)
 }
 
 /**
@@ -411,15 +533,12 @@ export const generateRobotsContent = (
 ): string => {
   const baseLines = ['User-agent: *', 'Allow: /']
 
-  // Add Disallow rules for:
-  // 1. Pages with noindex or robots directives containing "noindex"
-  // 2. Underscore-prefixed pages (admin/internal pages)
-  const disallowedPages = pages.filter(
-    (page) =>
-      page.meta?.noindex === true ||
-      (page.meta?.robots && page.meta.robots.includes('noindex')) ||
-      page.path.startsWith('/_')
-  )
+  // Disallow only the reserved underscore-prefixed pages (admin/internal).
+  // A `noindex` page is deliberately NOT disallowed: a crawler refused the
+  // fetch never reads the page's `noindex` tag, so a URL linked from elsewhere
+  // can still be indexed (bare, without a snippet). Keeping it crawlable is
+  // what lets the tag take effect.
+  const disallowedPages = pages.filter((page) => page.path.startsWith('/_'))
 
   const disallowLines = disallowedPages.map((page) => `Disallow: ${page.path}`)
 
@@ -484,9 +603,15 @@ const UNGROUPED_KEY = 'Other'
  *
  * `language === undefined` means "every page", which is what the root routes of
  * an app declaring no `languages` ask for.
+ *
+ * Only PUBLIC pages are ever returned (`isPublicPage`, the rule the sitemap
+ * follows). Both llms documents are served to anyone who asks, so a content
+ * collection whose `access` requires a session or a role must contribute
+ * neither a listing nor a body — filtering here, at the one entry both
+ * generators share, covers every `/{lang}/` route at once.
  */
 const pagesForLanguage = (app: App, language: string | undefined): readonly Page[] => {
-  const pages = app.pages ?? []
+  const pages = (app.pages ?? []).filter(isPublicPage)
   if (language === undefined) return pages
   return pages.filter((page) => {
     const declared = validateLanguageSubdirectory(app, page.path)

@@ -1,3 +1,6 @@
+# The sales pipeline: one row per deal, with its client, stage, value, close
+# date and owner. Moving a deal to Won opens its delivery project (see
+# config/automations/open-project-on-won-deal.yaml).
 id: 3
 name: deals
 fields:
@@ -10,37 +13,62 @@ fields:
     type: relationship
     relatedTable: companies
     relationType: many-to-one
+    displayField: name
+  # The order deals move in. The option order is the order of the board's
+  # columns and of the Home chart. Won and Lost are outcomes and carry the
+  # outcome colours; the open stages are a neutral grey.
   - id: 3
     name: stage
     type: status
     options:
       - value: Prospect
-        color: '#94A3B8'
+        color: '#6F737A'
       - value: Qualified
-        color: '#3B82F6'
+        color: '#6F737A'
       - value: Proposal
-        color: '#A855F7'
+        color: '#6F737A'
       - value: Won
-        color: '#10B981'
+        color: '#187C49'
       - value: Lost
-        color: '#EF4444'
+        color: '#BA3535'
     default: Prospect
   - id: 4
     name: value
     type: currency
     currency: EUR
     precision: 0
+    thousandsSeparator: space
   - id: 5
     name: close_date
     type: date
   - id: 6
     name: created_at
     type: created-at
+  # Who carries the deal. The board shows it on the card as a name.
+  - id: 7
+    name: owner
+    type: user
+    allowMultiple: false
+  # The client's name, read through the relationship, so the Home chart can
+  # group the open pipeline by client and print names rather than ids.
+  - id: 8
+    name: company_name
+    type: lookup
+    relationshipField: company
+    relatedField: name
+  # "Close date passed" when an open deal is past its expected close date.
+  # Computed each time the deal is saved, so moving the date or the stage
+  # clears it.
+  - id: 9
+    name: health
+    type: formula
+    formula: "CASE WHEN stage NOT IN ('Won', 'Lost') AND close_date < CURRENT_DATE THEN 'Close date passed' ELSE '' END"
+    resultType: string
 
 aiAccess:
   description: >-
     The sales pipeline. Use this when the user asks about deals, stages,
-    pipeline value, or close dates.
+    pipeline value, owners or close dates.
   operations:
     - read
     - list
@@ -48,6 +76,7 @@ aiAccess:
     - update
   fieldExposure: permissioned
 
+# Everyone signed in reads and moves deals; only an admin deletes one.
 permissions:
   read: authenticated
   create:

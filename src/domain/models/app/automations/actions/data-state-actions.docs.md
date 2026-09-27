@@ -39,15 +39,16 @@ Three behaviours worth knowing before designing around them:
 
 ## State — a key-value store across runs
 
-Five operators persisting values **between** runs: counters, cursors, deduplication markers — anything a single run cannot hold.
+Six operators persisting values **between** runs: counters, cursors, deduplication markers — anything a single run cannot hold.
 
-| Operator    | Props                                | Does                                           |
-| ----------- | ------------------------------------ | ---------------------------------------------- |
-| `get`       | `key`, `namespace?`                  | Reads a stored value                           |
-| `set`       | `key`, `value`, `namespace?`, `ttl?` | Stores a value, optionally with a time to live |
-| `increment` | `key`, `amount?`, `namespace?`       | Atomically adds an amount, defaulting to 1     |
-| `delete`    | `key`, `namespace?`                  | Removes a stored value                         |
-| `list`      | `prefix?`, `namespace?`, `limit?`    | Lists keys, optionally filtered by prefix      |
+| Operator    | Props                                                            | Does                                           |
+| ----------- | ---------------------------------------------------------------- | ---------------------------------------------- |
+| `get`       | `key`, `namespace?`                                              | Reads a stored value                           |
+| `set`       | `key`, `value`, `namespace?`, `ttl?`                             | Stores a value, optionally with a time to live |
+| `increment` | `key`, `amount?`, `namespace?`                                   | Atomically adds an amount, defaulting to 1     |
+| `delete`    | `key`, `namespace?`                                              | Removes a stored value                         |
+| `list`      | `prefix?`, `namespace?`, `limit?`                                | Lists keys, optionally filtered by prefix      |
+| `filterNew` | `input`, `key`, `cursor?`, `initial?`, `remember?`, `namespace?` | Keeps only the items not returned before       |
 
 <!-- sovrium:options StateActionSchema -->
 
@@ -66,6 +67,28 @@ Both optional scoping properties are format-constrained, and a value outside the
 | ----------- | ----------------------------------------------- | ----------------------- | ------------------ |
 | `namespace` | Lowercase kebab-case, starting with a letter    | `metrics`, `sync-state` | `Metrics`, `my_ns` |
 | `ttl`       | A number followed by `ms`, `s`, `m`, `h` or `d` | `30s`, `24h`            | `1 hour`, `3600`   |
+
+### `filterNew`: act only on what appeared since the last run
+
+Most APIs have no webhook for what matters, so the recipe is a `cron` trigger, an `http` step fetching the latest page, and the work — for the items that are new. `filterNew` keeps the items of `input` whose `key` it has not returned before, and remembers them for the next run.
+
+```yaml
+- name: newTransactions
+  type: state
+  operator: filterNew
+  props:
+    input: '{{steps.fetch.body.transactions}}'
+    key: transaction_id
+    cursor: { field: settled_at, stateKey: bank-last-settled }
+    namespace: bank
+```
+
+- `key` identifies an item. An item whose key was returned before is dropped, even if its other fields changed.
+- `cursor` orders items by `field` (an ISO date or a number). Items at or below the stored value are dropped, and the highest value returned is stored under `stateKey`, where a `state` / `get` step before the request can read it to ask the API only for later items.
+- `initial` defaults to `skip`: the first run returns nothing and remembers everything already there, so switching the automation on does not replay history. `emit` returns everything.
+- `remember` (1 000 by default) is how many keys are kept, most recent first. Set it above the largest page the API returns.
+
+The step's output is `items` — the new items, in the order they came — and `count`. Memory is per automation, per step name and per `namespace`, so two automations polling the same API each see every new item once. What a step returns is remembered as soon as the step completes.
 
 ## Filter — gating the run
 

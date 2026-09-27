@@ -60,18 +60,20 @@ export const FormAvailabilitySchema = Schema.Struct({
       ),
       title: Schema.optional(
         Schema.String.annotate({
-          description: 'Heading shown to a visitor who arrives while the form is closed.',
+          description:
+            'Heading shown to a visitor who arrives while the form is closed. Accepts a `$t:` key.',
         }).pipe(Schema.check(Schema.isMinLength(1)))
       ),
       message: Schema.optional(
         Schema.String.annotate({
-          description: 'Text explaining why the form is closed, and what to do instead.',
+          description:
+            'Text explaining why the form is closed, and what to do instead. Accepts a `$t:` key.',
         })
       ),
       cta: Schema.optional(
         Schema.Struct({
           label: Schema.String.annotate({
-            description: 'Text of the link offered on the closed-form page.',
+            description: 'Text of the link offered on the closed-form page. Accepts a `$t:` key.',
           }).pipe(Schema.check(Schema.isMinLength(1))),
           href: Schema.String.annotate({
             description: 'Where that link goes.',

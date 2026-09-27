@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import mcpConfigWriteBody from '@/cli/commands/mcp-write.docs.md' with { type: 'file' }
 import mcpConfigBody from '@/cli/commands/mcp.docs.md' with { type: 'file' }
 import { AiAccessConfigSchema, ToolAnnotationsSchema } from '@/domain/models/app/auth/ai-access'
 import mcpClientModeBody from '@/presentation/api/mcp/mcp-client-mode.docs.md' with { type: 'file' }
@@ -105,7 +106,7 @@ export const mcp = defineSection({
       slug: 'mcp-config',
       title: 'Your Config over MCP',
       description:
-        'Run `sovrium mcp` and let the AI client you already use read your configuration, its findings, its schema and its run state — over a pipe, with no server and no credentials — then switch on the tools that let it edit the file.',
+        "Run `sovrium mcp` and let the AI client you already use read your configuration, its findings, its schema and its run state — over a pipe, with no server and no credentials — and read Sovrium's agent skills as prompts.",
       keywords: [
         'sovrium mcp',
         'stdio',
@@ -114,10 +115,8 @@ export const mcp = defineSection({
         'config_validate',
         'config_schema',
         'config_status',
-        'config_write_file',
-        'config_undo',
-        'MCP_CONFIG_WRITE',
-        'expectedSha',
+        'prompts',
+        'agent skills',
         'mcpServers',
         '--project',
         'SOVRIUM_PROJECT_DIR',
@@ -126,11 +125,29 @@ export const mcp = defineSection({
       sidebarLabel: 'Config over MCP',
       body: mcpConfigBody,
       documents: [],
-      stories: [
-        'US-AI-MCP-SERVER-CONFIG-TOOLS',
-        'US-CLI-COMMANDS-MCP',
-        'US-CLI-COMMANDS-MCP-CONFIG-WRITE',
+      stories: ['US-AI-MCP-SERVER-CONFIG-TOOLS', 'US-CLI-COMMANDS-MCP'],
+    }),
+    defineArticle({
+      slug: 'mcp-config-write',
+      title: 'Letting Your AI Edit the Config',
+      description:
+        'Switch on the four `sovrium mcp` tools that read, replace and undo the files your config is made of — what turns them on, every reason a write is refused, and how to go back.',
+      keywords: [
+        'MCP_CONFIG_WRITE',
+        'config_list_files',
+        'config_read_file',
+        'config_write_file',
+        'config_undo',
+        'expectedSha',
+        'acknowledgeDataLoss',
+        'allowDestructive',
+        'undo',
       ],
+      order: 6427,
+      sidebarLabel: 'Editing the Config over MCP',
+      body: mcpConfigWriteBody,
+      documents: [],
+      stories: ['US-CLI-COMMANDS-MCP-CONFIG-WRITE'],
     }),
     defineArticle({
       slug: 'mcp-security',

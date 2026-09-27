@@ -60,12 +60,11 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 
 // ───────────────────────────────────────────────────────────── the hero
 //
-// Two containers, one of which renders. `visibility.runtime: 'ai'` is the
-// conjunction `appRequiresAi(hostApp) ∧ isAiProviderConfigured(env)` — the same
-// predicate that decides whether the server prints its `AI disabled` boot
-// warning. `declares: 'agents'` alone was refused for this switch and the reason
-// is visible here: an app that declares three agents with no `AI_PROVIDER` set
-// would get a composer that cannot answer.
+// Two containers, one of which renders. `visibility.runtime: 'ai'` holds
+// wherever an AI provider is configured: every app carries the built-in System
+// Agent, so a provider is all the composer needs. `declares: 'agents'` was
+// refused for this switch and the reason is visible here: an app that declares
+// three agents with no `AI_PROVIDER` set would get a composer that cannot answer.
 
 /**
  * The greeting, and the page's ONE visible `h1`.
@@ -105,23 +104,17 @@ const greeting: PageComponent = {
  * The composer: the shipped `ai-chat`, centred, in the place the search takes
  * when there is no AI.
  *
- * ─── EVERYTHING IT READS IS INSIDE `props`, AND THAT IS NOT A STYLE CHOICE ──
+ * Its options sit beside `type`, where the renderer reads them first
+ * (`readChatOption` in `render/registry/ai-chat-component.tsx`); `props` holds
+ * only `suggestions`, which the renderer still reads from there alone.
  *
- * `ai-chat` resolves `agent`, `placeholder`, `chatHeight`, `showHistory` and
- * `suggestions` off `rawProps` — the merged prop bag — and off nothing else
- * (`render/registry/ai-chat-component.tsx`). `props` is an open bag, so the same
- * keys authored at component top level DECODE, validate, typecheck and then
- * reach no renderer at all. Measured live on this branch before authoring.
+ * ─── IT NAMES THE BUILT-IN `system` AGENT ─────────────────────────────────
  *
- * ─── IT NAMES NO AGENT, AND THAT IS A GAP RATHER THAN A DECISION ───────────
- *
- * The canvas binds the composer to the host's DEFAULT agent. `ai-chat.agent`
- * takes a literal agent NAME, and this file is the console's own preset — frozen
- * into the binary, rendered against an operator's app whose agent names are
- * unknowable when this line is written. There is no `$app.defaultAgent` binding
- * and `$record.*` cannot reach `props` on an island. So the chat is unbound: it
- * posts to `POST /api/ai/chat` with no `agent`, which is a valid turn without
- * the agent's system prompt, model or table grants. Routed, not faked.
+ * This file is the console's own preset — frozen into the binary, rendered
+ * against an operator's app whose agent names are unknowable when this line is
+ * written. The one agent it CAN name is the built-in System Agent every app
+ * carries: its prompt describes the operator's app and its tools read that
+ * app's data as the signed-in operator, never writing.
  */
 const composer: PageComponent = {
   type: 'container',
@@ -134,10 +127,11 @@ const composer: PageComponent = {
   children: [
     {
       type: 'ai-chat',
+      agent: 'system',
+      placeholder: 'Ask about this app…',
+      chatHeight: 220,
+      showHistory: false,
       props: {
-        placeholder: 'Ask about this app…',
-        chatHeight: 220,
-        showHistory: false,
         // Three prompts, drawn under the composer by the suggestion strip. They
         // are literals rather than `$t:` tokens on purpose: the strip resolves
         // `suggestions` through the translation table itself, so a key WOULD
@@ -477,14 +471,14 @@ const COUNT_TILES: readonly CountTile[] = [
     label: 'Agents',
     endpoint: CONFIG_REFLECTION_ENDPOINT,
     valuePath: 'agentCount',
-    sub: '$record.agentsDefault default',
+    sub: '$record.agentsSystem built-in',
   },
   {
     key: 'buckets',
     label: 'Buckets',
     endpoint: CONFIG_REFLECTION_ENDPOINT,
     valuePath: 'bucketCount',
-    sub: '$record.bucketsS3 s3 · $record.bucketsLocal local',
+    sub: '$record.bucketsSystem built-in · $record.bucketsS3 s3 · $record.bucketsLocal local',
   },
   { key: 'forms', label: 'Forms', endpoint: CONFIG_REFLECTION_ENDPOINT, valuePath: 'formCount' },
   {

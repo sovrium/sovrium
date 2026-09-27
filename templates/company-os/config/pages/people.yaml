@@ -1,79 +1,129 @@
+# The team and its time off: who is away this month, by name, the requests
+# waiting on a decision beside it, and the team below.
 name: people
 path: /people
 access:
   require: authenticated
   redirectTo: /sign-in
 meta:
-  title: People
-  description: The team and their time off
+  title: Team & time off · Orrin OS
+  description: Who is away this month, the time off waiting on a decision, and the team.
 components:
-  - $ref: ./_nav.yaml
   - type: container
-    element: section
     props:
-      className: max-w-6xl mx-auto px-6 py-8
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
     children:
-      - type: text
-        element: h1
-        props:
-          className: text-3xl font-bold mb-1
-        content: People
-      - type: text
-        element: p
-        props:
-          className: text-md mb-6
-        content: The team, and who's away. New time-off requests wait for an admin's approval.
-
-      - type: table
-        dataSource:
-          table: employees
-          sort:
-            - field: name
-              direction: asc
-        columns:
-          - field: name
-            label: Name
-            sortable: true
-          - field: job_title
-            label: Role
-          - field: department
-            label: Department
-            filterable: true
-          - field: start_date
-            label: Joined
-            format: short-date
-        pagination:
-          pageSize: 10
-        emptyMessage: No employees yet.
-
+      - $ref: ./_shell.yaml
       - type: container
+        element: main
         props:
-          className: border rounded-lg p-5 mt-8 mb-8
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
-          - type: text
-            element: h2
+          - type: container
             props:
-              className: text-lg font-semibold mb-4
-            content: Request time off
-          - type: form
-            dataSource:
-              table: time_off_requests
-            fields:
-              - field: employee
-              - field: start_date
-              - field: end_date
-            action:
-              type: crud
-              operation: create
-              table: time_off_requests
-              onSuccess:
-                navigate: /people
-                toast:
-                  message: Request submitted — an admin has been asked to approve it
-                  variant: success
-
-      - type: calendar
-        dataSource:
-          table: time_off_requests
-        dateField: start_date
-        defaultView: month
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Team & time off
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Request time off
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: request-time-off-dialog
+          # Filing a request starts the approval automation: the admins are
+          # asked to decide, and the request shows as Pending until they do.
+          - type: dialog
+            props:
+              id: request-time-off-dialog
+              title: Request time off
+              description: It waits on an admin's decision and shows on the calendar once approved.
+            children:
+              - type: form
+                dataSource:
+                  table: time_off_requests
+                fields:
+                  - { field: employee, label: Person }
+                  - { field: type, label: Type }
+                  - { field: start_date, label: From }
+                  - { field: end_date, label: To }
+                action:
+                  type: crud
+                  operation: create
+                  table: time_off_requests
+                  submitLabel: Send request
+                  onSuccess:
+                    navigate: /people
+                    toast:
+                      message: Request sent
+                      variant: success
+          - type: container
+            props:
+              className: flex flex-col gap-4 px-5 pb-5 pt-4
+            children:
+              - type: container
+                props:
+                  className: flex items-start gap-4 max-lg:flex-col
+                children:
+                  # Each absence labelled by the person's name; a pending one
+                  # carries the warning colour until it is decided.
+                  - type: container
+                    props:
+                      className: min-w-0 flex-1 max-lg:w-full
+                    children:
+                      - type: calendar
+                        dataSource:
+                          table: time_off_requests
+                          filter:
+                            - { field: status, operator: in, value: [Pending, Approved] }
+                        dateField: start_date
+                        endDateField: end_date
+                        labelField: employee_name
+                        colorField: status
+                        defaultView: month
+                  - type: container
+                    element: section
+                    props:
+                      className: flex w-[300px] flex-none flex-col gap-2 max-lg:w-full
+                      aria-label: Waiting on your decision
+                    children:
+                      - type: text
+                        element: h2
+                        props:
+                          className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+                        content: Waiting on your decision
+                      - type: list
+                        props:
+                          className: '[&_li]:flex-wrap [&_li]:gap-y-1 [&_li>div:first-child]:basis-full [&_[data-list-title]]:whitespace-normal [&_[data-list-title]]:text-[13px]'
+                        dataSource:
+                          table: time_off_requests
+                          filter:
+                            - { field: status, operator: eq, value: Pending }
+                          sort:
+                            - { field: start_date, direction: asc }
+                        listDisplay:
+                          emptyMessage: No request waits on a decision.
+                          itemTemplate:
+                            title: $record.employee_name
+                            badge: Pending
+                            metadata:
+                              - { field: type, format: text }
+                              - { field: start_date, format: short-date }
+                              - { field: end_date, format: short-date }
+              - type: table
+                dataSource:
+                  table: employees
+                  view: team_directory
+                columns:
+                  - { field: name, label: Name, sortable: true }
+                  - { field: job_title, label: Role }
+                  - { field: department, label: Team, filterable: true }
+                  - { field: start_date, label: Since, format: short-date, sortable: true }
+                emptyMessage: Add the people on the team; their time off appears on the calendar once approved.

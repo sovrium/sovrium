@@ -35,6 +35,11 @@ export interface OAuth2RefreshProps {
   readonly audience?: string
   readonly extraTokenParams?: Readonly<Record<string, string>>
   readonly authenticationMethod?: 'header' | 'body'
+  /**
+   * Extra fields of the token response the connection keeps (`tokenFields`),
+   * e.g. Salesforce's `instance_url`. Captured as strings beside the token.
+   */
+  readonly keepFields?: readonly string[]
 }
 
 export interface RefreshTokenResponse {
@@ -50,6 +55,8 @@ export type RefreshResult =
       readonly accessToken: string
       readonly refreshToken: string | undefined
       readonly expiresAt: Date | undefined
+      /** The kept response fields present in the answer (see `keepFields`). */
+      readonly fields?: Readonly<Record<string, string>>
     }
   | { readonly ok: false; readonly error: string }
 
@@ -66,11 +73,21 @@ export type RefreshResult =
 const buildRefreshBodyEntries = (
   props: OAuth2RefreshProps,
   refreshToken: string
-): readonly (readonly [string, string])[] => {
-  const baseEntries: readonly (readonly [string, string])[] = [
+): readonly (readonly [string, string])[] =>
+  buildTokenBodyEntries(props, [
     ['grant_type', 'refresh_token'],
     ['refresh_token', refreshToken],
-  ]
+  ])
+
+/**
+ * The form body of a token request: the grant's own entries, then the client
+ * credentials (when `authenticationMethod: body`), the scopes, the audience and
+ * the extra token params — shared by the refresh and client-credentials grants.
+ */
+const buildTokenBodyEntries = (
+  props: OAuth2RefreshProps,
+  baseEntries: readonly (readonly [string, string])[]
+): readonly (readonly [string, string])[] => {
   // authenticationMethod controls where client_id/client_secret go.
   // 'header' (default per RFC 6749 §2.3.1) → Basic auth header set by
   //   `buildRefreshHeaders`; credentials are NOT placed in the form body.
@@ -127,7 +144,27 @@ const buildRefreshHeaders = (props: OAuth2RefreshProps): Readonly<Record<string,
  * specs assert on. Extracted so `refreshAccessToken` stays under the
  * complexity threshold.
  */
-const parseRefreshResponse = (tokens: RefreshTokenResponse): RefreshResult => {
+/** The kept fields of a token response, as strings; only the ones present. */
+const keptFields = (
+  tokens: RefreshTokenResponse,
+  keep: readonly string[] | undefined
+): Readonly<Record<string, string>> | undefined => {
+  if (keep === undefined || keep.length === 0) return undefined
+  const raw = tokens as Readonly<Record<string, unknown>>
+  const entries = keep
+    .map((name) => [name, raw[name]] as const)
+    .filter(
+      (entry): entry is readonly [string, string | number] =>
+        typeof entry[1] === 'string' || typeof entry[1] === 'number'
+    )
+    .map(([name, value]) => [name, String(value)] as const)
+  return entries.length === 0 ? undefined : Object.fromEntries(entries)
+}
+
+const parseRefreshResponse = (
+  tokens: RefreshTokenResponse,
+  keep?: readonly string[]
+): RefreshResult => {
   if (tokens.access_token === undefined || tokens.access_token === '') {
     return { ok: false, error: 'refresh_response_missing_access_token' }
   }
@@ -143,7 +180,16 @@ const parseRefreshResponse = (tokens: RefreshTokenResponse): RefreshResult => {
         ? tokens.refresh_token
         : undefined,
     expiresAt,
+    ...(fieldsOf(tokens, keep) ?? {}),
   }
+}
+
+const fieldsOf = (
+  tokens: RefreshTokenResponse,
+  keep: readonly string[] | undefined
+): { readonly fields: Readonly<Record<string, string>> } | undefined => {
+  const fields = keptFields(tokens, keep)
+  return fields === undefined ? undefined : { fields }
 }
 
 /**
@@ -165,43 +211,58 @@ const parseRefreshResponse = (tokens: RefreshTokenResponse): RefreshResult => {
 export const refreshAccessToken = async (
   props: OAuth2RefreshProps,
   refreshToken: string
+): Promise<RefreshResult> =>
+  postTokenRequest(props, buildRefreshBodyEntries(props, refreshToken), 'refresh')
+
+/**
+ * Obtain a token with the client credentials grant (RFC 6749 §4.4): the
+ * connection's own client id and secret, no user and no consent step. The
+ * request carries the same client authentication, scopes, audience and extra
+ * token params as a refresh; a refused request surfaces as
+ * `token_endpoint_4xx_<status>` / `token_endpoint_5xx_<status>`.
+ */
+export const requestClientCredentialsToken = async (
+  props: OAuth2RefreshProps
+): Promise<RefreshResult> =>
+  postTokenRequest(
+    props,
+    buildTokenBodyEntries(props, [['grant_type', 'client_credentials']]),
+    'token'
+  )
+
+/**
+ * POST one token request and parse the answer. `tag` prefixes every error so
+ * the caller can tell a refused refresh from a refused client-credentials grant.
+ */
+const postTokenRequest = async (
+  props: OAuth2RefreshProps,
+  entries: readonly (readonly [string, string])[],
+  tag: 'refresh' | 'token'
 ): Promise<RefreshResult> => {
   // SSRF guard: a misconfigured `tokenUrl` pointing at internal infra
-  // would cause the refresh to leak the rotated token to the wrong host.
-  // Reject loopback / link-local / RFC1918 / non-http(s) before the call.
+  // would cause the request to leak the client credentials to the wrong
+  // host. Reject loopback / link-local / RFC1918 / non-http(s) first.
   const validation = validateOutboundUrl(props.tokenUrl)
   if (!validation.ok) {
-    return { ok: false, error: `refresh_invalid_url_${validation.issue.reason}` }
+    return { ok: false, error: `${tag}_invalid_url_${validation.issue.reason}` }
   }
-
-  const body = new URLSearchParams(
-    buildRefreshBodyEntries(props, refreshToken) as [string, string][]
-  )
-  const headers = buildRefreshHeaders(props)
-
+  const body = new URLSearchParams(entries as [string, string][])
   try {
     const response = await withFetchTimeout(
       props.tokenUrl,
-      {
-        method: 'POST',
-        headers,
-        body: body.toString(),
-      },
+      { method: 'POST', headers: buildRefreshHeaders(props), body: body.toString() },
       OAUTH_CALLBACK_TIMEOUT_MS
     )
     if (!response.ok) {
-      const tag =
-        response.status >= 400 && response.status < 500
-          ? 'refresh_endpoint_4xx'
-          : 'refresh_endpoint_5xx'
-      return { ok: false, error: `${tag}_${String(response.status)}` }
+      const range = response.status >= 400 && response.status < 500 ? '4xx' : '5xx'
+      return { ok: false, error: `${tag}_endpoint_${range}_${String(response.status)}` }
     }
     const tokens = (await response.json()) as RefreshTokenResponse
-    return parseRefreshResponse(tokens)
+    return parseRefreshResponse(tokens, props.keepFields)
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'refresh_request_failed',
+      error: error instanceof Error ? error.message : `${tag}_request_failed`,
     }
   }
 }

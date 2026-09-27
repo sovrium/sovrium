@@ -31,8 +31,8 @@ fields:
   - id: 4
     name: value
     type: currency
-    currency: USD
-    thousandsSeparator: comma
+    currency: EUR
+    thousandsSeparator: space
     precision: 0
   - id: 5
     name: probability
@@ -50,6 +50,38 @@ fields:
   - id: 8
     name: created_at
     type: created-at
+  # Who carries the deal. The pipeline shows it on the card, and "my tasks"
+  # reads the same kind of field on tasks.
+  - id: 9
+    name: owner
+    type: user
+    allowMultiple: false
+  # The person on the buyer's side. It is what lets a contact's drawer list the
+  # deals they are part of.
+  - id: 10
+    name: contact
+    type: relationship
+    relatedTable: contacts
+    relationType: many-to-one
+    displayField: name
+  # "Stalled" when an open deal is past its expected close date. Computed each
+  # time the deal is saved, so moving the close date or the stage clears it.
+  - id: 11
+    name: health
+    type: formula
+    formula: "CASE WHEN stage NOT IN ('Won', 'Lost') AND close_date < CURRENT_DATE THEN 'Stalled' ELSE '' END"
+    resultType: string
+  # The value the pipeline can count on: the deal's value times its chance of
+  # closing. Summed on the Pipeline page as the weighted forecast.
+  - id: 12
+    name: weighted_value
+    type: formula
+    formula: value * probability / 100
+    resultType: number
+    format: currency
+    currency: EUR
+    precision: 0
+    thousandsSeparator: space
 
 aiAccess:
   description: >-
@@ -62,6 +94,8 @@ aiAccess:
     - update
   fieldExposure: permissioned
 
+# Every signed-in rep reads and moves deals; only an admin deletes one. A rep
+# who tries is answered 404, the same answer as for a deal that does not exist.
 permissions:
   read: authenticated
   create:

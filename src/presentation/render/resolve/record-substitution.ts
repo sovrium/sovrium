@@ -22,7 +22,10 @@
  */
 
 import { mapStringsDeep } from '@/domain/models/app/languages/translation-resolver'
-import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  substituteRecordVars,
+  substituteScopedVars,
+} from '@/domain/models/app/pages/substitute-record-vars'
 import { substituteRecordInProps } from './record-template-substitution'
 import { filterChildrenForRecord } from './record-visibility'
 import type { RowSubstitutionDepth } from './data-source-rows'
@@ -117,14 +120,27 @@ export function substituteRecordInContent(
   content: Component['content'],
   record: Record<string, unknown>
 ): { readonly content: Component['content']; readonly forcePlainText: boolean } {
+  return substituteScopesInContent(content, { record })
+}
+
+/**
+ * {@link substituteRecordInContent} over several namespaces at once — the one
+ * HTML-or-text decision, taken for a `repeat` copy that reads `$record.` and a
+ * named element (`$leg.`) in the same string (`record-repeat-expansion.ts`).
+ * One pass per string, so a substituted value is never scanned again.
+ */
+export function substituteScopesInContent(
+  content: Component['content'],
+  scopes: Readonly<Record<string, Readonly<Record<string, unknown>>>>
+): { readonly content: Component['content']; readonly forcePlainText: boolean } {
   if (typeof content !== 'string') return { content, forcePlainText: false }
   if (templateIsAuthorHtml(content)) {
     return {
-      content: substituteRecordVars(content, record, escapeRecordValueForHtml),
+      content: substituteScopedVars(content, scopes, escapeRecordValueForHtml),
       forcePlainText: false,
     }
   }
-  const substituted = substituteRecordVars(content, record)
+  const substituted = substituteScopedVars(content, scopes)
   // Only flag the case that would actually flip the sink — an author TEXT
   // template whose substituted result now begins with `<`.
   return { content: substituted, forcePlainText: templateIsAuthorHtml(substituted) }

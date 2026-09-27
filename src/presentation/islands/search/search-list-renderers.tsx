@@ -6,7 +6,12 @@
  */
 
 import React from 'react'
-import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  substituteRecordVars,
+  withDisplayLabels,
+} from '@/domain/models/app/pages/substitute-record-vars'
+import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
+import { isColumnFormat } from '@/domain/models/app/tables/column-format-validation'
 import {
   LIST_TEXT_COLUMN_CLASSES,
   computeListBadgeClasses,
@@ -19,6 +24,8 @@ import {
   computeListThumbClasses,
   computeListTitleClasses,
 } from '@/presentation/design/list-default-classes'
+import { resolvePageLocale } from '../runtime/page-locale'
+import { resolvePageTimezone } from '../runtime/page-timezone'
 
 export type ChildTemplate = readonly (ChildNode | string)[]
 
@@ -141,6 +148,19 @@ export function renderChild(child: ChildNode | string, key: string): React.React
  * The declared index is preserved through the filter so React keys stay stable
  * when a nullable column drops out of one record and not another.
  */
+/**
+ * One metadata value, written in the format its entry declares when that is a
+ * value format (`currency`, `relative-date`, `short-date`…), in the page's
+ * language — the same formatter a data-table cell uses, so a list row and a
+ * grid row print one value one way. Any other word (`badge`, `text`) leaves
+ * the value as it is.
+ */
+function formatMetadataValue(value: unknown, format: string | undefined): string {
+  return isColumnFormat(format)
+    ? formatCellValue(value, format, resolvePageLocale(), { timeZone: resolvePageTimezone() })
+    : String(value)
+}
+
 function renderItemMetadata(
   metadata: ItemTemplate['metadata'],
   record: Record<string, unknown>,
@@ -157,11 +177,29 @@ function renderItemMetadata(
           key={`${key}-meta-${index}`}
           data-list-meta={meta.field}
         >
-          {String(record[meta.field])}
+          {formatMetadataValue(record[meta.field], meta.format)}
         </span>
       ))}
     </div>
   )
+}
+
+/**
+ * The item's slots, substituted. The text slots are TEXT sites: a relationship
+ * reads as its `displayField` label and a user field as the account's name.
+ * `image` is an ADDRESS site and keeps the stored value (see `withDisplayLabels`).
+ */
+function resolveItemSlots(template: ItemTemplate, record: Record<string, unknown>) {
+  const labelled = withDisplayLabels(record)
+  const sub = (field: string | undefined, source: Readonly<Record<string, unknown>>) =>
+    field ? substituteRecordVars(field, source) : undefined
+  return {
+    labelled,
+    title: sub(template.title, labelled),
+    image: sub(template.image, record),
+    subtitle: sub(template.subtitle, labelled),
+    badge: sub(template.badge, labelled),
+  }
 }
 
 function renderItemTemplate(
@@ -169,11 +207,7 @@ function renderItemTemplate(
   record: Record<string, unknown>,
   key: string
 ): React.ReactNode {
-  const sub = (field?: string) => (field ? substituteRecordVars(field, record) : undefined)
-  const title = sub(template.title)
-  const image = sub(template.image)
-  const subtitle = sub(template.subtitle)
-  const badge = sub(template.badge)
+  const { labelled, title, image, subtitle, badge } = resolveItemSlots(template, record)
   return (
     <li
       key={key}
@@ -220,7 +254,7 @@ function renderItemTemplate(
           {badge}
         </span>
       ) : undefined}
-      {renderItemMetadata(template.metadata, record, key)}
+      {renderItemMetadata(template.metadata, labelled, key)}
     </li>
   )
 }

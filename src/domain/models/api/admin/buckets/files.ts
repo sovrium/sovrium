@@ -147,6 +147,30 @@ export const bucketFileItemSchema = Schema.Struct({
   createdAt: looseIsoDateTime({
     description: 'ISO 8601 UTC timestamp of the upload (`file_storage_metadata.created_at`).',
   }),
+  bucket: optionalField(
+    Schema.String.annotate({
+      description:
+        "The bucket that holds the file: the one the attachment cell's URL names, or the attachment column's own bucket when the cell stores a bare key. Present on the built-in `system` bucket listing, which gathers every file a live record links to, whichever bucket stores it. Not stored beside the file: derived when the listing is read, from the attachment cells of live records.",
+    })
+  ),
+  table: optionalField(
+    Schema.String.annotate({
+      description:
+        'The table of the record whose attachment cell references this file. Present on the built-in `system` bucket listing. Derived when the listing is read, from the attachment cells of live records — soft-deleted records are excluded — so a cleared cell or a deleted record simply stops being listed.',
+    })
+  ),
+  recordId: optionalField(
+    Schema.String.annotate({
+      description:
+        'The id of the record whose attachment cell references this file, as a string. Present on the built-in `system` bucket listing. Derived when the listing is read, from the attachment cells of live records.',
+    })
+  ),
+  field: optionalField(
+    Schema.String.annotate({
+      description:
+        'The attachment field whose cell references this file. Present on the built-in `system` bucket listing. Derived when the listing is read, from the attachment cells of live records.',
+    })
+  ),
 }).annotate({ identifier: 'BucketFileItem' })
 
 /**

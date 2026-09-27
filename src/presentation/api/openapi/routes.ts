@@ -10,6 +10,11 @@ import { type Hono } from 'hono'
 import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getOpenAPIDocument } from '@/presentation/api/openapi/document'
+import {
+  resolveCallerTier,
+  type ReadUserRole,
+  type SessionReader,
+} from '@/presentation/api/runtime/caller-tier'
 import { resolveRequestBaseUrl } from '../../../domain/kernel/url/request-base-url'
 import type { App } from '@/domain/models/app'
 // Type-only: the instance is built once in `createHonoApp` and passed in, so
@@ -33,6 +38,17 @@ const notFoundResponse = (c: GuardContext) =>
   c.json({ success: false, message: 'Not Found', code: 'NOT_FOUND' }, 404)
 
 /**
+ * The role lookup, bound to this request's domain runtime. Lazily imported so
+ * mounting the routes initialises no database.
+ */
+const readUserRoleInRequest =
+  (c: GuardContext): ReadUserRole =>
+  async (userId) => {
+    const { getUserRole } = await import('@/application/use-cases/tables/user-role')
+    return runDomainPromise(c, getUserRole(userId))
+  }
+
+/**
  * Create admin-only auth guard for OpenAPI endpoints.
  *
  * Per S1 anti-enumeration:
@@ -49,33 +65,21 @@ const notFoundResponse = (c: GuardContext) =>
  * `requireAdminTier`/`makeAdminGuard` posture in
  * `src/presentation/api/middleware/auth.ts`. Built-in `admin` still passes; a
  * plain `member` still 404s.
+ *
+ * The tier itself comes from {@link resolveCallerTier}, the same resolver the
+ * health endpoint reads, so the two cannot disagree about who is an admin. A
+ * failure to resolve it refuses with 401.
  */
-function createAdminGuard(authInstance: Readonly<ReturnType<typeof createAuthInstance>>, app: App) {
+export function createAdminGuard(
+  authInstance: SessionReader,
+  app: App,
+  readRoleFor: (c: GuardContext) => ReadUserRole = readUserRoleInRequest
+) {
   return async (c: GuardContext, next: () => Promise<void>) => {
     try {
-      const authHeader = c.req.header('authorization')
-      const headers = authHeader?.toLowerCase().startsWith('bearer ')
-        ? new Headers({ authorization: authHeader.slice(7) })
-        : c.req.raw.headers
-
-      const sessionResult = (await authInstance.api.getSession({ headers })) as {
-        readonly session?: { readonly userId: string }
-      } | null
-
-      if (!sessionResult?.session) {
-        return unauthorizedResponse(c)
-      }
-
-      // Lazy imports to avoid database / domain initialization at import time
-      // (mirrors makeAdminGuard in the presentation middleware).
-      const { getUserRole } = await import('@/application/use-cases/tables/user-role')
-      const { isAdminTier } = await import('@/domain/models/app')
-      const role = await runDomainPromise(c, getUserRole(sessionResult.session.userId))
-
-      if (!isAdminTier(role, app)) {
-        return notFoundResponse(c)
-      }
-
+      const tier = await resolveCallerTier(c, authInstance, app, readRoleFor(c))
+      if (tier === 'anonymous') return unauthorizedResponse(c)
+      if (tier === 'non-admin') return notFoundResponse(c)
       await next()
     } catch (error) {
       logError('[OpenAPI Auth] Session check error', error)
@@ -133,8 +137,19 @@ export function setupOpenApiRoutes(
     .get(
       '/api/scalar',
       Scalar({
-        pageTitle: 'Sovrium API Documentation',
+        pageTitle: `${app.name} API reference`,
         theme: 'default',
+        // The reference is the app's, so the vendor's outbound controls are off:
+        // no client-download promotion, no models panel, no AI assistant or MCP
+        // control, no usage telemetry and no web-font fetch. The whole object is
+        // serialised into the page with JSON.stringify, so every option here
+        // must stay a plain value — a function would not survive the trip.
+        hideClientButton: true,
+        hideModels: true,
+        agent: { disabled: true },
+        mcp: { disabled: true },
+        telemetry: false,
+        withDefaultFonts: false,
         sources: [
           { url: '/api/openapi.json', title: 'API' },
           { url: '/api/auth/openapi.json', title: 'Auth' },

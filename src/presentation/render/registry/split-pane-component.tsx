@@ -22,6 +22,7 @@
  */
 
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import { renderHTMLElement } from '../elements'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
@@ -137,6 +138,7 @@ export const splitPaneComponent: ComponentRenderer = ({
       'aria-label': vm.ariaLabel,
       'aria-orientation': vm.orientation,
       'data-split-pane': vm.hostId,
+      'data-component-type': hostComponentType(elementProps),
       'data-testid': vm.testId,
       className: containerClass,
     },

@@ -12,6 +12,7 @@ import {
   StorageService,
   StorageError,
   UNATTRIBUTED_BUCKET,
+  storageObjectNotFound,
 } from '@/application/ports/services/storage-service'
 import {
   parseStorageEnvConfig,
@@ -99,7 +100,7 @@ const assertBucketBinding = (
     Effect.flatMap((meta) =>
       meta && bucketBindingMatches(bucket, meta.bucket)
         ? Effect.void
-        : Effect.fail(makeError(new Error(`File not found: ${key}`)))
+        : Effect.fail(makeError(storageObjectNotFound(key)))
     )
   )
 }
@@ -130,7 +131,7 @@ const assertBucketWritable = (
     Effect.flatMap((meta) =>
       bucketBindingPermitsWrite(bucket, meta?.bucket)
         ? Effect.void
-        : Effect.fail(makeError(new Error(`File not found: ${key}`)))
+        : Effect.fail(makeError(storageObjectNotFound(key)))
     )
   )
 
@@ -156,7 +157,7 @@ const getMetadataFromCatalog = (
             size: meta.size,
             lastModified: meta.lastModified,
           })
-        : Effect.fail(makeError(new Error(`File not found: ${key}`)))
+        : Effect.fail(makeError(storageObjectNotFound(key)))
     )
   )
 
@@ -285,7 +286,7 @@ export const StorageServiceLive = Layer.effect(
                     try: () => s3Delete(client, s3Bucket, key),
                     catch: (e: unknown) => makeError(e),
                   })
-                : Effect.fail(makeError(new Error(`File not found: ${key}`)))
+                : Effect.fail(makeError(storageObjectNotFound(key)))
             )
           ),
         getSignedUrl: (key: string, expiresIn: number) =>
@@ -364,7 +365,7 @@ export const StorageServiceLive = Layer.effect(
                     try: () => localDelete(dir, key),
                     catch: (e: unknown) => makeError(e),
                   })
-                : Effect.fail(makeError(new Error(`File not found: ${key}`)))
+                : Effect.fail(makeError(storageObjectNotFound(key)))
             )
           ),
         getSignedUrl: (_key: string, _expiresIn: number) =>

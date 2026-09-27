@@ -9,6 +9,7 @@ import { Data, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
 import { purgeExpiredActivityLogs } from '@/infrastructure/database/activity-log-retention'
 import { logError } from '@/infrastructure/logging/logger'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 
 /**
  * Activity-log retention scheduler registration.
@@ -41,7 +42,10 @@ class ActivityLogRetentionSweepError extends Data.TaggedError('ActivityLogRetent
   readonly cause: unknown
 }> {}
 
-/** Daily, at 03:15 UTC — off the top of the hour the account purge occupies. */
+/**
+ * Daily, at 03:15 in the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset)
+ * — off the top of the hour the account purge occupies.
+ */
 const RETENTION_CRON_EXPRESSION = '15 3 * * *'
 
 /** Stable scheduler job id so re-registration (config reload) is idempotent. */
@@ -83,7 +87,7 @@ export const registerActivityLogRetentionScheduler: Effect.Effect<
           Effect.catch(() => Effect.void),
           Effect.asVoid
         ),
-      { jobId: RETENTION_JOB_ID, timezone: 'UTC' }
+      { jobId: RETENTION_JOB_ID, timezone: resolveOperatorTimezone() }
     )
     .pipe(
       Effect.catch((err) =>

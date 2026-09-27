@@ -32,7 +32,7 @@ Render an instant, read one back out of a string, shift it, measure between two,
 
 `instant` is always an ISO 8601 **string**, never a date object: a step output is persisted to run history as JSON, re-read by templates and returned in webhook bodies, and an object survives none of those hops with its type intact.
 
-`timezone` is an IANA identifier and defaults to `UTC`. An instant carries no zone of its own — `timezone` is what the instant is _read in_. A fixed offset is accepted but cannot express daylight saving, so prefer a named zone anywhere that observes it. `locale` is a BCP-47 tag defaulting to `en-US`, and it affects only the month and weekday **name** tokens; a purely numeric pattern ignores it.
+`timezone` is an IANA identifier and defaults to the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset). An instant carries no zone of its own — `timezone` is what the instant is _read in_. A fixed offset is accepted but cannot express daylight saving, so prefer a named zone anywhere that observes it. `locale` is a BCP-47 tag defaulting to `en-US`, and it affects only the month and weekday **name** tokens; a purely numeric pattern ignores it.
 
 ## The pattern token set is closed
 

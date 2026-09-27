@@ -68,7 +68,7 @@ export default function RadioIsland({
             <Radio.Root
               value={option.value}
               disabled={option.disabled}
-              className="border-border bg-background-raised data-[checked]:border-primary flex h-4 w-4 items-center justify-center rounded-full border transition-colors"
+              className="bg-background-raised data-[checked]:border-primary flex h-4 w-4 items-center justify-center rounded-full border border-[var(--sv-border-control,oklch(0.62_0_0))] transition-colors"
             >
               <Radio.Indicator className="bg-primary h-2 w-2 rounded-full" />
             </Radio.Root>

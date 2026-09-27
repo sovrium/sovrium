@@ -13,7 +13,7 @@ import { triggerRecordEventAutomations } from '@/application/use-cases/automatio
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { updateRecordProgram } from '@/application/use-cases/tables/write-record-programs'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
-import { DEFAULT_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
+import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { applyAiComputeBaseline } from '@/domain/models/app/tables/ai-compute-apply-baseline'
 import { AiLive } from '@/infrastructure/ai/layer'
@@ -126,7 +126,7 @@ function collectReplacedAttachmentKeys(
     })
     .map((f) => ({
       key: oldRecord[f.name] as string,
-      bucket: resolveFieldBucket(app, tableName, f.name) ?? DEFAULT_BUCKET_NAME,
+      bucket: resolveFieldBucket(app, tableName, f.name) ?? SYSTEM_BUCKET_NAME,
     }))
 }
 

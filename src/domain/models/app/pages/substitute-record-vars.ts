@@ -51,9 +51,9 @@
 /**
  * ONE `$record.<field>` reference, capturing the field name.
  *
- * A single STATIC literal, never built from input (`sovrium/no-dynamic-regexp`),
- * and the ONE spelling of the token in this file: the substituter, the chain
- * grammar below and the two readers at the foot all derive from it, so a name
+ * A single STATIC literal, never built from input (`sovrium/no-dynamic-regexp`).
+ * The two `$record.` READERS at the foot of this file use it; the substituter
+ * uses {@link SCOPED_VAR_CHAIN}, whose field charset is this one's, so a name
  * one half resolves cannot be a name another half fails to see. That is the
  * failure `PARAM_REFERENCE` has to guard against by hand — its grammar is copied
  * across two modules, with a comment on each copy explaining why the copies must
@@ -68,29 +68,71 @@
 const RECORD_REFERENCE = /\$record\.([a-zA-Z0-9_]+)/g
 
 /**
- * One token, optionally continued by `|` and another token — the fallback chain.
+ * One token of ANY namespace, optionally continued by `|` and another token of
+ * the SAME namespace — the fallback chain, generalised to a named scope.
  *
- * BUILT from {@link RECORD_REFERENCE} rather than written out again, so the two
- * cannot drift on what a field name is. Its capture groups are inherited and
- * unused: the substituter reads the whole match and re-splits it, because a
- * repeated group captures only its last iteration.
+ * `$record.` is one namespace among several a page reads, and a `repeat` that
+ * names its element (`as: 'leg'`) adds another. ONE static literal serves them
+ * all: the namespace is CAPTURED, and the replacer below resolves only the
+ * namespaces it was handed and returns every other match untouched. That is what
+ * keeps the grammar single — a named scope is not a second regex that could
+ * disagree with this one about what a field name is — and what keeps the rule
+ * `sovrium/no-dynamic-regexp` enforces: nothing here is built from input.
+ *
+ * The `\1` back-reference is what confines a chain to one namespace, so
+ * `$record.a|$record.b` chains while `$leg.a|$record.b` is two tokens — exactly
+ * what the record-only pattern did with the second half.
+ *
+ * The field charset is {@link RECORD_REFERENCE}'s, `[a-zA-Z0-9_]`; a namespace
+ * must start with a letter or an underscore, so `$1.50` is never a token.
  */
-const RECORD_VAR_CHAIN = new RegExp(
-  `${RECORD_REFERENCE.source}(?:\\|${RECORD_REFERENCE.source})*`,
-  'g'
-)
+const SCOPED_VAR_CHAIN = /\$([a-zA-Z_][a-zA-Z0-9_]*)\.[a-zA-Z0-9_]+(?:\|\$\1\.[a-zA-Z0-9_]+)*/g
+
+/** One scoped token, namespace and field captured — the unchained reader. */
+const SCOPED_REFERENCE = /\$([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z0-9_]+)/g
+
+/** The namespace a bare `$record.` token names. */
+export const RECORD_NAMESPACE = 'record'
 
 /**
- * The token's literal prefix, and its length.
+ * The namespaces the page grammar already reads, and which a `repeat.as` may
+ * therefore never take.
  *
- * Spelled ONCE for the reason {@link RECORD_REFERENCE} is: the substituter
- * slices it off a matched token, and {@link repeatElementScalars} writes it back
- * out again. A projection that spelled it a second time could emit a token the
- * regex above does not match, which reads to an author as a binding that
- * resolved to literal text for no reason anyone can point at.
+ * Written HERE, beside the grammar, rather than in the rule that refuses them,
+ * so the list moves with the grammar it describes. A name on this list would
+ * make one token mean two things: `as: 'record'` would re-scope every
+ * `$record.` inside the repeat, and `as: 'param'` would collide with the route
+ * parameters a page substitutes before any record is known.
  */
-const TOKEN = '$record.'
-const TOKEN_PREFIX = TOKEN.length
+export const RESERVED_TOKEN_NAMESPACES: readonly string[] = [
+  RECORD_NAMESPACE,
+  'parent',
+  'param',
+  'query',
+  't',
+  'app',
+  'user',
+  'currentUser',
+  'session',
+  'window',
+  'vars',
+]
+
+/**
+ * Is `name` spellable as a `$<name>.` token at all? The namespace charset of
+ * {@link SCOPED_VAR_CHAIN}, anchored.
+ */
+export const isTokenNamespace = (name: string): boolean => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)
+
+/**
+ * A token as written: `$<namespace>.<field>`.
+ *
+ * Spelled ONCE: {@link repeatElementScalars} and {@link printableRecordFields}
+ * write a token back out, and a second spelling could emit one the grammar above
+ * does not match, which reads to an author as a binding that resolved to literal
+ * text for no reason anyone can point at.
+ */
+const tokenText = (namespace: string, field: string): string => `$${namespace}.${field}`
 
 /** One field, coerced: `undefined` and `null` alike become the empty string. */
 const fieldText = (record: Readonly<Record<string, unknown>>, fieldName: string): string => {
@@ -99,8 +141,15 @@ const fieldText = (record: Readonly<Record<string, unknown>>, fieldName: string)
 }
 
 /**
- * Replace `$record.<field>` placeholders — and `|`-separated fallback chains of
- * them — with values from a record.
+ * Replace scoped placeholders — `$<namespace>.<field>` and `|`-separated fallback
+ * chains of them — in ONE pass, each namespace against its own record.
+ *
+ * One pass rather than one per namespace, and the difference is a guarantee: a
+ * value substituted for `$leg.from` is never scanned again, so a record holding
+ * the TEXT `$record.secret` prints that text rather than the field it names.
+ *
+ * A namespace absent from `scopes` is left exactly as written — `$param.id` in a
+ * `$record.` pass, or `$stop.city` in a copy of the enclosing leg.
  *
  * `transformValue` is applied to each substituted VALUE and never to the
  * surrounding template. That asymmetry is load-bearing: it is what lets the
@@ -108,19 +157,55 @@ const fieldText = (record: Readonly<Record<string, unknown>>, fieldName: string)
  * while leaving the author's own markup byte-identical. By the time the two are
  * one string, provenance is gone and no downstream consumer can tell them apart.
  */
-export const substituteRecordVars = (
+export const substituteScopedVars = (
   template: string,
-  record: Readonly<Record<string, unknown>>,
+  scopes: Readonly<Record<string, Readonly<Record<string, unknown>>>>,
   transformValue?: (value: string) => string
 ): string =>
-  template.replace(RECORD_VAR_CHAIN, (match: string) => {
+  template.replace(SCOPED_VAR_CHAIN, (match: string, namespace: string) => {
+    const record = Object.hasOwn(scopes, namespace) ? scopes[namespace] : undefined
+    if (record === undefined) return match
+    const prefix = namespace.length + 2
     const resolved =
       match
         .split('|')
-        .map((token) => fieldText(record, token.slice(TOKEN_PREFIX)))
+        .map((token) => fieldText(record, token.slice(prefix)))
         .find((text) => text.length > 0) ?? ''
     return transformValue ? transformValue(resolved) : resolved
   })
+
+/**
+ * Replace `$record.<field>` placeholders — and `|`-separated fallback chains of
+ * them — with values from a record.
+ *
+ * `token` names the namespace, `record` by default: a `repeat` that names its
+ * element (`as: 'leg'`) resolves `$leg.<field>` through this same function
+ * rather than through a second grammar. See {@link substituteScopedVars} for the
+ * `transformValue` contract.
+ */
+export const substituteRecordVars = (
+  template: string,
+  record: Readonly<Record<string, unknown>>,
+  transformValue?: (value: string) => string,
+  token: string = RECORD_NAMESPACE
+): string => substituteScopedVars(template, { [token]: record }, transformValue)
+
+/**
+ * Every scoped token a string carries, in source order: its namespace, its
+ * field, and the token as written.
+ *
+ * Read by the decode rule that refuses a `$<as>.` token outside the repeat that
+ * declares it — reported by the token TEXT, because that is what the author has
+ * to find and move.
+ */
+export const scopedTokensIn = (
+  value: string
+): readonly { readonly namespace: string; readonly field: string; readonly token: string }[] =>
+  [...value.matchAll(SCOPED_REFERENCE)].map(([token, namespace, field]) => ({
+    namespace: namespace as string,
+    field: field as string,
+    token,
+  }))
 
 /**
  * The field names a string references, in source order — empty when it
@@ -202,12 +287,77 @@ export const isRecordFieldRef = (value: unknown): value is string =>
  * resolve to anything printable — but it is a corner the grammar does not
  * currently test, so it is written down rather than discovered.
  */
-export const repeatElementScalars = (element: unknown): Readonly<Record<string, unknown>> => {
+export const repeatElementScalars = (
+  element: unknown,
+  token: string = RECORD_NAMESPACE
+): Readonly<Record<string, unknown>> => {
   if (typeof element !== 'object' || element === null || Array.isArray(element)) return {}
   return Object.fromEntries(
     Object.entries(element as Record<string, unknown>).map(([key, value]) => [
       key,
-      typeof value === 'object' && value !== null ? `${TOKEN}${key}` : value,
+      typeof value === 'object' && value !== null ? tokenText(token, key) : value,
     ])
   )
 }
+
+/**
+ * A record projected for a TEXT site: every relationship column carrying a
+ * resolved label under `_display` prints that label instead of its stored key.
+ *
+ * ─── TEXT SITES AND ADDRESS SITES ───────────────────────────────────────────
+ *
+ * The same `$record.company` means two different things depending on where it
+ * lands. In a sentence a reader sees — a card title, a footer chip — it means
+ * "the company", and the company's `displayField` is how the author said to
+ * name it. In an address — an `onClick` path, a `url`, an `href` — it means
+ * "the company's row", and only the stored key resolves: a link built from a
+ * label would 404. So this projection is applied at text sites ONLY, by the
+ * caller that knows which kind of site it is filling; {@link substituteRecordVars}
+ * itself stays label-blind, which keeps every address site correct by default.
+ *
+ * A relationship with no `displayField` has no `_display` entry, so it keeps
+ * printing its key — the engine never invents a label the author did not ask
+ * for. A to-many label list is joined with `, `, the way a reader writes one.
+ * The record is returned unchanged when it carries no labels at all.
+ */
+export const withDisplayLabels = (
+  record: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> => {
+  const display = record['_display']
+  if (typeof display !== 'object' || display === null || Array.isArray(display)) return record
+  const labels = Object.entries(display as Record<string, unknown>).map(
+    ([field, label]) => [field, Array.isArray(label) ? label.join(', ') : label] as const
+  )
+  return labels.length === 0 ? record : { ...record, ...Object.fromEntries(labels) }
+}
+
+/** A value `String()` would print as `[object Object]`: a plain object, or an array holding one. */
+const printsAsObjectTag = (value: unknown): boolean => {
+  if (Array.isArray(value)) return value.some(printsAsObjectTag)
+  if (typeof value !== 'object' || value === null) return false
+  const prototype: unknown = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
+
+/**
+ * A page's OWN record, projected to what `$record.` may print on it.
+ *
+ * The narrow sibling of {@link repeatElementScalars}, for a record rather than
+ * an element: only a value `String()` would print as `[object Object]` — a plain
+ * object, or an array holding one — is mapped to its own token, and it survives
+ * substitution verbatim for the reason that projection gives. Everything else is
+ * untouched, so a `Date`, a number or an array of strings prints exactly as it
+ * always has on a bound page.
+ *
+ * The one place such a value DOES print is a `code` node whose whole content is
+ * that token, which reads the RAW record rather than this projection.
+ */
+export const printableRecordFields = (
+  record: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> =>
+  Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [
+      key,
+      printsAsObjectTag(value) ? tokenText(RECORD_NAMESPACE, key) : value,
+    ])
+  )

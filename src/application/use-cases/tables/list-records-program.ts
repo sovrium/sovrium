@@ -45,7 +45,9 @@ import {
   enrichRecordsWithRelatedLabels,
 } from './record-link-enrichment'
 import type { TransformedRecord } from './record-transformer'
+import type { RequestedLabel } from './relationship-display-fields'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
 import type { DatabaseError } from '@/domain/errors'
 import type { ListRecordsResponse } from '@/domain/models/api/tables/tables'
@@ -56,11 +58,28 @@ interface ListRecordsConfig {
   readonly tableName: string
   readonly app: App
   readonly userRole: string
+  /**
+   * Group names the caller belongs to (un-prefixed). Read by the relationship
+   * labels, which are shown only to a reader who may read the related column —
+   * a `group:<name>` grant there has to be matched like it is on a direct read.
+   */
+  readonly userGroups?: readonly string[]
+  /** `?labels=` — relationship labels a page column asked for (see `_display`). */
+  readonly labels?: readonly RequestedLabel[]
   readonly filter?: QueryFilter
   readonly includeDeleted?: boolean
   readonly format?: 'display'
   readonly timezone?: string
   readonly sort?: string
+  /**
+   * Order a single-select by its DECLARED option order rather than by value.
+   *
+   * The view-records route has always sorted this way (a view sorted by
+   * `priority: desc` lists high, medium, low), while the records list sorts by
+   * value — and the repository port keeps the two apart on purpose (see its
+   * `primaryKey` doc). So it is a switch the caller turns on, not a default.
+   */
+  readonly sortByOptionOrder?: boolean
   readonly fields?: string
   readonly limit?: number
   readonly offset?: number
@@ -124,6 +143,12 @@ function computeListRecordsAggregationBlock(params: {
   })
 }
 
+/** Who the relationship labels are resolved for, and which ones the request asked for. */
+const labelAudience = (config: ListRecordsConfig) => ({
+  reader: { role: config.userRole, groups: config.userGroups ?? [] },
+  requested: config.labels ?? [],
+})
+
 /**
  * Build the response page of records: `processRecords` → attachment-url enrich
  * (B-01) → paginate → many-to-many enrich → relationship labels.
@@ -171,10 +196,16 @@ const buildRecordPage = (
       paginatedRecords,
       config.fields
     )
-    // Labels for every relationship column that declared one. Enriched after
+    // Labels for every relationship column that declared one — or that the
+    // request asked for — narrowed to what this reader may read. Enriched after
     // pagination and after the junction read, so the lookup covers ONE page of
     // keys and can see the many-to-many values it needs to label.
-    const withLabels = yield* enrichRecordsWithRelatedLabels(config.app, config.tableName, withM2m)
+    const withLabels = yield* enrichRecordsWithRelatedLabels(
+      config.app,
+      config.tableName,
+      withM2m,
+      labelAudience(config)
+    )
     // [internal ref] Phase 2: the same gated `_aiCompute` block the single-record read
     // carries. Enriched AFTER pagination, so the status read covers ONE page of
     // ids rather than the whole result set — and gated on the table declaring an
@@ -251,6 +282,7 @@ const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service'
       filter,
       includeDeleted,
       sort: config.sort,
+      ...(config.sortByOptionOrder === true && { app: config.app }),
       ...(preSliced ? { limit: config.limit ?? DEFAULT_PAGE_SIZE, offset: config.offset } : {}),
       columns: buildProjectionColumns({
         app: config.app,
@@ -275,7 +307,7 @@ const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service'
 
 export function createListRecordsProgram(
   config: ListRecordsConfig
-): Effect.Effect<ListRecordsResponse, DatabaseError, TableRepository> {
+): Effect.Effect<ListRecordsResponse, DatabaseError, TableRepository | AuthRepository> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     const { session, tableName, filter, includeDeleted, aggregate, groupBy } = config

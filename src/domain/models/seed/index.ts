@@ -33,6 +33,7 @@ export {
   SEED_KEY_PATTERN,
   parseSeedReference,
   parseAssetReference,
+  parseUserReference,
   looksLikeReference,
   classifyReferenceToken,
   type SeedReference,
@@ -44,11 +45,20 @@ export {
   looksLikeToken,
   expandRelativeDate,
   expandSeedStringValue,
+  pinRunAtToDay,
   type RelativeDateToken,
   type RelativeDateAnchor,
   type RelativeDateUnit,
   type ExpandOutcome,
 } from './relative-date'
+
+export {
+  SeedAccountSchema,
+  SeedUsersFileSchema,
+  isSeedUsersFile,
+  findDuplicateAccountEmails,
+  type SeedAccount,
+} from './seed-users'
 
 export {
   collectSeedTableEdges,

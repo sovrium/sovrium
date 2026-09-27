@@ -33,6 +33,7 @@
 
 import { markdownToText } from '@/domain/kernel/markdown/markdown-to-text'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import { isPublicPage } from './is-public'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 
@@ -424,9 +425,14 @@ export function buildMarkdownRssItems(input: BuildMarkdownRssItemsInput): readon
 }
 
 /**
- * Locate the first page in `app.pages` with a non-falsy `rss` declaration.
- * Returns `undefined` when no page opts in to feed generation — the route
- * handler then 404s `/feed.xml`.
+ * Locate the first PUBLIC page in `app.pages` with a non-falsy `rss`
+ * declaration. Returns `undefined` when no public page opts in to feed
+ * generation — the route handler then 404s `/feed.xml` (never 403, so a
+ * restricted feed's existence is not revealed).
+ *
+ * A page whose `access` requires a session or a role never builds the feed,
+ * even for a signed-in reader: `/feed.xml` is one publicly cached document
+ * per application, so it must never depend on who asks for it.
  *
  * "First match wins" mirrors the sitemap behaviour: a single feed per
  * application keeps the URL stable (`/feed.xml`) and matches reader
@@ -436,5 +442,7 @@ export function buildMarkdownRssItems(input: BuildMarkdownRssItemsInput): readon
  */
 export function findRssPage(app: App): Page | undefined {
   if (!app.pages) return undefined
-  return app.pages.find((page) => page.rss !== undefined && page.rss !== false)
+  return app.pages.find(
+    (page) => page.rss !== undefined && page.rss !== false && isPublicPage(page)
+  )
 }

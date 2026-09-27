@@ -18,6 +18,8 @@ Seven field types store dates, times, durations and system-managed audit timesta
 
 Calendar dates, optionally carrying a time component.
 
+A date is shown in the page's language and on its own calendar day for every reader, whatever their time zone.
+
 <!-- sovrium:options DateFieldSchema -->
 
 ```yaml

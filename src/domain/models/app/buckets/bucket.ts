@@ -50,8 +50,11 @@ export type BucketName = Schema.Schema.Type<typeof BucketNameSchema>
  * Defines a named storage bucket with optional public/private toggle,
  * file constraints, and per-bucket permissions.
  *
- * Buckets are mapped to path prefixes inside the S3 bucket configured
- * via the `STORAGE_S3_BUCKET` env var (e.g., `s3://my-app-files/avatars/`).
+ * A bucket is a declaration, not a storage location. Every bucket shares the
+ * one backend the environment resolves (S3, local disk or the database), and
+ * storage keys are flat: they carry no bucket prefix. What binds a stored file
+ * to its bucket is the bucket recorded beside it, which is what the bucket's
+ * permissions are checked against on every read and delete.
  *
  * @example
  * ```yaml
@@ -78,7 +81,7 @@ export type BucketName = Schema.Schema.Type<typeof BucketNameSchema>
  * ```
  */
 export const BucketSchema = Schema.Struct({
-  /** Unique bucket name (kebab-case, used as storage path prefix) */
+  /** Unique bucket name (kebab-case). `system` is reserved for the built-in System Bucket. */
   name: BucketNameSchema,
 
   /** Whether files in this bucket are publicly accessible without authentication.
@@ -129,7 +132,7 @@ export const BucketSchema = Schema.Struct({
     identifier: 'Bucket',
     title: 'Bucket',
     description:
-      'Named storage bucket with optional public/private toggle, file constraints, and permissions. Buckets are path prefixes inside the S3 bucket configured via STORAGE_S3_BUCKET env var.',
+      'Named storage bucket with optional public/private toggle, file constraints, and permissions. Every bucket shares the one storage backend the environment configures; the bucket is recorded beside each file rather than encoded in its path.',
     examples: [
       {
         name: 'avatars',
@@ -157,13 +160,27 @@ export type Bucket = Schema.Schema.Type<typeof BucketSchema>
 // ---------------------------------------------------------------------------
 
 /**
+ * The name of the built-in System Bucket.
+ *
+ * Kept local to the schema on purpose: the runtime identity module owns the
+ * constant the resolvers read, and the schema only needs to know which single
+ * name it refuses. `default`, the bucket's former name, is an ordinary bucket
+ * name again.
+ */
+const RESERVED_SYSTEM_BUCKET_NAME = 'system'
+
+/**
  * Buckets Schema
  *
  * Array of named storage buckets. Validates:
  * - Bucket names are unique
+ * - No bucket is named `system`, which is reserved for the built-in System Bucket
  *
- * When omitted from the app schema, an implicit 'default' bucket is used
- * at runtime with `public: false` and standard permission defaults.
+ * Every app has the built-in System Bucket whether or not it declares any:
+ * it is where attachment fields that name no `bucket:` store their files, and
+ * the console lists it first as the view of every file linked to a record,
+ * whichever bucket holds it. It is never declared, so a declaration named
+ * `system` is refused rather than allowed to shadow it.
  *
  * @example
  * ```yaml
@@ -186,11 +203,17 @@ export const BucketsSchema = Schema.Array(BucketSchema)
   // never reaches the published JSON Schema, because the filter emits no node.
   .annotate({
     description:
-      'Places uploaded files are kept, each with its own name, permissions, size and type limits, and public or private access.',
+      'Places uploaded files are kept, each with its own name, permissions, size and type limits, and public or private access. Every app also has the built-in `system` bucket, which it does not declare: attachment fields that name no bucket store their files there, and the console lists it first as the view of every file linked to a record. The name `system` is therefore reserved.',
   })
   .pipe(
     Schema.check(
       Schema.makeFilter((buckets) => {
+        // The built-in System Bucket is never declared: a declaration named
+        // `system` would shadow it, so the name is refused outright.
+        if (buckets.some((b) => b.name === RESERVED_SYSTEM_BUCKET_NAME)) {
+          return `Bucket name '${RESERVED_SYSTEM_BUCKET_NAME}' is reserved for the built-in System Bucket every app carries. Rename this bucket.`
+        }
+
         // Check for duplicate bucket names
         const names = buckets.map((b) => b.name)
         const uniqueNames = new Set(names)

@@ -70,7 +70,7 @@ The single role check is the `userId` filter. If the actions recorded here are s
 
 ## Retention
 
-**Activity entries are retained for one year, then deleted.** A sweep runs daily at 03:15 UTC and physically removes every activity row whose `created_at` is older than one calendar year — the same boundary the record-history API uses to hide expired entries, so what you can no longer read is also what is no longer stored. The deletion is a real `DELETE`, not a `deleted_at` tombstone: an activity row's change set holds the before-and-after field values of the record it describes, and a tombstone would retain exactly the data the window says is gone.
+**Activity entries are retained for one year, then deleted.** A sweep runs daily at 03:15 in the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset) and physically removes every activity row whose `created_at` is older than one calendar year, counted on that zone's calendar — the same boundary the record-history API uses to hide expired entries, so what you can no longer read is also what is no longer stored. The deletion is a real `DELETE`, not a `deleted_at` tombstone: an activity row's change set holds the before-and-after field values of the record it describes, and a tombstone would retain exactly the data the window says is gone.
 
 Two neighbouring stores have deliberately different lifetimes:
 

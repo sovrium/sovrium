@@ -13,7 +13,10 @@ import {
   type ComponentMeta,
 } from '@/presentation/render/page/structured-data-from-component'
 import { useBreakpoint } from '@/presentation/render/props/use-breakpoint'
-import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
+import {
+  expandedReferenceOf,
+  isComponentReferenceNode,
+} from '@/presentation/render/resolve/component-reference'
 import { resolveI18nContent } from '../i18n/i18n-content-resolver'
 import {
   resolveChildTranslation,
@@ -582,11 +585,25 @@ export function ComponentRenderer(props: ComponentRendererProps): Readonly<React
     )
   }
 
-  // Direct component rendering
+  // Direct component rendering. A reference the page pipeline already inlined
+  // (`component-reference-expansion.ts`) is still NAMED by its template, exactly
+  // as `renderComponentReference` names the component it resolves — and, like
+  // it, carries no `childIndex`.
   return (
     <RenderDirectComponent
       component={component as Component}
-      props={props}
+      props={namedByExpandedReference(props)}
     />
   )
+}
+
+/** The renderer props, named by the template an inlined reference came from. */
+function namedByExpandedReference(props: ComponentRendererProps): ComponentRendererProps {
+  const expanded = expandedReferenceOf(props.component)
+  if (expanded === undefined) return props
+  return {
+    ...props,
+    componentName: props.componentName ?? expanded.name,
+    childIndex: undefined,
+  }
 }

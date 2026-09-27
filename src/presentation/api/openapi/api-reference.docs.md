@@ -8,6 +8,8 @@ The API surface is still evolving and endpoints may change before v1.0.
 
 All paths are relative to your instance's base URL, under `/api`.
 
+The OpenAPI document an instance serves names your app in `info`: its `title`, `description` and `version` are the app's own, and the Sovrium release the server runs is readable as `info.x-sovrium-version`.
+
 ## Authenticating
 
 Authentication is session-based. A request touching a protected resource carries one of exactly **two** credential forms.

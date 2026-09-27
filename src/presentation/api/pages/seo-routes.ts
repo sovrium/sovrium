@@ -7,6 +7,7 @@
 
 import { type Context, type Hono } from 'hono'
 import {
+  generateSitemapChildContent,
   generateSitemapContent,
   generateRobotsContent,
   generateLlmsTxtContent,
@@ -14,6 +15,7 @@ import {
   type HreflangConfig,
 } from '@/application/use-cases/server/static-content-generators'
 import { resolveRequestBaseUrl } from '../../../domain/kernel/url/request-base-url'
+import type { FetchSitemapRecords } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -105,6 +107,83 @@ const respondWithLlmsFull = async (
   return c.body(body, 200, { 'Content-Type': 'text/plain; charset=utf-8' })
 }
 
+/** How long a computed sitemap document is served before it is rebuilt. */
+const SITEMAP_CACHE_TTL_MS = 60_000
+
+/**
+ * Most cached documents per app. The key carries the request's origin, which a
+ * caller controls through `Host`, so the memo is cleared rather than allowed to
+ * grow when an unusual number of origins appear.
+ */
+const SITEMAP_CACHE_MAX_ENTRIES = 32
+
+/**
+ * A per-app memo of computed sitemap documents, keyed by origin and child
+ * index. Each app build (a boot, or a config reload) creates its own, so a
+ * cached document never outlives the configuration it was computed from.
+ */
+const createSitemapCache = () => {
+  const entries = new Map<
+    string,
+    { readonly expiresAt: number; readonly xml: string | undefined }
+  >()
+  return async (
+    key: string,
+    compute: () => Promise<string | undefined>
+  ): Promise<string | undefined> => {
+    const now = Date.now()
+    const hit = entries.get(key)
+    if (hit !== undefined && hit.expiresAt > now) return hit.xml
+    const xml = await compute()
+    // eslint-disable-next-line functional/immutable-data -- the memo's own store, bounded below
+    if (entries.size >= SITEMAP_CACHE_MAX_ENTRIES) entries.clear()
+    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- the memo's own store
+    entries.set(key, { expiresAt: now + SITEMAP_CACHE_TTL_MS, xml })
+    return xml
+  }
+}
+
+/**
+ * `/sitemap.xml`, and the `/sitemap-N.xml` children an app past 5 000 URLs is
+ * split into. The regex keeps the child route from claiming any other root
+ * file; an index out of range, or any child of an app that fits in one
+ * `/sitemap.xml`, answers 404.
+ *
+ * Both are served from {@link createSitemapCache} for {@link SITEMAP_CACHE_TTL_MS}:
+ * the record fan-out reads the database, and an anonymous request must not be
+ * able to trigger that read on every hit.
+ */
+const setupSitemapRoutes = (
+  honoApp: Readonly<Hono>,
+  app: App,
+  fetchSitemapRecords: FetchSitemapRecords | undefined
+): Readonly<Hono> => {
+  const pages = app.pages ?? []
+  const sitemapOptions = {
+    ...buildLanguageOptions(app),
+    app,
+    ...(fetchSitemapRecords !== undefined ? { fetchRecords: fetchSitemapRecords } : {}),
+  }
+  const cached = createSitemapCache()
+  const xmlHeaders = { 'Content-Type': 'application/xml; charset=utf-8' }
+  return honoApp
+    .get('/sitemap.xml', async (c) => {
+      const baseUrl = resolveRequestBaseUrl(c)
+      const xml = await cached(`${baseUrl}#0`, () =>
+        generateSitemapContent(pages, baseUrl, sitemapOptions)
+      )
+      return c.body(xml ?? '', 200, xmlHeaders)
+    })
+    .get('/:file{sitemap-[0-9]+\\.xml}', async (c) => {
+      const index = Number(/\d+/.exec(c.req.param('file'))?.[0] ?? '0')
+      const baseUrl = resolveRequestBaseUrl(c)
+      const xml = await cached(`${baseUrl}#${String(index)}`, () =>
+        generateSitemapChildContent(pages, baseUrl, index, sitemapOptions)
+      )
+      return xml === undefined ? c.notFound() : c.body(xml, 200, xmlHeaders)
+    })
+}
+
 /**
  * Setup live SEO routes (`/sitemap.xml`, `/robots.txt`, `/llms.txt`,
  * `/llms-full.txt`) for server mode.
@@ -132,25 +211,19 @@ const respondWithLlmsFull = async (
  * @param app - Application configuration
  * @returns Hono app with the SEO routes configured
  */
-export function setupSeoRoutes(honoApp: Readonly<Hono>, app: App): Readonly<Hono> {
+export function setupSeoRoutes(
+  honoApp: Readonly<Hono>,
+  app: App,
+  fetchSitemapRecords?: FetchSitemapRecords
+): Readonly<Hono> {
   const pages = app.pages ?? []
-
-  const withSeo = honoApp
-    .get('/sitemap.xml', async (c) => {
-      const baseUrl = resolveRequestBaseUrl(c)
-      const languageOptions = buildLanguageOptions(app)
-      const xml = await generateSitemapContent(pages, baseUrl, languageOptions)
-      return c.body(xml, 200, {
-        'Content-Type': 'application/xml; charset=utf-8',
-      })
+  const withSeo = setupSitemapRoutes(honoApp, app, fetchSitemapRecords).get('/robots.txt', (c) => {
+    const baseUrl = resolveRequestBaseUrl(c)
+    const body = generateRobotsContent(pages, baseUrl, true)
+    return c.body(body, 200, {
+      'Content-Type': 'text/plain; charset=utf-8',
     })
-    .get('/robots.txt', (c) => {
-      const baseUrl = resolveRequestBaseUrl(c)
-      const body = generateRobotsContent(pages, baseUrl, true)
-      return c.body(body, 200, {
-        'Content-Type': 'text/plain; charset=utf-8',
-      })
-    })
+  })
 
   if (!isLlmsEnabled(app)) return withSeo
 

@@ -82,11 +82,30 @@ const unreadableMessage = (keyFilePath: string, cause: unknown): string =>
   `Fix the file's permissions, or set ${ROOT_SECRET_ENV_VAR} to supply the key directly.`
 
 /**
+ * Classify a failure to read the key file.
+ *
+ * `absent` means no key can exist at that path, so generating one orphans
+ * nothing: `ENOENT` (the file, or a directory above it, is missing) and
+ * `ENOTDIR` (a component of the path is a regular FILE, so the data directory
+ * itself cannot exist). Both then fall through to {@link generateAndPersist},
+ * whose failure names the path and says it cannot be written — the message an
+ * operator can act on, instead of claiming a key was found.
+ *
+ * Every other errno — `EACCES` on a key owned by another uid, `EISDIR` where a
+ * directory shadows the key, `EIO` on failing storage — is `unreadable`: a key
+ * may well be there, and must not be replaced.
+ */
+export const classifyKeyReadError = (cause: unknown): 'absent' | 'unreadable' => {
+  const code = (cause as NodeJS.ErrnoException | undefined)?.code
+  return code === 'ENOENT' || code === 'ENOTDIR' ? 'absent' : 'unreadable'
+}
+
+/**
  * Read a persisted root secret, or `undefined` when there is none to read.
  *
- * ONLY "the file is not there" counts as absent. Every other failure — EACCES on
- * a key owned by another uid, EIO on failing storage, EISDIR where a directory
- * shadows the path — THROWS.
+ * ONLY "no key can be there" counts as absent ({@link classifyKeyReadError}).
+ * Every other failure — EACCES on a key owned by another uid, EIO on failing
+ * storage, EISDIR where a directory shadows the path — THROWS.
  *
  * That distinction is the entire job of this function, and it used to be a bare
  * `catch { return undefined }`. Returning `undefined` here does not mean "no
@@ -109,7 +128,7 @@ const readPersistedSecret = (keyFilePath: string): string | undefined => {
     const contents = readFileSync(keyFilePath, 'utf-8').trim()
     return contents.length > 0 ? contents : undefined
   } catch (cause) {
-    if ((cause as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    if (classifyKeyReadError(cause) === 'absent') return undefined
     // eslint-disable-next-line functional/no-throw-statements -- fail-loud: generating a replacement key would silently orphan every secret encrypted under the unreadable one
     throw new Error(unreadableMessage(keyFilePath, cause))
   }

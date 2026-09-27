@@ -6,7 +6,10 @@
  */
 
 import { createElement, type ReactNode } from 'react'
-import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  substituteRecordVars,
+  withDisplayLabels,
+} from '@/domain/models/app/pages/substitute-record-vars'
 import type { TableRecord } from '../runtime/types'
 
 /**
@@ -43,6 +46,10 @@ export function safeChildProps(rawProps: unknown): { readonly className?: string
  * needs it to be nothing. That divergence is closed: the shared helper now maps
  * `null` and `undefined` alike to the empty string, so the work-around is a
  * re-export and a card also gains the `|` fallback chain for free.
+ *
+ * This is the ADDRESS-site spelling — `onClick` paths and `coverImage` URLs —
+ * so a relationship keeps its stored key here. The card's text goes through
+ * {@link renderCardChild}, which substitutes against the labelled record.
  */
 export function substitute(text: string, record: TableRecord): string {
   return substituteRecordVars(text, record)
@@ -68,7 +75,8 @@ export function renderCardChild(
   const elementName = typeof child['element'] === 'string' ? child['element'] : 'span'
   const tag = ALLOWED_CARD_ELEMENTS.has(elementName) ? elementName : 'span'
   const rawContent = typeof child['content'] === 'string' ? child['content'] : ''
-  const text = substitute(rawContent, record)
+  // A TEXT site: a relationship prints its `displayField` label, not its key.
+  const text = substitute(rawContent, withDisplayLabels(record))
   if (text === '') return undefined
   const props = safeChildProps(child['props'])
   return createElement(tag, { key: `child-${String(index)}`, ...props }, text)

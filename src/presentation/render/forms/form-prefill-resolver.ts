@@ -26,6 +26,8 @@
  * union-fallback semantics.
  */
 
+import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
+
 type PrefillValue = string | number | boolean | readonly string[] | readonly number[]
 
 /**
@@ -36,6 +38,13 @@ type PrefillValue = string | number | boolean | readonly string[] | readonly num
 export interface FormPrefillContext {
   readonly query: Readonly<Record<string, string>>
   readonly user?: Readonly<Record<string, unknown>>
+  /**
+   * The choices read from tables for this request (`resolveFormOptionSources`),
+   * keyed by field submit identifier. Not a prefill, but the same kind of
+   * thing: a fact about THIS request the config cannot state, handed to the
+   * render alongside the query and the visitor.
+   */
+  readonly optionSets?: FormOptionSets
 }
 
 function resolveReference(value: string, ctx: FormPrefillContext): PrefillValue | undefined {

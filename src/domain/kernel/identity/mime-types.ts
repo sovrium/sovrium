@@ -91,6 +91,33 @@ export const inferMimeFromKey = (key: string): string => {
 }
 
 /**
+ * Legacy and vendor spellings browsers still report for audio, mapped to the
+ * registered type the MIME table above uses. Chromium announces a picked
+ * `.m4a` as `audio/x-m4a` and Firefox a `.wav` as `audio/x-wav`; storing those
+ * verbatim would make the same recording `audio/mp4` on one browser and
+ * `audio/x-m4a` on another.
+ */
+const MIME_TYPE_ALIASES: Readonly<Record<string, string>> = {
+  'audio/x-m4a': 'audio/mp4',
+  'audio/m4a': 'audio/mp4',
+  'audio/x-wav': 'audio/wav',
+  'audio/wave': 'audio/wav',
+  'audio/vnd.wave': 'audio/wav',
+  'audio/x-flac': 'audio/flac',
+  'audio/mp3': 'audio/mpeg',
+}
+
+/**
+ * The canonical spelling of a client-reported MIME type: lower-cased, stripped
+ * of parameters (`audio/webm;codecs=opus` → `audio/webm`), and folded from a
+ * known alias to its registered type. An empty input stays empty.
+ */
+export const canonicalMimeType = (reported: string): string => {
+  const bare = (reported.split(';')[0] ?? '').trim().toLowerCase()
+  return MIME_TYPE_ALIASES[bare] ?? bare
+}
+
+/**
  * True when the storage key names an image file (by filename extension).
  *
  * Used to reject on-the-fly transform requests against non-image files

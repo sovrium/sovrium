@@ -41,6 +41,7 @@
 import { Effect } from 'effect'
 import { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
 import { parseDuration } from '@/domain/kernel/time/parse-duration'
+import { toApproverList } from '@/domain/models/app/automations/actions/approval/approver-validation'
 import { logError } from '@/infrastructure/logging/logger'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
@@ -61,6 +62,7 @@ const insertApprovalRequest = (input: {
   readonly expiresAt: Date | undefined
   readonly runId: string | undefined
   readonly stepIndex: number
+  readonly approvers: 'all-admins' | readonly string[] | undefined
 }): Effect.Effect<void, never, AutomationApprovalRepository> =>
   Effect.gen(function* () {
     const repo = yield* AutomationApprovalRepository
@@ -115,6 +117,9 @@ export const handleApprovalRequest: ActionHandler = (action, _app, automation, r
       expiresAt,
       runId: automation.runId,
       stepIndex: runContext?.stepIndex ?? 0,
+      // Persisted as rendered for THIS run, so the resolution gate checks the
+      // caller against who this run named; omitted stays null (all-admins).
+      approvers: props['approvers'] === undefined ? undefined : toApproverList(props['approvers']),
     })
 
     return {

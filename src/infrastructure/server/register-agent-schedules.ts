@@ -60,6 +60,7 @@
 import { Data, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
 import { logError } from '@/infrastructure/logging/logger'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { DomainContext, DomainServices } from '@/infrastructure/server/domain-runtime'
@@ -181,7 +182,7 @@ export const registerAgentSchedules = (
           agent,
           {
             cron: agent.schedule?.cron ?? '',
-            timezone: agent.schedule?.timezone ?? 'UTC',
+            timezone: agent.schedule?.timezone ?? resolveOperatorTimezone(),
           },
           { fire, services }
         ),

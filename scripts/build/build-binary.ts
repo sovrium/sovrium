@@ -30,7 +30,12 @@ import * as Layer from 'effect/Layer'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { CommandServiceLive, spawn } from '../lib/effect/command-service'
 import { writeBinaryBuildStamp } from './binary-build-stamp'
+import {
+  changelogPayloadPaths,
+  verifyCommittedChangelogPayload,
+} from './generate-embedded-changelog'
 import { STORY_ROOTS, docsPayloadPaths, storyCorpusRootsPresent } from './generate-embedded-docs'
+import { skillsPayloadPaths } from './generate-embedded-skills'
 import type { CommandService } from '../lib/effect/command-service'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
@@ -309,6 +314,90 @@ const compileBinary = (
 export const DOCS_MANIFEST_MIN_BYTES = 8000
 export const DOCS_BEHAVIOUR_MIN_BYTES = 32_000
 
+/**
+ * Two floors on the Agent Skills payload ([internal ref] A2), for the same reason as
+ * the manual's: a generator that collected nothing writes a header and an
+ * empty literal (~600 bytes), and "the module parsed" stays green over a binary
+ * whose `sovrium skills` writes nothing.
+ *
+ * The count cannot be read off `LAYER_CHILDREN.skills` here — `[internal ref]` is an
+ * excluded path in the public mirror this build also runs from — so it is a
+ * floor, and `build-binary.test.ts` holds it at or under the declared list.
+ * The generator's own test holds the payload to that list exactly.
+ */
+export const SKILLS_MANIFEST_MIN_BYTES = 2000
+export const SKILLS_MIN_COUNT = 5
+
+/**
+ * Assert the freshly generated skills payload holds at least
+ * {@link SKILLS_MIN_COUNT} skills, each with its `SKILL.md`, and that every
+ * file it embeds is on disk — the manual's three checks, applied to the skills.
+ */
+export const verifyEmbeddedSkillsPayload = (
+  root: string
+): Effect.Effect<{ readonly skills: number; readonly files: number }, BuildBinaryError> =>
+  Effect.gen(function* () {
+    const { manifest } = skillsPayloadPaths(root)
+    if (!existsSync(manifest) || statSync(manifest).size < SKILLS_MANIFEST_MIN_BYTES) {
+      return yield* new BuildBinaryError({
+        message:
+          `Skills payload missing or under the ${formatSize(SKILLS_MANIFEST_MIN_BYTES)} floor: ` +
+          'embedded-skills.generated.ts. The binary would ship no Agent Skills.',
+      })
+    }
+    const files = [
+      ...readFileSync(manifest, 'utf8').matchAll(
+        /^import _s\d+ from '\.\.\/\.\.\/\.\.\/(.+?)' with \{ type: 'file' \}$/gm
+      ),
+    ]
+      .map((match) => match[1])
+      .filter((path): path is string => path !== undefined)
+    const missing = files.filter((path) => !existsSync(join(root, path)))
+    const skills = files.filter((path) => path.endsWith('/SKILL.md')).length
+    if (missing.length > 0 || skills < SKILLS_MIN_COUNT) {
+      return yield* new BuildBinaryError({
+        message:
+          `Skills payload is short: ${skills} SKILL.md of at least ${SKILLS_MIN_COUNT}, and ` +
+          `${missing.length} embedded file(s) not on disk${missing.length > 0 ? ` (${missing.slice(0, 5).join(', ')})` : ''}.`,
+      })
+    }
+    return { skills, files: files.length }
+  })
+
+/**
+ * Check the embedded release notes (`sovrium changelog`) against the version
+ * being built.
+ *
+ * Two trees, two sources of trust, one invariant. Where `CHANGELOG.public.md`
+ * exists (a checkout, the [internal ref] release job) the build runs the generator's
+ * `--check` first, so a payload that no longer matches its source fails here
+ * rather than shipping. Where it does not — the public mirror, which publishes
+ * that file under the name `CHANGELOG.md` — the COMMITTED payload is the input,
+ * for the reason the manual gives in {@link planDocsPayload}: it is the same
+ * bytes a green `Generated Assets Drift` verified, and the mirror asserts it
+ * equals the changelog it publishes. The internal `CHANGELOG.md` is never read
+ * in either tree.
+ *
+ * In both, the payload must decode, clear the release floor, and carry an entry
+ * for `version`: a binary that cannot print its own release notes is the one
+ * failure `sovrium changelog` exists to prevent.
+ */
+export const verifyChangelogPayload = (
+  root: string,
+  version: string
+): Effect.Effect<number, BuildBinaryError> =>
+  Effect.try({
+    try: () =>
+      verifyCommittedChangelogPayload(
+        readFileSync(changelogPayloadPaths(root).payload, 'utf8'),
+        version
+      ).length,
+    catch: (cause) =>
+      new BuildBinaryError({
+        message: `Embedded changelog payload rejected: ${cause instanceof Error ? cause.message : String(cause)}`,
+      }),
+  })
+
 /** What the build decided to do about the manual, and why. */
 export type DocsPayloadPlan =
   { readonly _tag: 'Regenerate' } | { readonly _tag: 'UseCommitted'; readonly reason: string }
@@ -570,6 +659,34 @@ const main: Effect.Effect<void, BuildBinaryError, CommandService> = Effect.gen(f
         `${payload.articles} article(s)`
     )
   }
+
+  // The Agent Skills ([internal ref] A2), beside the manual and for the same reason it
+  // runs late: it writes a `src/` file. Unlike the manual it always regenerates
+  // — its only input is `src/skills/`, which the public mirror carries.
+  yield* run(
+    ['bun', 'run', 'scripts/build/generate-embedded-skills.ts'],
+    'Generate embedded Agent Skills payload',
+    CODEGEN_TIMEOUT_MS
+  )
+  const skillsPayload = yield* verifyEmbeddedSkillsPayload(PROJECT_ROOT)
+  console.log(`  ${skillsPayload.skills} skill(s), ${skillsPayload.files} file(s)`)
+
+  // The release notes (`sovrium changelog`). Checked, never regenerated here:
+  // the release job regenerates the payload before it commits the tag, and a
+  // build that rewrote it would hide a stale commit instead of failing on it.
+  const changelogSource = changelogPayloadPaths(PROJECT_ROOT).source
+  if (existsSync(changelogSource)) {
+    yield* run(
+      ['bun', 'run', 'scripts/build/generate-embedded-changelog.ts', '--check'],
+      'Check embedded changelog payload',
+      CODEGEN_TIMEOUT_MS
+    )
+  } else {
+    console.log('\nCheck embedded changelog payload')
+    console.log('  no CHANGELOG.public.md — this is the public mirror; using the committed payload')
+  }
+  const releaseCount = yield* verifyChangelogPayload(PROJECT_ROOT, version)
+  console.log(`  ${releaseCount} release(s), including ${version}`)
 
   // Compile each target
   for (const target of targets) {

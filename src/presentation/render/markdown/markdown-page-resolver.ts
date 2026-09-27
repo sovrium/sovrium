@@ -18,6 +18,7 @@ import { buildContentDirEditUrl } from '@/domain/models/app/pages/content-dir-ed
 import { matchesContentDirFilter } from '@/domain/models/app/pages/content-dir-filter'
 import { type ContentDirSeoMeta } from '@/domain/models/app/pages/content-dir-seo-meta'
 import { deriveContentDirSlugFromRouteParams } from '@/domain/models/app/pages/content-dir-slug'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { renderMarkdownToHtml } from '@/infrastructure/markdown/markdown-it-renderer'
 import { highlightCodeBlocks } from '@/infrastructure/markdown/shiki-highlighter'
 import {
@@ -449,12 +450,29 @@ const buildCollectionNav = async (
 }
 
 /**
+ * Whether a value is a bare calendar date rather than an instant: a
+ * `YYYY-MM-DD` string, or the UTC-midnight `Date` a YAML parser makes of one.
+ */
+const isCalendarDate = (input: string | Date, date: Readonly<Date>): boolean =>
+  typeof input === 'string'
+    ? /^\d{4}-\d{2}-\d{2}$/.test(input)
+    : date.getUTCHours() === 0 &&
+      date.getUTCMinutes() === 0 &&
+      date.getUTCSeconds() === 0 &&
+      date.getUTCMilliseconds() === 0
+
+/**
  * Format a date (ISO string or `Date`) as a human long-form stamp localized to
- * `lang` (e.g. `July 11, 2026` for `en`, `11 juillet 2026` for `fr`) using UTC
- * so the rendered value is deterministic across server timezones. Defaults to
- * English when no locale is active, and falls back to English on a malformed
+ * `lang` (e.g. `July 11, 2026` for `en`, `11 juillet 2026` for `fr`). Defaults
+ * to English when no locale is active, and falls back to English on a malformed
  * locale tag (a `RangeError` from `Intl.DateTimeFormat`). Returns `undefined`
  * for an unparseable input.
+ *
+ * An INSTANT (a file's modification time, a full timestamp) renders on the
+ * operator timezone's calendar (`SOVRIUM_TIMEZONE`, UTC when unset), never the
+ * host's. A bare calendar DATE renders as written, in UTC: it names a day, not
+ * a moment, and shifting it into a zone west of Greenwich would print the day
+ * before the author's.
  */
 const formatHumanDate = (input: string | Date, lang?: string): string | undefined => {
   const date = typeof input === 'string' ? new Date(input) : input
@@ -463,7 +481,7 @@ const formatHumanDate = (input: string | Date, lang?: string): string | undefine
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-    timeZone: 'UTC',
+    timeZone: isCalendarDate(input, date) ? 'UTC' : parseSovriumTimezone().zoneId,
   }
   try {
     return new Intl.DateTimeFormat(lang ?? 'en', options).format(date)

@@ -155,6 +155,8 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
       const userRows = await executeRawTyped<AccountUserRow>(
         db,
         sql`SELECT id, email, name, image, language, email_verified AS "emailVerified",
+                   notify_automation_alerts AS "notifyAutomationAlerts",
+                   notify_weekly_digest AS "notifyWeeklyDigest",
                    role, created_at AS "createdAt", updated_at AS "updatedAt"
             FROM ${authTableRef('user')} WHERE id = ${userId}`
       )

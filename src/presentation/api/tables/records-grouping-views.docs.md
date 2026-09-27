@@ -71,7 +71,9 @@ Explicit parameters interact with the view differently depending on which one th
 | `fields`  | The view's field configuration is **ignored** on this endpoint            |
 | `groupBy` | The view's grouping is **ignored** on this endpoint                       |
 
-**`?view=` applies filters and sorts only.** A view's `fields` and `groupBy` are honoured by the dedicated view endpoint, `GET /api/tables/:tableId/views/:viewId/records`, not by the records list. Call that endpoint when the whole view configuration should apply.
+**`?view=` applies filters and sorts only.** A view's `fields` are honoured by the dedicated view endpoint, `GET /api/tables/:tableId/views/:viewId/records`, not by the records list. Call that endpoint when the view's column list should apply. **Neither endpoint applies a view's `groupBy`**, and the view endpoint accepts no `groupBy` or `aggregate` parameter: it answers rows and a `pagination` envelope, never `groups` or `aggregations`. For grouped figures, call the records list with `?view=` and an explicit `groupBy`.
+
+`GET /api/tables/:t/views/:v/records` accepts `page`, `limit`, `sort`, `q` and a `filter` that only narrows the view's own; `fields` is intersected with the view's list. It needs no session when the view is public. The view is named by its id or its name, the answer carries the same `pagination` envelope as the records list, deleted rows are never included whatever `deleted` or `includeDeleted` say, and a `filter`, `sort` or search on a column the view does not list is refused or skipped rather than answered.
 
 ## Reaching deleted rows
 

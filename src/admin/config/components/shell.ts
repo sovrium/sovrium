@@ -92,6 +92,12 @@ export interface ShellOptions {
    */
   readonly breadcrumb?: Readonly<Record<string, string>>
   /**
+   * Path segments of that trail to keep as TEXT — a prefix that answers no
+   * page (`/automations/runs` under a run's own page), which would otherwise
+   * be a crumb linking to a 404. Named by the URL segment, not its label.
+   */
+  readonly breadcrumbUnlinked?: readonly string[]
+  /**
    * Section-level controls drawn at the far right of the chrome bar.
    *
    * The ONE slot a surface gets in the shell's own bar, and it is right-aligned
@@ -324,6 +330,9 @@ const chrome = (options: ShellOptions): PageComponent =>
         derive: 'path',
         home: { label: '$app.label' },
         ...(options.breadcrumb !== undefined ? { labels: options.breadcrumb } : {}),
+        ...(options.breadcrumbUnlinked !== undefined
+          ? { unlinked: options.breadcrumbUnlinked }
+          : {}),
         // ─── THE TRAIL IS ONE ROW, AND THE APP NAME IS WHAT GIVES WAY ───────
         //
         // The bar declares `min-h-12`, and a `min-h` floor is pushed past by

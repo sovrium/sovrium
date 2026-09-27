@@ -9,9 +9,11 @@ import { Effect } from 'effect'
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { isRecordReadOnly } from '@/domain/models/app/tables/field-condition-evaluator-service'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
+import { provideDomain } from '@/infrastructure/logging/request-effect'
 import {
   createValidationLayer,
   sanitizeRichTextFields,
+  validateAttachmentReferences,
   validateFieldFormats,
   validateMultiSelectOptions,
   validateMultiSelectSelectionLimits,
@@ -19,7 +21,11 @@ import {
 } from '@/presentation/api/tables/validation'
 import type { App, Table } from '@/domain/models/app'
 import type { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import type { FieldFormatError, FieldValidationError } from '@/presentation/api/tables/validation'
+import type {
+  FieldFormatError,
+  FieldStorageError,
+  FieldValidationError,
+} from '@/presentation/api/tables/validation'
 import type { Context } from 'hono'
 
 /** Input for {@link checkFieldConditionReadOnly}. */
@@ -223,11 +229,50 @@ async function validateUpdateRelationshipLinks(
   return outcome._tag === 'Failure' ? outcome.failure : undefined
 }
 
+/** The request and payload a per-value update rule is evaluated against. */
+export interface UpdateValueCheck {
+  readonly c: Context
+  readonly app: App
+  readonly tableName: string
+  readonly userRole: string
+  readonly fields: Record<string, unknown>
+}
+
+/**
+ * Reject an update whose attachment columns reference a file outside the
+ * column's bucket or outside the writer's download reach.
+ *
+ * The SAME rule as the create path (`record-rules.ts` step 9), for the reason
+ * every guard in this file exists: `PATCH` does not traverse
+ * `validateRecordCreation`, so a rule enforced on create alone would let a
+ * caller create a clean row and then PATCH the foreign key onto it. Unlike its
+ * siblings it needs the storage catalog, so it runs on the request's domain
+ * runtime rather than a bare `Effect.runPromise`.
+ *
+ * Only columns the payload SUPPLIES are inspected, so a row already holding a
+ * seeded reference stays editable through its other columns.
+ */
+export async function validateUpdateAttachmentReferences(
+  input: Readonly<UpdateValueCheck>
+): Promise<FieldValidationError | FieldStorageError | undefined> {
+  const { c, app, tableName, userRole, fields } = input
+  const outcome = await Effect.runPromise(
+    provideDomain(
+      c,
+      validateAttachmentReferences(fields).pipe(
+        Effect.provide(createValidationLayer(app, tableName, userRole))
+      )
+    ).pipe(Effect.result)
+  )
+  return outcome._tag === 'Failure' ? outcome.failure : undefined
+}
+
 /**
  * Every per-VALUE rule the update path enforces, in create-path order: column
  * formats first, then `multi-select` membership, then `multi-select`
- * cardinality, then a `relationship` column's `maxLinked` cap. Returns the
- * first violation, or `undefined` when the update may proceed.
+ * cardinality, then a `relationship` column's `maxLinked` cap, then the
+ * attachment-reference confinement. Returns the first violation, or
+ * `undefined` when the update may proceed.
  *
  * Exposed as ONE call so the route handler cannot acquire a new value rule
  * without acquiring its update-path enforcement at the same time — which is the
@@ -235,16 +280,16 @@ async function validateUpdateRelationshipLinks(
  * once, `multi-select` again).
  */
 export async function validateUpdateFieldValues(
-  app: App,
-  tableName: string,
-  userRole: string,
-  fields: Record<string, unknown>
-): Promise<FieldFormatError | FieldValidationError | undefined> {
+  input: Readonly<UpdateValueCheck>
+): Promise<FieldFormatError | FieldValidationError | FieldStorageError | undefined> {
+  const { app, tableName, userRole, fields } = input
   const formatError = await validateUpdateFieldFormats(app, tableName, userRole, fields)
   if (formatError) return formatError
   const selectionError = await validateUpdateMultiSelectValues(app, tableName, userRole, fields)
   if (selectionError) return selectionError
-  return validateUpdateRelationshipLinks(app, tableName, userRole, fields)
+  const linkError = await validateUpdateRelationshipLinks(app, tableName, userRole, fields)
+  if (linkError) return linkError
+  return validateUpdateAttachmentReferences(input)
 }
 
 /**

@@ -43,6 +43,7 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     ui,
     queryClient,
     isSystemSource: params.dataSource.system !== undefined,
+    isViewBound: params.isViewBound === true,
     tableKey: params.dataSource.table ?? '',
   }
 

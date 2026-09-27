@@ -45,6 +45,10 @@ A leftover static token **refuses the boot** when the server is enabled. That is
 
 The role of the user behind the credential bounds everything downstream: a key owned by a viewer can only read and list, even against a table whose `aiAccess` allows writes. **`aiAccess` widens what is offered, never what is permitted.**
 
+Role permissions include the table's own `permissions`: `read` for the read and list tools, `create`, `update` and `delete` for the write tools. A tool called by a role the table does not admit is refused exactly as the records API refuses it — `Resource not found` — and nothing is read or written. Hiding a tool from `tools/list` is a convenience; this check is the gate, because a client can name any tool by hand.
+
+Every one of those checks — table permissions, field `read` and `write` grants, row-level scopes, a manual automation's `requiredRole` — sees the account's role exactly as the records API does, custom roles included; a table permission naming a `group:` is matched against the groups the account belongs to. A key owned by an `editor` is an `editor` to your tables, not a generic member.
+
 The practical consequence is that writing `aiAccess: true` on a table cannot over-expose it. The worst case is that a role sees, through a tool, exactly what it could already have fetched over the API.
 
 ## Audit

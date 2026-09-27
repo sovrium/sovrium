@@ -17,6 +17,7 @@ import {
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { resolvePageReader, type PageReaderResolver } from '@/presentation/api/search/page-reader'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -69,6 +70,13 @@ const MIN_QUERY_LENGTH = 2
 const CACHE_CONTROL = 'private, max-age=10'
 
 /**
+ * `Vary: Cookie` beside it: `private` keeps a shared cache out, and this keeps
+ * the browser's own cache from serving the answer given to the previous
+ * session of the same browser after a sign-out or a sign-in.
+ */
+const CACHE_HEADERS = { 'Cache-Control': CACHE_CONTROL, Vary: 'Cookie' } as const
+
+/**
  * Build the GET /api/command-search handler bound to the resolved app schema.
  */
 /**
@@ -78,10 +86,9 @@ const CACHE_CONTROL = 'private, max-age=10'
  * risk (see {@link RecordSearchScope}):
  *
  *  - no `auth` block            → unrestricted, as every other read surface;
- *  - auth, but no session       → PAGES ONLY. Not a 401: `apps/website` serves
- *    its public documentation search through this endpoint to anonymous
- *    readers, and page results are content the server already renders
- *    publicly. Records are simply out of scope;
+ *  - auth, but no session       → PAGES ONLY, and only the pages anyone may
+ *    open. Not a 401: a public documentation search is served through this
+ *    endpoint to anonymous readers. Records are simply out of scope;
  *  - a signed-in caller         → rows scoped by the composed read plan.
  *
  * The endpoint used to scan EVERY table's text columns for EVERY caller and
@@ -98,7 +105,7 @@ const resolveRecordScope = async (c: Context, app: App): Promise<RecordSearchSco
 }
 
 const buildSearchHandler =
-  (app: App) =>
+  (app: App, getSession: PageReaderResolver | undefined) =>
   async (c: Context): Promise<Response> => {
     const query = (c.req.query('q') ?? '').trim()
     // Below the selectivity floor the honest answer is `200 []`, NOT `400`: a
@@ -107,18 +114,24 @@ const buildSearchHandler =
     // wrong. This also covers the empty-query case it replaces. Checked BEFORE
     // the auth gate so a keystroke costs no session lookup.
     if (query.length < MIN_QUERY_LENGTH) {
-      return c.json([], 200, { 'Cache-Control': CACHE_CONTROL })
+      return c.json([], 200, CACHE_HEADERS)
     }
 
     const session = getSessionContext(c)
     const scope = await resolveRecordScope(c, app)
+    // The PAGE half answers for the reader the router would see: their page
+    // corpus is filtered by the same `checkPageAccess` it applies on a visit.
+    const pageReader = await resolvePageReader(c, app, getSession)
 
     const results = await runRequestEffect(
       c,
-      provideDomain(c, SearchCommandPalette(app, query, session?.userId, scope))
+      provideDomain(
+        c,
+        SearchCommandPalette(app, query, { userId: session?.userId, scope, pageReader })
+      )
     )
 
-    return c.json(results, 200, { 'Cache-Control': CACHE_CONTROL })
+    return c.json(results, 200, CACHE_HEADERS)
   }
 
 /**
@@ -130,6 +143,10 @@ const buildSearchHandler =
  * half of the scan is scoped by the caller's read permissions, and is skipped
  * entirely for an anonymous caller. See `resolveRecordScope`.
  */
-export function chainCommandSearchRoutes<T extends Hono>(honoApp: T, app: App): T {
-  return honoApp.get('/api/command-search', buildSearchHandler(app)) as T
+export function chainCommandSearchRoutes<T extends Hono>(
+  honoApp: T,
+  app: App,
+  getSession?: PageReaderResolver
+): T {
+  return honoApp.get('/api/command-search', buildSearchHandler(app, getSession)) as T
 }

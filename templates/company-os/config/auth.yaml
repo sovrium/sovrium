@@ -1,6 +1,16 @@
-# Email + password auth. First registered user becomes admin (Better Auth
-# firstUserAdmin); subsequent sign-ups get the default `member` role.
-allowSignUp: true
+# Email and password sign-in, closed to strangers.
+#
+# This app holds a company's clients, deals and people, so nobody signs
+# themselves up: the first administrator comes from `AUTH_ADMIN_EMAIL` /
+# `AUTH_ADMIN_PASSWORD` on the first start (see `.env.example`), and everyone
+# else is added by an admin with `sovrium admin create <email>`. The demo
+# accounts come from `seed/users.yaml`.
+#
+# Two roles cover a small company: `member` for someone on the team, who reads
+# every module and creates or edits records, and `admin` for whoever runs
+# operations, who may also delete them and decides on time off. Each table's
+# `permissions` block says which is which.
+allowSignUp: false
 defaultRole: member
 strategies:
   - type: emailAndPassword

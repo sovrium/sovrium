@@ -40,10 +40,12 @@ const runActorOverlay = (userId: string | undefined): { readonly triggeredByUser
  * the async webhook must return a runId that the cancel endpoint can find
  * via {@link AutomationRunRepository.findById}).
  *
- * The row is inserted with `startedAt` set to the trigger time but
- * `completedAt`/`durationMs`/`steps` left undefined — the scheduler
- * transitions the row to `'running'`, then to a terminal status, via
- * subsequent `updateStatus` calls. Step rows are persisted only at
+ * The row is inserted with no `startedAt`: `createdAt` records when it was
+ * queued, and {@link markRunRunning} writes `startedAt` when the scheduler
+ * admits it, so `durationMs` measures active execution and never the wait for
+ * a concurrency slot. `completedAt`/`durationMs`/`steps` are left undefined —
+ * the scheduler transitions the row to `'running'`, then to a terminal status,
+ * via subsequent `updateStatus` calls. Step rows are persisted only at
  * finalisation time so the loop output (input/output, status, durationMs)
  * is captured atomically.
  *
@@ -58,7 +60,6 @@ const runActorOverlay = (userId: string | undefined): { readonly triggeredByUser
 export const persistQueuedRun = (input: {
   readonly automationId: string
   readonly triggerData: TriggerData
-  readonly startedAt: Date
   readonly userId: string | undefined
 }): Effect.Effect<string | undefined, never, AutomationRunRepository> =>
   Effect.gen(function* () {
@@ -68,7 +69,6 @@ export const persistQueuedRun = (input: {
         automationId: input.automationId,
         status: 'queued',
         triggerData: input.triggerData as unknown,
-        startedAt: input.startedAt,
         ...runActorOverlay(input.userId),
       })
     )
@@ -80,16 +80,20 @@ export const persistQueuedRun = (input: {
   }).pipe(Effect.withSpan('automations.persist-queued-run'))
 
 /**
- * Promote a persisted `'queued'` row to `'running'`. Best-effort: a missing
- * row (e.g. cancellation while in queue) becomes a no-op so the scheduler
- * can short-circuit cleanly. Errors are swallowed.
+ * Promote a persisted `'queued'` row to `'running'` and stamp `startedAt` with
+ * the admission instant. Best-effort: a missing row (e.g. cancellation while in
+ * queue) becomes a no-op so the scheduler can short-circuit cleanly. Errors are
+ * logged and swallowed — a run must not fail because its status write did.
  */
 export const markRunRunning = (
-  runId: string
+  runId: string,
+  admittedAt: Readonly<Date>
 ): Effect.Effect<void, never, AutomationRunRepository> =>
   Effect.gen(function* () {
     const repo = yield* AutomationRunRepository
-    const result = yield* Effect.result(repo.updateStatus({ id: runId, status: 'running' }))
+    const result = yield* Effect.result(
+      repo.updateStatus({ id: runId, status: 'running', startedAt: admittedAt as Date })
+    )
     if (result._tag === 'Failure') {
       logError('[automation] failed to mark run as running', result.failure)
     }
@@ -127,6 +131,7 @@ const buildStepsInput = (
     status: toApiStepStatus(step.status),
     ...(step.props !== undefined ? { input: step.props as unknown } : {}),
     ...(step.output !== undefined ? { output: step.output as unknown } : {}),
+    ...(step.logs !== undefined ? { logs: step.logs } : {}),
     startedAt,
     completedAt: finishedAt,
     ...(step.error !== undefined ? { error: step.error } : {}),

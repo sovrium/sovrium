@@ -22,6 +22,7 @@ import { FormRenderers } from '@/infrastructure/layers/form-renderer-layer'
 import { resetBootState } from '@/infrastructure/server/middleware/boot-state-reset'
 import { applyEcoStack } from '@/infrastructure/server/middleware/eco-stack'
 import { chainActiveScopeRoutes } from '@/presentation/api/admin/active-scope-routes'
+import { chainNotificationTriggerRoutes } from '@/presentation/api/admin/notification-trigger-routes'
 import { chainUserDirectoryRoutes } from '@/presentation/api/admin/user-directory-routes'
 import { chainAgentApprovalRoutes } from '@/presentation/api/agents/approval-routes'
 import { chainAgentScheduleRoutes } from '@/presentation/api/agents/schedule-routes'
@@ -29,6 +30,7 @@ import { chainAiChatRoutes } from '@/presentation/api/ai/chat-routes'
 import { chainAiFactsRoutes } from '@/presentation/api/ai/facts-memory-routes'
 import { chainAiMcpStatusRoutes } from '@/presentation/api/ai/mcp-status-routes'
 import { chainRagRoutes } from '@/presentation/api/ai/rag-routes'
+import { chainAiTranscriptionRoutes } from '@/presentation/api/ai/transcription-routes'
 import { chainAnalyticsRoutes } from '@/presentation/api/analytics/routes'
 import { chainAccountRoutes } from '@/presentation/api/auth/account-routes'
 import { chainAuthRoutes } from '@/presentation/api/auth/routes'
@@ -39,6 +41,8 @@ import { chainFormRoutes } from '@/presentation/api/forms/routes'
 import { authMiddleware } from '@/presentation/api/middleware/auth'
 import { commandSearchRateLimitMiddleware } from '@/presentation/api/search/command-search-rate-limit'
 import { chainFavoriteRoutes } from '@/presentation/api/search/favorites-routes'
+import { type PageReaderResolver } from '@/presentation/api/search/page-reader'
+import { chainPageSearchRoutes } from '@/presentation/api/search/page-search-routes'
 import { chainRecentRoutes } from '@/presentation/api/search/recent-routes'
 import { chainCommandSearchRoutes } from '@/presentation/api/search/routes'
 import { chainActivityRoutes } from '@/presentation/api/tables/activity-feed-routes'
@@ -92,7 +96,10 @@ export const createApiRoutes = <T extends Hono>(
   // here, unconditionally, which loaded the Better Auth package on every boot
   // even though every use below sits behind an `app.auth` branch. `undefined`
   // exactly when `app.auth` is absent.
-  auth?: Readonly<ReturnType<typeof createAuthInstance>>
+  auth?: Readonly<ReturnType<typeof createAuthInstance>>,
+  // The router's own session reader, so the page searches filter by the same
+  // `checkPageAccess` input a visit is judged on. `undefined` without `auth`.
+  getSession?: PageReaderResolver
 ) => {
   // Reset every in-process singleton that must not outlive this boot.
   resetBootState()
@@ -102,7 +109,7 @@ export const createApiRoutes = <T extends Hono>(
 
   // Create health check endpoint
   const honoWithHealth = honoWithEcoHeader.get('/api/health', async (c) =>
-    handleHealthCheck(c, app)
+    handleHealthCheck(c, app, auth)
   )
 
   // Transport guards, rate limits, session extraction and every per-path
@@ -187,7 +194,9 @@ export const createApiRoutes = <T extends Hono>(
   // when AI is not configured (`AI_PROVIDER` unset) the handler returns
   // 503 with a JSON error envelope. Auth gating (401 when unauthenticated)
   // is applied above via `authMiddleware + requireAuth` on `/api/ai/chat`.
-  const honoWithAiChat = chainAiChatRoutes(honoWithAdminLinks, app)
+  // Chat dictation (POST /api/ai/transcriptions) rides beside it: same
+  // surface, same rate-limit settings, and its own 404-for-anonymous gate.
+  const honoWithAiChat = chainAiTranscriptionRoutes(chainAiChatRoutes(honoWithAdminLinks, app), app)
 
   // Chain AI MCP cross-cutting status routes (X-1). Always registered: when
   // MCP_SERVER_ENABLED / MCP_ENABLED / MCP_CLIENT_SERVERS env vars are unset
@@ -256,7 +265,16 @@ export const createApiRoutes = <T extends Hono>(
   // GET/POST/DELETE /api/favorites. Always registered; handlers return 401
   // when no session is attached (the `/api/favorites` auth chain is installed
   // above when `app.auth` is configured).
-  const honoWithFavorites = chainFavoriteRoutes(honoWithAccount)
+  // Internal trigger routes of the operator-notification jobs (the
+  // interrupted-run sweep and the hourly failure roll-up). Always registered,
+  // and 404 without the internal scheduler token — the same gate as
+  // `purge-due` above.
+  const honoWithNotificationTriggers = chainNotificationTriggerRoutes(
+    honoWithAccount,
+    resolveLiveApp
+  )
+
+  const honoWithFavorites = chainFavoriteRoutes(honoWithNotificationTriggers)
 
   // Chain the user directory: GET /api/users/directory. Always registered; the
   // handler returns 401 when no session is attached (the `/api/users/*` auth
@@ -274,9 +292,18 @@ export const createApiRoutes = <T extends Hono>(
   // route is reachable anonymously, so the limiter has to apply on the no-auth
   // branch too, and this point is downstream of BOTH arms. Mounted before the
   // handler so a rejected request never reaches the per-table fan-out.
-  const honoWithCommandSearch = chainCommandSearchRoutes(
-    honoWithRecent.use('/api/command-search', commandSearchRateLimitMiddleware),
-    app
+  const honoWithCommandSearch = chainPageSearchRoutes(
+    chainCommandSearchRoutes(
+      honoWithRecent
+        .use('/api/command-search', commandSearchRateLimitMiddleware)
+        // Session-scoped page search: reachable
+        // anonymously too, so it shares the palette's per-IP ceiling.
+        .use('/api/search/pages', commandSearchRateLimitMiddleware),
+      app,
+      getSession
+    ),
+    app,
+    getSession
   )
 
   // Chain realtime presence routes (Wave-6): GET /api/realtime/presence.

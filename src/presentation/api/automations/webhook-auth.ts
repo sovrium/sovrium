@@ -5,8 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto'
 import { resolveEnvInString } from '@/application/use-cases/automations/resolve-env-vars'
+import { constantTimeEqual } from '@/presentation/api/runtime/constant-time-equal'
+import {
+  DEFAULT_SIGNATURE_TOLERANCE_SECONDS,
+  verifyRawBodyDigest,
+  verifyTimestampedSignature,
+} from './webhook-signature-schemes'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -29,20 +34,6 @@ type WebhookTrigger = Extract<Trigger, { type: 'webhook' }>
 
 export type AuthResult = { readonly ok: true } | { readonly ok: false }
 
-/**
- * Constant-time string comparison. Mismatched-length inputs still execute
- * a same-buffer compare to keep the cost roughly constant — an attacker
- * cannot infer the expected secret length from response timing.
- */
-const constantTimeEquals = (a: string, b: string): boolean => {
-  const bufferA = Buffer.from(a, 'utf8')
-  const bufferB = Buffer.from(b, 'utf8')
-  if (bufferA.length !== bufferB.length) {
-    return timingSafeEqual(bufferA, bufferA) && false
-  }
-  return timingSafeEqual(bufferA, bufferB)
-}
-
 const resolveSecret = (
   value: string | undefined,
   envLookup: Readonly<Record<string, string>>
@@ -59,7 +50,7 @@ const checkBearer = (
   const prefix = auth.prefix ?? 'Bearer'
   if (!header.startsWith(`${prefix} `)) return { ok: false }
   const supplied = header.slice(prefix.length + 1)
-  return constantTimeEquals(supplied, expectedToken) ? { ok: true } : { ok: false }
+  return constantTimeEqual(supplied, expectedToken) ? { ok: true } : { ok: false }
 }
 
 const checkApiKey = (
@@ -72,7 +63,7 @@ const checkApiKey = (
   const headerName = auth.header ?? 'X-API-Key'
   const supplied = c.req.header(headerName) ?? ''
   if (supplied === '') return { ok: false }
-  return constantTimeEquals(supplied, expected) ? { ok: true } : { ok: false }
+  return constantTimeEqual(supplied, expected) ? { ok: true } : { ok: false }
 }
 
 const checkBasic = (
@@ -96,31 +87,66 @@ const checkBasic = (
   if (idx === -1) return { ok: false }
   const suppliedUser = decoded.slice(0, idx)
   const suppliedPass = decoded.slice(idx + 1)
-  const userOk = constantTimeEquals(suppliedUser, expectedUser)
-  const passOk = constantTimeEquals(suppliedPass, expectedPass)
+  const userOk = constantTimeEqual(suppliedUser, expectedUser)
+  const passOk = constantTimeEqual(suppliedPass, expectedPass)
   return userOk && passOk ? { ok: true } : { ok: false }
+}
+
+interface HmacAuth {
+  readonly secret?: string
+  readonly algorithm?: string
+  readonly header?: string
+  readonly prefix?: string
+  readonly scheme?: 'hex' | 'base64' | 'stripe' | 'slack' | 'svix'
+  readonly tolerance?: number
+}
+
+/**
+ * The `hex` / `base64` schemes: a digest of the raw body read from one
+ * header. An unsupported `algorithm` string makes `createHmac` throw; that
+ * fails closed as a refused signature rather than surfacing as a server error.
+ */
+const checkRawBodyHmac = (
+  c: Context,
+  rawBody: string,
+  auth: HmacAuth & { readonly scheme: 'hex' | 'base64' },
+  secret: string
+): boolean => {
+  try {
+    return verifyRawBodyDigest({
+      supplied: c.req.header(auth.header ?? 'X-Signature') ?? '',
+      rawBody,
+      secret,
+      algorithm: auth.algorithm ?? 'sha256',
+      encoding: auth.scheme,
+      prefix: auth.prefix ?? '',
+    })
+  } catch {
+    return false
+  }
 }
 
 const checkHmac = (
   c: Context,
   rawBody: string,
-  auth: {
-    readonly secret?: string
-    readonly algorithm?: string
-    readonly header?: string
-    readonly prefix?: string
-  },
+  auth: HmacAuth,
   envLookup: Readonly<Record<string, string>>
 ): AuthResult => {
   const secret = resolveSecret(auth.secret, envLookup)
   if (secret === '') return { ok: false }
-  const algorithm = auth.algorithm ?? 'sha256'
-  const headerName = auth.header ?? 'X-Signature'
-  const supplied = c.req.header(headerName) ?? ''
-  if (supplied === '') return { ok: false }
-  const computed = createHmac(algorithm, secret).update(rawBody).digest('hex')
-  const expected = (auth.prefix ?? '') + computed
-  return constantTimeEquals(supplied, expected) ? { ok: true } : { ok: false }
+  const scheme = auth.scheme ?? 'hex'
+  if (scheme === 'hex' || scheme === 'base64') {
+    return { ok: checkRawBodyHmac(c, rawBody, { ...auth, scheme }, secret) }
+  }
+  return {
+    ok: verifyTimestampedSignature(scheme, {
+      header: (name) => c.req.header(name),
+      rawBody,
+      secret,
+      toleranceSeconds: auth.tolerance ?? DEFAULT_SIGNATURE_TOLERANCE_SECONDS,
+      nowSeconds: Math.floor(Date.now() / 1000),
+    }),
+  }
 }
 
 /**

@@ -35,11 +35,13 @@
  *  2. Markers nested in the slot are mounted. The markup is injected after the
  *     page's first-load pass, so nothing would ever mount them — the same gap
  *     the tabs island closes for its panels, closed the same way and for the
- *     same reason.
+ *     same reason — through `mountNestedIslands`, which also unmounts them when
+ *     the slot goes away.
  */
 
 import { useCallback, useEffect, useRef, type ReactElement } from 'react'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import { mountNestedIslands } from './live-injected-markup'
 import {
   collectTextNodes,
   expandSlotRepeats,
@@ -97,24 +99,6 @@ function injectSlotMarkup(root: HTMLElement, html: string): void {
 }
 
 /**
- * Mount the markers the injected markup brought with it.
- *
- * Dynamically imported for the reason the tabs island gives: a static edge from
- * an island to `island-client` closes an island-client ↔ registry cycle. The
- * preload runs first so a priority marker resolves before the mount pass, and
- * `mountIslandsWithin` skips anything already mounted, so re-running is free.
- */
-function mountSlotIslands(root: HTMLElement, done: () => void): void {
-  void import('@/presentation/islands/island-client').then(
-    async ({ mountIslandsWithin, preloadIslandsWithin }) => {
-      await preloadIslandsWithin(root)
-      mountIslandsWithin(root)
-      done()
-    }
-  )
-}
-
-/**
  * The slot itself. Rendered only where the author declared children, so a
  * drawer without them emits nothing at all — no container, no separator, no
  * spacer — and reads exactly as it did before this slot existed.
@@ -148,7 +132,10 @@ export function RecordDrawerChildren({
     if (!root) return
     injectSlotMarkup(root, html)
     resolveRef.current()
-    mountSlotIslands(root, () => resolveRef.current())
+    // Resolve again once the markers are mounted: a mounted island replaced its
+    // subtree, and any `$record.` token it carried is fresh text again. The
+    // disposer unmounts them when the slot's markup changes or the drawer closes.
+    return mountNestedIslands(root, () => resolveRef.current())
   }, [html])
 
   // The drawer opens BEFORE its record arrives, so the first pass above always

@@ -106,6 +106,13 @@ export interface ParsedArgs {
   /** `--dry-run` — report the plan, write nothing. */
   readonly dryRun?: boolean
   /**
+   * `--as <email>` read for `sovrium seed`: the account every seeded row is
+   * written as. The same token `libraryAs` reads — each verb owns its meaning.
+   */
+  readonly seedAs?: string
+  /** `--today <YYYY-MM-DD>` — the day every `{{today…}}` in a seed run resolves against. */
+  readonly seedToday?: string
+  /**
    * `--check` — answer whether the database is safe to migrate, write nothing.
    *
    * Distinct from `--dry-run` rather than a mode of it: a dry run answers "what
@@ -114,6 +121,11 @@ export interface ParsedArgs {
    * describe — so collapsing them would make one of the two exit codes a lie.
    */
   readonly check?: boolean
+  /**
+   * `--allow-destructive` — `sovrium migrate`'s one-shot consent to drop a table
+   * the config no longer declares while it still holds rows.
+   */
+  readonly allowDestructive?: boolean
   /**
    * `--json` — report the verdict as one JSON document on stdout.
    *
@@ -179,6 +191,44 @@ export interface ParsedArgs {
    * the author renames `app.yaml` to `app.ts`.
    */
   readonly projectDir?: string
+  /** `--kind <value>` — the RAW string; `sovrium library` owns the refusal. */
+  readonly libraryKind?: string
+  /** `--category <value>` — narrows `sovrium library list`. */
+  readonly libraryCategory?: string
+  /**
+   * Every `--set key=value` occurrence, in argv order (`sovrium library add`).
+   *
+   * Repeatable for the reason `--table` is: an entry declares several
+   * parameters, and a single-value reader would keep the first and drop the
+   * rest behind a green exit code.
+   */
+  readonly librarySets?: readonly string[]
+  /** `--as <name>` — install a library entry under another name. */
+  readonly libraryAs?: string
+  /** `--into <config>` — the config `sovrium library add` installs into. */
+  readonly libraryInto?: string
+  /** `--no-wire` — write the fragment, print the wiring line instead of editing. */
+  readonly noWire?: boolean
+  /** `--tag <group>` — install one group of a provider's operations. */
+  readonly libraryTag?: string
+  /** `--limit <n>` — the RAW string; `sovrium library search` owns the refusal. */
+  readonly libraryLimit?: string
+  /** `--all` — install every operation of a provider. */
+  readonly libraryAll?: boolean
+  /** `--yes` — confirm an `--all` install above the confirmation threshold. */
+  readonly libraryYes?: boolean
+  /** `--target <value>` — the RAW string; `sovrium skills` owns the refusal. */
+  readonly skillsTarget?: string
+  /** `--list` — print one line per release (`changelog`). */
+  readonly changelogList?: boolean
+  /**
+   * `--since <version>` — every release after that version (`changelog`).
+   *
+   * `changelogSinceRequested` is carried beside the value so a bare `--since`
+   * is refused by name instead of silently printing the default view.
+   */
+  readonly changelogSinceRequested?: boolean
+  readonly changelogSince?: string
 }
 
 const hasFlag = (argv: readonly string[], long: string, short: string): boolean =>
@@ -233,6 +283,7 @@ const FLAG_VALUE_OPTIONS = [
   '--dir',
   '--mode',
   '--table',
+  '--today',
   // `sovrium design-system --format md|json`. Listed here as well as in
   // KNOWN_VALUE_FLAGS: omitting a value-flag leaves its value in the positional
   // stream, so `sovrium design-system --format json app.yaml` would treat the
@@ -251,6 +302,22 @@ const FLAG_VALUE_OPTIONS = [
   // positional stream, where `isConfigFile` matches it on the `/` and rewrites
   // the whole invocation into an implicit `start`.
   '--project',
+  // `sovrium library`. Both lists, same reason: absent here, `--into
+  // apps/site/app.yaml` would leave a path in the positional stream, and
+  // `--set headline=…` a value read as the entry id.
+  '--kind',
+  '--category',
+  '--set',
+  '--as',
+  '--into',
+  '--tag',
+  '--limit',
+  // `sovrium skills --target agents`. Both lists: absent here, `agents` would be
+  // read as a positional argument.
+  '--target',
+  // `sovrium changelog --since 0.26.0`. Both lists: absent here, `0.26.0` would
+  // be read as the version argument and the request refused as two views.
+  '--since',
 ] as const
 
 /** Commands that use two-level noun-verb dispatch (verb in 2nd positional slot). */
@@ -284,6 +351,9 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   // `sovrium migrate --check`. Absent from this set, `findUnknownFlag` rejects
   // the flag outright, so the mode is unreachable however well it is wired.
   '--check',
+  // `sovrium migrate --allow-destructive`. Absent from this set, the flag is
+  // refused before the command runs, so the consent could never be given.
+  '--allow-destructive',
   // `sovrium docs --full`, `sovrium docs --list-sections`.
   '--full',
   '--list-sections',
@@ -291,6 +361,13 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   // set is refused at parse time, so the machine-readable report would be
   // unreachable however completely the command implemented it.
   '--json',
+  // `sovrium library add --no-wire`.
+  '--no-wire',
+  // `sovrium library add <provider> --all [--yes]`.
+  '--all',
+  '--yes',
+  // `sovrium changelog --list`.
+  '--list',
 ])
 
 const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
@@ -310,6 +387,7 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--dir',
   '--mode',
   '--table',
+  '--today',
   // `sovrium design-system`. Absent from this set, `findUnknownFlag` rejects
   // the flag outright — a refusal naming the flag but not the accepted values.
   '--format',
@@ -324,6 +402,22 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   // before dispatch, so the verb would be unreachable however completely it is
   // implemented.
   '--project',
+  // `sovrium library`. Absent from this set each is refused before dispatch,
+  // so the verb could never be given a kind, a parameter or a target.
+  '--kind',
+  '--category',
+  '--set',
+  '--as',
+  '--into',
+  // `sovrium library add <provider> --tag <group>`, `library search --limit <n>`.
+  '--tag',
+  '--limit',
+  // `sovrium skills --target claude|agents|all`. Absent from this set the flag
+  // is refused before dispatch, so a target could never be chosen.
+  '--target',
+  // `sovrium changelog --since <version>`. Absent from this set the flag is
+  // refused before dispatch as an unknown flag.
+  '--since',
 ])
 
 /** Strip `=value` from `--flag=value` so the bare flag name can be matched. */
@@ -422,8 +516,11 @@ interface ParsedFlags {
   readonly seedDir: string | undefined
   readonly seedMode: string | undefined
   readonly seedTables: readonly string[]
+  readonly seedAs: string | undefined
+  readonly seedToday: string | undefined
   readonly dryRun: boolean
   readonly check: boolean
+  readonly allowDestructive: boolean
   readonly json: boolean
   readonly format: string | undefined
   readonly full: boolean
@@ -433,6 +530,17 @@ interface ParsedFlags {
   readonly exportRequested: boolean
   readonly exportDir: string | undefined
   readonly projectDir: string | undefined
+  readonly libraryKind: string | undefined
+  readonly libraryCategory: string | undefined
+  readonly librarySets: readonly string[]
+  readonly libraryAs: string | undefined
+  readonly libraryInto: string | undefined
+  readonly noWire: boolean
+  readonly libraryTag: string | undefined
+  readonly libraryLimit: string | undefined
+  readonly libraryAll: boolean
+  readonly libraryYes: boolean
+  readonly skillsTarget: string | undefined
 }
 
 /**
@@ -446,6 +554,27 @@ const resolvePublicDirFlag = (argv: readonly string[]): string | false | undefin
   return getFlagValue(argv, '--publicDir')
 }
 
+/** The `sovrium library` flags that choose API operations and bound a search. */
+const parseLibraryOperationFlags = (
+  argv: readonly string[]
+): Pick<ParsedFlags, 'libraryTag' | 'libraryLimit' | 'libraryAll' | 'libraryYes'> => ({
+  libraryTag: getFlagValue(argv, '--tag'),
+  libraryLimit: getFlagValue(argv, '--limit'),
+  libraryAll: argv.includes('--all'),
+  libraryYes: argv.includes('--yes'),
+})
+
+/** The flags only `sovrium seed` reads (`--as` is shared with `library add`). */
+const parseSeedFlags = (
+  argv: readonly string[]
+): Pick<ParsedFlags, 'seedDir' | 'seedMode' | 'seedTables' | 'seedAs' | 'seedToday'> => ({
+  seedDir: getFlagValue(argv, '--dir'),
+  seedMode: getFlagValue(argv, '--mode'),
+  seedTables: getFlagValues(argv, '--table'),
+  seedAs: getFlagValue(argv, '--as'),
+  seedToday: getFlagValue(argv, '--today'),
+})
+
 const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
   watchMode: hasFlag(argv, '--watch', '-w'),
   forceFlag: argv.includes('--force'),
@@ -457,11 +586,10 @@ const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
   gitInit: argv.includes('--git'),
   fromUrl: getFlagValue(argv, '--from-url'),
   password: getFlagValue(argv, '--password'),
-  seedDir: getFlagValue(argv, '--dir'),
-  seedMode: getFlagValue(argv, '--mode'),
-  seedTables: getFlagValues(argv, '--table'),
+  ...parseSeedFlags(argv),
   dryRun: argv.includes('--dry-run'),
   check: argv.includes('--check'),
+  allowDestructive: argv.includes('--allow-destructive'),
   json: argv.includes('--json'),
   format: getFlagValue(argv, '--format'),
   full: argv.includes('--full'),
@@ -471,6 +599,60 @@ const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
   exportRequested: argv.includes('--export'),
   exportDir: getFlagPathValue(argv, '--export'),
   projectDir: getFlagValue(argv, '--project'),
+  libraryKind: getFlagValue(argv, '--kind'),
+  libraryCategory: getFlagValue(argv, '--category'),
+  librarySets: getFlagValues(argv, '--set'),
+  libraryAs: getFlagValue(argv, '--as'),
+  libraryInto: getFlagValue(argv, '--into'),
+  noWire: argv.includes('--no-wire'),
+  ...parseLibraryOperationFlags(argv),
+  skillsTarget: getFlagValue(argv, '--target'),
+})
+
+/**
+ * The switches only one verb reads — `library add`'s, `skills`' and `migrate`'s
+ * `--allow-destructive` — carried into the result as parsed, each verb owning
+ * its own refusal.
+ */
+const verbSwitchesOf = (
+  flags: ParsedFlags
+): Pick<
+  ParsedArgs,
+  | 'noWire'
+  | 'libraryTag'
+  | 'libraryLimit'
+  | 'libraryAll'
+  | 'libraryYes'
+  | 'skillsTarget'
+  | 'allowDestructive'
+> => ({
+  allowDestructive: flags.allowDestructive,
+  noWire: flags.noWire,
+  libraryTag: flags.libraryTag,
+  libraryLimit: flags.libraryLimit,
+  libraryAll: flags.libraryAll,
+  libraryYes: flags.libraryYes,
+  skillsTarget: flags.skillsTarget,
+})
+
+/** The `sovrium changelog` flags, read straight from argv. */
+const changelogArgsOf = (
+  argv: readonly string[]
+): Pick<ParsedArgs, 'changelogList' | 'changelogSinceRequested' | 'changelogSince'> => ({
+  changelogList: argv.includes('--list'),
+  changelogSinceRequested: argv.includes('--since'),
+  changelogSince: getFlagPathValue(argv, '--since'),
+})
+
+/** The `sovrium seed` flags, carried into the result as parsed. */
+const seedArgsOf = (
+  flags: ParsedFlags
+): Pick<ParsedArgs, 'seedDir' | 'seedMode' | 'seedTables' | 'seedAs' | 'seedToday'> => ({
+  seedDir: flags.seedDir,
+  seedMode: flags.seedMode,
+  seedTables: flags.seedTables,
+  seedAs: flags.seedAs,
+  seedToday: flags.seedToday,
 })
 
 /**
@@ -509,9 +691,7 @@ const buildStandardResult = (
     positionalArg,
     password: flags.password,
     helpRequested,
-    seedDir: flags.seedDir,
-    seedMode: flags.seedMode,
-    seedTables: flags.seedTables,
+    ...seedArgsOf(flags),
     dryRun: flags.dryRun,
     check: flags.check,
     json: flags.json,
@@ -524,6 +704,13 @@ const buildStandardResult = (
     exportDir: flags.exportDir,
     positionalArgs: nonFlagArgs.slice(1),
     projectDir: flags.projectDir,
+    libraryKind: flags.libraryKind,
+    libraryCategory: flags.libraryCategory,
+    librarySets: flags.librarySets,
+    libraryAs: flags.libraryAs,
+    libraryInto: flags.libraryInto,
+    ...verbSwitchesOf(flags),
+    ...changelogArgsOf(argv),
   }
 }
 /* eslint-enable max-params */

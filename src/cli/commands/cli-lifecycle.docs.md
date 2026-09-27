@@ -195,6 +195,6 @@ Sovrium refused this save. The previous version is still running.
 
 Under that headline, one block per finding: the message, the `path` it occurred at, the `sourceFile` when the config is split across `$ref` files, and the accepted values **in full**. Those are the things that let you — or the AI that made the edit — write the next one correctly.
 
-The overlay sits _over_ the running app rather than replacing it, because the app really is still running and still usable. There is no dismiss button: the next accepted save reloads the page, which clears it. Like the rest of live reload it exists in development only, so a production build serves neither the endpoint nor the script.
+The overlay sits _over_ the running app rather than replacing it, because the app really is still running and still usable. There is no dismiss button: the next accepted save reloads the page, which clears it. Like the rest of live reload it exists in development only, so a production server serves neither the endpoint nor the script, and a `sovrium build` output contains neither.
 
 Every save the instance **accepts** under `--watch` is also copied into the data directory, so the version before your last change is always recoverable without git. **Undo and Reset** describes the history and how to restore an entry.

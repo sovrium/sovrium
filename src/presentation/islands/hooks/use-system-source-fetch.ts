@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  isRunsEndpoint,
+  localizeRun,
+  localizeRunRecord,
+} from '@/domain/models/app/pages/automation-run-status'
 import { flattenRecordFields } from '@/domain/models/app/pages/record-envelope'
 import { buildDetailEndpointUrl } from '@/domain/models/app/pages/system-detail-endpoint'
 import type { TableRecord } from '../runtime/types'
@@ -133,87 +138,23 @@ export interface SystemFetchQuery extends SystemQueryInput {
 // ---------------------------------------------------------------------------
 
 /**
- * Localized run-status labels for the automation-runs read endpoint.
+ * The rows gate: a runs endpoint AND a NAMED source.
  *
- * The runs API surfaces the engine's terminal status verbatim
- * (`completed` / `failed` / `completed-with-errors`). When a NAMED directory
- * binds to that endpoint, the `status` field is mapped to its operator-facing
- * label here so the directory renders a readable status pill without a
- * server change or a per-column value-map in config. Gated on the runs endpoint
- * so a generic system source keeps its raw values untouched — and on a NAMED
- * source as well on the rows path, where an anonymous grid may be an author's own
- * view of the same feed.
- *
- * It applies on BOTH read paths, and to a run's steps as well as to the run: the
- * grid and the drawer it opens describe the same run, so a word they spell
- * differently is a defect on screen rather than a difference of scope.
+ * The map itself — labels, endpoint test, the descent into `steps` — lives in
+ * `@/domain/models/app/pages/automation-run-status`, shared with the renderer's
+ * server-side read of a page-level `{ system }` record, so the grid, the drawer
+ * and the run page speak one vocabulary from one table. The id narrows this gate
+ * because an anonymous grid may be an author's own view of the same feed; a
+ * detail binding carries no id, so the detail path (`localizeRunRecord`) is
+ * gated on the endpoint alone.
  */
-const RUN_STATUS_LABELS: Record<string, string> = {
-  completed: 'Success',
-  failed: 'Failed',
-  'completed-with-errors': 'Partial',
-}
-
-/**
- * Does this endpoint publish the automation engine's run vocabulary?
- *
- * Matched on the SEGMENT rather than on the whole path, so the list feed
- * (`/api/admin/automations/runs`) and one run's detail
- * (`/api/admin/automations/runs/:runId`) are both recognised by the one test.
- */
-const isRunsEndpoint = (endpoint: string): boolean => endpoint.includes('/automations/runs')
-
-/** One row's `status`, mapped to its operator-facing label when it has one. */
-const localizeStatus = (row: TableRecord): TableRecord => {
-  const raw = row['status']
-  if (typeof raw !== 'string') return row
-  const label = RUN_STATUS_LABELS[raw]
-  return label ? { ...row, status: label } : row
-}
-
-/**
- * One run in the operator's vocabulary — its own status AND each of its steps'.
- *
- * The descent into `steps` is not a generalisation: a run's steps carry the same
- * terminal status the run does, from the same engine, and the drawer prints them
- * side by side. Localising only the outer one is how one vocabulary comes to have
- * two spellings on a single screen. Anything that is not an object in that array
- * is left exactly as it arrived, since there is no `status` to map.
- */
-const localizeRun = (row: TableRecord): TableRecord => {
-  const localized = localizeStatus(row)
-  const rawSteps = row['steps']
-  if (!Array.isArray(rawSteps)) return localized
-  return {
-    ...localized,
-    steps: rawSteps.map((step) =>
-      typeof step === 'object' && step !== null ? localizeStatus(step as TableRecord) : step
-    ),
-  }
-}
-
 function localizeRunStatusRows(
   endpoint: string,
   sourceId: string | undefined,
   rows: readonly TableRecord[]
 ): readonly TableRecord[] {
   if (!sourceId || !isRunsEndpoint(endpoint)) return rows
-  return rows.map(localizeRun)
-}
-
-/**
- * The DETAIL-path counterpart, gated on the ENDPOINT alone.
- *
- * The rows gate also requires a NAMED source because a grid's id is what
- * distinguishes "the runs directory" from some generic system source an author
- * happened to point at the same feed. A detail binding carries no such id — the
- * record-drawer's `dataSource.system` has an `endpoint` and a `param` and nothing
- * else — so requiring one here would make the localiser unreachable on this path
- * and leave the drawer disagreeing with the grid that opened it. The endpoint is
- * the discriminating half in both gates; the id only narrows the rows one.
- */
-function localizeRunStatusRecord(endpoint: string, record: TableRecord): TableRecord {
-  return isRunsEndpoint(endpoint) ? localizeRun(record) : record
+  return rows.map((row) => localizeRun(row))
 }
 
 // ---------------------------------------------------------------------------
@@ -446,7 +387,7 @@ export function parseSystemDetailEnvelope(
   const record = (typeof raw === 'object' && raw !== null ? raw : {}) as TableRecord
   const idKey = system.idKey ?? 'id'
   const identified = idKey === 'id' ? record : { ...record, id: record[idKey] }
-  return localizeRunStatusRecord(system.endpoint, identified)
+  return localizeRunRecord(system.endpoint, identified)
 }
 
 /**

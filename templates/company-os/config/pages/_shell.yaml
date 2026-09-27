@@ -1,0 +1,84 @@
+# The app's persistent navigation, included at the top of every workspace page.
+#
+# A column holding the app's name, the `sidebar` and a sign-out control. The
+# `sidebar` groups the entries by module — Sales, Delivery, Support, People,
+# Tools — under one navigation landmark of real links, and marks the current
+# page with `aria-current`, so "where am I" is answered for a screen reader
+# too, not only by colour. Grouping, rather than one flat row of links, is what
+# keeps four modules readable as one product.
+#
+# On a laptop narrower than `lg` the sidebar shrinks to a column of icons, and
+# on a phone (below `md`) it leaves the layout: a menu button opens the same
+# entries in a drawer, so the page gets the whole width of the screen.
+type: container
+element: aside
+props:
+  className: flex w-[232px] flex-none flex-col gap-0.5 border-r border-border bg-background-subtle px-2.5 py-3 max-lg:w-auto max-md:contents
+children:
+  - type: container
+    props:
+      className: mb-2.5 flex h-9 items-center gap-2.5 px-2 text-sm font-semibold text-foreground max-lg:hidden
+    children:
+      - type: icon
+        props:
+          name: layers
+          size: 14
+          className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+      - type: text
+        element: span
+        content: Orrin OS
+  - type: sidebar
+    rail:
+      below: lg
+    drawer:
+      below: md
+      label: Menu
+    props:
+      # Row metrics tuned to a grouped navigation: 30px rows, 13.5px labels,
+      # the current page on the accent's quiet ground, and each module's
+      # heading as a small monospace overline.
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_a]:h-[30px] [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground [&_h2]:px-2.5 [&_h2]:pt-3 [&_h2]:pb-1 [&_h2]:font-mono [&_h2]:text-[10.5px] [&_h2]:tracking-wider [&_h2]:text-foreground-subtle
+    groups:
+      - landmark: Workspace
+        items:
+          - { label: Home, href: /, icon: house }
+      - label: Sales
+        landmark: Workspace
+        headingLevel: 2
+        items:
+          - { label: Pipeline, href: /sales, icon: kanban }
+          - { label: Companies, href: /companies, icon: building-2 }
+      - label: Delivery
+        landmark: Workspace
+        headingLevel: 2
+        items:
+          - { label: Projects, href: /delivery, icon: chart-gantt }
+      - label: Support
+        landmark: Workspace
+        headingLevel: 2
+        items:
+          - { label: Tickets, href: /support, icon: message-square }
+      - label: People
+        landmark: Workspace
+        headingLevel: 2
+        items:
+          - { label: Team & time off, href: /people, icon: users }
+      - label: Tools
+        landmark: Workspace
+        headingLevel: 2
+        items:
+          - { label: Assistant, href: /assistant, icon: sparkles }
+  - type: container
+    props:
+      className: mt-auto flex items-center justify-end gap-2.5 border-t border-border px-2 py-2.5 text-sm text-foreground-muted max-lg:hidden
+    children:
+      - type: button
+        variant: ghost
+        props:
+          className: h-7 px-2 text-xs
+        content: Sign out
+        action:
+          type: auth
+          method: logout
+          onSuccess:
+            navigate: /sign-in

@@ -60,7 +60,7 @@ export const commonFieldProps = {
   helpText: Schema.optional(
     Schema.String.annotate({
       description:
-        'Guidance shown below the field, which stays visible while the person is typing.',
+        'Guidance shown below the field, which stays visible while the person is typing. Accepts inline markdown: links (always opened in a new tab), bold, italic, code and line breaks.',
     })
   ),
   /** Whether the field is required (always true / always false). */
@@ -112,3 +112,41 @@ export const commonFieldProps = {
    */
   permissions: Schema.optional(FormFieldPermissionsSchema),
 } as const
+
+/**
+ * In-browser audio recording for an attachment field.
+ *
+ * Declared once and spread into both attachment-capable field kinds — the
+ * standalone `inputType: attachment` field and a table-bound field whose column
+ * is `single-attachment` / `multiple-attachments` — so the recorder is the same
+ * option whichever way a form reaches its file input.
+ *
+ * The recording travels through the ordinary attachment pipeline: it is
+ * uploaded to the field's resolved bucket and submitted as one more file, with
+ * the same `{ url, name, size, mimeType }` metadata a picked file carries. A
+ * transcript is NOT produced here; a record-created automation with
+ * `ai/transcribe` writes it back onto the record.
+ */
+export const FormRecordAudioSchema = Schema.Struct({
+  maxDurationSeconds: Schema.optional(
+    Schema.Finite.pipe(
+      Schema.annotate({
+        defaultNote: '7200',
+        description:
+          'Longest recording accepted, in seconds (1 to 7200, two hours). Recording stops by itself when the limit is reached; the file size is still capped by the field or bucket maxFileSize.',
+      }),
+      Schema.check(
+        Schema.isInt(),
+        Schema.isGreaterThanOrEqualTo(1),
+        Schema.isLessThanOrEqualTo(7200)
+      )
+    )
+  ),
+}).annotate({
+  title: 'Record Audio',
+  description:
+    'Adds a microphone recorder beside the file picker; the recording is submitted as an audio file.',
+})
+
+/** @public */
+export type FormRecordAudio = Schema.Schema.Type<typeof FormRecordAudioSchema>

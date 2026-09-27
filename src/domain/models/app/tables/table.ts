@@ -24,7 +24,10 @@ import {
   detectCircularPermissionInheritance,
   detectCircularRelationships,
 } from '@/domain/models/app/tables/table-transforms-service'
-import { validateViews } from '@/domain/models/app/tables/table-views-validation'
+import {
+  validatePublicViews,
+  validateViews,
+} from '@/domain/models/app/tables/table-views-validation'
 import { CommentsConfigSchema } from './comments'
 import { CheckConstraintsSchema } from './constraints'
 import { FieldsSchema } from './fields'
@@ -123,7 +126,9 @@ const validateAccessAndViews = (
   const views = table.views as
     ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }> | undefined
   if (views && views.length > 0) {
-    const viewsError = validateViews(views, fields, fieldNames)
+    const viewsError =
+      validateViews(views, fields, fieldNames) ??
+      validatePublicViews(views, table.rowLevelPermissions !== undefined)
     if (viewsError) return viewsError
   }
 

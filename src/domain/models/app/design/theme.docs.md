@@ -12,6 +12,8 @@ The Design System article lists every key of `design` and what each decides. Thi
 
 Named colour tokens, as key-value pairs. Each `name` mints a `--color-{name}` custom property plus the `bg-{name}`, `text-{name}` and `border-{name}` utilities.
 
+**`border` is the default for every border.** An element with a plain `border` class — no colour class beside it — paints its border in `--color-border`, not in its text colour. Set `colors.border` (and `darkColors.border`) to restyle every card and divider at once; an explicit colour class such as `border-foreground` or `border-primary` still wins, because the default lives in the base layer and utilities come after it.
+
 ```yaml
 design:
   colors:
@@ -30,6 +32,8 @@ The map is open — declare whatever vocabulary the design needs — so it publi
 - **The value is 6- or 8-digit hex, or an `rgb(`, `rgba(`, `hsl(` or `hsla(` function.** Nothing else decodes.
 
 Sovrium's own prebuilt components look for the conventional roles — `primary`, `background`, `text`, `muted` — so supplying those restyles the shipped chrome for free.
+
+One border does not follow `border`: the outline of an unchecked switch, checkbox or radio. It is drawn in `--sv-border-control`, the only border token held at 3:1 against the page in both light and dark, because an unchecked control has no fill to show where it is. A pale `border` would take that edge with it, so the control keeps its own.
 
 ## Where the other categories are documented
 

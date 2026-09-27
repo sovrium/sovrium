@@ -27,21 +27,25 @@
  * that would have revealed it.
  */
 
+import { zonedStartOfDayYearsBefore } from '@/domain/kernel/time/zoned-calendar'
+
 /**
- * Start of the retention window: one CALENDAR year before `now`.
+ * Start of the retention window: midnight, one CALENDAR year before `now`'s
+ * calendar day, both read on the wall clock of `timeZone`.
  *
  * A calendar year, not 365 days, because that is what the read filter has always
- * computed and this function replaces it verbatim. Changing the arithmetic here
- * would move the boundary of already-shipped record-history responses, which is
- * a product decision, not a side effect of adding the missing executor.
+ * computed and this function replaces it. The zone is a parameter — the operator
+ * timezone at every caller — rather than the process zone the previous
+ * `new Date(y - 1, m, d)` silently used: that followed the host's POSIX `TZ`,
+ * which is not the operator's choice.
  *
- * The parameter is `Readonly<Date>` and the return type is left to INFERENCE,
- * both to satisfy `functional/prefer-immutable-types` against an inherently
- * mutable `Date` — the same accommodation `toOptionalDate` in
- * `account-repository-live.ts` already makes.
+ * On 29 February the counterpart day does not exist; the boundary is then
+ * 28 February of the previous year (Effect's `DateTime` clamps to the end of
+ * the month), one day earlier than the `Date` overflow to 1 March used to give.
  *
  * @param now - the reference instant (injected, so the function stays pure).
+ * @param timeZone - an IANA zone identifier: the operator timezone.
  * @returns the earliest `created_at` an activity-log row may have and be kept.
  */
-export const activityLogRetentionCutoff = (now: Readonly<Date>) =>
-  new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
+export const activityLogRetentionCutoff = (now: Readonly<Date>, timeZone: string) =>
+  zonedStartOfDayYearsBefore(now, timeZone, 1)

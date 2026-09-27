@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { toOption } from '@/domain/models/app/forms/form-option-source-service'
 import {
   SELECT_OPTION_SOURCE_DEFAULT_LIMIT,
   SELECT_OPTION_SOURCE_DEFAULT_VALUE_FIELD,
@@ -155,25 +156,6 @@ function canResolve(
   return (
     !plan.restrictedColumns.has(binding.displayField) && !plan.restrictedColumns.has(valueField)
   )
-}
-
-/**
- * Project one row into an option.
- *
- * A row whose label or value is nullish is DROPPED rather than rendered as an
- * empty choice: a blank row in a dropdown is a control the user cannot reason
- * about, and `String(null)` would paint the literal text `null`.
- */
-function toOption(
-  row: Readonly<Record<string, unknown>>,
-  displayField: string,
-  valueField: string
-): OptionItem | undefined {
-  const label = row[displayField]
-  const value = row[valueField]
-  if (label === null || label === undefined) return undefined
-  if (value === null || value === undefined) return undefined
-  return { label: String(label), value: String(value) }
 }
 
 /**

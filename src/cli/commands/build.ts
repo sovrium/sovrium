@@ -36,7 +36,6 @@ const parseBuildOptions = (): GenerateStaticOptions => {
     generateSitemap: parseBooleanEnv(Bun.env.SOVRIUM_GENERATE_SITEMAP),
     generateRobotsTxt: parseBooleanEnv(Bun.env.SOVRIUM_GENERATE_ROBOTS),
     hydration: parseBooleanEnv(Bun.env.SOVRIUM_HYDRATION),
-    generateManifest: parseBooleanEnv(Bun.env.SOVRIUM_GENERATE_MANIFEST),
     bundleOptimization: Bun.env.SOVRIUM_BUNDLE_OPTIMIZATION as 'split' | 'none' | undefined,
     publicDir: readPublicDirEnv(),
   }
@@ -52,7 +51,6 @@ const parseBuildOptions = (): GenerateStaticOptions => {
     { key: 'generateSitemap', value: envVars.generateSitemap },
     { key: 'generateRobotsTxt', value: envVars.generateRobotsTxt },
     { key: 'hydration', value: envVars.hydration },
-    { key: 'generateManifest', value: envVars.generateManifest },
     { key: 'bundleOptimization', value: envVars.bundleOptimization },
     { key: 'publicDir', value: envVars.publicDir },
   ].reduce(

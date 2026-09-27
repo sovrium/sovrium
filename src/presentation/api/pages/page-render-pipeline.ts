@@ -34,6 +34,8 @@ import {
   recordPageCacheOutcome,
   type PageCacheOutcome,
 } from '@/infrastructure/process/page-cache-telemetry'
+import { microphonePolicyHeaders } from '@/presentation/api/runtime/microphone-permission'
+import { pageCapturesMicrophone } from '@/presentation/render/page/page-microphone-detection'
 import { resolveRequestBaseUrl } from '../../../domain/kernel/url/request-base-url'
 import {
   systemRecordFetcher,
@@ -157,11 +159,20 @@ export interface PageRequestContext {
  *
  * Redirect and unauthorized responses are not pages and carry no cache headers.
  */
+interface ResponseDisposition {
+  readonly cacheStatus: CacheStatus
+  readonly cacheControl: string
+  /**
+   * Permissions-Policy grants derived from the matched page's CONFIG
+   * (`pageCapturesMicrophone`) — never from the rendered HTML, which a
+   * record value or a query-string prefill can put any string into.
+   */
+  readonly grants: Readonly<Record<string, string>>
+}
+
 function sendResolved(
   resolved: ReturnType<typeof resolvePageResult>,
-  cacheStatus: CacheStatus,
-  cacheControl: string,
-
+  { cacheStatus, cacheControl, grants }: ResponseDisposition,
   c: Context
 ): Response | undefined {
   if (!resolved) return undefined
@@ -179,6 +190,7 @@ function sendResolved(
   return c.html(resolved.html, 200, {
     'X-Render-Cache': cacheStatus,
     'Cache-Control': cacheControl,
+    ...grants,
   })
 }
 
@@ -289,12 +301,14 @@ export async function renderWithCache(
   }
 
   const decision = decidePageCache(app, path, reqCtx)
+  const grants = microphonePolicyHeaders(pageCapturesMicrophone(decision.classification.page, app))
+  const send = (resolved: ResolvedPage, cacheStatus: CacheStatus, cacheControl: string) =>
+    sendResolved(resolved, { cacheStatus, cacheControl, grants }, c)
   if (!decision.usable) {
-    return sendResolved(
+    return send(
       resolvePageResult(await renderPage(app, path, renderCtx)),
       'bypass',
-      decision.bypassCacheControl,
-      c
+      decision.bypassCacheControl
     )
   }
 
@@ -306,15 +320,15 @@ export async function renderWithCache(
   })
   const cached = await readCachedPage(c, cacheKey)
   if (cached !== undefined) {
-    return sendResolved({ html: cached.html }, 'hit', CACHED_PAGE_CACHE_CONTROL, c)
+    return send({ html: cached.html }, 'hit', CACHED_PAGE_CACHE_CONTROL)
   }
 
   const resolved = resolvePageResult(await renderPage(app, path, renderCtx))
   if (resolved !== undefined && 'html' in resolved) {
     await storeRenderedPage(c, cacheKey, resolved.html)
-    return sendResolved(resolved, 'miss', CACHED_PAGE_CACHE_CONTROL, c)
+    return send(resolved, 'miss', CACHED_PAGE_CACHE_CONTROL)
   }
-  return sendResolved(resolved, 'bypass', decision.bypassCacheControl, c)
+  return send(resolved, 'bypass', decision.bypassCacheControl)
 }
 
 /**

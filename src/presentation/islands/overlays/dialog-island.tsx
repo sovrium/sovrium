@@ -9,6 +9,7 @@ import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useEffect, useState } from 'react'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { dispatchConfirmAction, type DialogConfirmAction } from './dialog-confirm-action'
+import { useLiveInjectedMarkup } from './live-injected-markup'
 import {
   computeAlertDialogPopupClasses,
   computeDialogActionsClasses,
@@ -197,22 +198,29 @@ function DialogActions({
 }
 
 /**
- * Renders SSR placeholder HTML once on initial paint while the island hydrates.
- * Isolated so the per-call object literal in `dangerouslySetInnerHTML` lives in
- * a tiny dedicated component, not in the parent island body.
+ * The dialog's body: the SSR-rendered children, injected when the popup opens.
+ *
+ * The popup does not exist until the dialog opens, so this markup arrives after
+ * the page's first-load pass — `useLiveInjectedMarkup` runs its scripts and
+ * mounts its island markers, which is what lets a form placed in a dialog
+ * submit through its action. Closing unmounts the popup, and with it those
+ * islands, so a reopened dialog holds exactly one live copy.
+ *
+ * SECURITY: `html` is server-rendered from the app's configuration, not user
+ * input.
  */
-function SSRSkeletonDiv({
+function DialogChildren({
   html,
   className,
 }: {
   readonly html: string
   readonly className?: string
 }): ReactElement {
+  const ref = useLiveInjectedMarkup(html)
   return (
     <div
+      ref={ref}
       className={className}
-      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- preserves SSR skeleton HTML; helper invoked once on first paint
-      dangerouslySetInnerHTML={{ __html: html }}
     />
   )
 }
@@ -261,7 +269,7 @@ function DialogPopupBody({
         </Dialog.Description>
       )}
       {childrenHtml && (
-        <SSRSkeletonDiv
+        <DialogChildren
           html={childrenHtml}
           className="mb-4"
         />

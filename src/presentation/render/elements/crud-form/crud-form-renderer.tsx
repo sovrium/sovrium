@@ -158,6 +158,21 @@ function readLayoutOptions(component?: Component): {
   }
 }
 
+/**
+ * The fields an update form renders an input for: every resolved field but the
+ * ones the resolver marked unreadable for this visitor (`_unreadableFields`,
+ * `resolve/data-source-modes.ts`). The form never received their values, and
+ * an input it rendered anyway would be submitted empty over the stored value.
+ */
+function readableFieldDefs(
+  fields: readonly ResolvedFieldDef[],
+  unreadable: unknown
+): readonly ResolvedFieldDef[] {
+  if (!Array.isArray(unreadable) || unreadable.length === 0) return fields
+  const withheld = new Set(unreadable as readonly string[])
+  return fields.filter((field) => !withheld.has(field.name))
+}
+
 export function renderCrudUpdateForm(
   props: ElementProps,
   action: CrudFormAction,
@@ -167,7 +182,10 @@ export function renderCrudUpdateForm(
   context: CrudFormRenderContext = {}
 ): ReactElement {
   const record = (props._record ?? {}) as Record<string, unknown>
-  const resolvedFields = buildResolvedFieldDefs(tables, action.table, component, buckets)
+  const resolvedFields = readableFieldDefs(
+    buildResolvedFieldDefs(tables, action.table, component, buckets),
+    props._unreadableFields
+  )
   const rawFields = applyCrudFieldOverrides(resolvedFields, action.fields, context)
   const submitBtn = readSubmitButtonProps(action, context, component)
   const readOnlyFlag = props._readOnly
@@ -212,7 +230,6 @@ export function renderCrudUpdateForm(
         data-action-type="crud"
         data-action-method="update"
         data-action-table={action.table}
-        {...(recordId && { 'data-action-record-id': recordId })}
         {...(layout && { 'data-layout': layout })}
         {...(action.onSuccess?.navigate && {
           'data-on-success-redirect': action.onSuccess.navigate,
@@ -355,12 +372,11 @@ function isDeleteRestricted(action: CrudFormAction, tables?: Tables): boolean {
   return deleteRoles !== undefined && deleteRoles.length > 0
 }
 
-function buildDeleteButtonAttrs(action: CrudFormAction, recordId: string): Record<string, unknown> {
+function buildDeleteButtonAttrs(action: CrudFormAction): Record<string, unknown> {
   return {
     'data-action-type': 'crud',
     'data-action-method': 'delete',
     'data-action-table': action.table,
-    ...(recordId && { 'data-action-record-id': recordId }),
     ...(action.onSuccess?.navigate && { 'data-on-success-redirect': action.onSuccess.navigate }),
     ...(action.confirm && { 'data-confirm': 'true' }),
     ...(action.confirmMessage && { 'data-confirm-message': action.confirmMessage }),
@@ -381,7 +397,7 @@ export function renderCrudDeleteButton(config: DeleteButtonConfig): ReactElement
     id: restProps['id'],
     buttonLabel: content,
   })
-  const buttonAttrs = buildDeleteButtonAttrs(action, recordId)
+  const buttonAttrs = buildDeleteButtonAttrs(action)
 
   return (
     <div

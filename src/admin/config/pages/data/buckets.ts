@@ -7,15 +7,28 @@
 
 // Files — the objects stored in each bucket, one browser per bucket.
 //
-// TWO pages, like Records:
+// THREE pages, like Conversations:
 //
 //   `/buckets`          the bare collection, which 302s to the first bucket.
-//   `/buckets/:bucket`  that bucket's browser: quota, upload, file grid.
+//   `/buckets/system`   the built-in bucket's browser, which also lists every
+//                       file a record attaches — whichever bucket holds it —
+//                       with the bucket, table, record and field it belongs to.
+//   `/buckets/:bucket`  a declared bucket's browser: usage, upload, file grid.
+//
+// ─── WHY `system` IS ITS OWN PAGE ──────────────────────────────────────────
+//
+// The same reason as `/agents/system`, plus one: the blurb has to say what the
+// built-in bucket IS, AND its grid carries four provenance columns no declared
+// bucket's listing fills. A declared bucket showing four always-empty columns
+// would be four columns of noise. Config cannot branch a body on a route
+// parameter, so route ORDER does it: the literal page is listed before the
+// `:bucket` page, `findMatchingRoute` takes the first match, and reversing the
+// two silently drops both the sentence and the columns.
 //
 // ─── THERE IS ALWAYS A FIRST BUCKET ────────────────────────────────────────
 //
-// The bucket list is `app.buckets` when the operator declares any, and the
-// single virtual `default` otherwise — uploads land there regardless of config.
+// The bucket list always leads with the built-in `system` bucket, then every
+// bucket the operator declares.
 // So the directory page below is not an empty state and does not pretend to be
 // one: it is the honest DEGRADATION path the redirect resolver documents, shown
 // only when the list read itself fails. A failed read must cost the redirect,
@@ -74,18 +87,70 @@ const ADMIN_FILES_ENDPOINT = '/api/admin/buckets/$param.bucket/files'
  */
 const PUBLIC_FILE_URL = '/api/buckets/$param.bucket/files/$record.key'
 
+/** The built-in bucket's admin file list — a literal page, so no `$param`. */
+const SYSTEM_FILES_ENDPOINT = '/api/admin/buckets/system/files'
+
 /**
- * The storage-quota tile: one pre-computed scalar, formatted as a byte count.
+ * The public file route for a row of the SYSTEM listing.
  *
- * Reads the WHOLE instance's total rather than this bucket's, exactly as the
- * retired builder did — the overview endpoint takes no bucket argument.
+ * `$record.bucket`, not `system`: that listing includes files a record attaches
+ * from a declared bucket, and the file route refuses a key whose recorded
+ * bucket does not match the one it is addressed through. Every row of this
+ * listing carries its `bucket` — its own uploads record `system`, a linked file
+ * records the bucket that holds it.
  */
-const quotaKpi = (): PageComponent =>
+const SYSTEM_PUBLIC_FILE_URL = '/api/buckets/$record.bucket/files/$record.key'
+
+/**
+ * The usage tile: this listing's total size, formatted as a byte count.
+ *
+ * It reads the SAME endpoint the file grid reads, whose `totalBytes` is the
+ * `SUM(size)` of the listing — invariant across the grid's type filter, search
+ * and pagination — so the figure always describes the files on this page and
+ * the two can never disagree. On a declared bucket that is the bucket's own
+ * usage; on `/buckets/system` it also counts the record attachments the
+ * listing gathers from declared buckets, which is why the label says "Total
+ * size" rather than "Storage used": the page's total, not a partition of the
+ * store.
+ *
+ * Until 2026-09-26 the page's ONLY tile read the instance-wide overview
+ * total, so every bucket showed the same figure. That figure is kept, beside
+ * this one rather than instead of it: storage is capped per deployment
+ * (`STORAGE_MAX_TOTAL_SIZE`), never per bucket, so what an upload is measured
+ * against is the instance total — see {@link instanceKpi}.
+ */
+const usageKpi = (endpoint: string): PageComponent =>
   ({
     type: 'kpi',
-    label: 'Storage used',
+    label: 'Total size',
+    dataSource: { system: { endpoint, valuePath: 'totalBytes' } },
+    kpiFormat: { type: 'bytes' },
+  }) as PageComponent
+
+/**
+ * The instance total: every byte the storage backend holds, across all
+ * buckets. The context the bucket's own figure needs, because the only cap an
+ * upload can hit is deployment-wide.
+ */
+const instanceKpi = (): PageComponent =>
+  ({
+    type: 'kpi',
+    label: 'All buckets',
     dataSource: { system: { endpoint: BUCKETS_OVERVIEW_ENDPOINT, valuePath: 'totals.totalBytes' } },
     kpiFormat: { type: 'bytes' },
+  }) as PageComponent
+
+/**
+ * The two usage tiles side by side — this listing first, the instance second.
+ * Two columns at every width: a byte count is short, and stacking them at
+ * 375px would push the upload control and the grid a whole tile further down.
+ */
+const usageRow = (endpoint: string): PageComponent =>
+  ({
+    type: 'container',
+    element: 'div',
+    props: { className: 'grid grid-cols-2 gap-4' },
+    children: [usageKpi(endpoint), instanceKpi()],
   }) as PageComponent
 
 /**
@@ -97,7 +162,7 @@ const quotaKpi = (): PageComponent =>
  * through the component level — and the component-level spelling is not declared
  * on `file-upload`, so decode drops it and the control ships unlabelled.
  */
-const uploadControl = (): PageComponent =>
+const uploadControl = (endpoint: string): PageComponent =>
   ({
     type: 'file-upload',
     props: {
@@ -107,7 +172,7 @@ const uploadControl = (): PageComponent =>
     },
     dropZone: true,
     maxFiles: 1,
-    uploadAction: ADMIN_FILES_ENDPOINT,
+    uploadAction: endpoint,
     onSuccess: {
       type: 'toast',
       variant: 'success',
@@ -125,7 +190,7 @@ const uploadControl = (): PageComponent =>
  * both button labels explicitly: the confirm-gate runtime defaults them to
  * French, which would otherwise drop French into an English operator console.
  */
-const fileRowActions = () =>
+const fileRowActions = (url: string, deleteMessage: string) =>
   ({
     type: 'actions',
     label: '',
@@ -136,16 +201,16 @@ const fileRowActions = () =>
         action: {
           type: 'fetch',
           mode: 'download',
-          url: PUBLIC_FILE_URL,
+          url,
           filename: '$record.filename',
         },
       },
       {
         label: 'Delete',
-        action: { type: 'fetch', method: 'DELETE', url: PUBLIC_FILE_URL },
+        action: { type: 'fetch', method: 'DELETE', url },
         confirm: {
           title: 'Delete this file?',
-          message: 'Deleting this file removes it from the bucket. This cannot be undone.',
+          message: deleteMessage,
           confirmLabel: 'Delete file',
           cancelLabel: 'Cancel',
         },
@@ -160,17 +225,69 @@ const fileRowActions = () =>
  * not, which is the quiet way to ship a page whose copy advertises a control it
  * never painted.
  */
-const filesGrid = (): PageComponent =>
+/**
+ * The provenance columns only the SYSTEM listing fills: where a file lives, and
+ * which record, through which field, attaches it.
+ *
+ * `sortable: false` on all four: the listing sorts server-side on
+ * `createdAt`, `size` and `filename` alone, so a sortable header here would
+ * paint an arrow that asks the endpoint for an order it refuses. A file the
+ * system bucket stores for nobody has an empty Table, Record and Field — that
+ * is the honest reading, not a gap.
+ */
+const PROVENANCE_COLUMNS = [
+  { field: 'bucket', label: 'Bucket', sortable: false },
+  { field: 'table', label: 'Table', sortable: false },
+  { field: 'recordId', label: 'Record', sortable: false },
+  { field: 'field', label: 'Field', sortable: false },
+] as const
+
+/** What differs between the system bucket's grid and a declared bucket's. */
+interface FilesGridVariant {
+  readonly endpoint: string
+  readonly fileUrl: string
+  readonly provenance: boolean
+  readonly deleteMessage: string
+  readonly emptyMessage: string
+}
+
+const DECLARED_GRID: FilesGridVariant = {
+  endpoint: ADMIN_FILES_ENDPOINT,
+  fileUrl: PUBLIC_FILE_URL,
+  provenance: false,
+  deleteMessage: 'Deleting this file removes it from the bucket. This cannot be undone.',
+  emptyMessage: 'No files',
+}
+
+/**
+ * The system bucket's grid. Its delete confirmation says the one thing that is
+ * different here: most of these rows are attached to a record, and deleting
+ * the file does not clear the record's field — the record keeps a reference to
+ * a file that is gone. Its empty state names where files come from, since an
+ * operator can reach this page before any record holds one.
+ */
+const SYSTEM_GRID: FilesGridVariant = {
+  endpoint: SYSTEM_FILES_ENDPOINT,
+  fileUrl: SYSTEM_PUBLIC_FILE_URL,
+  provenance: true,
+  deleteMessage:
+    'Deleting this file removes it from storage. A record that attaches it keeps the reference, which then opens nothing. This cannot be undone.',
+  emptyMessage:
+    'No files yet. Documents and images appear here once a record’s attachment field holds one — or add one above.',
+}
+
+const filesGrid = (variant: FilesGridVariant): PageComponent =>
   ({
     type: 'table',
     props: { id: FILES_GRID_ID },
-    dataSource: { system: { endpoint: ADMIN_FILES_ENDPOINT, rowsKey: 'items', idKey: 'key' } },
+    dataSource: { system: { endpoint: variant.endpoint, rowsKey: 'items', idKey: 'key' } },
     columns: [
       { field: 'filename', label: 'File' },
+      ...(variant.provenance ? PROVENANCE_COLUMNS : []),
       { field: 'mimeType', label: 'Type' },
       { field: 'size', label: 'Size', align: 'right', format: 'compact' },
       { field: 'createdAt', label: 'Modified', format: 'short-date' },
-      fileRowActions(),
+      fileRowActions(variant.fileUrl, variant.deleteMessage),
     ],
     search: { enabled: true, placeholder: 'Search files' },
     // ─── THE FILE LIST OWNS ITS SCROLL ─────────────────────────────────────
@@ -187,7 +304,7 @@ const filesGrid = (): PageComponent =>
     // `/tables/:table`). Here it runs `withShell({ fill: true })` → `fillHost`
     // → the gap-4 column → the browser section → this table, and every link
     // has to be allowed to shrink below its content. The three above the grid
-    // — the quota tile, the upload control and the section heading — keep
+    // — the usage tile, the upload control and the section heading — keep
     // their natural height and the grid takes what is left.
     layout: 'fill',
     // ─── NO VIEW SWITCHER, AND IT WAS TRIED BEFORE IT WAS REFUSED ──────────
@@ -211,7 +328,7 @@ const filesGrid = (): PageComponent =>
     // `filename` as the caption. Routed as a platform gap rather than shipped
     // as a control that degrades the surface it decorates.
     toolbar: { search: true, filters: true, sort: true },
-    emptyMessage: 'No files',
+    emptyMessage: variant.emptyMessage,
     noMatchMessage: 'No file matches “{query}”',
   }) as PageComponent
 
@@ -251,53 +368,77 @@ const directoryPage: PageConfig = withShell(
 )
 
 /**
- * `/buckets/:bucket` — one bucket's browser.
+ * One bucket's browser — `/buckets/system` or `/buckets/:bucket`.
  *
  * The grid is wrapped in a `section` named "File browser" so the surface keeps
  * the landmark the bespoke island carried, which is how a spec addresses the
  * browser without competing with every other grid on the console.
  */
-const browserPage: PageConfig = withShell(
-  {
-    id: 'dashboard-data-buckets-bucket',
-    name: 'dashboard-data-buckets-bucket',
-    path: '/buckets/:bucket',
-    meta: { title: '$t:admin.meta.buckets', lang: 'en-US' },
-    components: [
-      pageHeading('$t:admin.buckets.heading', '$t:admin.buckets.blurb'),
-      // `fillHost`, not `fullWidth`: the two differ by `min-h-0` alone, and
-      // that one utility is what lets this column shrink below its content so
-      // the grid inside it can take the leftover height. The same swap the
-      // Records page makes, for the same reason and with the same `fill: true`
-      // on the shell below.
-      fillHost([
-        {
-          type: 'container',
-          element: 'div',
-          // `min-h-0 flex-1` so the column both grows into the host and is
-          // allowed to shrink. Its first two children — the quota tile and the
-          // upload control — are not `flex-1`, so they keep their natural
-          // height and the browser section below takes the remainder.
-          props: { className: 'flex min-h-0 flex-1 flex-col gap-4' },
-          children: [
-            quotaKpi(),
-            uploadControl(),
-            {
-              type: 'container',
-              element: 'section',
-              props: {
-                'aria-label': '$t:admin.buckets.browser.region',
-                className: 'flex min-h-0 flex-1 flex-col gap-2',
+const browserPage = (
+  id: string,
+  path: string,
+  blurb: string,
+  variant: FilesGridVariant
+): PageConfig =>
+  withShell(
+    {
+      id,
+      name: id,
+      path,
+      meta: { title: '$t:admin.meta.buckets', lang: 'en-US' },
+      components: [
+        pageHeading('$t:admin.buckets.heading', blurb, { showBlurb: true }),
+        // `fillHost`, not `fullWidth`: the two differ by `min-h-0` alone, and
+        // that one utility is what lets this column shrink below its content so
+        // the grid inside it can take the leftover height. The same swap the
+        // Records page makes, for the same reason and with the same `fill: true`
+        // on the shell below.
+        fillHost([
+          {
+            type: 'container',
+            element: 'div',
+            // `min-h-0 flex-1` so the column both grows into the host and is
+            // allowed to shrink. Its first two children — the usage tile and the
+            // upload control — are not `flex-1`, so they keep their natural
+            // height and the browser section below takes the remainder.
+            props: { className: 'flex min-h-0 flex-1 flex-col gap-4' },
+            children: [
+              usageRow(variant.endpoint),
+              uploadControl(variant.endpoint),
+              {
+                type: 'container',
+                element: 'section',
+                props: {
+                  'aria-label': '$t:admin.buckets.browser.region',
+                  className: 'flex min-h-0 flex-1 flex-col gap-2',
+                },
+                children: [filesGrid(variant)],
               },
-              children: [filesGrid()],
-            },
-          ],
-        } as PageComponent,
-      ]),
-    ],
-  } as PageConfig,
-  { breadcrumb: BREADCRUMB, fill: true }
-)
+            ],
+          } as PageComponent,
+        ]),
+      ],
+    } as PageConfig,
+    { breadcrumb: BREADCRUMB, fill: true }
+  )
 
-/** Both pages, directory first — see `tables.ts` for why the order is written down. */
-export default [directoryPage, browserPage] satisfies readonly PageConfig[]
+/**
+ * All three pages, with the LITERAL `/buckets/system` ahead of
+ * `/buckets/:bucket` — that order is the whole mechanism behind the system
+ * bucket's blurb and columns. See the header note before reordering.
+ */
+export default [
+  directoryPage,
+  browserPage(
+    'dashboard-data-buckets-system',
+    '/buckets/system',
+    '$t:admin.buckets.blurbSystem',
+    SYSTEM_GRID
+  ),
+  browserPage(
+    'dashboard-data-buckets-bucket',
+    '/buckets/:bucket',
+    '$t:admin.buckets.blurbBucket',
+    DECLARED_GRID
+  ),
+] satisfies readonly PageConfig[]

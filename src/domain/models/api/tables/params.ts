@@ -112,6 +112,9 @@ export const listRecordsQuerySchema = Schema.Struct({
   groupBy: queryString(
     'Field name to group records by, or a comma-separated list of fields for nested levels (outermost first). Each named field is permission-checked'
   ),
+  labels: queryString(
+    'Comma-separated `field:relatedField` pairs. Adds, under `_display`, the label of a relationship field read from a field of the related table; the stored key is unchanged. A pair naming no relationship, or a field the related table lacks, is ignored, and a label is returned only if the caller may read that field'
+  ),
 })
 
 // ============================================================================

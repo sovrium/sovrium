@@ -183,7 +183,7 @@ export const LanguageConfigSchema = Schema.Struct({
   code: LanguageCodeSchema,
   locale: Schema.optional(LanguageLocaleSchema).annotate({
     description:
-      'Full locale code (optional - defaults to short code if not specified). Used for HTML lang attribute and hreflang links.',
+      'Full locale code (optional - defaults to short code if not specified). Used for HTML lang attribute and hreflang links, and every date and number the pages format.',
   }),
   label: LanguageLabelSchema,
   direction: Schema.optional(LanguageDirectionSchema),

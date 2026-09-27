@@ -41,17 +41,42 @@
  * captured before the first copy exists and every later pass rebuilds from it.
  * A `WeakMap` because the keys are DOM nodes: re-injecting the slot detaches the
  * old hosts, and a detached one has to be collectable.
+ *
+ * ─── NAMES, AND A SECOND LEVEL ────────────────────────────────────
+ *
+ * A host may carry `data-repeat-as`: then a copy's `$<as>.<key>` reads the
+ * element and `$record.<key>` keeps reading the drawer's record; without it,
+ * `$record.<key>` reads the element as before. A repeat nested in a named one
+ * iterates a field of the ENCLOSING element, so it is expanded INSIDE
+ * `buildCopy`, against that element, before the copy is inserted — a static
+ * query over the slot would never see a host that only exists inside a copy.
+ * Only the OUTERMOST hosts carry remembered state: an inner host is rebuilt
+ * with the copy that holds it.
+ *
+ * Every copy resolves ALL its namespaces in one pass per string
+ * (`substituteScopedVars`), so a value is never re-scanned for tokens, and the
+ * pass stops at an inner host: what is under one belongs to its own scope.
  */
 
 import {
+  RECORD_NAMESPACE,
   repeatElementScalars,
-  substituteRecordVars,
+  substituteScopedVars,
 } from '@/domain/models/app/pages/substitute-record-vars'
 
 type RawRecord = Record<string, unknown>
 
+/** Per namespace, the fields a copy's tokens resolve against. */
+type Scopes = Readonly<Record<string, Readonly<RawRecord>>>
+
+/** What one copy resolves against, and the record a nested repeat reads a field of. */
+interface CopyScope {
+  readonly scopes: Scopes
+  readonly nearest: unknown
+}
+
 /**
- * The marker a repeating container carries, written at SSR by the `container`
+ * The markers a repeating container carries, written at SSR by the `container`
  * renderer (`presentation/render/registry/structural-components.tsx`).
  *
  * Spelled literally on both sides: the render tree and the island tree may not
@@ -60,6 +85,7 @@ type RawRecord = Record<string, unknown>
  * `design/`, which is for class recipes.
  */
 export const REPEAT_ATTRIBUTE = 'data-repeat-record'
+const REPEAT_AS_ATTRIBUTE = 'data-repeat-as'
 
 /** Hosts to expand, in document order. */
 const REPEAT_SELECTOR = `[${REPEAT_ATTRIBUTE}]`
@@ -72,16 +98,33 @@ export const isRepeatHost = (node: Node): boolean =>
  * Every text node under `node`, in document order, not descending into anything
  * `skip` claims.
  *
- * The predicate is what keeps the two `$record.` scopes apart. A copy's tokens
- * are resolved HERE against its own element, and the drawer-scoped pass next
- * door must not then resolve what is left — an object-valued key survives
- * expansion as its own token deliberately, and a second pass would silently turn
- * it into the empty string against a drawer record that has no such field.
+ * The predicate is what keeps the scopes apart. A copy's tokens are resolved
+ * HERE against its own element, and the drawer-scoped pass next door must not
+ * then resolve what is left — an object-valued key survives expansion as its
+ * own token deliberately, and a second pass would silently turn it into the
+ * empty string against a drawer record that has no such field.
  */
 export function collectTextNodes(node: Node, skip?: (candidate: Node) => boolean): readonly Text[] {
   if (node.nodeType === Node.TEXT_NODE) return [node as Text]
   if (skip?.(node) === true) return []
   return Array.from(node.childNodes).flatMap((child) => collectTextNodes(child, skip))
+}
+
+/** Every element under `node`, an inner host included but not what is under it. */
+function collectScopeElements(node: Node): readonly Element[] {
+  return Array.from(node.childNodes).flatMap((child) => {
+    if (child.nodeType !== Node.ELEMENT_NODE) return []
+    const element = child as Element
+    return isRepeatHost(element) ? [element] : [element, ...collectScopeElements(element)]
+  })
+}
+
+/** The hosts under `node` that no other host under `node` encloses. */
+function outermostHosts(node: ParentNode & Node): readonly HTMLElement[] {
+  return Array.from(node.querySelectorAll<HTMLElement>(REPEAT_SELECTOR)).filter((host) => {
+    const enclosing = host.parentElement?.closest(REPEAT_SELECTOR)
+    return enclosing === null || enclosing === undefined || !node.contains(enclosing)
+  })
 }
 
 /** What a host needs to remember between passes. */
@@ -90,14 +133,16 @@ interface RepeatState {
   readonly template: string
   /** The array the copies currently on screen were built from. */
   readonly source: unknown
+  /** The record the copies' `$record.` tokens were resolved against. */
+  readonly record: RawRecord
 }
 
 /** Per-host state, owned by the slot component and threaded through. */
 export type RepeatStates = WeakMap<HTMLElement, RepeatState>
 
 /**
- * Resolve the `$record.` tokens a copy carries in its `data-*` attributes,
- * against the same element its text nodes were resolved against.
+ * Resolve the tokens a copy carries in its `data-*` attributes, against the
+ * same scopes its text nodes were resolved against.
  *
  * ─── WHY `data-*` AND NOT EVERY ATTRIBUTE ───────────────────────────────────
  *
@@ -118,32 +163,52 @@ export type RepeatStates = WeakMap<HTMLElement, RepeatState>
  * string, and an object-valued key survives as its own token rather than becoming
  * `[object Object]`.
  */
-function resolveCopyAttributes(
-  copy: DocumentFragment,
-  scalars: Readonly<Record<string, unknown>>
-): void {
-  copy.querySelectorAll('*').forEach((element) => {
+function resolveCopyAttributes(copy: DocumentFragment, scopes: Scopes): void {
+  collectScopeElements(copy).forEach((element) => {
     Array.from(element.attributes).forEach((attribute) => {
       const source = attribute.value
-      if (!attribute.name.startsWith('data-') || !source.includes('$record.')) return
-      const next = substituteRecordVars(source, scalars)
+      if (!attribute.name.startsWith('data-') || !source.includes('$')) return
+      const next = substituteScopedVars(source, scopes)
       if (next !== source) element.setAttribute(attribute.name, next)
     })
   })
 }
 
-/** One copy of the template, with its tokens resolved against one element. */
-function buildCopy(parsed: HTMLTemplateElement, element: unknown): DocumentFragment {
+/** The array a host iterates: a field of the nearest record in scope. */
+function hostSource(host: Element, nearest: unknown): unknown {
+  if (typeof nearest !== 'object' || nearest === null || Array.isArray(nearest)) return undefined
+  return (nearest as RawRecord)[host.getAttribute(REPEAT_ATTRIBUTE) ?? '']
+}
+
+/** The scope one copy of `host` resolves against. */
+function elementScope(scope: CopyScope, host: Element, element: unknown): CopyScope {
+  const namespace = host.getAttribute(REPEAT_AS_ATTRIBUTE) ?? RECORD_NAMESPACE
+  return {
+    scopes: { ...scope.scopes, [namespace]: repeatElementScalars(element, namespace) },
+    nearest: element,
+  }
+}
+
+/**
+ * One copy of the template, resolved against one scope.
+ *
+ * Inner hosts are filled FIRST, against this copy's element, and the tokens of
+ * this copy are resolved after, stepping around them — an unnamed inner repeat's
+ * `$record.` means ITS element, which this scope must not consume.
+ */
+function buildCopy(parsed: HTMLTemplateElement, scope: CopyScope): DocumentFragment {
   const copy = parsed.content.cloneNode(true) as DocumentFragment
-  const scalars = repeatElementScalars(element)
-  collectTextNodes(copy).forEach((text) => {
+  outermostHosts(copy).forEach((inner) =>
+    fillHost(inner, inner.innerHTML, hostSource(inner, scope.nearest), scope)
+  )
+  collectTextNodes(copy, isRepeatHost).forEach((text) => {
     const source = text.nodeValue ?? ''
-    if (!source.includes('$record.')) return
-    const next = substituteRecordVars(source, scalars)
+    if (!source.includes('$')) return
+    const next = substituteScopedVars(source, scope.scopes)
     // eslint-disable-next-line functional/immutable-data, no-param-reassign -- writing the resolved text into the copy IS the expansion, exactly as in `resolveSlotTokens`
     if (next !== source) text.nodeValue = next
   })
-  resolveCopyAttributes(copy, scalars)
+  resolveCopyAttributes(copy, scope.scopes)
   return copy
 }
 
@@ -151,10 +216,25 @@ function buildCopy(parsed: HTMLTemplateElement, element: unknown): DocumentFragm
  * Rebuild one host's children from its template, once per element.
  *
  * A non-array — a field the record does not carry, a `json` column holding an
- * object, an empty array — draws ZERO copies rather than the template. Leaving
- * the template would ship `$record.` tokens to the reader as literal text, which
- * reads as "this record has no steps" while in fact naming a field that failed
- * to resolve.
+ * object, an empty array — draws ZERO copies rather than the template, and
+ * leaves the host with no child node at all, so a `:empty` rule can style it.
+ * Leaving the template would ship its tokens to the reader as literal text,
+ * which reads as "this record has no steps" while in fact naming a field that
+ * failed to resolve.
+ */
+function fillHost(host: HTMLElement, template: string, source: unknown, scope: CopyScope): void {
+  const parsed = host.ownerDocument.createElement('template')
+  // eslint-disable-next-line functional/immutable-data -- parsing the AUTHOR's markup, which carries no record data; the copies below are built as text nodes
+  parsed.innerHTML = template
+  host.replaceChildren(
+    ...(Array.isArray(source)
+      ? source.map((element) => buildCopy(parsed, elementScope(scope, host, element)))
+      : [])
+  )
+}
+
+/**
+ * Expand one OUTERMOST host against the drawer's record.
  *
  * The identity guard is not an optimisation. The slot re-resolves after its
  * nested islands mount, with the same record object, and a rebuild there would
@@ -162,32 +242,21 @@ function buildCopy(parsed: HTMLTemplateElement, element: unknown): DocumentFragm
  */
 function expandHost(host: HTMLElement, record: RawRecord, states: RepeatStates): void {
   const previous = states.get(host)
-  const source = record[host.getAttribute(REPEAT_ATTRIBUTE) ?? '']
-  if (previous !== undefined && previous.source === source) return
+  const source = hostSource(host, record)
+  if (previous !== undefined && previous.source === source && previous.record === record) return
   const template = previous?.template ?? host.innerHTML
-  states.set(host, { template, source })
-  const parsed = host.ownerDocument.createElement('template')
-  // eslint-disable-next-line functional/immutable-data -- parsing the AUTHOR's markup, which carries no record data; the copies below are built as text nodes
-  parsed.innerHTML = template
-  host.replaceChildren(
-    ...(Array.isArray(source) ? source.map((element) => buildCopy(parsed, element)) : [])
-  )
+  states.set(host, { template, source, record })
+  fillHost(host, template, source, { scopes: { [RECORD_NAMESPACE]: record }, nearest: record })
 }
 
 /**
- * Expand every repeating container in the slot.
- *
- * Document order, so an outer host is rebuilt before an inner one — which
- * cannot happen, since a `repeat` inside another is refused at decode, but the
- * order is the safe one either way: the inner host is detached by the outer
- * rebuild and its own pass becomes a no-op rather than resurrecting a subtree.
+ * Expand every repeating container in the slot — the outermost ones; a nested
+ * host is rebuilt by the copy that holds it.
  */
 export function expandSlotRepeats(
   root: HTMLElement,
   record: RawRecord,
   states: RepeatStates
 ): void {
-  root
-    .querySelectorAll<HTMLElement>(REPEAT_SELECTOR)
-    .forEach((host) => expandHost(host, record, states))
+  outermostHosts(root).forEach((host) => expandHost(host, record, states))
 }

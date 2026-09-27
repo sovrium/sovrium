@@ -1,0 +1,61 @@
+# The app's persistent navigation, included at the top of every workspace page.
+#
+# A column holding the app's name, the `sidebar` and a sign-out control. The
+# `sidebar` renders the entries as one navigation landmark of real links and
+# marks the current page with `aria-current`, so "where am I" is answered for a
+# screen reader too, not only by colour.
+#
+# On a laptop narrower than `lg` the sidebar shrinks to a column of icons, and
+# on a phone (below `md`) it leaves the layout: a menu button opens the same
+# entries in a drawer, so the runs get the whole width of the screen.
+type: container
+element: aside
+props:
+  className: flex w-[232px] flex-none flex-col gap-0.5 border-r border-border bg-background-subtle px-2.5 py-3 max-lg:w-auto max-md:contents
+children:
+  - type: container
+    props:
+      className: mb-2.5 flex h-9 items-center gap-2.5 px-2 text-sm font-semibold text-foreground max-lg:hidden
+    children:
+      - type: icon
+        props:
+          name: zap
+          size: 14
+          className: box-content rounded-sm bg-primary p-1 text-primary-foreground
+      - type: text
+        element: span
+        content: Kerlo Automations
+  - type: sidebar
+    rail:
+      below: lg
+    drawer:
+      below: md
+      label: Menu
+    props:
+      # Row metrics tuned to a short navigation: 32px rows, 13.5px
+      # labels, and the current page on the accent's quiet ground.
+      className: flex min-h-0 flex-col gap-0.5 md:flex-1 [&_a]:h-8 [&_a]:gap-2.5 [&_a]:rounded-md [&_a]:px-2.5 [&_a]:text-[13.5px] [&_a]:text-foreground-muted [&_a[aria-current=page]]:bg-primary-subtle [&_a[aria-current=page]]:font-medium [&_a[aria-current=page]]:text-primary-subtle-foreground
+    groups:
+      - landmark: Workspace
+        items:
+          - { label: Activity, href: /activity, icon: history }
+          - { label: Leads, href: /leads, icon: users }
+      # The recipe page is public: it is the same page a visitor reads.
+      - label: Public page
+        landmark: Workspace
+        items:
+          - { label: Recipes, href: /, icon: zap }
+  - type: container
+    props:
+      className: mt-auto flex items-center justify-end gap-2.5 border-t border-border px-2 py-2.5 text-sm text-foreground-muted max-lg:hidden
+    children:
+      - type: button
+        variant: ghost
+        props:
+          className: h-7 px-2 text-xs
+        content: Sign out
+        action:
+          type: auth
+          method: logout
+          onSuccess:
+            navigate: /sign-in

@@ -7,7 +7,10 @@
 
 import { Schema } from 'effect'
 import { errorResponseSchema } from '@/domain/models/api/combinators/error'
-import { connectionUsersResponseSchema } from '@/domain/models/api/connections'
+import {
+  connectionStatusResponseSchema,
+  connectionUsersResponseSchema,
+} from '@/domain/models/api/connections'
 import { effectJsonResponse, effectParameters } from '@/presentation/api/openapi/route-fragments'
 import { type ResourceGroupSpec, type RouteSpec } from '../openapi/route-spec'
 
@@ -70,16 +73,7 @@ const routes: readonly RouteSpec[] = [
     description: 'Returns the current OAuth connection status for the authenticated user.',
     operationIdBase: 'getConnectionStatus',
     responses: {
-      200: effectJsonResponse(
-        Schema.Struct({
-          name: Schema.String,
-          type: Schema.String,
-          status: Schema.Literals(['connected', 'disconnected', 'expired']),
-          connected: Schema.Boolean,
-          expiresAt: Schema.NullOr(Schema.String),
-        }),
-        'Connection status'
-      ),
+      200: effectJsonResponse(connectionStatusResponseSchema, 'Connection status'),
       400: errorResponse('Connection name required'),
       401: errorResponse('Not authenticated'),
       404: errorResponse('Connection not found'),

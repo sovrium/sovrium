@@ -1,0 +1,110 @@
+# The assets by stage: in storage, in use, in repair. Drag a card to move an
+# asset on — the spare laptop to In use for a new starter, the cracked one to
+# In repair. Retired is a column too, folded until someone opens it, so the
+# board shows the kit still in play.
+name: lifecycle
+path: /lifecycle
+access:
+  require: authenticated
+  redirectTo: /sign-in
+meta:
+  title: Lifecycle · Arden Assets
+  description: The assets by stage, from storage to retired.
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: main
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Lifecycle
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Register asset
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: register-asset-dialog
+          - $ref: ./_register-asset.yaml
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              - type: filter-bar
+                publishes:
+                  bindTo: lifecycle-filter
+                fields:
+                  - { name: name, label: Asset, kind: text }
+                  - name: category
+                    label: Category
+                    kind: select
+                    options:
+                      - { value: Laptop, label: Laptop }
+                      - { value: Monitor, label: Monitor }
+                      - { value: Phone, label: Phone }
+                      - { value: Vehicle, label: Vehicle }
+                      - { value: Furniture, label: Furniture }
+                      - { value: Other, label: Other }
+                  - name: location_name
+                    label: Location
+                    kind: select
+                    options:
+                      - { value: Paris HQ, label: Paris HQ }
+                      - { value: Lyon office, label: Lyon office }
+                      - { value: Storeroom, label: Storeroom }
+                      - { value: Remote, label: Remote }
+                      - { value: Ateliers Rémi, label: Ateliers Rémi }
+              # The three stages in play share the width; the folded Retired
+              # column takes only what its heading needs.
+              - type: container
+                props:
+                  className: '[&_[data-column]]:min-w-0 md:[&_[data-column]]:w-auto md:[&_[data-column]]:flex-1 md:[&_[data-column=Retired]]:flex-[0_0_13.75rem]!'
+                children:
+                  - type: kanban
+                    dataSource:
+                      table: assets
+                      bindTo: lifecycle-filter
+                      sharedFilter: {}
+                      sort:
+                        - { field: asset_tag, direction: asc }
+                    kanbanGroupBy:
+                      field: status
+                      # Retired assets are done with; the column starts folded.
+                      collapsed: [Retired]
+                    drag:
+                      enabled: true
+                      persistAction:
+                        type: crud
+                        operation: update
+                        table: assets
+                    emptyColumnMessage: No asset at this stage. Drag one here when it moves on.
+                    card:
+                      children:
+                        - type: text
+                          element: h3
+                          props:
+                            className: text-[13px] font-medium leading-snug text-foreground
+                          content: $record.name
+                        - type: text
+                          element: p
+                          props:
+                            className: font-mono text-xs text-foreground-muted
+                          content: $record.asset_tag · $record.location_name
+                      footer:
+                        - { field: flag, format: badge }
+                        - { field: assigned_to, format: avatar }

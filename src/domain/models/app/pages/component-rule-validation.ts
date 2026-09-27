@@ -18,6 +18,12 @@
  * @see ./page-binding-validation.ts — the caller, and the other ten families
  */
 
+import {
+  RESERVED_TOKEN_NAMESPACES,
+  isTokenNamespace,
+  scopedTokensIn,
+} from './substitute-record-vars'
+
 // ---------------------------------------------------------------------------
 // 10. The current-item marker
 // ---------------------------------------------------------------------------
@@ -387,28 +393,33 @@ export function systemRowTemplateDepthViolations(
 }
 
 // ---------------------------------------------------------------------------
-// 16. `repeat` sits in exactly one position, and what it may contain
+// 16. `repeat` sits in two positions, and what it may contain
 // ---------------------------------------------------------------------------
 
 /**
- * The four refusals around `container.repeat`.
+ * The refusals around `container.repeat` ([internal ref] CAP-6, [internal ref] CAP-7).
  *
- * `repeat` renders a container's children once per element of an array the
- * BOUND RECORD already carries. That is resolvable in exactly one place -- the
- * client-side slot of a record-bound `drawer`, where a record has been fetched
- * -- and every other position is inert config with no visible symptom. So the
- * position is a decode rule rather than a runtime fallback, for the reason
- * family 1 already gives: it fails silently at runtime and is decidable offline.
+ * `repeat` renders a container's children once per element of an array a
+ * record already carries. That is resolvable in two places -- the client-side
+ * slot of a record-bound `drawer`, where a record has been fetched, and a page
+ * bound to ONE record (`{ system }` or `{ table, mode: 'single' }`), where the
+ * binding pass has the record before the first byte -- and every other position
+ * is inert config with no visible symptom. So the position is a decode rule
+ * rather than a runtime fallback, for the reason family 1 already gives: it
+ * fails silently at runtime and is decidable offline.
  *
- * Four rules, one walk, because all four need the SAME two bits of ancestry
- * that a flat node list throws away -- whether the node is inside a record-bound
- * drawer's `children`, and whether some ancestor already repeats:
+ * One walk, because every rule needs ancestry a flat node list throws away --
+ * whether the node is inside a record-bound drawer's `children`, inside a row
+ * template, and which repeats enclose it and under what names:
  *
- *  1. a `repeat` OUTSIDE that slot -- nothing would iterate it;
- *  2. a `repeat` INSIDE another `repeat` -- nested iteration is a named
- *     non-goal, and `$record.` becomes ambiguous the moment it is allowed:
- *     the token would name a key on the inner element and on the outer one
- *     with no way to say which;
+ *  1. a `repeat` in neither position -- nothing would iterate it; and on a bound
+ *     page, one inside a `dataSource` row template, where `$record.` is the ROW;
+ *  2. `repeat.as` naming a namespace the grammar already reads, or no
+ *     identifier at all; a repeat nested under one with NO `as` (`$record.`
+ *     would name a key on two elements at once); an `as` an enclosing repeat
+ *     already uses (the inner would shadow the outer); a `$<as>.` token outside
+ *     the repeat declaring it (literal text on every copy); and nesting deeper
+ *     than two;
  *  3. a `visibility.record` on or under a `repeat` -- see below, this is v1's
  *     honest cost and the one refusal that says "v1" rather than "never";
  *  4. a `{ system }` READ inside the drawer slot whose binding carries a
@@ -416,8 +427,9 @@ export function systemRowTemplateDepthViolations(
  *
  * ---- WHY (3) IS REFUSED RATHER THAN IGNORED OR EVALUATED -------------------
  *
- * A per-element gate that fires on the SERVER for a system row template and
- * silently does nothing in a CLIENT-side repeat is the failure
+ * A per-element gate that fires for a system row template and silently does
+ * nothing in a repeat — the drawer's copies are built in the browser, a bound
+ * page's in the binding pass, and neither evaluates it — is the failure
  * `system-rows-template-resolver.ts` warns about by name: an access-control
  * shape that holds in one path and evaporates in the other. Ignoring it ships
  * that. Evaluating it means importing the visibility evaluator into the island
@@ -442,19 +454,36 @@ export function repeatPlacementViolations(
   page: Readonly<Record<string, unknown>>,
   label: string
 ): readonly string[] {
-  const root: RepeatContext = { inDrawerSlot: false, inRepeat: false }
+  const root: RepeatContext = {
+    inDrawerSlot: false,
+    inRowTemplate: false,
+    pageBound: isPageBoundToOneRecord(page['dataSource']),
+    repeats: [],
+    declaredNames: declaredRepeatNames([page['components'], page['layout']]),
+  }
   return [
     ...walkRepeatContext(page['components'], root, label),
     ...walkRepeatContext(page['layout'], root, label),
   ]
 }
 
-/** The two bits of ancestry the four rules above need, and a flat walk loses. */
+/** One enclosing repeat, as far as the rules below care: the name it gave its element. */
+interface RepeatFrame {
+  readonly as: string | undefined
+}
+
+/** The ancestry the rules above need, and a flat walk loses. */
 interface RepeatContext {
   /** Some ancestor is a record-bound `drawer`, reached through its `children`. */
   readonly inDrawerSlot: boolean
-  /** Some ancestor declares `repeat`. */
-  readonly inRepeat: boolean
+  /** Some ancestor reads rows of its own — a `dataSource` row template. */
+  readonly inRowTemplate: boolean
+  /** The PAGE is bound to one record (`{ system }` or `{ table, mode: 'single' }`). */
+  readonly pageBound: boolean
+  /** The enclosing repeats, outermost first. */
+  readonly repeats: readonly RepeatFrame[]
+  /** Every usable `repeat.as` on the page — the namespaces a stray token can name. */
+  readonly declaredNames: ReadonlySet<string>
 }
 
 /** A `drawer` carrying a `dataSource` -- the record-bound surface. */
@@ -463,35 +492,74 @@ function isRecordBoundDrawer(node: Readonly<Record<string, unknown>>): boolean {
 }
 
 /**
+ * A page-level `dataSource` that binds the page to ONE record: the `{ system }`
+ * detail arm, or `{ table, mode: 'single' }`. Both resolve before the first byte
+ * is written, which is what makes the page a place a `repeat` can iterate.
+ */
+function isPageBoundToOneRecord(dataSource: unknown): boolean {
+  if (!isRecord(dataSource)) return false
+  if (isRecord(dataSource['system'])) return true
+  return typeof dataSource['table'] === 'string' && dataSource['mode'] === 'single'
+}
+
+/** A node's `repeat.as`, when it declares a string one. */
+function repeatName(node: Readonly<Record<string, unknown>>): string | undefined {
+  const { repeat } = node
+  if (!isRecord(repeat)) return undefined
+  return typeof repeat['as'] === 'string' ? repeat['as'] : undefined
+}
+
+/** Can this name be a `$<name>.` namespace a repeat owns? */
+function isUsableRepeatName(name: string): boolean {
+  return isTokenNamespace(name) && !RESERVED_TOKEN_NAMESPACES.includes(name)
+}
+
+/** Every usable `repeat.as` declared anywhere under `roots`. */
+function declaredRepeatNames(roots: readonly unknown[]): ReadonlySet<string> {
+  return new Set(
+    walk(roots)
+      .map(repeatName)
+      .filter((name): name is string => name !== undefined && isUsableRepeatName(name))
+  )
+}
+
+/**
  * Depth-first walk carrying {@link RepeatContext} down.
  *
  * `inDrawerSlot` is set only when descending into a record-bound drawer's
  * `children` -- not its `recordFields`, not its `actions`. Those are the
  * record's own facts and the footer, and a `repeat` in either would be just as
- * inert as one on the page.
+ * inert as one on the page. A repeat's frame, and a row template's flag, apply
+ * to the node's `children` likewise: a container's OWN props sit in the scope
+ * that encloses it, which is where both expansions resolve them.
  */
 function walkRepeatContext(
   value: unknown,
   context: RepeatContext,
   label: string
 ): readonly string[] {
+  if (typeof value === 'string') return strayNameViolations(value, context, label)
   if (Array.isArray(value)) return value.flatMap((item) => walkRepeatContext(item, context, label))
   if (!isRecord(value)) return []
-  const below: RepeatContext = {
-    inDrawerSlot: context.inDrawerSlot,
-    inRepeat: context.inRepeat || isRecord(value['repeat']),
-  }
-  const slot: RepeatContext = { inDrawerSlot: true, inRepeat: below.inRepeat }
+  const repeats = isRecord(value['repeat'])
   const opensSlot = isRecordBoundDrawer(value)
+  const inside: RepeatContext = {
+    ...context,
+    inDrawerSlot: context.inDrawerSlot || opensSlot,
+    inRowTemplate: context.inRowTemplate || (!opensSlot && isRecord(value['dataSource'])),
+    repeats: repeats ? [...context.repeats, { as: repeatName(value) }] : context.repeats,
+  }
   return [
     ...repeatNodeViolations(value, context, label),
-    ...Object.entries(value).flatMap(([key, child]) =>
-      walkRepeatContext(child, opensSlot && key === 'children' ? slot : below, label)
-    ),
+    ...Object.entries(value)
+      .filter(([key]) => key !== 'repeat')
+      .flatMap(([key, child]) =>
+        walkRepeatContext(child, key === 'children' ? inside : context, label)
+      ),
   ]
 }
 
-/** The three refusals decidable at ONE node, given its ancestry. */
+/** The refusals decidable at ONE node, given its ancestry. */
 function repeatNodeViolations(
   node: Readonly<Record<string, unknown>>,
   context: RepeatContext,
@@ -500,28 +568,86 @@ function repeatNodeViolations(
   const repeats = isRecord(node['repeat'])
   return [
     ...repeatPositionViolations(repeats, context, label),
-    ...repeatVisibilityViolations(node, repeats || context.inRepeat, label),
+    ...(repeats ? repeatNestingViolations(repeatName(node), context, label) : []),
+    ...repeatVisibilityViolations(node, repeats || context.repeats.length > 0, label),
     ...drawerSlotReadViolations(node, context, label),
   ]
 }
 
-/** Rules 1 and 2: where a `repeat` may stand. */
+/** Rule 1: where a `repeat` may stand. */
 function repeatPositionViolations(
   repeats: boolean,
   context: RepeatContext,
   label: string
 ): readonly string[] {
-  if (!repeats) return []
-  if (!context.inDrawerSlot) {
+  if (!repeats || context.inDrawerSlot) return []
+  if (context.pageBound && context.inRowTemplate) {
     return [
-      `${label} declares \`repeat\` on a container that is not inside a record-bound \`drawer\`'s \`children\` — \`repeat\` iterates an array carried by a record the drawer has already fetched, and there is no record anywhere else, so nothing would iterate it and the container would render its template exactly once. In v1 that slot is the one supported position: nest it under a \`drawer\` declaring a \`dataSource\`, or read the rows yourself with a \`dataSource\` row template.`,
+      `${label} declares \`repeat\` inside a row template — there \`$record.\` is the ROW the enclosing \`dataSource\` reads, not the record the page is bound to, so the array the repeat names is a different one on every row and the page position does not reach it. Move the \`repeat\` out of the row template, directly under the page, or iterate the rows themselves with the \`dataSource\`.`,
     ]
   }
-  return context.inRepeat
-    ? [
-        `${label} nests a \`repeat\` inside another \`repeat\` — \`$record.<field>\` would name a key on the inner element and on the outer one at once, with nothing in the grammar to say which, so every token inside the nested copies is ambiguous. Iterate one array per container.`,
-      ]
-    : []
+  if (context.pageBound) return []
+  return [
+    `${label} declares \`repeat\` on a container that is neither inside a record-bound \`drawer\`'s \`children\` nor on a page bound to one record — \`repeat\` iterates an array carried by a record that has already been read, and there is no record anywhere else, so nothing would iterate it and the container would render its template exactly once. In v1 those are the supported positions: nest it under a \`drawer\` declaring a \`dataSource\`, bind the page itself with \`{ system }\` or \`{ table, mode: 'single' }\`, or read the rows yourself with a \`dataSource\` row template.`,
+  ]
+}
+
+/**
+ * Refusals 1, 2, 3 and 5 of [internal ref]: what a repeat may be called, and how deep
+ * repeats may nest. Each is otherwise silent — a reserved name re-scopes a token
+ * the page already reads, an unnamed parent leaves `$record.` naming a key on two
+ * elements at once, a re-used name shadows the outer element, and a third level
+ * multiplies the copies past the bound the system row templates carry.
+ */
+function repeatNestingViolations(
+  as: string | undefined,
+  context: RepeatContext,
+  label: string
+): readonly string[] {
+  const { repeats } = context
+  const parent = repeats.at(-1)
+  return [
+    ...(as !== undefined && !isUsableRepeatName(as)
+      ? [
+          `${label} declares \`repeat.as: \`${as}\`\` — a name must be a plain identifier (letters, digits and \`_\`, not starting with a digit) that the page grammar does not already read (${RESERVED_TOKEN_NAMESPACES.map((name) => `\`${name}\``).join(', ')}), or \`$${as}.<field>\` would mean something else or nothing at all. Pick another name, such as \`step\` or \`leg\`.`,
+        ]
+      : []),
+    ...(repeats.length >= 2
+      ? [
+          `${label} nests a \`repeat\` deeper than two levels — each level multiplies the copies by its own array length, and two is the bound the system row templates carry. Flatten the data, or iterate the third array on a page of its own.`,
+        ]
+      : []),
+    ...(repeats.length === 1 && parent?.as === undefined
+      ? [
+          `${label} nests a \`repeat\` inside a \`repeat\` that declares no \`repeat.as\` — \`$record.<field>\` would name a key on the inner element and on the outer one at once, with nothing in the grammar to say which. Name the outer element with \`repeat.as\` (for instance \`as: 'leg'\`) and read it as \`$leg.<field>\`.`,
+        ]
+      : []),
+    ...(as !== undefined && repeats.some((frame) => frame.as === as)
+      ? [
+          `${label} declares \`repeat.as: \`${as}\`\`, a name an enclosing repeat already uses — inside it \`$${as}.<field>\` could mean either element, and the inner one would silently hide the outer. Give each level its own name.`,
+        ]
+      : []),
+  ]
+}
+
+/**
+ * Refusal 4 of [internal ref]: a `$<as>.` token outside the repeat that declares `as`.
+ * Nothing resolves it there, so it would ship as literal text on every copy; the
+ * message names the token as written, which is what the author has to move.
+ */
+function strayNameViolations(
+  value: string,
+  context: RepeatContext,
+  label: string
+): readonly string[] {
+  if (!value.includes('$') || context.declaredNames.size === 0) return []
+  const inScope = new Set(context.repeats.map((frame) => frame.as))
+  return scopedTokensIn(value)
+    .filter(({ namespace }) => context.declaredNames.has(namespace) && !inScope.has(namespace))
+    .map(
+      ({ namespace, token }) =>
+        `${label} uses \`${token}\` outside the \`repeat\` that declares \`as: '${namespace}'\` — nothing resolves \`$${namespace}.\` there, so it would ship as literal text. Move it inside that repeat's \`children\`, or read the value through the scope the token sits in.`
+    )
 }
 
 /** Rule 3: `visibility.record` on or under a `repeat`, refused in v1. */
@@ -533,7 +659,7 @@ function repeatVisibilityViolations(
   const { visibility } = node
   return underRepeat && isRecord(visibility) && visibility['record'] !== undefined
     ? [
-        `${label} declares \`visibility.record\` on or inside a \`repeat\` — the per-row gate is evaluated on the SERVER for a row template, and a repeat expands in the BROWSER, so the gate would silently apply to nothing and every element would render. v1 refuses it rather than shipping a filter that holds in one path and evaporates in the other; filter the array before it reaches the record, or drop the gate.`,
+        `${label} declares \`visibility.record\` on or inside a \`repeat\` — the per-row gate is evaluated only for a row template, and a repeat's copies are built with no per-element gate — in the browser for a drawer slot, in the binding pass for a page bound to one record — so the gate would silently apply to nothing and every element would render. v1 refuses it rather than shipping a filter that holds in one path and evaporates in the other; filter the array before it reaches the record, or drop the gate.`,
       ]
     : []
 }
@@ -541,7 +667,7 @@ function repeatVisibilityViolations(
 /** Rule 4: a `$record.`-carrying `{ system }` read inside the drawer slot. */
 function drawerSlotReadViolations(
   node: Readonly<Record<string, unknown>>,
-  context: RepeatContext,
+  context: Pick<RepeatContext, 'inDrawerSlot'>,
   label: string
 ): readonly string[] {
   const { dataSource } = node

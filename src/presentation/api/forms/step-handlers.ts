@@ -36,6 +36,7 @@
  */
 
 import { getCookie, setCookie } from 'hono/cookie'
+import { resolveFormOptionSources } from '@/application/use-cases/forms/resolve-form-option-sources'
 import { findFormByName } from '@/application/use-cases/forms/submit-form'
 import {
   buildConditionValueMap,
@@ -49,10 +50,16 @@ import {
   resolveNextStepId,
   isStepVisible,
 } from '@/domain/models/app/forms/multi-step-flow'
-import { denyFormAccess, evaluateFormAccessForRequest } from './access-gate'
+import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+import {
+  denyFormAccess,
+  evaluateFormAccessForRequest,
+  resolveFormOptionVisitor,
+} from './access-gate'
 import { generateDraftSessionId, mergeDraft, readDraft, replaceDraft } from './step-draft-store'
 import type { App } from '@/domain/models/app'
 import type { Form, FormField } from '@/domain/models/app/forms'
+import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
 import type { Context } from 'hono'
 
 const DRAFT_COOKIE_NAME = 'sovrium_form_draft'
@@ -69,7 +76,10 @@ export interface StepFragmentRenderer {
     app: Readonly<App>,
     form: Readonly<Form>,
     stepId: string,
-    draftValues: Readonly<Record<string, unknown>>
+    state: {
+      readonly draftValues: Readonly<Record<string, unknown>>
+      readonly optionSets?: FormOptionSets
+    }
   ) => string
 }
 
@@ -148,14 +158,27 @@ export async function handleGetStepFragment(
   if (!name || !stepId) return c.notFound()
   const form = findFormByName(app, name)
   if (!form) return c.notFound()
-  const { decision } = await evaluateFormAccessForRequest(c, form)
+  const { decision, session } = await evaluateFormAccessForRequest(c, form)
   const denied = denyFormAccess(c, form.name, decision, 'html')
   if (denied !== undefined) return denied
   const step = findStep(form, stepId)
   if (!step) return c.notFound()
   const sessionId = ensureDraftSession(c)
   const draft = readDraft(sessionId, name)
-  const html = renderer.renderStepFragment(app, form, stepId, draft)
+  // A step asking a table-backed question carries the same choices as the
+  // full page does (`respondWithForm`), read on this request.
+  const optionSets = await runRequestEffect(
+    c,
+    provideDomain(
+      c,
+      resolveFormOptionSources({
+        app,
+        form,
+        visitor: await resolveFormOptionVisitor(c, session),
+      })
+    )
+  )
+  const html = renderer.renderStepFragment(app, form, stepId, { draftValues: draft, optionSets })
   return c.html(html)
 }
 

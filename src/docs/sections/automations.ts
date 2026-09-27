@@ -15,7 +15,9 @@ import {
   ApiKeyConnectionSchema,
   BasicConnectionSchema,
   BearerConnectionSchema,
+  ConnectionOperationSchema,
   OAuth2ConnectionSchema,
+  TokenExchangeConnectionSchema,
 } from '@/domain/models/app/connections'
 import automationConnectionsBody from '@/domain/models/app/connections/connections.docs.md' with { type: 'file' }
 import { EnvVarSchema } from '@/domain/models/app/env'
@@ -104,7 +106,11 @@ export const automations = defineSection({
       sidebarLabel: 'Runs',
       body: automationRunsBody,
       documents: [],
-      stories: ['US-AUTOMATIONS-OPERATIONAL-PAUSE'],
+      stories: [
+        'US-AUTOMATIONS-OPERATIONAL-PAUSE',
+        'US-AUTOMATIONS-OPERATIONAL-PAUSE-AUTO',
+        'US-AUTOMATIONS-RETRY-AND-FAILURE-008',
+      ],
     }),
     defineArticle({
       slug: 'automation-retry-failure',
@@ -135,6 +141,8 @@ export const automations = defineSection({
         'US-AUTOMATIONS-RETRY-AND-FAILURE-005',
         'US-AUTOMATIONS-RETRY-AND-FAILURE-006',
         'US-AUTOMATIONS-RETRY-AND-FAILURE-007',
+        'US-AUTOMATIONS-RETRY-AND-FAILURE-009',
+        'US-AUTOMATIONS-RETRY-AND-FAILURE-010',
         'US-AUTOMATIONS-SAFETY-INFINITE-LOOP-DETECTION',
       ],
     }),
@@ -142,7 +150,7 @@ export const automations = defineSection({
       slug: 'automation-connections',
       title: 'Connections',
       description:
-        'Reusable external-service credentials — OAuth2 (with token refresh, PKCE, app-wide or per-user tokens), API key, basic auth, and bearer token.',
+        'Reusable external-service credentials — OAuth2 (with token refresh, PKCE, app-wide or per-user tokens), API key, basic auth, bearer token, and token exchange.',
       keywords: [
         'sovrium',
         'connections',
@@ -150,6 +158,7 @@ export const automations = defineSection({
         'api key',
         'basic auth',
         'bearer token',
+        'token exchange',
         'token refresh',
         'pkce',
         'app scope',
@@ -164,15 +173,26 @@ export const automations = defineSection({
         ApiKeyConnectionSchema,
         BasicConnectionSchema,
         BearerConnectionSchema,
+        TokenExchangeConnectionSchema,
+        ConnectionOperationSchema,
       ],
       stories: [
         'US-AUTOMATIONS-CONNECTIONS-ACTION-AUTH',
         'US-AUTOMATIONS-CONNECTIONS-APP-SCOPED-TOKENS',
+        'US-AUTOMATIONS-CONNECTIONS-BASIC-EMPTY-USERNAME',
+        'US-AUTOMATIONS-CONNECTIONS-CLIENT-CREDENTIALS',
         'US-AUTOMATIONS-CONNECTIONS-CONFIGURATION',
         'US-AUTOMATIONS-CONNECTIONS-CUSTOM-PARAMS',
+        'US-AUTOMATIONS-CONNECTIONS-DEFAULT-REDIRECT-URI',
+        'US-AUTOMATIONS-CONNECTIONS-LONG-LIVED-TOKEN',
         'US-AUTOMATIONS-CONNECTIONS-OAUTH2-FLOW',
+        'US-AUTOMATIONS-CONNECTIONS-OPERATIONS',
         'US-AUTOMATIONS-CONNECTIONS-PER-USER-TOKENS',
+        'US-AUTOMATIONS-CONNECTIONS-PROVIDER-SHORTHAND',
+        'US-AUTOMATIONS-CONNECTIONS-RECONNECT-NEEDED',
+        'US-AUTOMATIONS-CONNECTIONS-TOKEN-EXCHANGE',
         'US-AUTOMATIONS-CONNECTIONS-TOKEN-REFRESH',
+        'US-AUTOMATIONS-CONNECTIONS-TOKEN-RESPONSE-FIELDS',
       ],
     }),
     defineArticle({

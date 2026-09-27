@@ -11,12 +11,29 @@ import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ElementProps } from './html-element-renderer'
 
 /**
+ * Loading defaults for an `<img>`: an image the author left unconfigured is
+ * deferred (`loading="lazy"`) so it costs nothing until it nears the viewport,
+ * while a hero — the likeliest Largest Contentful Paint element — is fetched
+ * first (`loading="eager"` + `fetchpriority="high"`). An explicit
+ * `props.loading` always wins, and a hero the author deferred gets no priority
+ * hint. Width and height pass through untouched when the author declares them.
+ */
+function withLoadingDefaults(props: ElementProps, hero: boolean): ElementProps {
+  if (props.loading !== undefined) return props
+  if (!hero) return { ...props, loading: 'lazy' }
+  const hasPriority = props.fetchPriority !== undefined || props.fetchpriority !== undefined
+  return hasPriority
+    ? { ...props, loading: 'eager' }
+    : { ...props, loading: 'eager', fetchPriority: 'high' }
+}
+
+/**
  * Renders image element
  */
 export function renderImage(props: ElementProps): ReactElement {
   return (
     <img
-      {...omitInternalMarkers(props)}
+      {...omitInternalMarkers(withLoadingDefaults(props, false))}
       alt={(props.alt as string | undefined) || ''}
     />
   )
@@ -38,7 +55,7 @@ export function renderAvatar(props: ElementProps): ReactElement {
 
   return (
     <img
-      {...omitInternalMarkers(props)}
+      {...omitInternalMarkers(withLoadingDefaults(props, false))}
       style={style}
       alt={(props.alt as string | undefined) || ''}
       className={resolveClasses('rounded-full', props.className as string | undefined)}
@@ -53,7 +70,7 @@ export function renderAvatar(props: ElementProps): ReactElement {
 export function renderThumbnail(props: ElementProps): ReactElement {
   return (
     <img
-      {...omitInternalMarkers(props)}
+      {...omitInternalMarkers(withLoadingDefaults(props, false))}
       alt={(props.alt as string | undefined) || ''}
       className={resolveClasses('rounded-md', props.className as string | undefined)}
     />
@@ -67,7 +84,7 @@ export function renderThumbnail(props: ElementProps): ReactElement {
 export function renderHeroImage(props: ElementProps): ReactElement {
   return (
     <img
-      {...omitInternalMarkers(props)}
+      {...omitInternalMarkers(withLoadingDefaults(props, true))}
       alt={(props.alt as string | undefined) || ''}
       className={resolveClasses('rounded-t-lg', props.className as string | undefined)}
     />

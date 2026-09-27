@@ -6,7 +6,9 @@
  */
 
 import { declaredFieldDescription, declaredFieldLabel } from '@/presentation/design/field-display'
+import { resolveValueCurrency } from './resolve-chart-field-context'
 import { resolveSourceTable } from './type-specific-props-builder'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 
@@ -18,6 +20,18 @@ export type DerivedRecordField = {
   readonly label?: string
   /** Resolved guidance rendered beside the entry's value; absent means none. */
   readonly description?: string
+  /** The bound column's declared currency display; absent when it declares none. */
+  readonly currency?: CurrencyDisplayOptions
+}
+
+/** The `currency` overlay of one entry: the bound column's declared display, or nothing. */
+const currencyOverlay = (
+  table: Tables[number] | undefined,
+  fieldName: unknown
+): { readonly currency?: CurrencyDisplayOptions } => {
+  if (table === undefined || typeof fieldName !== 'string') return {}
+  const currency = resolveValueCurrency(table, fieldName)
+  return currency === undefined ? {} : { currency }
 }
 
 /**
@@ -57,13 +71,17 @@ function enrichDeclaredFields(
   component: Component | undefined,
   tables: Tables | undefined
 ): readonly unknown[] {
-  const tableFields = component ? resolveSourceTable(component, tables)?.fields : undefined
+  const table = component ? resolveSourceTable(component, tables) : undefined
+  const tableFields = table?.fields
   return declared.map((entry) => {
     if (typeof entry !== 'object' || entry === null) return entry
     const record = entry as Readonly<Record<string, unknown>>
     const boundField = tableFields?.find((field) => field.name === record['name']) as
       Readonly<Record<string, unknown>> | undefined
-    return withResolvedFieldDisplay(record, boundField)
+    return {
+      ...withResolvedFieldDisplay(record, boundField),
+      ...currencyOverlay(table, record['name']),
+    }
   })
 }
 
@@ -101,6 +119,7 @@ export function resolveRecordDrawerFields(
       type: field.type,
       ...(label === undefined ? {} : { label }),
       ...(description === undefined ? {} : { description }),
+      ...currencyOverlay(table, field.name),
     }
   })
 }

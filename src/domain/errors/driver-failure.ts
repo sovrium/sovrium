@@ -365,12 +365,16 @@ const CHECK_CONSTRAINT_SUFFIXES = [
 ] as const
 
 /**
- * Ways each dialect names the NOT-NULL column in prose rather than in a
- * constraint name. Both capture the column in group 1.
+ * Ways each dialect names the refused column in prose rather than in a
+ * constraint name. Each captures the column in group 1.
  */
 const NULL_COLUMN_PATTERNS: readonly RegExp[] = [
   // SQLite: `NOT NULL constraint failed: tasks.title`
   /NOT NULL constraint failed: [^\s.]+\.(\w+)/,
+  // SQLite: `UNIQUE constraint failed: tasks.code` — single-column only; a
+  // composite index lists several and names no one field. PostgreSQL carries
+  // the same answer in its `Key (code)=` detail, matched below.
+  /UNIQUE constraint failed: [^\s.]+\.(\w+)$/,
   // PostgreSQL: `null value in column "title" of relation "tasks" …`
   /null value in column "([^"]+)"/,
   // PostgreSQL FK detail: `Key (owner_id)=(7) is not present in table "users".`

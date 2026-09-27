@@ -38,8 +38,7 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
  * importing the app-model schema: a wire contract states its own constraints,
  * so the published OpenAPI document does not depend on a domain annotation.
  *
- * @public Awaiting its route: `POST /api/ai/transcriptions` lands with chat voice
- * input.
+ * Consumed by `POST /api/ai/transcriptions` (`src/presentation/api/ai/transcription-routes.ts`).
  */
 export const transcriptionRequestFieldsSchema = Schema.Struct({
   language: optionalField(
@@ -62,8 +61,7 @@ export type TranscriptionRequestFields = typeof transcriptionRequestFieldsSchema
 /**
  * Response schema for `POST /api/ai/transcriptions` (HTTP 200).
  *
- * @public Awaiting its route: `POST /api/ai/transcriptions` lands with chat voice
- * input.
+ * Consumed by `POST /api/ai/transcriptions` (`src/presentation/api/ai/transcription-routes.ts`).
  */
 export const transcriptionResponseSchema = Schema.Struct({
   text: Schema.String.annotate({

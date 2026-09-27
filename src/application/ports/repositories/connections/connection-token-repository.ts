@@ -56,6 +56,8 @@ export interface ConnectionTokenPlaintext {
   readonly accessToken: string
   readonly refreshToken: string | undefined
   readonly expiresAt: Date | undefined
+  /** Extra token-response fields the connection keeps (`tokenFields`), decrypted. */
+  readonly tokenFields?: Readonly<Record<string, string>> | undefined
   readonly createdAt: Date
   readonly updatedAt: Date
 }
@@ -73,6 +75,10 @@ export interface ConnectionAppTokenPlaintext {
   readonly accessToken: string
   readonly refreshToken: string | undefined
   readonly expiresAt: Date | undefined
+  /** Extra token-response fields the connection keeps (`tokenFields`), decrypted. */
+  readonly tokenFields?: Readonly<Record<string, string>> | undefined
+  /** Hash of the client configuration a client-credentials token was obtained with. */
+  readonly grantFingerprint?: string | undefined
   readonly createdAt: Date
   readonly updatedAt: Date
 }
@@ -87,6 +93,8 @@ export interface ConnectionAppTokenPlaintext {
  */
 export interface ConnectionAppTokenSummary {
   readonly expiresAt: Date | undefined
+  /** Whether a refresh token is stored — read from the column, never decrypted. */
+  readonly hasRefreshToken: boolean
   readonly createdAt: Date
   readonly updatedAt: Date
 }
@@ -100,6 +108,8 @@ export interface ConnectionAppTokenSummary {
 export interface ConnectionUserSummary {
   readonly userId: string
   readonly expiresAt: Date | undefined
+  /** Whether a refresh token is stored — read from the column, never decrypted. */
+  readonly hasRefreshToken: boolean
   readonly createdAt: Date
   readonly updatedAt: Date
 }
@@ -133,6 +143,7 @@ export class ConnectionTokenRepository extends Context.Service<
       readonly accessToken: string
       readonly refreshToken?: string
       readonly expiresAt?: Date
+      readonly tokenFields?: Readonly<Record<string, string>>
     }) => Effect.Effect<
       ConnectionTokenPlaintext,
       ConnectionTokenDatabaseError | SentinelTokenInProductionError
@@ -189,6 +200,8 @@ export class ConnectionTokenRepository extends Context.Service<
       readonly accessToken: string
       readonly refreshToken?: string
       readonly expiresAt?: Date
+      readonly tokenFields?: Readonly<Record<string, string>>
+      readonly grantFingerprint?: string
     }) => Effect.Effect<
       ConnectionAppTokenPlaintext,
       ConnectionTokenDatabaseError | SentinelTokenInProductionError

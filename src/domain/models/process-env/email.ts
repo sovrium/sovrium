@@ -60,7 +60,8 @@ export const EmailEnvSchema = Schema.Struct({
   smtpFromName: Schema.optional(
     Schema.String.pipe(
       Schema.annotate({
-        description: 'Sender display name (SMTP_FROM_NAME)',
+        description:
+          "Sender display name (SMTP_FROM_NAME). When unset, the sending app's `name` is used, then 'Sovrium' for an engine with no app name.",
         examples: ['Your App Name'],
       })
     )

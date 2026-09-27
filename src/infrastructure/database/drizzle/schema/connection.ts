@@ -64,6 +64,9 @@ export const connectionTokens = systemSchema.table(
     accessToken: text('access_token').notNull(),
     refreshToken: text('refresh_token'),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
+    // Encrypted JSON of the extra token-response fields the connection keeps
+    // (`tokenFields`, e.g. Salesforce's `instance_url`) — same envelope as the tokens.
+    tokenFields: text('token_fields'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
@@ -115,6 +118,12 @@ export const connectionAppTokens = systemSchema.table(
     accessToken: text('access_token').notNull(),
     refreshToken: text('refresh_token'),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
+    // Encrypted JSON of the extra token-response fields the connection keeps
+    // (`tokenFields`, e.g. Salesforce's `instance_url`) — same envelope as the tokens.
+    tokenFields: text('token_fields'),
+    // Hash of the client configuration a client-credentials token was obtained
+    // with; a token whose hash no longer matches the connection is re-requested.
+    grantFingerprint: text('grant_fingerprint'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()

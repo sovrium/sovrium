@@ -232,22 +232,30 @@ export default {
   'admin.tables.blurb':
     'Browse and edit the records in your tables. Choose a table to open its grid — search, sort, filter, then open a record to edit it.',
 
-  // ── Files (`/buckets`, `/buckets/:bucket`) ──────────────────────────────
+  // ── Files (`/buckets`, `/buckets/system`, `/buckets/:bucket`) ────────────
+  //
+  // TWO blurbs, for the reason Conversations has two: the built-in bucket is a
+  // different thing from a declared one, and route order picks the sentence —
+  // see `pages/data/buckets.ts`.
   'admin.buckets.heading': 'Files',
   'admin.buckets.blurb':
     'Browse the files stored in your buckets. Choose a bucket to open its browser — search, sort, filter by type, then download a file.',
+  'admin.buckets.blurbBucket':
+    'The files stored in this bucket. Search, sort or filter by type, then download or delete a file.',
+  'admin.buckets.blurbSystem':
+    'The built-in bucket. It lists every document and image attached to a record, with the bucket, table, record and field it belongs to, and stores the attachments whose field names no bucket.',
 
   // ── Conversations (`/agents`, `/agents/:agent`) ─────────────────────────
   //
-  // TWO blurbs, because the general-purpose agent is a different thing from a
+  // TWO blurbs, because the built-in System Agent is a different thing from a
   // declared one and the sentence that orients an operator has to say so. Which
   // one a page uses is decided by route order, not by a condition — see
   // `pages/data/agents.ts`.
   'admin.agents.heading': 'Conversations',
   'admin.agents.blurb':
     'Every conversation your users had with this agent. Open one to read the full thread.',
-  'admin.agents.blurbDefault':
-    'The general-purpose agent: every conversation no declared agent claimed. Open one to read the full thread.',
+  'admin.agents.blurbSystem':
+    'Conversations with the built-in System agent: the Welcome assistant, and every chat that names no declared agent. It reads your app’s data and never changes it. Open one to read the full thread.',
 
   // ── Submissions (`/forms`, `/forms/:form`) ──────────────────────────────
   'admin.forms.heading': 'Submissions',
@@ -257,7 +265,31 @@ export default {
   // ── Connections (`/connections`) ────────────────────────────────────────
   'admin.connections.heading': 'Connections',
   'admin.connections.blurb':
-    'Inspect your app’s connections to external services and the state of their tokens: active, expiring soon, or expired. Connections are declared in config — here you observe their real state.',
+    'Inspect your app’s connections to external services and the state of their tokens: active, expiring soon, expired, or needing a reconnection. Connections are declared in config — here you observe their real state.',
+  'admin.connections.status.active': 'Active',
+  'admin.connections.status.expiringSoon': 'Expiring soon',
+  'admin.connections.status.expired': 'Expired',
+  // A token with no refresh token that lapses within 7 days, or has lapsed.
+  'admin.connections.status.reconnectNeeded': 'Reconnect needed',
+  'admin.connections.col.connection': 'Connection',
+  'admin.connections.col.provider': 'Provider',
+  'admin.connections.col.type': 'Type',
+  'admin.connections.col.status': 'Status',
+  'admin.connections.col.tokens': 'Tokens',
+  'admin.connections.col.expiration': 'Expiration',
+  'admin.connections.col.created': 'Created',
+  'admin.connections.col.actions': 'Actions',
+  'admin.connections.type.apiKey': 'API key',
+  'admin.connections.tokens.none': 'No tokens',
+  'admin.connections.tokens.one': '1 user',
+  'admin.connections.tokens.two': '2 users',
+  'admin.connections.action.connect': 'Connect',
+  'admin.connections.action.reconnect': 'Reconnect',
+  'admin.connections.action.disconnect': 'Disconnect',
+  'admin.connections.action.disconnectConfirm': 'Revoke this connection’s tokens?',
+  'admin.connections.search': 'Search connections',
+  'admin.connections.noMatch': 'No connection matches “{query}”',
+  'admin.connections.empty': 'No connections',
 
   // ── Users (`/users`) ────────────────────────────────────────────────────
   //
@@ -319,6 +351,15 @@ export default {
     'Every run this app has made, and the automations they came from. Pause one to stop it running without changing your config; an automation disabled in your app config can only be re-enabled there.',
   'admin.automations.tabs.region': 'Runs sub-views',
   'admin.automations.metrics.region': 'Run metrics',
+  'admin.automations.tabs.history': 'History',
+  'admin.automations.tabs.automations': 'Automations',
+  'admin.automations.metrics.automations': 'Automations',
+  'admin.automations.metrics.runs24h': 'Runs (24h)',
+  'admin.automations.metrics.failures24h': 'Failures (24h)',
+  'admin.automations.metrics.successRate': 'Success rate',
+  // Both confirm gates on this surface (Pause, Retry) spell their cancel label
+  // out: the gate's own default is French, whatever the console's language.
+  'admin.automations.cancel': 'Cancel',
 
   // ── Links (`/links`, `/links/:slug`) ──────────────────────────────
   //
@@ -370,15 +411,79 @@ export default {
     'This app declares no automations yet. Add one in your app config to see its runs appear here.',
   'admin.automations.empty.hint': 'No automations yet — so nothing to run.',
 
+  // ── Automations · catalog (`/automations?tab=automations`) ──────────────
+  'admin.automations.catalog.reason': 'Pause reason',
+  'admin.automations.catalog.reason.automatic': 'Automatic, after repeated failures',
+  'admin.automations.catalog.col.automation': 'Automation',
+  'admin.automations.catalog.col.trigger': 'Trigger',
+  'admin.automations.catalog.col.state': 'State',
+  'admin.automations.catalog.col.pausedBy': 'Paused by',
+  'admin.automations.catalog.col.pausedAt': 'Paused at',
+  'admin.automations.catalog.state.active': 'Active',
+  'admin.automations.catalog.state.paused': 'Paused',
+  'admin.automations.catalog.state.disabled': 'Disabled in config',
+  'admin.automations.catalog.action.pause': 'Pause',
+  'admin.automations.catalog.action.resume': 'Resume',
+  // The second sentence is a verified claim: every gate is read at dispatch,
+  // nothing re-checks inside the run loop, so a run in flight finishes.
+  'admin.automations.catalog.pause.title': 'Pause this automation?',
+  'admin.automations.catalog.pause.message':
+    'New runs stop until you resume. A run already in progress is not cancelled.',
+  'admin.automations.catalog.pause.toast': 'Automation paused',
+  'admin.automations.catalog.resume.toast': 'Automation resumed',
+  'admin.automations.catalog.empty': 'No automations',
+
   // ── Automations · run history (`/automations`) ──────────────────────────
   'admin.automations.runs.heading': 'Run history',
   'admin.automations.runs.scope':
     'Shows the 25 most recent runs. Search and the filters query every run and return the 25 most recent matches.',
-  // The one thing a run drawer cannot answer with a control: configuration is
-  // code-only, so the drawer names the address instead of offering an
+  'admin.automations.runs.filter.all': 'All',
+  'admin.automations.runs.filter.automation': 'Filter by automation',
+  'admin.automations.runs.filter.status': 'Filter by status',
+  // The operator's words for the engine's three terminal statuses — the status
+  // filter's options AND the grid's status cells, so both read one vocabulary.
+  'admin.automations.runs.status.success': 'Success',
+  'admin.automations.runs.status.failed': 'Failed',
+  'admin.automations.runs.status.partial': 'Partial',
+  'admin.automations.runs.col.automation': 'Automation',
+  'admin.automations.runs.col.status': 'Status',
+  'admin.automations.runs.col.started': 'Started',
+  'admin.automations.runs.col.duration': 'Duration',
+  'admin.automations.runs.action.view': 'View run',
+  'admin.automations.runs.search': 'Search runs',
+  'admin.automations.runs.empty': 'No runs',
+  'admin.automations.runs.noMatch': 'No run matches “{query}”',
+
+  // ── Automations · one run (`/automations/runs/:id`) ──────────────────
+  // The one thing a run page cannot answer with a control: configuration is
+  // code-only, so the page names the address instead of offering an
   // edit affordance it would have to refuse.
   'admin.automations.runs.detail.configuredInCode':
     'Configured in code, not here. Edit the app config and restart to change it.',
+  'admin.automations.runs.detail.blurb':
+    'One run: what it was given, and what each step did and logged.',
+  // Shown in place of a step's log when the step wrote no line.
+  'admin.automations.runs.detail.noLogs': 'This step logged nothing.',
+  'admin.automations.runs.detail.field.automation': 'Automation',
+  'admin.automations.runs.detail.field.status': 'Status',
+  'admin.automations.runs.detail.field.trigger': 'Trigger',
+  'admin.automations.runs.detail.field.started': 'Started',
+  'admin.automations.runs.detail.field.finished': 'Finished',
+  'admin.automations.runs.detail.field.duration': 'Duration (ms)',
+  'admin.automations.runs.detail.field.attempt': 'Attempt',
+  'admin.automations.runs.detail.failure': 'Failure',
+  'admin.automations.runs.detail.log': 'Log',
+  'admin.automations.runs.detail.dataIn': 'Data in',
+  'admin.automations.runs.detail.dataOut': 'Data out',
+  'admin.automations.runs.detail.steps': 'Steps',
+  'admin.automations.runs.detail.back': 'Back to runs',
+  // Retry starts a NEW run and leaves this one as it was — the message says so.
+  'admin.automations.runs.detail.retry': 'Retry',
+  'admin.automations.runs.detail.retry.title': 'Confirm retry',
+  'admin.automations.runs.detail.retry.message':
+    'The automation runs again as a new run. This run is kept as it is.',
+  'admin.automations.runs.detail.retry.toast': 'Retry started',
+  'admin.automations.runs.detail.retry.error': 'The run was not retried.',
 
   // ── Submissions · one form (`/forms/:form`) ─────────────────────────────
   'admin.forms.openForm': 'Open form',

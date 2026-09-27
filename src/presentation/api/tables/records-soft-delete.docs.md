@@ -2,7 +2,9 @@
 
 > Deleting is non-destructive by default — what a soft delete stamps, what a permanent delete costs, how related rows follow, and how to get a row back.
 
-A deleted row is marked rather than removed: `deletedAt` and `deletedBy` are stamped, the row disappears from ordinary queries, and it remains recoverable. Permanent erasure is a separate, permission-gated operation for the cases that genuinely demand it.
+A deleted row is marked rather than removed: its deletion time and `deletedBy` are stamped, the row disappears from ordinary queries, and it remains recoverable. Permanent erasure is a separate, permission-gated operation for the cases that genuinely demand it.
+
+A live record carries no deletion timestamp: `fields.deleted_at` appears only on a record read from the trash (`GET /api/tables/:tableId/trash`) or from a list with `includeDeleted=true`, where it holds the moment the record was deleted. A restored record comes back without it.
 
 | Method and path                                                | Description                                        |
 | -------------------------------------------------------------- | -------------------------------------------------- |

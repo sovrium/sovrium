@@ -41,6 +41,15 @@ export const users = authSchema.table('user', {
   // declared — a short code or a locale — and is resolved against the RENDERED
   // app's `languages.supported` on the way out, never echoed.
   language: text('language'),
+  // The account's own email preferences, one switch each on the operator
+  // console's profile page. Engine-owned like `language`, but NOT NULL DEFAULT
+  // true rather than nullable: a nullable column has three states, and the two
+  // readers would disagree on the third — the profile switch would read NULL as
+  // off while the recipient query read it as opted in. `ADD COLUMN … NOT NULL
+  // DEFAULT true` back-fills every existing account as opted in, in both
+  // dialects, so nobody stops receiving alerts on upgrade.
+  notifyAutomationAlerts: boolean('notify_automation_alerts').notNull().default(true),
+  notifyWeeklyDigest: boolean('notify_weekly_digest').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()

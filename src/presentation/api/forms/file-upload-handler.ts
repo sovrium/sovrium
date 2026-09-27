@@ -7,6 +7,8 @@
 
 import { Data, Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
+import { canonicalMimeType } from '@/domain/kernel/identity/mime-types'
+import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
@@ -49,7 +51,7 @@ export class FormUploadError extends Data.TaggedError('FormUploadError')<{
  *   2. App-level fallback when the column did not declare one:
  *      a. The single bucket if `app.buckets` has exactly one entry.
  *      b. The first declared bucket.
- *      c. The implicit private 'default' bucket name when no buckets
+ *      c. The built-in private `system` bucket when no buckets
  *         are declared at all.
  *
  * Note: `BucketSchema` does not expose a `default: true` flag — apps
@@ -72,7 +74,7 @@ export const resolveFormBucket = (
   if (columnBucket !== undefined) return columnBucket
   const buckets = app.buckets ?? []
   if (buckets[0]) return buckets[0].name
-  return 'default'
+  return SYSTEM_BUCKET_NAME
 }
 
 /**
@@ -198,6 +200,19 @@ const groupFilesByField = (body: Readonly<Record<string, unknown>>): readonly Fi
   mergeGroups(flatFileEntries(body), indexedFileEntries(body))
 
 /**
+ * The attachment fields whose values this multipart body UPLOADS itself.
+ *
+ * {@link transformMultipartFiles} replaces each of them with the metadata of a
+ * file it has just stored in the column's own bucket, so they are valid by
+ * construction and exempt from the attachment-reference confinement — which
+ * must still inspect every OTHER field, since a multipart body can carry a
+ * plain-text key as easily as a JSON one.
+ */
+export const multipartFileFieldNames = (
+  body: Readonly<Record<string, unknown>>
+): ReadonlySet<string> => new Set(groupFilesByField(body).map(([field]) => field))
+
+/**
  * Decide whether a file field on the submission body should produce an
  * array (multi-attachment) or a single object (single-attachment).
  * Resolution:
@@ -241,7 +256,9 @@ const uploadOne = (
         new FormUploadError({ message: `Could not read ${file.name}: ${String(cause)}` }),
     })
     const bytes = new Uint8Array(arrayBuffer)
-    const mimeType = file.type || 'application/octet-stream'
+    // Browsers disagree on the spelling of one type (`audio/x-m4a` vs
+    // `audio/mp4`); the stored metadata carries the registered one.
+    const mimeType = canonicalMimeType(file.type) || 'application/octet-stream'
     const key = `${crypto.randomUUID()}-${file.name}`
     yield* storage
       .upload(key, bytes, mimeType, bucketName)

@@ -1,177 +1,188 @@
-# Sample task list, linked to projects by their file-local key.
+# The eighteen tasks behind the six projects: thirteen open (seven to do, four
+# in progress, two blocked) and five done.
 #
-# Every one of the four statuses carries several cards, so the kanban board on
-# /board reads as a working board rather than a single loaded column, and the
-# "Tasks by status" bar chart on the dashboard has four bars.
+# Every task has a person and a date. Due dates are relative to the day the
+# seed runs, so two tasks are always a few days late and the Board, the
+# Timeline and the Calendar show what a late task looks like.
 #
-# `estimate` is a `duration` field, which stores a COUNT OF SECONDS — the
-# `displayFormat: 'h:mm'` on the field is presentation only. 14400 is four
-# hours. Writing `4:00` here would store a string in an integer column.
-#
-# `due_date` straddles `{{today}}` on purpose: the calendar view needs work in
-# both directions of the current month, and a few overdue cards are what make
-# the relative-date footer on a kanban card ("3 days ago") worth rendering.
-#
-# `assignee` is deliberately unseeded — see the note in `projects.yaml`.
+# `predecessor` names the task a task waits on, by its key in this same file —
+# a task may name one defined further down; the link is written once both
+# exist. Three tasks are milestones: the dates the team has promised.
 records:
-  - key: atlas-cart-api
+  - key: cart
     fields:
       title: Rewrite the cart API against the new schema
-      project: '@projects.atlas-replatform'
+      project: '@projects.atlas'
       status: In progress
       priority: High
+      assignee: '@user:jonas.weber@fernhill.example'
+      start_date: '{{today-16d}}'
       due_date: '{{today+4d}}'
-      estimate: 57600
-
-  - key: atlas-checkout-ui
+      predecessor: '@tasks.schema'
+  - key: checkout
     fields:
       title: Rebuild checkout UI on the shared component set
-      project: '@projects.atlas-replatform'
+      project: '@projects.atlas'
       status: In progress
       priority: High
+      assignee: '@user:marta.silva@fernhill.example'
+      start_date: '{{today-3d}}'
       due_date: '{{today+11d}}'
-      estimate: 86400
-
-  - key: atlas-payment-vendor
+      predecessor: '@tasks.keys'
+  - key: keys
     fields:
       title: Payment vendor has not returned the sandbox keys
-      project: '@projects.atlas-replatform'
+      project: '@projects.atlas'
       status: Blocked
       priority: High
+      assignee: '@user:camille.roux@fernhill.example'
+      start_date: '{{today-17d}}'
       due_date: '{{today-2d}}'
-      estimate: 7200
-
-  - key: atlas-legacy-cutover
+      description: 'Checkout cannot be tested until the vendor sends the sandbox keys. No date from them yet.'
+  - key: cutover
     fields:
       title: Plan the legacy cutover window
-      project: '@projects.atlas-replatform'
+      project: '@projects.atlas'
       status: To do
       priority: Medium
+      assignee: '@user:camille.roux@fernhill.example'
+      start_date: '{{today+12d}}'
       due_date: '{{today+26d}}'
-      estimate: 10800
-
-  - key: atlas-schema-review
+      predecessor: '@tasks.checkout'
+      is_milestone: true
+      description: 'The window the old ordering flow is switched off. Marks the go-live the client signed up for.'
+  - key: schema
     fields:
       title: Schema review with the data team
-      project: '@projects.atlas-replatform'
+      project: '@projects.atlas'
       status: Done
       priority: Medium
+      assignee: '@user:aicha.diallo@fernhill.example'
+      start_date: '{{today-31d}}'
       due_date: '{{today-19d}}'
-      estimate: 5400
-
-  - key: nomad-design-system
+  - key: port
     fields:
       title: Port the design system to the mobile shell
-      project: '@projects.nomad-mobile'
+      project: '@projects.nomad'
       status: In progress
       priority: Medium
+      assignee: '@user:yann.kerbrat@fernhill.example'
+      start_date: '{{today-10d}}'
       due_date: '{{today+18d}}'
-      estimate: 72000
-
-  - key: nomad-offline-sync
+  - key: offline
     fields:
       title: Offline sync strategy — write up the options
-      project: '@projects.nomad-mobile'
+      project: '@projects.nomad'
       status: To do
       priority: High
+      assignee: '@user:yann.kerbrat@fernhill.example'
+      start_date: '{{today+11d}}'
       due_date: '{{today+32d}}'
-      estimate: 21600
-
-  - key: nomad-store-listing
+  - key: listing
     fields:
       title: Draft the store listing copy
-      project: '@projects.nomad-mobile'
+      project: '@projects.nomad'
       status: To do
       priority: Low
+      assignee: '@user:marta.silva@fernhill.example'
+      start_date: '{{today+46d}}'
       due_date: '{{today+60d}}'
-      estimate: 7200
-
-  - key: ledger-column-mapping
+      predecessor: '@tasks.offline'
+      is_milestone: true
+      description: 'Ready for the beta that goes to testers at the end of November.'
+  - key: coa
     fields:
       title: Map the legacy chart of accounts
-      project: '@projects.ledger-migration'
+      project: '@projects.ledger'
       status: Done
       priority: High
+      assignee: '@user:aicha.diallo@fernhill.example'
+      start_date: '{{today-54d}}'
       due_date: '{{today-41d}}'
-      estimate: 43200
-
-  - key: ledger-dry-run
+  - key: dryrun
     fields:
       title: Dry-run the migration against a restored backup
-      project: '@projects.ledger-migration'
+      project: '@projects.ledger'
       status: In progress
       priority: High
+      assignee: '@user:aicha.diallo@fernhill.example'
+      start_date: '{{today-10d}}'
       due_date: '{{today+2d}}'
-      estimate: 28800
-
-  - key: ledger-signoff
+      predecessor: '@tasks.coa'
+  - key: signoff
     fields:
       title: Finance sign-off on the reconciliation report
-      project: '@projects.ledger-migration'
+      project: '@projects.ledger'
       status: To do
       priority: High
+      assignee: '@user:camille.roux@fernhill.example'
+      start_date: '{{today+4d}}'
       due_date: '{{today+8d}}'
-      estimate: 3600
-
-  - key: beacon-hosting-choice
+      predecessor: '@tasks.dryrun'
+      is_milestone: true
+      description: 'The last step before Ledger goes live.'
+  - key: decide
     fields:
       title: Decide where the analytics instance lives
-      project: '@projects.beacon-analytics'
+      project: '@projects.beacon'
       status: To do
       priority: Medium
+      assignee: '@user:marta.silva@fernhill.example'
+      start_date: '{{today+11d}}'
       due_date: '{{today+24d}}'
-      estimate: 5400
-
-  - key: beacon-tracking-plan
+  - key: tracking
     fields:
       title: Write the event tracking plan
-      project: '@projects.beacon-analytics'
+      project: '@projects.beacon'
       status: To do
       priority: Low
+      assignee: '@user:marta.silva@fernhill.example'
+      start_date: '{{today+25d}}'
       due_date: '{{today+45d}}'
-      estimate: 14400
-
-  - key: harbor-dpa-templates
+  - key: dpa
     fields:
       title: Collect DPAs from every sub-processor
-      project: '@projects.harbor-compliance'
+      project: '@projects.harbor'
       status: Blocked
       priority: Medium
+      assignee: '@user:jonas.weber@fernhill.example'
+      start_date: '{{today-23d}}'
       due_date: '{{today-7d}}'
-      estimate: 18000
-
-  - key: harbor-retention-policy
+      description: 'Two sub-processors have not signed yet: the analytics vendor and the payroll bureau. The analytics vendor has promised to sign this week.'
+  - key: retention
     fields:
       title: Agree the data retention windows
-      project: '@projects.harbor-compliance'
+      project: '@projects.harbor'
       status: To do
       priority: Medium
+      assignee: '@user:jonas.weber@fernhill.example'
+      start_date: '{{today+4d}}'
       due_date: '{{today+19d}}'
-      estimate: 10800
-
-  - key: harbor-privacy-page
+      predecessor: '@tasks.dpa'
+  - key: notice
     fields:
       title: Publish the updated privacy notice
-      project: '@projects.harbor-compliance'
+      project: '@projects.harbor'
       status: Done
       priority: Low
+      assignee: '@user:jonas.weber@fernhill.example'
+      start_date: '{{today-27d}}'
       due_date: '{{today-15d}}'
-      estimate: 7200
-
-  - key: quarry-stock-feed
+  - key: feed
     fields:
       title: Nightly stock feed into the warehouse table
-      project: '@projects.quarry-warehouse'
+      project: '@projects.quarry'
       status: Done
       priority: High
+      assignee: '@user:yann.kerbrat@fernhill.example'
+      start_date: '{{today-66d}}'
       due_date: '{{today-48d}}'
-      estimate: 36000
-
-  - key: quarry-handover
+  - key: runbook
     fields:
       title: Hand over the runbook to operations
-      project: '@projects.quarry-warehouse'
+      project: '@projects.quarry'
       status: Done
       priority: Medium
+      assignee: '@user:camille.roux@fernhill.example'
+      start_date: '{{today-38d}}'
       due_date: '{{today-25d}}'
-      estimate: 5400

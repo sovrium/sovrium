@@ -17,9 +17,11 @@ import { Schema } from 'effect'
  * - $url: Link URL (verification, password reset, magic link, invitation accept link)
  * - $name: User's name (recipient — the invited person, the verified user, etc.)
  * - $email: User's email address (recipient)
- * - $code: OTP code (for email-otp)
+ * - $otp: OTP code (for email-otp)
+ * - $codes: Backup codes, comma-separated (for two-factor backup codes)
  * - $organizationName: Organization name (for invitations)
  * - $inviterName: Name of the admin who sent the invitation (admin invitations only)
+ * - $appName: The app's `name` (every email type)
  *
  * @example
  * ```typescript
@@ -51,7 +53,8 @@ export const AuthEmailTemplateSchema = Schema.Struct({
 }).pipe(
   Schema.annotate({
     title: 'Auth Email Template',
-    description: 'Email template configuration with subject and body content',
+    description:
+      'Email template configuration with subject and body content. $variables are substituted where the email type provides them: $name, $email, $url, $otp, $codes, $organizationName, $inviterName, and $appName (the app name, in every email).',
     examples: [
       { subject: 'Verify your email', text: 'Click here to verify: $url' },
       {

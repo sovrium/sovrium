@@ -13,6 +13,7 @@ import {
   computeTabsFillShellClasses,
   type TabsLayout,
 } from '@/presentation/design/tabs-fill-default-classes'
+import { mountNestedIslands, releaseDetachedIslands } from '../overlays/live-injected-markup'
 import {
   computeTabPanelClasses,
   computeTabsListClasses,
@@ -134,19 +135,34 @@ function parseSsrPanels(ssrHtml: string | undefined): Readonly<Record<string, st
  * contain a priority island (a split-pane, a crud-form), and resolving it before
  * the mount pass is what lets `flushSync` commit the real component rather than
  * leaving the panel's SSR skeleton owning events behind a Suspense boundary.
+ * Both steps, and the unmount when the tab set goes away, are the shared
+ * `mountNestedIslands`.
+ *
+ * Only the LATEST scan's disposer is kept, and it runs only when the tab set
+ * itself unmounts. Every disposer unmounts the same thing — every island under
+ * the root — so disposing on each re-scan would tear down, and remount, the
+ * panel still on screen: a flash, and whatever was typed into its form gone.
+ * What a tab switch DOES release, after each mount pass, is the islands of the
+ * panel Base UI just removed (`releaseDetachedIslands`): their hosts are off the
+ * document, so no scan of the root can reach them, and their React roots would
+ * otherwise live on with their listeners.
  */
 function useNestedIslandMount(rootRef: React.RefObject<HTMLDivElement | null>): () => void {
+  const disposeRef = useRef<(() => void) | undefined>(undefined)
+  const hostsRef = useRef<readonly HTMLElement[]>([])
   const scan = useCallback(() => {
     const root = rootRef.current
     if (!root) return
-    void import('@/presentation/islands/island-client').then(
-      async ({ mountIslandsWithin, preloadIslandsWithin }) => {
-        await preloadIslandsWithin(root)
-        mountIslandsWithin(root)
-      }
-    )
+    // eslint-disable-next-line functional/immutable-data -- a ref's `.current` is React's own mutable cell, which is what it is for
+    disposeRef.current = mountNestedIslands(root, () => {
+      // eslint-disable-next-line functional/immutable-data -- same: the hosts this tab set has mounted, carried to the next scan
+      hostsRef.current = releaseDetachedIslands(hostsRef.current, root)
+    })
   }, [rootRef])
-  useEffect(scan, [scan])
+  useEffect(() => {
+    scan()
+    return () => disposeRef.current?.()
+  }, [scan])
   return scan
 }
 

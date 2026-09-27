@@ -42,6 +42,7 @@
  * E2E test topology (one server process per test).
  */
 
+import { parsePositiveIntEnv } from '@/domain/models/process-env/positive-int-env'
 import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
 import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
@@ -62,24 +63,14 @@ interface CommandSearchRateLimitConfig {
 }
 
 /**
- * Parse a positive integer from an env value. Returns `undefined` for an
- * absent, empty, or non-positive-integer value so the caller can fall through
- * to the default.
- */
-const parsePositiveInt = (raw: string | undefined): number | undefined => {
-  if (raw === undefined || raw.trim() === '') return undefined
-  const value = Number(raw)
-  if (!Number.isInteger(value) || value <= 0) return undefined
-  return value
-}
-
-/**
  * Resolve the command-search rate-limit config from the environment. Read fresh
  * on every call so a test that sets the env vars per server boot is honoured.
  */
 export const resolveCommandSearchRateLimitConfig = (): CommandSearchRateLimitConfig => ({
-  windowMs: parsePositiveInt(process.env.COMMAND_SEARCH_RATE_LIMIT_WINDOW_MS) ?? DEFAULT_WINDOW_MS,
-  maxRequests: parsePositiveInt(process.env.COMMAND_SEARCH_RATE_LIMIT_MAX) ?? DEFAULT_MAX_REQUESTS,
+  windowMs:
+    parsePositiveIntEnv(process.env.COMMAND_SEARCH_RATE_LIMIT_WINDOW_MS) ?? DEFAULT_WINDOW_MS,
+  maxRequests:
+    parsePositiveIntEnv(process.env.COMMAND_SEARCH_RATE_LIMIT_MAX) ?? DEFAULT_MAX_REQUESTS,
 })
 
 export interface CommandSearchRateLimitDecision {
@@ -99,21 +90,8 @@ export interface CommandSearchRateLimitDecision {
  */
 export const checkCommandSearchRateLimit = (clientIp: string): CommandSearchRateLimitDecision => {
   const { windowMs, maxRequests } = resolveCommandSearchRateLimitConfig()
-  const now = Date.now()
-  const recent = limiter.getRecent(clientIp, windowMs)
-
-  if (recent.length >= maxRequests) {
-    // Limited attempts are NOT recorded; `Math.max(1, …)` floors retry-after at
-    // 1s (the shared primitive's getRetryAfter floors at 0s), which is what the
-    // spec's `Number(retryAfter) > 0` assertion pins.
-    const oldest = Math.min(...recent)
-    const retryAfter = Math.max(1, Math.ceil((oldest + windowMs - now) / 1000))
-    return { limited: true, retryAfter }
-  }
-
-  // eslint-disable-next-line functional/no-expression-statements -- record the attempt in the shared limiter's mutable store
-  limiter.record(clientIp, { windowMs, maxRequests })
-  return { limited: false, retryAfter: 0 }
+  const { limited, retryAfter } = limiter.consume(clientIp, { windowMs, maxRequests })
+  return { limited, retryAfter }
 }
 
 /**

@@ -324,6 +324,15 @@ export const handleAiClassify: ActionHandler = (action, _app, _automation) =>
 // ---------------------------------------------------------------------------
 
 /**
+ * The name `ai:extract` gives its JSON Schema constraint. Providers with strict
+ * structured output (Mistral, OpenAI strict mode) refuse a `json_schema`
+ * without one, and the value itself carries no meaning for them beyond being a
+ * stable identifier — so it is a constant rather than derived from the step,
+ * which keeps it within their `^[a-zA-Z0-9_-]{1,64}$` rule for every automation.
+ */
+const EXTRACT_SCHEMA_NAME = 'extract'
+
+/**
  * Read `props.schema` as a non-empty JSON Schema object. A missing schema, a
  * non-object value, or an object with no keys yields `undefined` so the
  * handler can presence-guard before sending a malformed extraction request.
@@ -398,7 +407,10 @@ export const handleAiExtract: ActionHandler = (action, _app, _automation) =>
 
     const chatInput = {
       ...buildChatInput(props, extractUserContent(props, input, schema)),
-      responseFormat: { type: 'json_schema', json_schema: { schema } },
+      responseFormat: {
+        type: 'json_schema',
+        json_schema: { name: EXTRACT_SCHEMA_NAME, schema },
+      },
     }
     const outcome = yield* runAiChat(chatInput)
     if (!('ok' in outcome)) return outcome

@@ -63,7 +63,8 @@ interface OllamaChatPayload {
   readonly model?: string
   readonly message?: {
     readonly content?: string | null
-    readonly tool_calls?: ReadonlyArray<OllamaToolCall>
+    /** Absent, empty, or `null` all mean "no tool call" (see the OpenAI-compatible parser). */
+    readonly tool_calls?: ReadonlyArray<OllamaToolCall> | null
   }
 }
 
@@ -134,10 +135,10 @@ const ollamaBody = (
  * builds do) is parsed rather than discarded; an unparseable value degrades to
  * an empty object so one malformed call cannot fail the whole turn.
  */
-const extractOllamaToolCalls = (
-  raw: ReadonlyArray<OllamaToolCall> | undefined
+export const extractOllamaToolCalls = (
+  raw: ReadonlyArray<OllamaToolCall> | null | undefined
 ): ReadonlyArray<ChatToolCall> | undefined => {
-  if (raw === undefined || raw.length === 0) return undefined
+  if (raw === undefined || raw === null || raw.length === 0) return undefined
   return raw.map((call, index) => ({
     id: `call_${String(index)}`,
     name: call.function?.name ?? '',

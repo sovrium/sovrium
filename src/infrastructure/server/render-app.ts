@@ -124,7 +124,10 @@ export const createRenderApp = (
     // effect: refuse a malformed operator lever before anything is built.
     yield* validateOperatorEnv
     yield* compileCSS(config.app)
-    const domain = yield* buildDomainRuntimeAndApp(config)
+    // `staticRender`: a build is never a `--watch` session, so the app it
+    // renders through mounts no dev live-reload route and prints no tag for
+    // one, whatever `NODE_ENV` is.
+    const domain = yield* buildDomainRuntimeAndApp({ ...config, staticRender: true })
     return {
       app: domain.honoApp,
       dispose: disposeDomainRuntime(domain.runtime),

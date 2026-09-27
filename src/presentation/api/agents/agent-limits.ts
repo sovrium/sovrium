@@ -134,7 +134,10 @@ const tokenUsage = new Map<string, DailyTokenUsage>()
  */
 const PER_CALL_TOKEN_RESERVATION = 1000
 
-/** UTC day key (YYYY-MM-DD) for the current instant. */
+/**
+ * UTC day key (YYYY-MM-DD) for the current instant. Deliberately NOT the
+ * operator timezone: `maxTokensPerDay` is documented to reset at midnight UTC.
+ */
 const currentUtcDay = (): string => new Date().toISOString().slice(0, 10)
 
 /** Read the agent's token counter for the current UTC day (0 after reset). */

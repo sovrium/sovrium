@@ -14,7 +14,8 @@ import type { MouseEvent, ReactElement } from 'react'
 /**
  * `page-search-island` — hydrates the SSR `<input type="search">` rendered
  * by `renderPageSearch` into a live results panel sourced from the build-time
- * `/sovrium-search/index.json`. Matching logic lives in
+ * `/sovrium-search/index.json` — or, under `index: 'session'`, from
+ * `GET /api/search/pages` per query. Matching logic lives in
  * {@link ./page-search/matcher}; the state machine lives in
  * {@link ./page-search/use-page-search}. This file is the render layer only.
  *
@@ -27,6 +28,8 @@ import type { MouseEvent, ReactElement } from 'react'
 interface PageSearchIslandProps {
   readonly placeholder?: string
   readonly maxResults?: number
+  /** `'session'` — ask the server per query for the pages this reader may open. */
+  readonly index?: 'session'
   readonly id?: string
   readonly className?: string
   readonly 'data-testid'?: string
@@ -162,6 +165,7 @@ function PageSearchResultOption({ result, onNavigate }: PageSearchResultOptionPr
 export default function PageSearchIsland({
   placeholder,
   maxResults,
+  index,
   id,
   className,
   'data-testid': testId,
@@ -172,8 +176,10 @@ export default function PageSearchIsland({
     [maxResults]
   )
 
-  const { query, results, isOpen, containerRef, onChange, onKeyDown, onNavigate } =
-    usePageSearch(effectiveMaxResults)
+  const { query, results, isOpen, containerRef, onChange, onKeyDown, onNavigate } = usePageSearch(
+    effectiveMaxResults,
+    index === 'session'
+  )
 
   return (
     <div

@@ -10,6 +10,7 @@ import {
   type CurrencyDisplayOptions,
 } from '@/domain/kernel/format/currency-format'
 import { formatDurationValue } from '@/domain/kernel/format/duration-format'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { App } from '@/domain/models/app'
 import type {
   CurrencyField,
@@ -37,60 +38,65 @@ function formatCurrency(value: number, field: CurrencyField): string {
   return formatCurrencyValue(value, field as CurrencyDisplayOptions)
 }
 
-/**
- * Extract date part value from formatter parts
- */
-function extractPartValue(
-  parts: readonly Intl.DateTimeFormatPart[],
-  type: Intl.DateTimeFormatPartTypes
-): string {
-  return parts.find((p) => p.type === type)?.value ?? ''
+/** Wall-clock parts of an instant in one zone. */
+interface ZonedParts {
+  readonly year: number
+  readonly month: number
+  readonly day: number
+  readonly hour: number
+  readonly minute: number
 }
 
 /**
- * Create date from timezone-converted parts
+ * Read the wall-clock parts of `date` in `timezone`.
+ *
+ * Through `Intl` with an explicit `timeZone`, never through a `Date`'s local
+ * getters: those follow POSIX `TZ`, which belongs to the host and is not the
+ * operator's choice. `hourCycle: 'h23'` keeps midnight at `0` rather than `24`.
+ * An unknown zone falls back to UTC rather than throwing mid-response.
  */
-function createDateFromParts(parts: readonly Intl.DateTimeFormatPart[]): Readonly<Date> {
-  const year = extractPartValue(parts, 'year')
-  const month = extractPartValue(parts, 'month')
-  const day = extractPartValue(parts, 'day')
-  const hour = extractPartValue(parts, 'hour')
-  const minute = extractPartValue(parts, 'minute')
-
-  return new Date(
-    parseInt(year, 10),
-    parseInt(month, 10) - 1,
-    parseInt(day, 10),
-    parseInt(hour, 10),
-    parseInt(minute, 10)
-  )
-}
-
-/**
- * Convert date to target timezone
- */
-function convertToTimezone(date: Readonly<Date>, timezone: string): Readonly<Date> {
-  if (!timezone || timezone === 'local') {
-    return date
-  }
-
-  try {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
+function zonedParts(date: Readonly<Date>, timezone: string): ZonedParts {
+  const read = (timeZone: string): readonly Intl.DateTimeFormatPart[] =>
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
       year: 'numeric',
       month: 'numeric',
       day: 'numeric',
       hour: 'numeric',
       minute: 'numeric',
-      second: 'numeric',
-      hour12: false,
-    })
-
-    const parts = formatter.formatToParts(date)
-    return createDateFromParts(parts)
-  } catch {
-    return date
+      hourCycle: 'h23',
+    }).formatToParts(date as Date)
+  const parts = ((): readonly Intl.DateTimeFormatPart[] => {
+    try {
+      return read(timezone)
+    } catch {
+      return read('UTC')
+    }
+  })()
+  const part = (type: Intl.DateTimeFormatPartTypes): number =>
+    parseInt(parts.find((p) => p.type === type)?.value ?? '0', 10)
+  return {
+    year: part('year'),
+    month: part('month'),
+    day: part('day'),
+    hour: part('hour'),
+    minute: part('minute'),
   }
+}
+
+/**
+ * The zone a date is rendered in: the request's override, then the field's own
+ * zone, then the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset).
+ *
+ * A field declaring `timeZone: 'local'` asks the CLIENT to render in its own
+ * zone; the server has no client zone, and the process zone is the host's, so
+ * the server-side rendering of such a field uses the operator timezone.
+ */
+function effectiveTimezone(field: DateRelatedField, timezoneOverride: string | undefined): string {
+  if (timezoneOverride) return timezoneOverride
+  const declared = field.type === 'time' ? undefined : field.timeZone
+  if (declared && declared !== 'local') return declared
+  return resolveOperatorTimezone()
 }
 
 /**
@@ -118,37 +124,31 @@ function formatTimePart(hours: number, minutes: number, timeFormat: string): str
 }
 
 /**
- * Format a date or datetime value with timezone conversion and optional time
+ * Format a date or datetime value in the effective zone, with optional time
  */
 function formatDateOrDateTime(
   date: Readonly<Date>,
   field: DateField | DateTimeField,
-  timezoneOverride?: string
+  timezone: string
 ): string {
-  const timezone = timezoneOverride || field.timeZone || 'local'
-  const targetDate = convertToTimezone(date, timezone)
+  const parts = zonedParts(date, timezone)
 
   const dateFormat = field.dateFormat ?? 'US'
-  const formattedDate = formatDatePart(
-    targetDate.getFullYear(),
-    targetDate.getMonth() + 1,
-    targetDate.getDate(),
-    dateFormat
-  )
+  const formattedDate = formatDatePart(parts.year, parts.month, parts.day, dateFormat)
 
   const shouldIncludeTime =
     field.type === 'datetime' || (field.type === 'date' && field.includeTime)
   if (!shouldIncludeTime) return formattedDate
 
   const timeFormat = field.timeFormat ?? '24-hour'
-  const formattedTime = formatTimePart(targetDate.getHours(), targetDate.getMinutes(), timeFormat)
+  const formattedTime = formatTimePart(parts.hour, parts.minute, timeFormat)
   return `${formattedDate} ${formattedTime}`
 }
 
 /**
  * Format a date value based on the date format configuration
  */
-function formatDate(value: unknown, field: DateRelatedField, timezoneOverride?: string): string {
+function formatDate(value: unknown, field: DateRelatedField, timezone: string): string {
   const date =
     value instanceof Date ? value : typeof value === 'string' ? new Date(value) : new Date()
 
@@ -156,10 +156,11 @@ function formatDate(value: unknown, field: DateRelatedField, timezoneOverride?: 
 
   if (field.type === 'time') {
     const timeFormat = field.timeFormat ?? '24-hour'
-    return formatTimePart(date.getHours(), date.getMinutes(), timeFormat)
+    const parts = zonedParts(date, timezone)
+    return formatTimePart(parts.hour, parts.minute, timeFormat)
   }
 
-  return formatDateOrDateTime(date, field, timezoneOverride)
+  return formatDateOrDateTime(date, field, timezone)
 }
 
 /**
@@ -179,9 +180,9 @@ function formatCurrencyField(value: unknown, field: CurrencyField): string | und
 function formatDateField(
   value: unknown,
   field: DateRelatedField,
-  timezoneOverride?: string
+  timezone: string
 ): string | undefined {
-  return formatDate(value, field, timezoneOverride)
+  return formatDate(value, field, timezone)
 }
 
 /**
@@ -221,14 +222,16 @@ function formatDateFieldResult(
   field: DateRelatedField,
   timezoneOverride?: string
 ): FormatResult | undefined {
-  const displayValue = formatDateField(value, field, timezoneOverride)
+  const timezone = effectiveTimezone(field, timezoneOverride)
+  const displayValue = formatDateField(value, field, timezone)
   if (displayValue === undefined) return undefined
 
-  // Include timezone metadata
+  // Timezone metadata: `timezone` echoes the field's declared zone, and
+  // `displayTimezone` names the zone `displayValue` was actually rendered in.
   return {
     displayValue,
     ...(field.type !== 'time' && field.timeZone ? { timezone: field.timeZone } : {}),
-    ...(timezoneOverride ? { displayTimezone: timezoneOverride } : {}),
+    displayTimezone: timezone,
   }
 }
 

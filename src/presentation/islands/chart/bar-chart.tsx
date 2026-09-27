@@ -8,6 +8,7 @@
 import { Group } from '@visx/group'
 import { ParentSize } from '@visx/responsive'
 import { scaleBand } from '@visx/scale'
+import { useMemo } from 'react'
 import {
   CHART_AXIS_LABEL_FILL,
   CHART_AXIS_LABEL_FONT_SIZE,
@@ -27,6 +28,7 @@ import { buildCategoryData, buildValueScale, minPositiveInCategories } from './c
 import type { ChartTooltipDisplay } from './bar-chart-hover'
 import type { CategoryDatum, ChartAxisDisplay, ChartValueScale } from './chart-series-shared'
 import type { TableRecord } from '../runtime/types'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { ReactElement } from 'react'
 
 interface BarChartProps {
@@ -48,6 +50,8 @@ interface BarChartProps {
   readonly tooltip?: ChartTooltipDisplay
   /** Operator-set `<svg role="img">` name; falls back to the "Bar chart" default. */
   readonly accessibleName?: string
+  /** The plotted field's currency display, for a `format: 'currency'` value axis. */
+  readonly valueCurrency?: CurrencyDisplayOptions
 }
 
 interface BarChartSvgProps {
@@ -160,7 +164,7 @@ function XAxisLabels({
             fill={CHART_TICK_FILL}
             textAnchor="middle"
           >
-            {formatAxisLabel(d.key, axis?.format)}
+            {formatAxisLabel(d.label ?? d.key, axis?.format)}
           </text>
         )
       })}
@@ -211,7 +215,7 @@ function YAxisLabels({
           textAnchor="end"
           dominantBaseline="central"
         >
-          {formatAxisValue(t, axis?.format)}
+          {formatAxisValue(t, axis?.format, axis?.currency)}
         </text>
       ))}
       {axis?.label ? (
@@ -355,7 +359,13 @@ export function BarChartCanvas({
   yAxis,
   tooltip,
   accessibleName,
+  valueCurrency,
 }: BarChartProps): ReactElement {
+  // The value axis carries the plotted field's currency, so its ticks print it.
+  const valueAxis = useMemo(
+    () => (valueCurrency === undefined ? yAxis : { ...yAxis, currency: valueCurrency }),
+    [yAxis, valueCurrency]
+  )
   return (
     <div
       data-component="chart"
@@ -374,7 +384,7 @@ export function BarChartCanvas({
                 yField={yField}
                 data={data}
                 xAxis={xAxis}
-                yAxis={yAxis}
+                yAxis={valueAxis}
                 tooltip={tooltip}
                 accessibleName={accessibleName}
               />

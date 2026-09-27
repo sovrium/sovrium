@@ -9,6 +9,9 @@ fields:
     name: email
     type: email
     required: true
+    # One person, one record. A second contact with an email already on file is
+    # refused, so the same buyer never splits across two records.
+    unique: true
   - id: 3
     name: phone
     type: phone-number
@@ -20,6 +23,8 @@ fields:
     type: relationship
     relatedTable: companies
     relationType: many-to-one
+    # Show the company's name wherever the link is displayed, not its id.
+    displayField: name
   - id: 6
     name: title
     type: single-line-text
@@ -28,11 +33,8 @@ fields:
     type: status
     options:
       - value: Lead
-        color: '#F59E0B'
       - value: Active
-        color: '#10B981'
       - value: Inactive
-        color: '#94A3B8'
     default: Lead
   - id: 8
     name: tags
@@ -49,6 +51,12 @@ fields:
   - id: 10
     name: created_by
     type: created-by
+  # The rep who looks after this person. A user field points at a sign-in
+  # account, so it offers the team rather than free text.
+  - id: 11
+    name: owner
+    type: user
+    allowMultiple: false
 
 aiAccess:
   description: >-
@@ -61,6 +69,7 @@ aiAccess:
     - update
   fieldExposure: permissioned
 
+# Every signed-in rep reads and edits contacts; only an admin deletes one.
 permissions:
   read: authenticated
   create:

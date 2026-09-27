@@ -12,11 +12,13 @@ import {
   buildAutomationDataAttributes,
   buildClickDataAttributes,
   buildFetchDataAttributes,
+  buildToastDataAttributes,
   buildRecordContext,
   isAuthAction,
   isAutomationAction,
   isCrudDeleteAction,
   isFetchAction,
+  isToastAction,
   resolveInputDataRecordVars,
   type AuthButtonAction,
   type AutomationAction,
@@ -192,6 +194,10 @@ export function renderButton({
 
   if (isFetchAction(action)) {
     return renderFetchButton(props, content, children, action)
+  }
+
+  if (isToastAction(action)) {
+    return renderActionButton(props, content, children, buildToastDataAttributes(action))
   }
 
   const interactionsTyped = interactions as

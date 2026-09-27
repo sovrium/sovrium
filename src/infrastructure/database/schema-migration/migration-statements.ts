@@ -44,10 +44,11 @@ type MissingSpecialFields = {
  */
 const sqliteSpecialFieldStatements = (
   table: Table,
-  missing: MissingSpecialFields
+  missing: MissingSpecialFields,
+  physicalTableName: string
 ): readonly string[] => {
   const addColumns = (defs: readonly string[]): readonly string[] =>
-    defs.map((def) => `ALTER TABLE ${table.name} ADD COLUMN ${def}`)
+    defs.map((def) => `ALTER TABLE ${physicalTableName} ADD COLUMN ${def}`)
   return [
     ...(missing.created ? addColumns(generateCreatedAtColumn(table)) : []),
     ...(missing.updated ? addColumns(generateUpdatedAtColumn(table)) : []),
@@ -65,7 +66,8 @@ const sqliteSpecialFieldStatements = (
  */
 const generateSpecialFieldStatements = (
   table: Table,
-  existingColumns: ReadonlyMap<string, ExistingColumnInfo>
+  existingColumns: ReadonlyMap<string, ExistingColumnInfo>,
+  physicalTableName: string
 ): readonly string[] => {
   const fieldNames = new Set(table.fields.map((f) => f.name))
   const missing: MissingSpecialFields = {
@@ -74,16 +76,22 @@ const generateSpecialFieldStatements = (
     deleted: !fieldNames.has('deleted_at') && !existingColumns.has('deleted_at'),
   }
 
-  if (isSqliteRuntime()) return sqliteSpecialFieldStatements(table, missing)
+  if (isSqliteRuntime()) return sqliteSpecialFieldStatements(table, missing, physicalTableName)
 
   return [
     ...(missing.created
-      ? [`ALTER TABLE ${table.name} ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`]
+      ? [
+          `ALTER TABLE ${physicalTableName} ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+        ]
       : []),
     ...(missing.updated
-      ? [`ALTER TABLE ${table.name} ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`]
+      ? [
+          `ALTER TABLE ${physicalTableName} ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+        ]
       : []),
-    ...(missing.deleted ? [`ALTER TABLE ${table.name} ADD COLUMN deleted_at TIMESTAMPTZ`] : []),
+    ...(missing.deleted
+      ? [`ALTER TABLE ${physicalTableName} ADD COLUMN deleted_at TIMESTAMPTZ`]
+      : []),
   ]
 }
 
@@ -342,6 +350,7 @@ const generateColumnReshapeStatements = (params: {
   readonly primaryKeyFields: readonly string[]
   readonly previousSchema?: { readonly tables: readonly object[] }
   readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
+  readonly physicalTableName: string
 }): readonly string[] => {
   if (isSqliteRuntime()) return []
   const {
@@ -351,11 +360,20 @@ const generateColumnReshapeStatements = (params: {
     primaryKeyFields,
     previousSchema,
     tablePrimaryKeyTypes,
+    physicalTableName,
   } = params
+  // The type and nullability builders read `table.name` only to NAME the
+  // relation they alter, so they are handed the table under its physical name.
+  // The default-value builder also keys the previous-schema snapshot by the
+  // CONFIG name, so it takes the physical name separately.
+  const physicalTable: Table = { ...table, name: physicalTableName }
   return [
-    ...findTypeChanges(table, existingColumns, renamedNewNames, tablePrimaryKeyTypes),
-    ...findDefaultValueChanges(table, existingColumns, renamedNewNames, previousSchema),
-    ...findNullabilityChanges(table, existingColumns, renamedNewNames, primaryKeyFields),
+    ...findTypeChanges(physicalTable, existingColumns, renamedNewNames, tablePrimaryKeyTypes),
+    ...findDefaultValueChanges(table, existingColumns, renamedNewNames, {
+      previousSchema,
+      physicalTableName,
+    }),
+    ...findNullabilityChanges(physicalTable, existingColumns, renamedNewNames, primaryKeyFields),
   ]
 }
 
@@ -365,17 +383,20 @@ const generateColumnReshapeStatements = (params: {
  * Renames are resolved FIRST and their names excluded from the add/drop sets:
  * a renamed column must move, not be dropped and re-created empty.
  */
-const planColumnChanges = (
-  table: Table,
-  existingColumns: ReadonlyMap<string, ExistingColumnInfo>,
-  shouldProtectIdColumn: boolean,
-  previousSchema?: { readonly tables: readonly object[] }
-): {
+const planColumnChanges = (params: {
+  readonly table: Table
+  readonly existingColumns: ReadonlyMap<string, ExistingColumnInfo>
+  readonly shouldProtectIdColumn: boolean
+  readonly physicalTableName: string
+  readonly previousSchema?: { readonly tables: readonly object[] }
+}): {
   readonly renameStatements: readonly string[]
   readonly renamedNewNames: ReadonlySet<string>
   readonly columnsToAdd: readonly Fields[number][]
   readonly columnsToDrop: readonly string[]
 } => {
+  const { table, existingColumns, shouldProtectIdColumn, physicalTableName, previousSchema } =
+    params
   const fieldRenames = detectFieldRenames(table.name, table.fields, previousSchema)
   const renamedNewNames = new Set(fieldRenames.values())
   const schemaFieldsByName = new Map<string, Fields[number]>(
@@ -383,7 +404,8 @@ const planColumnChanges = (
   )
   return {
     renameStatements: Array.from(fieldRenames.entries()).map(
-      ([oldName, newName]) => `ALTER TABLE ${table.name} RENAME COLUMN ${oldName} TO ${newName}`
+      ([oldName, newName]) =>
+        `ALTER TABLE ${physicalTableName} RENAME COLUMN ${oldName} TO ${newName}`
     ),
     renamedNewNames,
     columnsToAdd: findColumnsToAdd(table, existingColumns, renamedNewNames),
@@ -399,6 +421,10 @@ const planColumnChanges = (
 /**
  * Generate ALTER TABLE statements for schema migrations
  *
+ * @param physicalTableName - the relation the statements ALTER. Defaults to the
+ *   config name; a view-backed table passes `<name>_base`, because its config
+ *   name is a VIEW. The config name is still what every refusal message names
+ *   and what the previous-schema snapshot is keyed by.
  * @param tablePrimaryKeyTypes - Map of table name → `primaryKey.type`. Required
  *   on any table carrying a `relationship` field: both the ADD COLUMN
  *   definition and the type-drift comparison must size the foreign key to the
@@ -410,8 +436,10 @@ export const generateAlterTableStatements = (options: {
   readonly previousSchema?: { readonly tables: readonly object[] }
   readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
   readonly hasAuthConfig?: boolean
+  readonly physicalTableName?: string
 }): readonly string[] => {
   const { table, existingColumns, previousSchema, tablePrimaryKeyTypes, hasAuthConfig } = options
+  const physicalTableName = options.physicalTableName ?? table.name
   const { shouldProtectIdColumn, primaryKeyFields } = computeIdProtection(table)
 
   // A table needing full recreation yields no incremental ALTERs. The migrate
@@ -423,17 +451,18 @@ export const generateAlterTableStatements = (options: {
 
   validateFieldRenameAmbiguity(table, previousSchema)
 
-  const { renameStatements, renamedNewNames, columnsToAdd, columnsToDrop } = planColumnChanges(
+  const { renameStatements, renamedNewNames, columnsToAdd, columnsToDrop } = planColumnChanges({
     table,
     existingColumns,
     shouldProtectIdColumn,
-    previousSchema
-  )
+    physicalTableName,
+    previousSchema,
+  })
 
   validateDestructiveOps(table, columnsToDrop)
 
   const { dropStatements, addStatements } = buildColumnStatements({
-    tableName: table.name,
+    tableName: physicalTableName,
     columnsToDrop,
     columnsToAdd,
     primaryKeyFields,
@@ -449,6 +478,7 @@ export const generateAlterTableStatements = (options: {
     primaryKeyFields,
     previousSchema,
     tablePrimaryKeyTypes,
+    physicalTableName,
   })
 
   // ORDER: rename → drop → add → special fields → type changes → defaults → nullability
@@ -456,7 +486,7 @@ export const generateAlterTableStatements = (options: {
     ...renameStatements,
     ...dropStatements,
     ...addStatements,
-    ...generateSpecialFieldStatements(table, existingColumns),
+    ...generateSpecialFieldStatements(table, existingColumns, physicalTableName),
     ...columnReshapeStatements,
   ]
 }

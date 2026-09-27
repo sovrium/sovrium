@@ -1,8 +1,11 @@
-# Recipe 3 — CRON trigger. Weekday evenings, one digest email. Expressions
-# are numeric five-field only (no @daily aliases). Change `to` to your inbox.
+# Recipe 3 — weekday evenings at 18:00, one email to the team.
+#
+# Cron expressions are five numeric fields (there is no @daily alias), and the
+# time zone keeps 18:00 at 18:00 in Paris through both clock changes. Change
+# `to` to your inbox.
 name: daily-digest
-label: Cron — end-of-day digest
-description: Every weekday at 18:00, email a nudge to review the day's activity.
+label: Cron → digest
+description: Every weekday at 18:00, email the team to review the day's leads.
 enabled: true
 trigger:
   type: cron
@@ -13,8 +16,19 @@ actions:
     type: email
     operator: send
     props:
-      to: team@example.com
-      subject: 'End-of-day activity digest'
+      to: team@kerlo.example
+      subject: 'Leads of the day'
       body: |
-        <p>The day is wrapping up — open the activity feed to review what the
-        automations captured today.</p>
+        <p>The latest leads are in the app. Sign in and open Leads to follow
+        them up.</p>
+  - name: logRun
+    type: record
+    operator: create
+    props:
+      table: activity_log
+      data:
+        logged_at: '{{now}}'
+        recipe: daily-digest
+        outcome: Succeeded
+        attempts: 1
+        detail: Digest sent to team@kerlo.example

@@ -1,3 +1,5 @@
+# Delivery: one row per project, for a client, with an owner and dates. A won
+# deal opens one here by itself, for the same client.
 id: 4
 name: projects
 fields:
@@ -10,18 +12,20 @@ fields:
     type: relationship
     relatedTable: companies
     relationType: many-to-one
+    displayField: name
+  # Done is the one outcome; the other states are a neutral grey.
   - id: 3
     name: status
     type: status
     options:
       - value: Planned
-        color: '#94A3B8'
+        color: '#6F737A'
       - value: Active
-        color: '#3B82F6'
+        color: '#6F737A'
       - value: On hold
-        color: '#F59E0B'
+        color: '#6F737A'
       - value: Done
-        color: '#10B981'
+        color: '#187C49'
     default: Planned
   - id: 4
     name: start_date
@@ -36,11 +40,23 @@ fields:
   - id: 7
     name: created_at
     type: created-at
+  # How far along the project is, drawn as a thin bar in the grid.
+  - id: 8
+    name: progress
+    type: progress
+
+# The list the Projects page reads, newest first: the project a won deal just
+# opened is on top.
+views:
+  - id: delivery_portfolio
+    name: Portfolio
+    sorts:
+      - { field: start_date, direction: desc }
 
 aiAccess:
   description: >-
-    Delivery projects for customer accounts. Use this when the user asks
-    what is being delivered, for whom, and by when.
+    Delivery projects for clients. Use this when the user asks what is being
+    delivered, for whom, by whom and by when.
   operations:
     - read
     - list

@@ -45,6 +45,20 @@ export interface AiChatIslandProps {
    * to be re-decided on every render here.
    */
   readonly suggestions?: ReadonlyArray<string>
+  /**
+   * Push-to-talk dictation, when the author declared `voiceInput` on the
+   * component. Absent means no microphone button.
+   */
+  readonly voiceInput?: ChatVoiceInput
+  /**
+   * The engine-written failure notice and its Retry button, already resolved
+   * to the page's language server-side. Absent on a payload built before the
+   * notices followed the language, in which case the island reads English.
+   */
+  readonly labels?: {
+    readonly failure: string
+    readonly retry: string
+  }
   /** Optional test id propagated from the component schema. */
   readonly 'data-testid'?: string
   /**
@@ -71,4 +85,16 @@ export type ChatStatus = 'idle' | 'sending' | 'error'
 export interface ConversationMessageDto {
   readonly role: string
   readonly content: string
+}
+
+/** The `voiceInput` settings forwarded by the renderer. */
+export interface ChatVoiceInput {
+  /** `draft` (default) fills the message box; `send` sends the transcript. */
+  readonly mode?: 'draft' | 'send'
+  /** Two-letter ISO 639-1 hint for the speech engine. */
+  readonly language?: string
+  /** Speech tier; `fast` when omitted. */
+  readonly quality?: 'fast' | 'accurate'
+  /** Longest recording, in seconds; 300 when omitted. */
+  readonly maxDurationSeconds?: number
 }

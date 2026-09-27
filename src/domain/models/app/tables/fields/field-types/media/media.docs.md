@@ -25,7 +25,7 @@ One uploaded file — an avatar, a document, an image.
   maxFileSize: 2097152
 ```
 
-Omitting `bucket` stores the file in the implicit `default` bucket. That bucket exists without being declared, which is convenient and worth knowing about: it carries no permissions of its own, so a field that needs access rules should name a bucket declared in `app.buckets`.
+Omitting `bucket` stores the file in the built-in `system` bucket. That bucket exists without being declared, which is convenient and worth knowing about: it carries no permissions of its own, so a field that needs access rules should name a bucket declared in `app.buckets`.
 
 ## `multiple-attachments`
 

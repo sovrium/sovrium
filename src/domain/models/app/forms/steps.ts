@@ -47,7 +47,8 @@ export const FormStepSchema = Schema.Struct({
   /** Step description / intro paragraph. */
   description: Schema.optional(
     Schema.String.annotate({
-      description: "Introductory paragraph shown under this step's heading.",
+      description:
+        "Introductory paragraph shown under this step's heading. Accepts a `$t:` key to use a translated text. Accepts inline markdown: links (always opened in a new tab), bold, italic, code and line breaks.",
     })
   ),
   /**

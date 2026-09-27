@@ -33,12 +33,8 @@ export const ApprovalRequestActionSchema = Schema.Struct({
   props: Schema.Struct({
     /**
      * Who can approve — literal 'all-admins' or array of emails/role names.
-     *
-     * Accepted and validated, but NOT yet enforced: the resolution endpoint
-     * asserts no approver gate, so any authenticated user who can reach a
-     * pending request can resolve it. It is `optional` rather than removed so
-     * that configs already declaring it keep validating while the gate is
-     * implemented; do not read it as a security guarantee today.
+     * Checked against the caller's session when the request is resolved;
+     * templated entries are rendered once, when the request is created.
      */
     approvers: Schema.optional(
       Schema.Union([
@@ -46,7 +42,8 @@ export const ApprovalRequestActionSchema = Schema.Struct({
         Schema.Array(TemplateStringSchema).pipe(Schema.check(Schema.isMinLength(1))),
       ]).pipe(
         Schema.annotate({
-          description: 'Who can approve: "all-admins" or an array of email addresses / role names',
+          description:
+            'Who may resolve the request: "all-admins" (any admin-tier role) or an array of email addresses and role names. Anyone else is answered as if the request did not exist. Omitted means all-admins.',
         })
       )
     ),

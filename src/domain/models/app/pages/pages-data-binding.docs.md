@@ -90,6 +90,8 @@ pages:
 
 **`$param.<name>` in a filter** substitutes it into a condition on a table binding instead. It sits in the same position as a `$currentUser` reference and resolves the same way — server-side, per request. The difference is where the value comes from: the session, or the URL.
 
+A `$currentUser` reference in a `dataSource.filter` is resolved on the server for every data component — table, kanban, calendar, gallery, chart, kpi, timeline and list — wherever it sits on the page, including inside containers. A visitor who is not signed in gets the same 401 whether the filter sits at the top of the page or three containers down.
+
 Both names must be declared by the page's own `path`. A name with no matching `:segment` is refused at startup, naming both the reference and the path — because at runtime it would silently request a URL containing a literal placeholder, or compare a field against nothing at all.
 
 ### Wherever a string is
@@ -133,6 +135,41 @@ pages:
 
 Binding the table this way — rather than pointing the grid at a records endpoint as a system source — is what keeps the record features: inline editing, the typed create dialog, saved views and density are all unavailable over a system source, which has no records table to write to.
 
+## Reading through a view
+
+`dataSource.view` names one of the bound table's views by id or name. The grid reads through that view on the server and becomes read-only: no create, edit, import, saved views or live refresh. Bound to a public view, a page with no access rule shows the table to visitors who are not signed in.
+
+```yaml
+name: campaign-portal
+tables:
+  - id: 1
+    name: campaigns
+    fields:
+      - { id: 1, name: name, type: single-line-text }
+      - { id: 2, name: deadline, type: date }
+      - { id: 3, name: owner_email, type: email }
+    permissions:
+      read: [admin, member]
+    views:
+      - id: open_campaigns
+        name: Open campaigns
+        fields: [name, deadline]
+        permissions: { public: true }
+pages:
+  - name: campaigns
+    path: /campaigns
+    components:
+      - type: table
+        dataSource:
+          table: campaigns
+          view: open_campaigns
+        columns:
+          - { field: name, label: Campaign }
+          - { field: deadline, label: Deadline }
+```
+
+Only the `table` component reads through a view: `view` on any other component, beside a `system` source, or naming a view the table does not declare stops the config from loading. The page is told only the view's columns, so a column the view leaves out never reaches the browser. A view that is not public still needs a signed-in reader its own grant admits; anyone else sees the grid's error state.
+
 ## Filter operators
 
 | Operator     | Matches                                                    |
@@ -148,6 +185,8 @@ Conditions combine with AND. There is no OR at this level; express alternatives 
 ## Single and search modes
 
 `mode: single` resolves exactly one record, read from the route parameter named by `param` — the pattern behind record detail routes in **Routing & Paths**.
+
+A page bound to one record with `mode: single` shares that record with the forms nested on it. A `form` anywhere on the page whose `dataSource` names the page's table and declares no `mode` of its own opens with the record's values, and saving it updates that record. A form bound to another table, or one whose `crud` action is `create` or names another table, is unaffected and opens empty. The record follows the visitor's own read permissions wherever it lands: a form bound with its own `mode: single`, a form that inherits the page's record, and the page's own `$record.*` text all carry only the fields that visitor may read, and a form carries only the fields it lists. A field the visitor may not read is never filled in and never printed, and saving the form leaves it as it was. A page bound to a record the visitor may not read — because the table's `read` refuses them or its row-level rule hides that row — answers 404, as for a record that does not exist.
 
 `mode: search` filters across `searchFields` as the visitor types, throttled by `debounceMs` and capped by `limit`:
 

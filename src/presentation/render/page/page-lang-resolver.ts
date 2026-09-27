@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { findDeclaredLanguage } from '@/domain/models/app/languages/language-detection'
+import {
+  findDeclaredDirection,
+  findDeclaredLanguage,
+} from '@/domain/models/app/languages/language-detection'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 
@@ -108,10 +111,9 @@ export function resolvePageLanguage(
     winningLanguage(page, languages, detectedLanguage, urlLanguage)
   )
 
-  // Determine text direction from language configuration
-  // Match by code (en) or locale (en-US)
-  const langConfig = languages?.supported.find((l) => l.code === lang || l.locale === lang)
-  const direction = langConfig?.direction || 'ltr'
+  // Text direction from the language's own declaration (code or locale) — the
+  // same lookup every other document the engine serves reads its `dir` from.
+  const direction = findDeclaredDirection(languages, lang)
 
   // Generate CSS for body direction to ensure RTL/LTR is applied as CSS property
   const directionStyles = `

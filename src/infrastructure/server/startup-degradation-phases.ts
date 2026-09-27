@@ -8,7 +8,18 @@
 import { stat } from 'node:fs/promises'
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import { resolveAdminRole } from '@/domain/models/app/auth/roles'
+import {
+  classifyPermissionRung,
+  toPermissionValue,
+} from '@/domain/models/app/auth/permission-evaluation'
+import {
+  hasCreatePermission,
+  hasDeletePermission,
+  hasReadPermission,
+  hasUpdatePermission,
+  resolveInheritedPermissions,
+} from '@/domain/models/app/auth/permission-evaluator-service'
+import { isAdminEquivalent, resolveAdminRole } from '@/domain/models/app/auth/roles'
 import { appRequiresAi } from '@/domain/models/app/requires-ai'
 import { appUsesStorage } from '@/domain/models/app/requires-storage'
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
@@ -28,7 +39,7 @@ import { formatPathForDisplay } from '@/infrastructure/logging/format-path'
 import { formatDuration } from '@/infrastructure/logging/startup-summary'
 import { collectInsecureEnvWarning, getNodeEnv } from '@/infrastructure/process/env'
 import { getTelemetryConfig } from '@/infrastructure/telemetry/telemetry-config'
-import type { App } from '@/domain/models/app'
+import type { App, Table } from '@/domain/models/app'
 import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
 
@@ -234,13 +245,18 @@ export const collectPublicDirPhases = async (
  */
 export const collectAdminPhases = (app: Readonly<App>): Promise<readonly StartupPhase[]> => {
   if (!app.auth) return Promise.resolve([])
-  // Resolve the admin-equivalent role (built-in `admin`, or the highest-`level`
-  // custom role like cloud `operator` / partner `engineer`) so the banner does
-  // not falsely warn "No admin user" when a custom-role superuser is seeded (WI-5).
-  const adminRole = resolveAdminRole(app)
+  // Every admin-equivalent role: the highest-`level` custom role (cloud
+  // `operator`, partner `engineer`) so a custom-role superuser is found, AND
+  // the built-in `admin` whenever it still ranks as admin-equivalent — which is
+  // the role the `AUTH_ADMIN_EMAIL` bootstrap creates. Looking up only the
+  // custom top role missed that account on every app declaring custom roles.
+  const adminRoles = [
+    ...new Set([resolveAdminRole(app), ...(isAdminEquivalent('admin', app) ? ['admin'] : [])]),
+  ]
   const program = Effect.gen(function* () {
     const repo = yield* AuthRepository
-    const admin = yield* repo.findFirstAdmin(adminRole)
+    const found = yield* Effect.forEach(adminRoles, (role) => repo.findFirstAdmin(role))
+    const admin = found.find((candidate) => candidate !== undefined)
     if (admin) {
       return [{ label: `Admin: ${admin.email}`, type: 'success' as const }] as const
     }
@@ -262,6 +278,67 @@ export const collectAdminPhases = (app: Readonly<App>): Promise<readonly Startup
     Effect.orElseSucceed(() => [] as readonly StartupPhase[])
   )
   return Effect.runPromise(program)
+}
+
+const SIGN_UP_EXPOSURE_CHECKS = [
+  ['read', hasReadPermission],
+  ['create', hasCreatePermission],
+  ['update', hasUpdatePermission],
+  ['delete', hasDeletePermission],
+] as const
+
+type TableOperation = (typeof SIGN_UP_EXPOSURE_CHECKS)[number][0]
+
+/**
+ * An operation the table already grants to anonymous visitors (`'all'`),
+ * read through `inherit` the way the evaluator reads it. A chain that does not
+ * resolve falls back to the table's own declaration, so a broken `inherit`
+ * can only add a line, never hide one.
+ */
+const isOpenToEveryone = (
+  table: Table,
+  operation: TableOperation,
+  allTables: readonly Table[]
+): boolean => {
+  const permissions = resolveInheritedPermissions(table, allTables) ?? table.permissions
+  return classifyPermissionRung(toPermissionValue(permissions?.[operation])) === 'everyone'
+}
+
+/**
+ * Warn when open sign-up hands every new account access to tables.
+ *
+ * A self-registered account receives `auth.defaultRole` (`member` unless set),
+ * so any table whose permissions admit `authenticated`, that role by name, or
+ * leave an operation undeclared (open by default) is reachable by anyone who
+ * fills in the sign-up form. That can be the intended design of a community
+ * app, so it is a warning and never a refusal — but it is said at every boot,
+ * naming the role, each reachable table and its operations, evaluated by the
+ * SHARED permission evaluator the records API uses.
+ *
+ * Silent when the app has no auth, when `allowSignUp` is `false`, and for any
+ * operation already open to anonymous visitors (`'all'`, declared or
+ * inherited): sign-up changes nothing there.
+ */
+export const collectSignUpExposurePhases = (app: Readonly<App>): readonly StartupPhase[] => {
+  if (!app.auth || app.auth.allowSignUp === false) return []
+  const role = app.auth.defaultRole ?? 'member'
+  const tables = app.tables ?? []
+  const reachable = tables.flatMap((table) => {
+    const operations = SIGN_UP_EXPOSURE_CHECKS.filter(
+      ([operation, admits]) =>
+        !isOpenToEveryone(table, operation, tables) && admits(table, role, tables)
+    ).map(([operation]) => operation)
+    return operations.length === 0 ? [] : [`${table.name} (${operations.join(', ')})`]
+  })
+  if (reachable.length === 0) return []
+  return [
+    {
+      label:
+        `Open sign-up — anyone can create an account as '${role}' and reach ${reachable.join(', ')}. ` +
+        "Set auth.allowSignUp: false, or restrict those tables' permissions to roles new accounts do not receive",
+      type: 'warning' as const,
+    },
+  ]
 }
 
 /**

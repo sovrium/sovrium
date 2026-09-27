@@ -41,6 +41,7 @@ import {
   type SelectOptionLike,
 } from '@/domain/models/app/tables/select-option'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { NUMBER_INPUT_MODE } from '@/presentation/design/field-control-attributes'
 import {
   computeTableDialogTitleClasses,
   computeTableAddRowInputClasses,
@@ -169,7 +170,7 @@ function CreateInputField({
         onChange={handleChange}
         className={computeTableAddRowInputClasses()}
         {...(field.required && { required: true })}
-        {...(inputType === 'number' && { inputMode: 'decimal' })}
+        {...(inputType === 'number' && { inputMode: NUMBER_INPUT_MODE })}
       />
     </CreateFieldLabel>
   )
